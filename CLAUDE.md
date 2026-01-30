@@ -19,6 +19,12 @@ Competitive intelligence platform for Pokemon TCG. See full docs in Obsidian vau
 - Japanese meta data needs BO1 context (tie = double loss)
 - Target: competitors, coaches, creators, parents
 
+## Git Workflow
+
+- All changes must be submitted via pull request
+- Direct pushes to main are not allowed
+- PRs require review before merging
+
 ## Current Focus
 [Update this as you work]
 - Building card database + search

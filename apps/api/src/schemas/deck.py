@@ -78,7 +78,7 @@ class DeckResponse(BaseModel):
     cards: list[CardInDeck] = Field(default_factory=list)
 
     # Format and archetype
-    format: str
+    format: Literal["standard", "expanded"]
     archetype: str | None = None
 
     # Sharing
@@ -101,7 +101,7 @@ class DeckSummaryResponse(BaseModel):
     id: UUID
     user_id: UUID
     name: str
-    format: str
+    format: Literal["standard", "expanded"]
     archetype: str | None = None
     is_public: bool
     card_count: int = Field(0, description="Total number of cards in deck")

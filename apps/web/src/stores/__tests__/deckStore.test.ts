@@ -285,6 +285,20 @@ describe("deckStore", () => {
       expect(state.cards).toHaveLength(0);
       expect(state.isModified).toBe(true);
     });
+
+    it("should clear name and description", () => {
+      useDeckStore.getState().setName("My Deck");
+      useDeckStore.getState().setDescription("A test deck");
+      useDeckStore.getState().addCard(createMockCard());
+
+      useDeckStore.getState().clearDeck();
+
+      const state = useDeckStore.getState();
+      expect(state.name).toBe("");
+      expect(state.description).toBe("");
+      expect(state.cards).toHaveLength(0);
+      expect(state.isModified).toBe(true);
+    });
   });
 
   describe("loadDeck", () => {

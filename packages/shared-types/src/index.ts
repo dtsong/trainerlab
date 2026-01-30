@@ -1,4 +1,11 @@
-// Card types
+// API response types (snake_case, matching backend schemas)
+export * from "./card";
+export * from "./set";
+export * from "./pagination";
+
+// Frontend types (camelCase, for deck builder etc.)
+// These match the original shared-types naming conventions
+
 export interface Card {
   id: string;
   nameEn: string;
@@ -18,7 +25,6 @@ export interface Card {
   regulationMark?: string;
 }
 
-// Set types
 export interface Set {
   id: string;
   name: string;
@@ -30,7 +36,6 @@ export interface Set {
   symbolUrl?: string;
 }
 
-// Deck types
 export interface DeckCard {
   cardId: string;
   quantity: number;
@@ -53,7 +58,6 @@ export interface Deck {
   updatedAt: string;
 }
 
-// User types
 export interface User {
   id: string;
   email: string;

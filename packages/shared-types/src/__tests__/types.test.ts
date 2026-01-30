@@ -1,5 +1,15 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
-import type { Card, Set, Deck, DeckCard, User } from "../index";
+import type {
+  Card,
+  Set,
+  Deck,
+  DeckCard,
+  User,
+  ApiCard,
+  ApiCardSummary,
+  ApiSet,
+  ApiPaginatedResponse,
+} from "../index";
 
 describe("Card type", () => {
   it("accepts valid card with required fields", () => {
@@ -134,5 +144,100 @@ describe("User type", () => {
     };
 
     expect(user.displayName).toBe("Ash Ketchum");
+  });
+});
+
+// API response types (snake_case, matching backend)
+describe("ApiCard type", () => {
+  it("accepts valid API card response", () => {
+    const card: ApiCard = {
+      id: "sv4-6",
+      local_id: "6",
+      name: "Charizard ex",
+      supertype: "Pokemon",
+      set_id: "sv4",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    };
+
+    expect(card.id).toBe("sv4-6");
+    expect(card.set_id).toBe("sv4");
+  });
+
+  it("accepts API card with all fields", () => {
+    const card: ApiCard = {
+      id: "sv4-6",
+      local_id: "6",
+      name: "Charizard ex",
+      japanese_name: "リザードンex",
+      supertype: "Pokemon",
+      subtypes: ["Stage 2", "ex"],
+      types: ["Fire"],
+      hp: 330,
+      attacks: [{ name: "Flare Blitz", cost: ["Fire", "Fire"], damage: "180" }],
+      abilities: [{ name: "Inferno Reign", effect: "Draw cards" }],
+      weaknesses: [{ type: "Water", value: "x2" }],
+      set_id: "sv4",
+      rarity: "Double Rare",
+      number: "6",
+      image_small: "https://example.com/small.png",
+      image_large: "https://example.com/large.png",
+      regulation_mark: "G",
+      legalities: { standard: true, expanded: true },
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    };
+
+    expect(card.japanese_name).toBe("リザードンex");
+    expect(card.hp).toBe(330);
+  });
+});
+
+describe("ApiCardSummary type", () => {
+  it("accepts valid API card summary", () => {
+    const summary: ApiCardSummary = {
+      id: "sv4-6",
+      name: "Charizard ex",
+      supertype: "Pokemon",
+      set_id: "sv4",
+    };
+
+    expect(summary.name).toBe("Charizard ex");
+  });
+});
+
+describe("ApiSet type", () => {
+  it("accepts valid API set response", () => {
+    const set: ApiSet = {
+      id: "sv4",
+      name: "Paradox Rift",
+      series: "Scarlet & Violet",
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    };
+
+    expect(set.id).toBe("sv4");
+  });
+});
+
+describe("ApiPaginatedResponse type", () => {
+  it("accepts valid paginated response", () => {
+    const response: ApiPaginatedResponse<ApiCardSummary> = {
+      items: [
+        {
+          id: "sv4-6",
+          name: "Charizard ex",
+          supertype: "Pokemon",
+          set_id: "sv4",
+        },
+      ],
+      total: 100,
+      page: 1,
+      page_size: 20,
+      pages: 5,
+    };
+
+    expect(response.items).toHaveLength(1);
+    expect(response.total).toBe(100);
   });
 });

@@ -1,14 +1,16 @@
 """Deck export service for various formats."""
 
+import logging
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from src.models.card import Card
 from src.models.deck import Deck
 from src.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 class DeckExportService:
@@ -70,13 +72,22 @@ class DeckExportService:
             quantity = entry.get("quantity", 0)
             card_quantities[card_id] = quantity
 
-        # Fetch actual card data with set relationship
+        # Fetch actual card data
         card_ids = list(card_quantities.keys())
-        card_query = (
-            select(Card).where(Card.id.in_(card_ids)).options(selectinload(Card.set))
-        )
+        card_query = select(Card).where(Card.id.in_(card_ids))
         card_result = await self.session.execute(card_query)
         cards = card_result.scalars().all()
+
+        # Warn if any cards are missing from the database
+        found_ids = {card.id for card in cards}
+        missing_ids = set(card_ids) - found_ids
+        if missing_ids:
+            logger.warning(
+                "Deck %s export: %d card(s) not found in database: %s",
+                deck_id,
+                len(missing_ids),
+                sorted(missing_ids),
+            )
 
         # Group cards by supertype
         pokemon_lines: list[str] = []

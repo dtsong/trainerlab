@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Copy, Download, Check } from "lucide-react";
+import { Copy, Download, Check, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,7 @@ export function DeckExportModal({
 }: DeckExportModalProps) {
   const [format, setFormat] = useState<DeckExportFormat>("ptcgo");
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   const storeCards = useDeckStore((state) => state.cards);
   const storeName = useDeckStore((state) => state.name);
@@ -59,9 +60,12 @@ export function DeckExportModal({
     try {
       await navigator.clipboard.writeText(exportedText);
       setCopied(true);
+      setCopyError(false);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error("Failed to copy to clipboard:", error);
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3000);
     }
   }, [exportedText]);
 
@@ -124,7 +128,12 @@ export function DeckExportModal({
           {/* Actions */}
           <div className="flex gap-2">
             <Button onClick={handleCopy} variant="outline" className="flex-1">
-              {copied ? (
+              {copyError ? (
+                <>
+                  <AlertCircle className="h-4 w-4 mr-2 text-destructive" />
+                  Copy failed
+                </>
+              ) : copied ? (
                 <>
                   <Check className="h-4 w-4 mr-2" />
                   Copied!

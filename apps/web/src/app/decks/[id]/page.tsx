@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
+  Check,
   Edit,
   Eye,
   Trash2,
@@ -136,12 +137,18 @@ export default function DeckDetailPage() {
     router.push("/decks");
   }, [isEditMode, isModified, router]);
 
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const handleShare = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      // Could show a toast here
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
     } catch (error) {
       console.error("Failed to copy link:", error);
+      alert(
+        "Could not copy link. Please copy the URL from your browser's address bar.",
+      );
     }
   }, []);
 
@@ -176,7 +183,12 @@ export default function DeckDetailPage() {
     <div className="flex flex-col h-screen">
       {/* Page header */}
       <header className="flex items-center gap-4 p-4 border-b bg-background">
-        <Button variant="ghost" size="icon" onClick={handleBack}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          aria-label="Go back"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
 
@@ -201,7 +213,11 @@ export default function DeckDetailPage() {
                 onClick={handleShare}
                 aria-label="Share deck"
               >
-                <Share2 className="h-4 w-4" />
+                {linkCopied ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Share2 className="h-4 w-4" />
+                )}
               </Button>
               <Button
                 variant="outline"

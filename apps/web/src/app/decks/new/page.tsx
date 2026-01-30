@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DeckBuilder } from "@/components/deck";
 import { useDeckStore } from "@/stores/deckStore";
@@ -65,7 +64,12 @@ export default function NewDeckPage() {
     <div className="flex flex-col h-screen">
       {/* Page header */}
       <header className="flex items-center gap-4 p-4 border-b bg-background">
-        <Button variant="ghost" size="icon" onClick={handleBack}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          aria-label="Go back"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>

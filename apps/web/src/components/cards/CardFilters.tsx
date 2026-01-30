@@ -8,6 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Pokemon TCG supertypes
@@ -28,6 +30,13 @@ const ENERGY_TYPES = [
   "Water",
 ] as const;
 
+export const DEFAULT_FILTERS: CardFiltersValues = {
+  supertype: "all",
+  types: "all",
+  set_id: "all",
+  standard_legal: "all",
+};
+
 export interface CardFiltersValues {
   supertype: string;
   types: string;
@@ -38,6 +47,7 @@ export interface CardFiltersValues {
 interface CardFiltersProps {
   values: CardFiltersValues;
   onChange: (key: keyof CardFiltersValues, value: string) => void;
+  onClear?: () => void;
   sets?: ApiSet[];
   className?: string;
 }
@@ -45,11 +55,18 @@ interface CardFiltersProps {
 export function CardFilters({
   values,
   onChange,
+  onClear,
   sets = [],
   className,
 }: CardFiltersProps) {
+  const hasActiveFilters =
+    values.supertype !== "all" ||
+    values.types !== "all" ||
+    values.set_id !== "all" ||
+    values.standard_legal !== "all";
+
   return (
-    <div className={cn("flex flex-wrap gap-3", className)}>
+    <div className={cn("flex flex-wrap gap-3 items-center", className)}>
       {/* Supertype filter */}
       <Select
         value={values.supertype}
@@ -115,6 +132,19 @@ export function CardFilters({
           <SelectItem value="expanded">Expanded Legal</SelectItem>
         </SelectContent>
       </Select>
+
+      {/* Clear filters button */}
+      {hasActiveFilters && onClear && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClear}
+          className="h-10 px-3 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-4 w-4 mr-1" />
+          Clear filters
+        </Button>
+      )}
     </div>
   );
 }

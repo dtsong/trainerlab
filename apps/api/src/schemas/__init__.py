@@ -10,8 +10,11 @@ from src.schemas.deck import (
     CardInDeck,
     DeckCreate,
     DeckResponse,
+    DeckStatsResponse,
     DeckSummaryResponse,
     DeckUpdate,
+    EnergyCurvePoint,
+    TypeBreakdown,
     UserSummary,
 )
 from src.schemas.pagination import PaginatedResponse
@@ -26,11 +29,14 @@ __all__ = [
     "CardUsageResponse",
     "DeckCreate",
     "DeckResponse",
+    "DeckStatsResponse",
     "DeckSummaryResponse",
     "DeckUpdate",
+    "EnergyCurvePoint",
     "PaginatedResponse",
     "SetResponse",
     "SetSummaryResponse",
+    "TypeBreakdown",
     "UsageTrendPoint",
     "UserSummary",
 ]

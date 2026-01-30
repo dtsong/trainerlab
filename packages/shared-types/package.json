@@ -1,0 +1,19 @@
+{
+  "name": "@trainerlab/shared-types",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared TypeScript types for TrainerLab",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

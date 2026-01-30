@@ -264,6 +264,38 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
         description: state.description,
         format: state.format,
       }),
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (error) {
+            console.error("Failed to restore deck from localStorage:", error);
+          }
+        };
+      },
+      storage: {
+        getItem: (name) => {
+          try {
+            const value = localStorage.getItem(name);
+            return value ? JSON.parse(value) : null;
+          } catch (error) {
+            console.error("Failed to read deck from localStorage:", error);
+            return null;
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, JSON.stringify(value));
+          } catch (error) {
+            console.error("Failed to save deck to localStorage:", error);
+          }
+        },
+        removeItem: (name) => {
+          try {
+            localStorage.removeItem(name);
+          } catch (error) {
+            console.error("Failed to remove deck from localStorage:", error);
+          }
+        },
+      },
     },
   ),
 );

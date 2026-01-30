@@ -8,9 +8,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
+from src.models.card import Card
 from src.models.deck import Deck
 from src.models.user import User
 from src.schemas import CardInDeck, DeckCreate, DeckUpdate, PaginatedResponse
+from src.services.deck_export import DeckExportService
 from src.services.deck_service import CardValidationError, DeckService
 
 
@@ -486,6 +488,117 @@ class TestDeckService:
         assert result is False
 
 
+class TestDeckExportService:
+    """Tests for DeckExportService."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        """Create a mock async session."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> DeckExportService:
+        """Create a DeckExportService with mock session."""
+        return DeckExportService(mock_session)
+
+    @pytest.fixture
+    def sample_deck(self) -> MagicMock:
+        """Create a sample deck mock."""
+        deck = MagicMock(spec=Deck)
+        deck.id = uuid4()
+        deck.user_id = uuid4()
+        deck.is_public = True
+        deck.cards = []
+        return deck
+
+    @pytest.mark.asyncio
+    async def test_export_ptcgo_empty_deck(
+        self, service: DeckExportService, sample_deck: MagicMock
+    ) -> None:
+        """Test exporting an empty deck."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.export_ptcgo(sample_deck.id)
+
+        assert result is not None
+        assert "Total Cards - 0" in result
+        assert "##Pokémon - 0" in result
+
+    @pytest.mark.asyncio
+    async def test_export_ptcgo_with_cards(
+        self, service: DeckExportService, sample_deck: MagicMock
+    ) -> None:
+        """Test exporting a deck with cards."""
+        sample_deck.cards = [
+            {"card_id": "sv4-6", "quantity": 4},
+            {"card_id": "sv4-189", "quantity": 2},
+        ]
+
+        # Mock cards
+        mock_pokemon = MagicMock(spec=Card)
+        mock_pokemon.id = "sv4-6"
+        mock_pokemon.name = "Charizard ex"
+        mock_pokemon.supertype = "Pokemon"
+        mock_pokemon.set_id = "sv4"
+        mock_pokemon.number = "6"
+
+        mock_trainer = MagicMock(spec=Card)
+        mock_trainer.id = "sv4-189"
+        mock_trainer.name = "Professor's Research"
+        mock_trainer.supertype = "Trainer"
+        mock_trainer.set_id = "sv4"
+        mock_trainer.number = "189"
+
+        mock_deck_result = MagicMock()
+        mock_deck_result.scalar_one_or_none.return_value = sample_deck
+        mock_cards_result = MagicMock()
+        mock_cards_result.scalars.return_value.all.return_value = [
+            mock_pokemon,
+            mock_trainer,
+        ]
+
+        service.session.execute = AsyncMock(
+            side_effect=[mock_deck_result, mock_cards_result]
+        )
+
+        result = await service.export_ptcgo(sample_deck.id)
+
+        assert result is not None
+        assert "* 4 Charizard ex SV4 6" in result
+        assert "* 2 Professor's Research SV4 189" in result
+        assert "##Pokémon - 4" in result
+        assert "##Trainer Cards - 2" in result
+        assert "Total Cards - 6" in result
+
+    @pytest.mark.asyncio
+    async def test_export_ptcgo_not_found(self, service: DeckExportService) -> None:
+        """Test export for non-existent deck returns None."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.export_ptcgo(uuid4())
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_export_ptcgo_private_deck_no_auth(
+        self, service: DeckExportService, sample_deck: MagicMock
+    ) -> None:
+        """Test export for private deck without auth returns None."""
+        sample_deck.is_public = False
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.export_ptcgo(sample_deck.id, user=None)
+
+        assert result is None
+
+
 class TestDeckEndpoints:
     """Tests for deck API endpoints."""
 
@@ -786,6 +899,52 @@ class TestDeckEndpoints:
 
         assert response.status_code == 404
 
+    def test_export_deck_ptcgo_success(
+        self, client: TestClient, mock_db: AsyncMock, mock_user: MagicMock
+    ) -> None:
+        """Test GET /api/v1/decks/{id}/export returns PTCGO format."""
+        from src.models.card import Card
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = mock_user.id
+        mock_deck.is_public = True
+        mock_deck.cards = [{"card_id": "sv4-6", "quantity": 4}]
+
+        mock_pokemon = MagicMock(spec=Card)
+        mock_pokemon.id = "sv4-6"
+        mock_pokemon.name = "Charizard ex"
+        mock_pokemon.supertype = "Pokemon"
+        mock_pokemon.set_id = "sv4"
+        mock_pokemon.number = "6"
+
+        mock_deck_result = MagicMock()
+        mock_deck_result.scalar_one_or_none.return_value = mock_deck
+        mock_cards_result = MagicMock()
+        mock_cards_result.scalars.return_value.all.return_value = [mock_pokemon]
+
+        mock_db.execute = AsyncMock(side_effect=[mock_deck_result, mock_cards_result])
+
+        response = client.get(f"/api/v1/decks/{deck_id}/export?format=ptcgo")
+
+        assert response.status_code == 200
+        assert "text/plain" in response.headers["content-type"]
+        assert "* 4 Charizard ex SV4 6" in response.text
+        assert "Total Cards - 4" in response.text
+
+    def test_export_deck_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test GET /api/v1/decks/{id}/export returns 404 for non-existent deck."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.get(f"/api/v1/decks/{uuid4()}/export?format=ptcgo")
+
+        assert response.status_code == 404
+
     def test_update_deck_success(
         self, client: TestClient, mock_db: AsyncMock, mock_user: MagicMock
     ) -> None:
@@ -946,6 +1105,7 @@ class TestDeckEndpoints:
 
         # Returns 404 to avoid leaking existence
         assert response.status_code == 404
+
 
 
 class TestDeckEndpointsAuth:

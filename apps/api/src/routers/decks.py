@@ -1,9 +1,10 @@
 """Deck endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
@@ -16,6 +17,7 @@ from src.schemas import (
     DeckUpdate,
     PaginatedResponse,
 )
+from src.services.deck_export import DeckExportService
 from src.services.deck_service import CardValidationError, DeckService
 
 router = APIRouter(prefix="/api/v1/decks", tags=["decks"])
@@ -97,6 +99,30 @@ async def get_deck_stats(
             status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"
         )
     return stats
+
+
+@router.get("/{deck_id}/export")
+async def export_deck(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: OptionalUser,
+    deck_id: UUID,
+    format: Annotated[
+        Literal["ptcgo"],
+        Query(description="Export format (currently only 'ptcgo' is supported)"),
+    ] = "ptcgo",
+) -> PlainTextResponse:
+    """Export a deck to a text format.
+
+    Currently supports PTCGO format, which can be imported directly
+    into Pokemon TCG Online/Live. Public decks are accessible to everyone.
+    """
+    service = DeckExportService(db)
+    exported = await service.export_ptcgo(deck_id, current_user)
+    if exported is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"
+        )
+    return PlainTextResponse(content=exported, media_type="text/plain")
 
 
 @router.put("/{deck_id}")

@@ -32,8 +32,8 @@ describe("DeckBuilder", () => {
     expect(screen.getByPlaceholderText("Deck name...")).toBeInTheDocument();
   });
 
-  it("should render save button", () => {
-    render(<DeckBuilder />);
+  it("should render save button when onSave is provided", () => {
+    render(<DeckBuilder onSave={() => {}} />);
     expect(screen.getByRole("button", { name: /save/i })).toBeInTheDocument();
   });
 
@@ -45,13 +45,13 @@ describe("DeckBuilder", () => {
   });
 
   it("should disable save button when deck is not modified", () => {
-    render(<DeckBuilder />);
+    render(<DeckBuilder onSave={() => {}} />);
     expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
   });
 
   it("should enable save button when deck is modified", () => {
     useDeckStore.getState().setName("My Deck");
-    render(<DeckBuilder />);
+    render(<DeckBuilder onSave={() => {}} />);
     expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
   });
 
@@ -106,6 +106,8 @@ describe("DeckBuilder", () => {
       page: 1,
       limit: 20,
       total_pages: 1,
+      has_next: false,
+      has_prev: false,
     });
 
     const user = userEvent.setup();
@@ -136,6 +138,8 @@ describe("DeckBuilder", () => {
       page: 1,
       limit: 20,
       total_pages: 1,
+      has_next: false,
+      has_prev: false,
     });
 
     const user = userEvent.setup();
@@ -179,6 +183,8 @@ describe("DeckBuilder", () => {
       page: 1,
       limit: 20,
       total_pages: 0,
+      has_next: false,
+      has_prev: false,
     });
 
     const user = userEvent.setup();

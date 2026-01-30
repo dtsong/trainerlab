@@ -36,3 +36,23 @@ export interface DeckState {
   /** Whether the deck has unsaved changes */
   isModified: boolean;
 }
+
+/**
+ * A saved deck from the backend/storage.
+ */
+export interface SavedDeck {
+  /** Unique deck identifier */
+  id: string;
+  /** Deck name */
+  name: string;
+  /** Deck description */
+  description: string;
+  /** Deck format */
+  format: DeckFormat;
+  /** Cards in the deck */
+  cards: DeckCard[];
+  /** Creation timestamp */
+  createdAt: string;
+  /** Last update timestamp */
+  updatedAt: string;
+}

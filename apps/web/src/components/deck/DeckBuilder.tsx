@@ -2,20 +2,25 @@
 
 import { useState, useCallback } from "react";
 import Image from "next/image";
-import { Save, Loader2, ImageOff } from "lucide-react";
+import { Save, Loader2, ImageOff, Upload, Download } from "lucide-react";
 import { useDeckStore } from "@/stores/deckStore";
 import { cardsApi, type CardSearchParams } from "@/lib/api";
 import { DeckList } from "./DeckList";
 import { DeckStats } from "./DeckStats";
 import { DeckValidation } from "./DeckValidation";
+import { DeckExportModal } from "./DeckExportModal";
+import { DeckImportModal } from "./DeckImportModal";
 import { CardSearchInput } from "@/components/cards/CardSearchInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ApiCardSummary } from "@trainerlab/shared-types";
+import type { DeckState } from "@/types/deck";
 
 interface DeckBuilderProps {
   className?: string;
+  onSave?: (deck: Omit<DeckState, "isModified">) => void;
+  isSaving?: boolean;
 }
 
 const THUMBNAIL_SIZE = { width: 80, height: 112 };
@@ -61,13 +66,22 @@ function SearchResultCard({ card, onClick }: SearchResultCardProps) {
   );
 }
 
-export function DeckBuilder({ className }: DeckBuilderProps) {
+export function DeckBuilder({
+  className,
+  onSave,
+  isSaving = false,
+}: DeckBuilderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ApiCardSummary[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const name = useDeckStore((state) => state.name);
+  const cards = useDeckStore((state) => state.cards);
+  const description = useDeckStore((state) => state.description);
+  const format = useDeckStore((state) => state.format);
   const isModified = useDeckStore((state) => state.isModified);
   const addCard = useDeckStore((state) => state.addCard);
   const setName = useDeckStore((state) => state.setName);
@@ -109,10 +123,10 @@ export function DeckBuilder({ className }: DeckBuilderProps) {
   );
 
   const handleSave = useCallback(() => {
-    // TODO: Implement save to backend
-    console.log("Save deck:", useDeckStore.getState());
-    alert("Save functionality coming soon!");
-  }, []);
+    if (onSave) {
+      onSave({ cards, name, description, format });
+    }
+  }, [onSave, cards, name, description, format]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -124,10 +138,39 @@ export function DeckBuilder({ className }: DeckBuilderProps) {
           placeholder="Deck name..."
           className="flex-1 max-w-xs"
         />
-        <Button onClick={handleSave} disabled={!isModified} className="gap-2">
-          <Save className="h-4 w-4" />
-          Save
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowImportModal(true)}
+            aria-label="Import deck"
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowExportModal(true)}
+            disabled={cards.length === 0}
+            aria-label="Export deck"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          {onSave && (
+            <Button
+              onClick={handleSave}
+              disabled={!isModified || isSaving}
+              className="gap-2"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save
+            </Button>
+          )}
+        </div>
       </header>
 
       {/* Main content */}
@@ -197,6 +240,16 @@ export function DeckBuilder({ className }: DeckBuilderProps) {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <DeckExportModal
+        open={showExportModal}
+        onOpenChange={setShowExportModal}
+      />
+      <DeckImportModal
+        open={showImportModal}
+        onOpenChange={setShowImportModal}
+      />
     </div>
   );
 }

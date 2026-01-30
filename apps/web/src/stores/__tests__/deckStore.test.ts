@@ -287,6 +287,65 @@ describe("deckStore", () => {
     });
   });
 
+  describe("loadDeck", () => {
+    it("should load deck state and set isModified to false", () => {
+      const card = createMockCard();
+      const deckToLoad = {
+        cards: [{ card, quantity: 2, position: 0 }],
+        name: "Loaded Deck",
+        description: "A saved deck",
+        format: "expanded" as const,
+      };
+
+      useDeckStore.getState().loadDeck(deckToLoad);
+
+      const state = useDeckStore.getState();
+      expect(state.cards).toHaveLength(1);
+      expect(state.cards[0].quantity).toBe(2);
+      expect(state.name).toBe("Loaded Deck");
+      expect(state.description).toBe("A saved deck");
+      expect(state.format).toBe("expanded");
+      expect(state.isModified).toBe(false);
+    });
+
+    it("should replace existing state when loading", () => {
+      // Set up initial state
+      useDeckStore.getState().setName("Old Deck");
+      useDeckStore.getState().addCard(createMockCard({ id: "old-card" }));
+
+      // Load new deck
+      const newCard = createMockCard({ id: "new-card" });
+      useDeckStore.getState().loadDeck({
+        cards: [{ card: newCard, quantity: 3, position: 0 }],
+        name: "New Deck",
+        description: "",
+        format: "standard",
+      });
+
+      const state = useDeckStore.getState();
+      expect(state.cards).toHaveLength(1);
+      expect(state.cards[0].card.id).toBe("new-card");
+      expect(state.name).toBe("New Deck");
+      expect(state.isModified).toBe(false);
+    });
+
+    it("should allow loading an empty deck", () => {
+      useDeckStore.getState().addCard(createMockCard());
+
+      useDeckStore.getState().loadDeck({
+        cards: [],
+        name: "Empty Deck",
+        description: "",
+        format: "standard",
+      });
+
+      const state = useDeckStore.getState();
+      expect(state.cards).toHaveLength(0);
+      expect(state.name).toBe("Empty Deck");
+      expect(state.isModified).toBe(false);
+    });
+  });
+
   describe("resetModified", () => {
     it("should reset modified flag", () => {
       useDeckStore.getState().setName("Test");

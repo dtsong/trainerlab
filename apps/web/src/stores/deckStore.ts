@@ -34,6 +34,8 @@ interface DeckActions {
   setFormat: (format: DeckFormat) => void;
   /** Clear all cards from deck */
   clearDeck: () => void;
+  /** Load an existing deck for editing */
+  loadDeck: (deck: Omit<DeckState, "isModified">) => void;
   /** Reset modified flag (after save) */
   resetModified: () => void;
 }
@@ -158,6 +160,10 @@ export const useDeckStore = create<DeckState & DeckActions>((set) => ({
 
   clearDeck: () => {
     set({ cards: [], isModified: true });
+  },
+
+  loadDeck: (deck: Omit<DeckState, "isModified">) => {
+    set({ ...deck, isModified: false });
   },
 
   resetModified: () => {

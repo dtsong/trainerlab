@@ -81,6 +81,76 @@ async def list_cards(
     )
 
 
+@router.get("/search")
+async def search_cards(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: Annotated[
+        str,
+        Query(min_length=2, description="Search query (min 2 characters)"),
+    ],
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    limit: Annotated[
+        int, Query(ge=1, le=100, description="Items per page (max 100)")
+    ] = 20,
+    supertype: Annotated[
+        list[str] | None,
+        Query(description="Filter by supertype (Pokemon, Trainer, Energy)"),
+    ] = None,
+    types: Annotated[
+        list[str] | None,
+        Query(description="Filter by Pokemon type (Fire, Water, Grass, etc.)"),
+    ] = None,
+    set_id: Annotated[
+        str | None,
+        Query(description="Filter by set ID (e.g., sv4, swsh1)"),
+    ] = None,
+    standard: Annotated[
+        bool | None,
+        Query(description="Filter by standard format legality"),
+    ] = None,
+    expanded: Annotated[
+        bool | None,
+        Query(description="Filter by expanded format legality"),
+    ] = None,
+    search_text: Annotated[
+        bool,
+        Query(description="Also search abilities, attacks, and rules text"),
+    ] = False,
+) -> PaginatedResponse[CardSummaryResponse]:
+    """Search cards with fuzzy matching and relevance ranking.
+
+    This endpoint provides advanced search capabilities:
+
+    - **Fuzzy name matching**: Handles typos (e.g., "pikchu" finds "Pikachu")
+    - **Relevance ranking**: Results sorted by match quality
+    - **Text search**: Optionally search ability/attack names and effects
+
+    Use `search_text=true` to also search within:
+    - Ability names and effects
+    - Attack names, effects, and descriptions
+    - Rule box text
+
+    Results are ranked by relevance:
+    1. Exact name matches
+    2. Names starting with the query
+    3. High similarity matches
+    4. Partial name matches
+    5. Text field matches
+    """
+    service = CardService(db)
+    return await service.search_cards(
+        q=q,
+        page=page,
+        limit=limit,
+        supertype=supertype,
+        types=types,
+        set_id=set_id,
+        standard=standard,
+        expanded=expanded,
+        search_text=search_text,
+    )
+
+
 @router.get("/{card_id}")
 async def get_card(
     db: Annotated[AsyncSession, Depends(get_db)],

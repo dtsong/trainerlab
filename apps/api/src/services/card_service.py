@@ -37,6 +37,9 @@ class CardService:
         limit: int = 20,
         sort_by: SortField = SortField.NAME,
         sort_order: SortOrder = SortOrder.ASC,
+        q: str | None = None,
+        supertype: list[str] | None = None,
+        types: list[str] | None = None,
     ) -> PaginatedResponse[CardSummaryResponse]:
         """List cards with pagination and sorting.
 
@@ -45,12 +48,27 @@ class CardService:
             limit: Items per page (max 100)
             sort_by: Field to sort by
             sort_order: Sort direction
+            q: Optional text search query (searches name field)
+            supertype: Filter by supertype(s) (Pokemon, Trainer, Energy)
+            types: Filter by Pokemon type(s) (Fire, Water, Grass, etc.)
 
         Returns:
             Paginated response with card summaries
         """
         # Build base query
         query = select(Card)
+
+        # Apply text search filter
+        if q:
+            query = query.where(Card.name.ilike(f"%{q}%"))
+
+        # Apply supertype filter
+        if supertype:
+            query = query.where(Card.supertype.in_(supertype))
+
+        # Apply types filter (array overlap)
+        if types:
+            query = query.where(Card.types.overlap(types))
 
         # Apply sorting
         query = self._apply_sorting(query, sort_by, sort_order)

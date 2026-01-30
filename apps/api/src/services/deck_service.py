@@ -14,6 +14,7 @@ from src.schemas import (
     DeckCreate,
     DeckResponse,
     DeckSummaryResponse,
+    DeckUpdate,
     PaginatedResponse,
 )
 
@@ -142,6 +143,50 @@ class DeckService:
         # private decks only to owner
         if not deck.is_public and (user is None or deck.user_id != user.id):
             return None
+
+        return self._to_response(deck)
+
+    async def update_deck(
+        self,
+        deck_id: UUID,
+        user: User,
+        deck_data: DeckUpdate,
+    ) -> DeckResponse | None:
+        """Update an existing deck.
+
+        Args:
+            deck_id: The deck ID
+            user: The authenticated user (must be owner)
+            deck_data: Partial update data
+
+        Returns:
+            Updated DeckResponse if found and owned, None otherwise
+
+        Raises:
+            CardValidationError: If any card_id references don't exist
+        """
+        query = select(Deck).where(Deck.id == deck_id).options(selectinload(Deck.user))
+        result = await self.session.execute(query)
+        deck = result.scalar_one_or_none()
+
+        if deck is None or deck.user_id != user.id:
+            return None
+
+        # Validate card references if cards are being updated
+        if deck_data.cards is not None:
+            card_ids = [card.card_id for card in deck_data.cards]
+            await self._validate_card_ids(card_ids)
+
+        # Apply partial updates
+        update_data = deck_data.model_dump(exclude_unset=True)
+        if "cards" in update_data and deck_data.cards is not None:
+            update_data["cards"] = [card.model_dump() for card in deck_data.cards]
+
+        for field, value in update_data.items():
+            setattr(deck, field, value)
+
+        await self.session.commit()
+        await self.session.refresh(deck, ["user"])
 
         return self._to_response(deck)
 

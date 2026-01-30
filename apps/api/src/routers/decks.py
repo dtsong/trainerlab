@@ -12,6 +12,7 @@ from src.schemas import (
     DeckCreate,
     DeckResponse,
     DeckSummaryResponse,
+    DeckUpdate,
     PaginatedResponse,
 )
 from src.services.deck_service import CardValidationError, DeckService
@@ -70,6 +71,32 @@ async def get_deck(
     """
     service = DeckService(db)
     deck = await service.get_deck(deck_id, current_user)
+    if deck is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"
+        )
+    return deck
+
+
+@router.put("/{deck_id}")
+async def update_deck(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+    deck_id: UUID,
+    deck_data: DeckUpdate,
+) -> DeckResponse:
+    """Update an existing deck.
+
+    Requires authentication. Only the deck owner can update it.
+    All fields are optional for partial updates.
+    """
+    service = DeckService(db)
+    try:
+        deck = await service.update_deck(deck_id, current_user, deck_data)
+    except CardValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
     if deck is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from src.main import app
 from src.models.deck import Deck
 from src.models.user import User
-from src.schemas import DeckCreate, PaginatedResponse
+from src.schemas import CardInDeck, DeckCreate, DeckUpdate, PaginatedResponse
 from src.services.deck_service import CardValidationError, DeckService
 
 
@@ -293,6 +293,76 @@ class TestDeckService:
 
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_update_deck_success(
+        self, service: DeckService, sample_user: MagicMock, sample_deck: MagicMock
+    ) -> None:
+        """Test updating a deck successfully."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+        service.session.commit = AsyncMock()
+        service.session.refresh = AsyncMock()
+
+        update_data = DeckUpdate(name="Updated Name")
+        result = await service.update_deck(sample_deck.id, sample_user, update_data)
+
+        assert result is not None
+        assert sample_deck.name == "Updated Name"
+        service.session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_deck_not_found(
+        self, service: DeckService, sample_user: MagicMock
+    ) -> None:
+        """Test updating a non-existent deck returns None."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        update_data = DeckUpdate(name="New Name")
+        result = await service.update_deck(uuid4(), sample_user, update_data)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_deck_not_owner(
+        self, service: DeckService, sample_deck: MagicMock
+    ) -> None:
+        """Test updating a deck as non-owner returns None."""
+        other_user = MagicMock(spec=User)
+        other_user.id = uuid4()
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        update_data = DeckUpdate(name="New Name")
+        result = await service.update_deck(sample_deck.id, other_user, update_data)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_update_deck_validates_cards(
+        self, service: DeckService, sample_user: MagicMock, sample_deck: MagicMock
+    ) -> None:
+        """Test updating deck cards validates card IDs."""
+        from src.services.deck_service import CardValidationError
+
+        # First call returns deck, second validates cards (empty = invalid)
+        mock_deck_result = MagicMock()
+        mock_deck_result.scalar_one_or_none.return_value = sample_deck
+        mock_card_result = MagicMock()
+        mock_card_result.all.return_value = []
+        service.session.execute = AsyncMock(
+            side_effect=[mock_deck_result, mock_card_result]
+        )
+
+        update_data = DeckUpdate(cards=[CardInDeck(card_id="nonexistent", quantity=4)])
+
+        with pytest.raises(CardValidationError, match="Card IDs not found"):
+            await service.update_deck(sample_deck.id, sample_user, update_data)
+
 
 class TestDeckEndpoints:
     """Tests for deck API endpoints."""
@@ -548,6 +618,109 @@ class TestDeckEndpoints:
         assert response.status_code == 400
         assert "Card IDs not found" in response.json()["detail"]
 
+    def test_update_deck_success(
+        self, client: TestClient, mock_db: AsyncMock, mock_user: MagicMock
+    ) -> None:
+        """Test PUT /api/v1/decks/{id} updates a deck."""
+        from datetime import datetime
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = mock_user.id
+        mock_deck.name = "Original Name"
+        mock_deck.description = None
+        mock_deck.format = "standard"
+        mock_deck.archetype = None
+        mock_deck.is_public = False
+        mock_deck.share_code = None
+        mock_deck.cards = []
+        mock_deck.created_at = datetime.now(UTC)
+        mock_deck.updated_at = datetime.now(UTC)
+        mock_deck.user = mock_user
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_deck
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+
+        response = client.put(
+            f"/api/v1/decks/{deck_id}",
+            json={"name": "Updated Name"},
+        )
+
+        assert response.status_code == 200
+        assert mock_deck.name == "Updated Name"
+
+    def test_update_deck_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test PUT /api/v1/decks/{id} returns 404 for non-existent deck."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.put(
+            f"/api/v1/decks/{uuid4()}",
+            json={"name": "Updated Name"},
+        )
+
+        assert response.status_code == 404
+
+    def test_update_deck_not_owner(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test PUT /api/v1/decks/{id} returns 404 for non-owner."""
+        from datetime import datetime
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = uuid4()  # Different user
+        mock_deck.is_public = False
+        mock_deck.created_at = datetime.now(UTC)
+        mock_deck.updated_at = datetime.now(UTC)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_deck
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.put(
+            f"/api/v1/decks/{deck_id}",
+            json={"name": "Updated Name"},
+        )
+
+        # Returns 404 to avoid leaking existence
+        assert response.status_code == 404
+
+    def test_update_deck_invalid_cards(
+        self, client: TestClient, mock_db: AsyncMock, mock_user: MagicMock
+    ) -> None:
+        """Test PUT /api/v1/decks/{id} returns 400 for invalid card IDs."""
+        from datetime import datetime
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = mock_user.id
+        mock_deck.created_at = datetime.now(UTC)
+        mock_deck.updated_at = datetime.now(UTC)
+
+        mock_deck_result = MagicMock()
+        mock_deck_result.scalar_one_or_none.return_value = mock_deck
+        mock_card_result = MagicMock()
+        mock_card_result.all.return_value = []
+        mock_db.execute = AsyncMock(side_effect=[mock_deck_result, mock_card_result])
+
+        response = client.put(
+            f"/api/v1/decks/{deck_id}",
+            json={"cards": [{"card_id": "nonexistent", "quantity": 4}]},
+        )
+
+        assert response.status_code == 400
+        assert "Card IDs not found" in response.json()["detail"]
+
 
 class TestDeckEndpointsAuth:
     """Tests for deck endpoint authentication requirements."""
@@ -608,3 +781,15 @@ class TestDeckEndpointsAuth:
 
         assert response.status_code == 401
         assert "Invalid user ID" in response.json()["detail"]
+
+    def test_update_deck_unauthenticated_returns_401(
+        self, no_auth_client: TestClient
+    ) -> None:
+        """Test PUT /api/v1/decks/{id} returns 401 without authentication."""
+        response = no_auth_client.put(
+            f"/api/v1/decks/{uuid4()}",
+            json={"name": "Updated Name"},
+        )
+
+        assert response.status_code == 401
+        assert "Authorization header required" in response.json()["detail"]

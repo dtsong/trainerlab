@@ -200,14 +200,15 @@ class DeckService:
         card_result = await self.session.execute(card_query)
         cards = card_result.scalars().all()
 
-        # Log missing cards
+        # Warn if any cards are missing from the database
         found_ids = {card.id for card in cards}
         missing_ids = set(card_ids) - found_ids
         if missing_ids:
             logger.warning(
-                "Deck %s references missing cards: %s",
+                "Deck %s stats: %d card(s) not found in database: %s",
                 deck_id,
-                ", ".join(sorted(missing_ids)),
+                len(missing_ids),
+                sorted(missing_ids),
             )
 
         # Calculate stats

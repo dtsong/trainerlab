@@ -150,6 +150,39 @@ class TestCardService:
         assert result.items == []
         assert result.total == 0
 
+    @pytest.mark.asyncio
+    async def test_list_cards_with_supertype_filter(
+        self, service: CardService, sample_card: MagicMock
+    ) -> None:
+        """Test filtering by single supertype."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sample_card]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.list_cards(supertype=["Pokemon"])
+
+        assert len(result.items) == 1
+        assert result.items[0].supertype == "Pokemon"
+
+    @pytest.mark.asyncio
+    async def test_list_cards_with_multiple_supertypes(
+        self, service: CardService, sample_card: MagicMock
+    ) -> None:
+        """Test filtering by multiple supertypes."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sample_card]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.list_cards(supertype=["Pokemon", "Trainer"])
+
+        assert len(result.items) == 1
+
 
 class TestSortEnums:
     """Tests for sort enums."""
@@ -238,3 +271,33 @@ class TestCardsEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["items"] == []
+
+    def test_list_cards_with_supertype_filter(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that supertype filter parameter is accepted."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards?supertype=Pokemon")
+
+        assert response.status_code == 200
+
+    def test_list_cards_with_multiple_supertypes(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that multiple supertype values are accepted."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards?supertype=Pokemon&supertype=Trainer")
+
+        assert response.status_code == 200

@@ -214,8 +214,13 @@ class DeckService:
         if deck is None or deck.user_id != user.id:
             return False
 
-        await self.session.delete(deck)
-        await self.session.commit()
+        try:
+            await self.session.delete(deck)
+            await self.session.commit()
+        except Exception:
+            logger.exception("Failed to delete deck %s", deck_id)
+            raise
+
         return True
 
     async def _validate_card_ids(self, card_ids: list[str]) -> None:

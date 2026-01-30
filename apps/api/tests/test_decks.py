@@ -363,6 +363,52 @@ class TestDeckService:
         with pytest.raises(CardValidationError, match="Card IDs not found"):
             await service.update_deck(sample_deck.id, sample_user, update_data)
 
+    @pytest.mark.asyncio
+    async def test_delete_deck_success(
+        self, service: DeckService, sample_user: MagicMock, sample_deck: MagicMock
+    ) -> None:
+        """Test deleting a deck successfully."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+        service.session.delete = AsyncMock()
+        service.session.commit = AsyncMock()
+
+        result = await service.delete_deck(sample_deck.id, sample_user)
+
+        assert result is True
+        service.session.delete.assert_called_once_with(sample_deck)
+        service.session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_delete_deck_not_found(
+        self, service: DeckService, sample_user: MagicMock
+    ) -> None:
+        """Test deleting a non-existent deck returns False."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.delete_deck(uuid4(), sample_user)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_deck_not_owner(
+        self, service: DeckService, sample_deck: MagicMock
+    ) -> None:
+        """Test deleting a deck as non-owner returns False."""
+        other_user = MagicMock(spec=User)
+        other_user.id = uuid4()
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.delete_deck(sample_deck.id, other_user)
+
+        assert result is False
+
 
 class TestDeckEndpoints:
     """Tests for deck API endpoints."""
@@ -721,6 +767,64 @@ class TestDeckEndpoints:
         assert response.status_code == 400
         assert "Card IDs not found" in response.json()["detail"]
 
+    def test_delete_deck_success(
+        self, client: TestClient, mock_db: AsyncMock, mock_user: MagicMock
+    ) -> None:
+        """Test DELETE /api/v1/decks/{id} deletes a deck."""
+        from datetime import datetime
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = mock_user.id
+        mock_deck.created_at = datetime.now(UTC)
+        mock_deck.updated_at = datetime.now(UTC)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_deck
+        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_db.delete = AsyncMock()
+        mock_db.commit = AsyncMock()
+
+        response = client.delete(f"/api/v1/decks/{deck_id}")
+
+        assert response.status_code == 204
+        mock_db.delete.assert_called_once()
+
+    def test_delete_deck_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test DELETE /api/v1/decks/{id} returns 404 for non-existent deck."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.delete(f"/api/v1/decks/{uuid4()}")
+
+        assert response.status_code == 404
+
+    def test_delete_deck_not_owner(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test DELETE /api/v1/decks/{id} returns 404 for non-owner."""
+        from datetime import datetime
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = uuid4()  # Different user
+        mock_deck.created_at = datetime.now(UTC)
+        mock_deck.updated_at = datetime.now(UTC)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_deck
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.delete(f"/api/v1/decks/{deck_id}")
+
+        # Returns 404 to avoid leaking existence
+        assert response.status_code == 404
+
 
 class TestDeckEndpointsAuth:
     """Tests for deck endpoint authentication requirements."""
@@ -790,6 +894,15 @@ class TestDeckEndpointsAuth:
             f"/api/v1/decks/{uuid4()}",
             json={"name": "Updated Name"},
         )
+
+        assert response.status_code == 401
+        assert "Authorization header required" in response.json()["detail"]
+
+    def test_delete_deck_unauthenticated_returns_401(
+        self, no_auth_client: TestClient
+    ) -> None:
+        """Test DELETE /api/v1/decks/{id} returns 401 without authentication."""
+        response = no_auth_client.delete(f"/api/v1/decks/{uuid4()}")
 
         assert response.status_code == 401
         assert "Authorization header required" in response.json()["detail"]

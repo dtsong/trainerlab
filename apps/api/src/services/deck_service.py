@@ -197,6 +197,27 @@ class DeckService:
 
         return self._to_response(deck)
 
+    async def delete_deck(self, deck_id: UUID, user: User) -> bool:
+        """Delete a deck.
+
+        Args:
+            deck_id: The deck ID
+            user: The authenticated user (must be owner)
+
+        Returns:
+            True if deleted, False if not found or not owned
+        """
+        query = select(Deck).where(Deck.id == deck_id)
+        result = await self.session.execute(query)
+        deck = result.scalar_one_or_none()
+
+        if deck is None or deck.user_id != user.id:
+            return False
+
+        await self.session.delete(deck)
+        await self.session.commit()
+        return True
+
     async def _validate_card_ids(self, card_ids: list[str]) -> None:
         """Validate that all card IDs exist in the database.
 

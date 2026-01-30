@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
@@ -102,3 +102,22 @@ async def update_deck(
             status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"
         )
     return deck
+
+
+@router.delete("/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_deck(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+    deck_id: UUID,
+) -> Response:
+    """Delete a deck.
+
+    Requires authentication. Only the deck owner can delete it.
+    """
+    service = DeckService(db)
+    deleted = await service.delete_deck(deck_id, current_user)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

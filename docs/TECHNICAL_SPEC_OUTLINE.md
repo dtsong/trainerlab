@@ -7,9 +7,9 @@
 
 ## Project Overview
 
-**Project Name:** Pokemon TCG Competitive Intelligence Platform (working title)  
-**Type:** Web application  
-**Primary Stack:** Next.js (frontend), FastAPI (backend), PostgreSQL (database)  
+**Project Name:** Pokemon TCG Competitive Intelligence Platform (working title)
+**Type:** Web application
+**Primary Stack:** Next.js (frontend), FastAPI (backend), PostgreSQL (database)
 **Deployment:** Vercel (frontend), Railway (backend), Supabase (database + auth)
 
 ---
@@ -46,20 +46,23 @@ pokemon-tcg-platform/
 
 ### Feature 1: Meta Dashboard
 
-**Spec ID:** `FEAT-001`  
-**Priority:** P0  
+**Spec ID:** `FEAT-001`
+**Priority:** P0
 **Status:** Not started
 
 #### Overview
+
 Display current competitive metagame data with visualizations showing archetype popularity, trends over time, and regional variations.
 
 #### User Stories
+
 - As a player, I want to see current meta share percentages
 - As a player, I want to see meta trends over time
 - As a player, I want to filter by region (NA/EU/APAC/LATAM)
 - As a player, I want to see recent tournament results
 
 #### Data Requirements
+
 - Tournament results from LimitlessTCG
 - Archetype classifications
 - Regional tournament mapping
@@ -85,6 +88,7 @@ GET /api/tournaments/{id}
 ```
 
 #### UI Components
+
 - `MetaShareChart` - Pie or bar chart of current meta
 - `MetaTrendChart` - Line chart of meta over time
 - `RegionSelector` - Filter by region
@@ -92,6 +96,7 @@ GET /api/tournaments/{id}
 - `TournamentDetail` - Full results for a tournament
 
 #### Acceptance Criteria
+
 - [ ] Meta share displays correctly for current format
 - [ ] Historical data shows at least 3 months of trends
 - [ ] Region filter works correctly
@@ -102,14 +107,16 @@ GET /api/tournaments/{id}
 
 ### Feature 2: Smart Deck Builder
 
-**Spec ID:** `FEAT-002`  
-**Priority:** P0  
+**Spec ID:** `FEAT-002`
+**Priority:** P0
 **Status:** Not started
 
 #### Overview
+
 Deck building tool with card database, archetype templates, inclusion rate data, and consistency metrics.
 
 #### User Stories
+
 - As a player, I want to search for cards by name or effect
 - As a player, I want to start from an archetype template
 - As a player, I want to see how often cards appear in successful lists
@@ -117,6 +124,7 @@ Deck building tool with card database, archetype templates, inclusion rate data,
 - As a player, I want to save decks to my account
 
 #### Data Requirements
+
 - Complete card database (TCGdex - self-hosted, multi-language)
 - Archetype templates with core cards
 - Card inclusion rates (derived from LimitlessTCG data)
@@ -156,6 +164,7 @@ GET /api/decks/analyze
 ```
 
 #### UI Components
+
 - `CardSearch` - Search input with filters
 - `CardGrid` - Display search results
 - `CardDetail` - Modal with full card info
@@ -167,6 +176,7 @@ GET /api/decks/analyze
 - `DeckDiff` - Compare to reference lists
 
 #### Acceptance Criteria
+
 - [ ] Card search returns results in <500ms
 - [ ] Natural language search finds relevant cards
 - [ ] Archetype templates load correctly
@@ -179,25 +189,29 @@ GET /api/decks/analyze
 
 ### Feature 3: Natural Language Card Search
 
-**Spec ID:** `FEAT-003`  
-**Priority:** P0  
+**Spec ID:** `FEAT-003`
+**Priority:** P0
 **Status:** Not started
 
 #### Overview
+
 Enable users to search for cards by describing effects in natural language rather than exact text matches.
 
 #### User Stories
+
 - As a player, I want to find "cards that draw cards"
 - As a player, I want to find "Pokemon that damage the bench"
 - As a player, I want to find "items that search for basic Pokemon"
 
 #### Technical Approach
+
 1. Embed all card text using text embedding model
 2. Store embeddings in vector database (pgvector)
 3. At query time, embed the search query
 4. Return cards with highest cosine similarity
 
 #### Data Requirements
+
 - All card text, attacks, abilities embedded
 - Vector storage with efficient similarity search
 
@@ -206,20 +220,22 @@ Enable users to search for cards by describing effects in natural language rathe
 ```
 GET /api/cards/semantic-search
   Query: q (natural language query), limit (default 20), format?
-  Response: { 
-    cards: [...], 
+  Response: {
+    cards: [...],
     relevanceScores: [...],
-    interpretedQuery: string? 
+    interpretedQuery: string?
   }
 ```
 
 #### Implementation Notes
+
 - Consider caching common queries
 - Embed card text including: name, abilities, attacks, rules
 - May need to experiment with embedding model choice
 - Rate limit for free tier users
 
 #### Acceptance Criteria
+
 - [ ] "Cards that draw cards" returns Iono, Professor's Research, etc.
 - [ ] "Bench damage" returns spread attackers
 - [ ] Response time <1 second
@@ -229,25 +245,30 @@ GET /api/cards/semantic-search
 
 ### Feature 4: User Authentication
 
-**Spec ID:** `FEAT-004`  
-**Priority:** P0  
+**Spec ID:** `FEAT-004`
+**Priority:** P0
 **Status:** Not started
 
 #### Overview
+
 Basic user authentication for saving decks and preferences.
 
 #### User Stories
+
 - As a user, I want to create an account
 - As a user, I want to sign in with email/password or OAuth
 - As a user, I want my decks saved to my account
 
 #### Technical Approach
+
 Use Supabase Auth for simplicity:
+
 - Email/password authentication
 - Google OAuth (optional for MVP)
 - Session management via Supabase client
 
 #### API Endpoints
+
 Handled by Supabase client library, but backend needs:
 
 ```
@@ -262,6 +283,7 @@ PATCH /api/users/me
 ```
 
 #### Acceptance Criteria
+
 - [ ] Users can sign up with email/password
 - [ ] Users can sign in and out
 - [ ] Sessions persist appropriately
@@ -274,13 +296,15 @@ PATCH /api/users/me
 
 ### Pipeline 1: Card Data Sync
 
-**Spec ID:** `PIPE-001`  
+**Spec ID:** `PIPE-001`
 **Frequency:** On new set release + daily check
 
 #### Overview
+
 Sync card database from TCGdex API (self-hosted Docker instance).
 
 #### Process
+
 1. Check for new/updated cards since last sync
 2. Fetch card data from API
 3. Transform to internal schema
@@ -289,6 +313,7 @@ Sync card database from TCGdex API (self-hosted Docker instance).
 6. Log sync results
 
 #### Error Handling
+
 - Retry failed API calls with exponential backoff
 - Alert on repeated failures
 - Continue sync for other cards if one fails
@@ -297,13 +322,15 @@ Sync card database from TCGdex API (self-hosted Docker instance).
 
 ### Pipeline 2: Tournament Data Sync
 
-**Spec ID:** `PIPE-002`  
+**Spec ID:** `PIPE-002`
 **Frequency:** Daily
 
 #### Overview
+
 Sync tournament results from LimitlessTCG, including both international and Japanese tournaments.
 
 #### Process
+
 1. Check for new tournaments since last sync
 2. Fetch tournament data (approach TBD - API or scrape)
 3. Parse and classify archetypes
@@ -313,12 +340,14 @@ Sync tournament results from LimitlessTCG, including both international and Japa
 7. Invalidate relevant caches
 
 #### Japanese Data Handling
+
 - Japanese tournaments tagged with `region: "JP"` and `bestOf: 1`
 - Card name mapping: Japanese → International (for archetype consistency)
 - Set legality tracking: Some cards legal in JP but not yet international
 - Meta snapshots separated by format type (BO1 vs BO3)
 
 #### Considerations
+
 - Need to respect LimitlessTCG rate limits
 - May need partnership discussion
 - Archetype classification may need manual curation initially
@@ -487,6 +516,7 @@ NODE_ENV=development|production
 ## Development Milestones
 
 ### Milestone 1: Foundation (Week 1-2)
+
 - [ ] Repository setup with monorepo structure
 - [ ] Database schema and migrations
 - [ ] Basic Next.js app with Tailwind + shadcn
@@ -495,24 +525,28 @@ NODE_ENV=development|production
 - [ ] Card data sync pipeline (TCGdex self-hosted)
 
 ### Milestone 2: Core Features (Week 3-4)
+
 - [ ] Card search (keyword)
 - [ ] Card database UI
 - [ ] Deck builder basic functionality
 - [ ] Save/load decks
 
 ### Milestone 3: Meta Dashboard (Week 5-6)
+
 - [ ] Tournament data ingestion (manual or automated)
 - [ ] Meta share calculations
 - [ ] Dashboard UI with charts
 - [ ] Regional filtering
 
 ### Milestone 4: Smart Features (Week 7-8)
+
 - [ ] Card embeddings and semantic search
 - [ ] Inclusion rate calculations
 - [ ] Consistency metrics
 - [ ] Archetype templates
 
 ### Milestone 5: Polish & Launch (Week 9-10)
+
 - [ ] UI polish and mobile responsiveness
 - [ ] Error handling and edge cases
 - [ ] Performance optimization

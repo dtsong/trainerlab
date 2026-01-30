@@ -17,6 +17,7 @@
 ### 1.2 MVP Scope
 
 **In scope for initial build:**
+
 - Card database with search (keyword + semantic)
 - Deck builder (create, save, load, export)
 - Meta dashboard (archetype shares, trends)
@@ -24,6 +25,7 @@
 - Basic user authentication
 
 **Out of scope for MVP:**
+
 - Card reveal ingestion pipeline
 - Price tracking
 - Social features
@@ -177,49 +179,49 @@ trainerlab/
 
 ### 3.1 Frontend
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Next.js | 14+ | React framework with App Router |
-| TypeScript | 5+ | Type safety |
-| Tailwind CSS | 3+ | Styling |
-| shadcn/ui | latest | UI component library |
-| TanStack Query | 5+ | Data fetching/caching |
-| Zustand | 4+ | Client state (deck builder) |
-| Recharts | 2+ | Charts for meta dashboard |
+| Technology     | Version | Purpose                         |
+| -------------- | ------- | ------------------------------- |
+| Next.js        | 14+     | React framework with App Router |
+| TypeScript     | 5+      | Type safety                     |
+| Tailwind CSS   | 3+      | Styling                         |
+| shadcn/ui      | latest  | UI component library            |
+| TanStack Query | 5+      | Data fetching/caching           |
+| Zustand        | 4+      | Client state (deck builder)     |
+| Recharts       | 2+      | Charts for meta dashboard       |
 
 ### 3.2 Backend
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Python | 3.11+ | Runtime |
-| FastAPI | 0.100+ | API framework |
-| SQLAlchemy | 2+ | ORM |
-| Alembic | 1.12+ | Migrations |
-| Pydantic | 2+ | Validation |
-| httpx | 0.25+ | Async HTTP client |
+| Technology | Version | Purpose           |
+| ---------- | ------- | ----------------- |
+| Python     | 3.11+   | Runtime           |
+| FastAPI    | 0.100+  | API framework     |
+| SQLAlchemy | 2+      | ORM               |
+| Alembic    | 1.12+   | Migrations        |
+| Pydantic   | 2+      | Validation        |
+| httpx      | 0.25+   | Async HTTP client |
 
 ### 3.3 Infrastructure (GCP)
 
-| Technology | GCP Service | Purpose |
-|------------|-------------|---------|
-| PostgreSQL 15 | Cloud SQL | Primary database |
-| pgvector | Cloud SQL extension | Vector similarity search |
-| Redis | Memorystore | Caching |
-| TCGdex | Cloud Run (self-hosted) | Card data source |
-| Auth | Firebase Auth or Supabase | User authentication |
-| Secrets | Secret Manager | Environment variables |
-| CDN | Cloud CDN | Static asset caching |
-| CI/CD | Cloud Build | Auto-deploy on push |
+| Technology    | GCP Service               | Purpose                  |
+| ------------- | ------------------------- | ------------------------ |
+| PostgreSQL 15 | Cloud SQL                 | Primary database         |
+| pgvector      | Cloud SQL extension       | Vector similarity search |
+| Redis         | Memorystore               | Caching                  |
+| TCGdex        | Cloud Run (self-hosted)   | Card data source         |
+| Auth          | Firebase Auth or Supabase | User authentication      |
+| Secrets       | Secret Manager            | Environment variables    |
+| CDN           | Cloud CDN                 | Static asset caching     |
+| CI/CD         | Cloud Build               | Auto-deploy on push      |
 
 ### 3.4 Development
 
-| Tool | Purpose |
-|------|---------|
-| Docker Compose | Local dev environment |
-| pnpm | Frontend package manager |
-| Poetry | Python dependency management |
-| ESLint + Prettier | Frontend linting |
-| Ruff | Python linting |
+| Tool              | Purpose                      |
+| ----------------- | ---------------------------- |
+| Docker Compose    | Local dev environment        |
+| pnpm              | Frontend package manager     |
+| Poetry            | Python dependency management |
+| ESLint + Prettier | Frontend linting             |
+| Ruff              | Python linting               |
 
 ---
 
@@ -234,23 +236,23 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- Cards table
 CREATE TABLE cards (
     id TEXT PRIMARY KEY,                    -- TCGdex ID (e.g., "swsh3-136")
-    
+
     -- Names (multi-language)
     name_en TEXT NOT NULL,
     name_ja TEXT,
-    
+
     -- Core attributes
     supertype TEXT NOT NULL,                -- "Pokemon", "Trainer", "Energy"
     subtypes TEXT[],                        -- ["Stage 2", "ex"]
     hp INTEGER,
     types TEXT[],                           -- ["Fire", "Water"]
-    
+
     -- Set info
     set_id TEXT NOT NULL,
     set_name TEXT NOT NULL,
     number TEXT NOT NULL,                   -- Card number in set
     rarity TEXT,
-    
+
     -- Game mechanics (stored as JSONB for flexibility)
     attacks JSONB,
     abilities JSONB,
@@ -258,23 +260,23 @@ CREATE TABLE cards (
     resistances JSONB,
     retreat_cost INTEGER,
     rules TEXT[],                           -- Rule box text
-    
+
     -- Evolution
     evolves_from TEXT,
     evolves_to TEXT[],
-    
+
     -- Images
     image_small TEXT,
     image_large TEXT,
-    
+
     -- Legality
     legality_standard TEXT,                 -- "Legal", "Banned", "Not Legal"
     legality_expanded TEXT,
     regulation_mark TEXT,                   -- "G", "H", etc.
-    
+
     -- Semantic search
     text_embedding vector(1536),            -- OpenAI ada-002 dimensions
-    
+
     -- Metadata
     tcgdex_updated_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -295,19 +297,19 @@ CREATE TABLE sets (
     id TEXT PRIMARY KEY,                    -- TCGdex set ID
     name TEXT NOT NULL,
     series TEXT NOT NULL,                   -- "Sword & Shield", "Scarlet & Violet"
-    
+
     total_cards INTEGER,
     release_date DATE,
     release_date_jp DATE,                   -- Japanese release (often earlier)
-    
+
     -- Images
     logo_url TEXT,
     symbol_url TEXT,
-    
+
     -- Legality
     legality_standard TEXT,
     legality_expanded TEXT,
-    
+
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -317,10 +319,10 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     display_name TEXT,
-    
+
     -- Preferences (JSONB for flexibility)
     preferences JSONB DEFAULT '{}',
-    
+
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -329,24 +331,24 @@ CREATE TABLE users (
 CREATE TABLE decks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    
+
     name TEXT NOT NULL,
     description TEXT,
     format TEXT NOT NULL DEFAULT 'standard',  -- "standard", "expanded"
     archetype TEXT,                            -- "Charizard ex", "Lugia VSTAR"
-    
+
     -- Deck contents (JSONB array of {card_id, quantity})
     cards JSONB NOT NULL DEFAULT '[]',
-    
+
     -- Computed stats (updated on save)
     pokemon_count INTEGER,
     trainer_count INTEGER,
     energy_count INTEGER,
-    
+
     -- Sharing
     is_public BOOLEAN DEFAULT FALSE,
     share_code TEXT UNIQUE,
-    
+
     -- Metadata
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -360,17 +362,17 @@ CREATE INDEX idx_decks_is_public ON decks (is_public) WHERE is_public = TRUE;
 CREATE TABLE tournaments (
     id TEXT PRIMARY KEY,                    -- Source ID
     source TEXT NOT NULL,                   -- "limitless", "rk9"
-    
+
     name TEXT NOT NULL,
     date DATE NOT NULL,
     country TEXT,
     region TEXT,                            -- "NA", "EU", "JP", "LATAM", "APAC"
-    
+
     format TEXT NOT NULL,                   -- "standard", "expanded"
     best_of INTEGER NOT NULL DEFAULT 3,     -- 1 for Japan, 3 for international
-    
+
     player_count INTEGER,
-    
+
     -- Metadata
     url TEXT,                               -- Link to source
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -384,14 +386,14 @@ CREATE INDEX idx_tournaments_format ON tournaments (format);
 CREATE TABLE tournament_placements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tournament_id TEXT REFERENCES tournaments(id) ON DELETE CASCADE,
-    
+
     placement INTEGER NOT NULL,             -- 1, 2, 3, 4, 5-8, 9-16, etc.
     player_name TEXT,
-    
+
     -- Deck info
     archetype TEXT NOT NULL,
     deck_list JSONB,                        -- Full deck list if available
-    
+
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -401,20 +403,20 @@ CREATE INDEX idx_placements_archetype ON tournament_placements (archetype);
 -- Meta snapshots (computed weekly)
 CREATE TABLE meta_snapshots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    
+
     snapshot_date DATE NOT NULL,
     region TEXT NOT NULL,                   -- "global", "NA", "EU", "JP"
     format TEXT NOT NULL,                   -- "standard", "expanded"
     best_of INTEGER NOT NULL DEFAULT 3,     -- Separate JP BO1 snapshots
-    
+
     -- Aggregated data
     archetype_shares JSONB NOT NULL,        -- {"Charizard ex": 0.15, ...}
     sample_size INTEGER NOT NULL,           -- Number of decks in sample
-    
+
     -- Metadata
     tournaments_included TEXT[],            -- Tournament IDs used
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    
+
     UNIQUE(snapshot_date, region, format, best_of)
 );
 
@@ -435,7 +437,7 @@ WHERE format = 'standard'
 
 -- Card inclusion rates (computed from tournament_placements)
 CREATE VIEW card_inclusion_rates AS
-SELECT 
+SELECT
     card_id,
     archetype,
     COUNT(*) as times_included,
@@ -548,7 +550,7 @@ async def fetch_all_cards(language: str = "en") -> AsyncGenerator[dict, None]:
         # Get all sets first
         sets_response = await client.get(f"{TCGDEX_BASE_URL}/{language}/sets")
         sets = sets_response.json()
-        
+
         for set_data in sets:
             set_id = set_data["id"]
             # Get full set with cards
@@ -556,7 +558,7 @@ async def fetch_all_cards(language: str = "en") -> AsyncGenerator[dict, None]:
                 f"{TCGDEX_BASE_URL}/{language}/sets/{set_id}"
             )
             set_info = set_detail.json()
-            
+
             for card in set_info.get("cards", []):
                 # Get full card detail
                 card_detail = await client.get(
@@ -569,7 +571,7 @@ async def sync_cards_to_db():
     # Fetch English
     async for card in fetch_all_cards("en"):
         await upsert_card(card, language="en")
-    
+
     # Fetch Japanese names
     async for card in fetch_all_cards("ja"):
         await update_japanese_name(card["id"], card["name"])
@@ -580,8 +582,8 @@ async def sync_cards_to_db():
 ```typescript
 // src/lib/stores/deckStore.ts
 
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface DeckCard {
   cardId: string;
@@ -591,9 +593,9 @@ interface DeckCard {
 interface DeckState {
   // Current deck being edited
   name: string;
-  format: 'standard' | 'expanded';
+  format: "standard" | "expanded";
   cards: DeckCard[];
-  
+
   // Actions
   setName: (name: string) => void;
   addCard: (cardId: string) => void;
@@ -601,7 +603,7 @@ interface DeckState {
   setQuantity: (cardId: string, quantity: number) => void;
   clearDeck: () => void;
   loadDeck: (deck: SavedDeck) => void;
-  
+
   // Computed (these are getters)
   totalCards: () => number;
   pokemonCount: () => number;
@@ -613,76 +615,76 @@ interface DeckState {
 export const useDeckStore = create<DeckState>()(
   persist(
     (set, get) => ({
-      name: 'Untitled Deck',
-      format: 'standard',
+      name: "Untitled Deck",
+      format: "standard",
       cards: [],
-      
+
       setName: (name) => set({ name }),
-      
+
       addCard: (cardId) => {
         const cards = get().cards;
-        const existing = cards.find(c => c.cardId === cardId);
-        
+        const existing = cards.find((c) => c.cardId === cardId);
+
         if (existing) {
-          if (existing.quantity < 4) {  // Max 4 copies rule
+          if (existing.quantity < 4) {
+            // Max 4 copies rule
             set({
-              cards: cards.map(c => 
-                c.cardId === cardId 
-                  ? { ...c, quantity: c.quantity + 1 }
-                  : c
-              )
+              cards: cards.map((c) =>
+                c.cardId === cardId ? { ...c, quantity: c.quantity + 1 } : c,
+              ),
             });
           }
         } else {
           set({ cards: [...cards, { cardId, quantity: 1 }] });
         }
       },
-      
+
       removeCard: (cardId) => {
         const cards = get().cards;
-        const existing = cards.find(c => c.cardId === cardId);
-        
+        const existing = cards.find((c) => c.cardId === cardId);
+
         if (existing && existing.quantity > 1) {
           set({
-            cards: cards.map(c =>
-              c.cardId === cardId
-                ? { ...c, quantity: c.quantity - 1 }
-                : c
-            )
+            cards: cards.map((c) =>
+              c.cardId === cardId ? { ...c, quantity: c.quantity - 1 } : c,
+            ),
           });
         } else {
-          set({ cards: cards.filter(c => c.cardId !== cardId) });
+          set({ cards: cards.filter((c) => c.cardId !== cardId) });
         }
       },
-      
+
       setQuantity: (cardId, quantity) => {
         if (quantity <= 0) {
-          set({ cards: get().cards.filter(c => c.cardId !== cardId) });
+          set({ cards: get().cards.filter((c) => c.cardId !== cardId) });
         } else {
           set({
-            cards: get().cards.map(c =>
-              c.cardId === cardId ? { ...c, quantity: Math.min(quantity, 4) } : c
-            )
+            cards: get().cards.map((c) =>
+              c.cardId === cardId
+                ? { ...c, quantity: Math.min(quantity, 4) }
+                : c,
+            ),
           });
         }
       },
-      
-      clearDeck: () => set({ name: 'Untitled Deck', cards: [] }),
-      
-      loadDeck: (deck) => set({
-        name: deck.name,
-        format: deck.format,
-        cards: deck.cards,
-      }),
-      
+
+      clearDeck: () => set({ name: "Untitled Deck", cards: [] }),
+
+      loadDeck: (deck) =>
+        set({
+          name: deck.name,
+          format: deck.format,
+          cards: deck.cards,
+        }),
+
       totalCards: () => get().cards.reduce((sum, c) => sum + c.quantity, 0),
-      
+
       isValidDeck: () => get().totalCards() === 60,
     }),
     {
-      name: 'deck-builder-storage',
-    }
-  )
+      name: "deck-builder-storage",
+    },
+  ),
 );
 ```
 
@@ -708,15 +710,15 @@ async def search_cards(
     """
     # First, try keyword search
     keyword_results = await keyword_search(db, query, filters, limit)
-    
+
     # If good results, return them
     if len(keyword_results) >= 5:
         return keyword_results
-    
+
     # Otherwise, try semantic search
     if use_semantic and len(query.split()) >= 3:
         semantic_results = await semantic_search(db, query, filters, limit)
-        
+
         # Merge and dedupe
         seen_ids = {r.id for r in keyword_results}
         for card in semantic_results:
@@ -724,7 +726,7 @@ async def search_cards(
                 keyword_results.append(card)
                 if len(keyword_results) >= limit:
                     break
-    
+
     return keyword_results
 
 async def keyword_search(
@@ -741,7 +743,7 @@ async def keyword_search(
             func.to_tsvector('english', Card.name_en).match(query)
         )
     )
-    
+
     if filters:
         if filters.get("supertype"):
             stmt = stmt.where(Card.supertype == filters["supertype"])
@@ -749,7 +751,7 @@ async def keyword_search(
             stmt = stmt.where(Card.types.contains([filters["types"]]))
         if filters.get("legal_standard"):
             stmt = stmt.where(Card.legality_standard == "Legal")
-    
+
     stmt = stmt.limit(limit)
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -763,16 +765,16 @@ async def semantic_search(
     """Vector similarity search for natural language queries."""
     # Generate embedding for query
     embedding = await get_embedding(query)
-    
+
     # Search by vector similarity
     stmt = select(Card).order_by(
         Card.text_embedding.cosine_distance(embedding)
     ).limit(limit)
-    
+
     if filters:
         # Apply same filters as keyword search
         pass
-    
+
     result = await db.execute(stmt)
     return result.scalars().all()
 
@@ -807,13 +809,13 @@ async def get_current_meta(
         MetaSnapshot.format == format,
         MetaSnapshot.best_of == best_of
     ).order_by(MetaSnapshot.snapshot_date.desc()).limit(1)
-    
+
     result = await db.execute(stmt)
     snapshot = result.scalar_one_or_none()
-    
+
     if not snapshot:
         return {"error": "No meta data available"}
-    
+
     return {
         "date": snapshot.snapshot_date,
         "region": snapshot.region,
@@ -839,10 +841,10 @@ async def get_meta_history(
         MetaSnapshot.snapshot_date >= start_date,
         MetaSnapshot.snapshot_date <= end_date
     ).order_by(MetaSnapshot.snapshot_date)
-    
+
     result = await db.execute(stmt)
     snapshots = result.scalars().all()
-    
+
     return [
         {
             "date": s.snapshot_date,
@@ -860,10 +862,10 @@ async def compute_meta_snapshot(
 ) -> MetaSnapshot:
     """Compute a new meta snapshot from recent tournament data."""
     cutoff_date = date.today() - timedelta(days=lookback_days)
-    
+
     # Determine best_of based on region
     best_of = 1 if region == "JP" else 3
-    
+
     # Get placements from recent tournaments
     stmt = select(
         TournamentPlacement.archetype,
@@ -878,16 +880,16 @@ async def compute_meta_snapshot(
     ).group_by(
         TournamentPlacement.archetype
     )
-    
+
     result = await db.execute(stmt)
     archetype_counts = {row.archetype: row.count for row in result}
-    
+
     total = sum(archetype_counts.values())
     archetype_shares = {
         archetype: count / total
         for archetype, count in archetype_counts.items()
     }
-    
+
     # Create snapshot
     snapshot = MetaSnapshot(
         snapshot_date=date.today(),
@@ -897,10 +899,10 @@ async def compute_meta_snapshot(
         archetype_shares=archetype_shares,
         sample_size=total,
     )
-    
+
     db.add(snapshot)
     await db.commit()
-    
+
     return snapshot
 ```
 
@@ -973,13 +975,13 @@ In production, secrets are injected via Cloud Run's Secret Manager integration:
 
 ### 7.4 Secret Manager Naming Convention
 
-| Secret Name | Description |
-|-------------|-------------|
-| `database-url` | Cloud SQL connection string |
-| `redis-url` | Memorystore connection string |
-| `openai-key` | OpenAI API key |
-| `firebase-service-account` | Firebase admin SDK (if using Firebase) |
-| `supabase-service-key` | Supabase service key (if using Supabase) |
+| Secret Name                | Description                              |
+| -------------------------- | ---------------------------------------- |
+| `database-url`             | Cloud SQL connection string              |
+| `redis-url`                | Memorystore connection string            |
+| `openai-key`               | OpenAI API key                           |
+| `firebase-service-account` | Firebase admin SDK (if using Firebase)   |
+| `supabase-service-key`     | Supabase service key (if using Supabase) |
 
 ---
 
@@ -988,7 +990,7 @@ In production, secrets are injected via Cloud Run's Secret Manager integration:
 ```yaml
 # docker-compose.yml
 
-version: '3.8'
+version: "3.8"
 
 services:
   # TCGdex card data API
@@ -1031,6 +1033,7 @@ volumes:
 ### Phase 1: Foundation (Week 1)
 
 **Day 1-2: Project Setup**
+
 - [ ] Initialize monorepo structure
 - [ ] Set up Next.js app with TypeScript, Tailwind, shadcn/ui
 - [ ] Set up FastAPI project with Poetry
@@ -1038,12 +1041,14 @@ volumes:
 - [ ] Configure ESLint, Prettier, Ruff
 
 **Day 3-4: Database**
+
 - [ ] Create SQLAlchemy models
 - [ ] Set up Alembic migrations
 - [ ] Run initial migration
 - [ ] Verify pgvector extension
 
 **Day 5-7: Card Data Pipeline**
+
 - [ ] Implement TCGdex sync script
 - [ ] Run initial card sync (English + Japanese)
 - [ ] Verify data in database
@@ -1052,6 +1057,7 @@ volumes:
 ### Phase 2: Card Features (Week 2)
 
 **Day 1-3: Card Search**
+
 - [ ] Implement keyword search endpoint
 - [ ] Create CardSearch component
 - [ ] Create CardGrid component
@@ -1059,11 +1065,13 @@ volumes:
 - [ ] Build /cards page
 
 **Day 4-5: Card Detail**
+
 - [ ] Create CardDetail component
 - [ ] Build /cards/[id] page
 - [ ] Show Japanese name when available
 
 **Day 6-7: Semantic Search**
+
 - [ ] Generate embeddings for cards
 - [ ] Implement semantic search endpoint
 - [ ] Add to search UI with fallback
@@ -1071,17 +1079,20 @@ volumes:
 ### Phase 3: Deck Builder (Week 3)
 
 **Day 1-2: Deck State**
+
 - [ ] Create Zustand store
 - [ ] Implement add/remove/quantity actions
 - [ ] Persist to localStorage
 
 **Day 3-5: Deck Builder UI**
+
 - [ ] Create DeckBuilder component
 - [ ] Create DeckList component (shows current deck)
 - [ ] Create DeckStats component (counts, curve)
 - [ ] Wire up card search to add cards
 
 **Day 6-7: Deck Persistence**
+
 - [ ] Create deck API endpoints
 - [ ] Implement save/load
 - [ ] Build /decks and /decks/[id] pages
@@ -1090,17 +1101,20 @@ volumes:
 ### Phase 4: Meta Dashboard (Week 4)
 
 **Day 1-2: Tournament Data**
+
 - [ ] Manual import of sample tournament data
 - [ ] Create meta snapshot computation
 - [ ] Run initial snapshot
 
 **Day 3-5: Meta UI**
+
 - [ ] Create MetaChart component (pie/bar)
 - [ ] Create ArchetypeCard component
 - [ ] Create RegionFilter component
 - [ ] Build /meta page
 
 **Day 6-7: Japan View**
+
 - [ ] Create Japan-specific snapshot (BO1)
 - [ ] Build /meta/japan page
 - [ ] Add BO1/tie rule context notices
@@ -1133,7 +1147,7 @@ export function CardGrid({ cards, onCardClick, isLoading = false }: CardGridProp
   if (isLoading) {
     return <CardGridSkeleton />;
   }
-  
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
       {cards.map((card) => (
@@ -1189,7 +1203,7 @@ async def list_cards(
         page=page,
         limit=limit,
     )
-    
+
     return PaginatedResponse(
         items=[CardResponse.from_orm(c) for c in cards],
         total=total,
@@ -1238,13 +1252,13 @@ describe('CardSearch', () => {
   it('calls onSearch when typing', async () => {
     const onSearch = jest.fn();
     render(<CardSearch onSearch={onSearch} />);
-    
+
     const input = screen.getByPlaceholderText(/search cards/i);
     fireEvent.change(input, { target: { value: 'charizard' } });
-    
+
     // Debounced, so wait
     await new Promise(r => setTimeout(r, 500));
-    
+
     expect(onSearch).toHaveBeenCalledWith('charizard');
   });
 });
@@ -1337,27 +1351,27 @@ terraform apply -var-file=environments/dev.tfvars
 
 **What Terraform Creates:**
 
-| Resource | Purpose |
-|----------|---------|
-| `google_cloud_run_v2_service.web` | Next.js frontend |
-| `google_cloud_run_v2_service.api` | FastAPI backend |
-| `google_cloud_run_v2_service.tcgdex` | TCGdex card data |
-| `google_sql_database_instance.main` | PostgreSQL with pgvector |
-| `google_redis_instance.cache` | Redis cache |
-| `google_compute_network.vpc` | Private VPC |
-| `google_vpc_access_connector.connector` | Cloud Run → VPC |
-| `google_secret_manager_secret.*` | All secrets |
-| `google_artifact_registry_repository.docker_repo` | Docker images |
-| `google_cloudbuild_trigger.deploy` | CI/CD pipeline |
-| `google_cloud_scheduler_job.*` | Cron jobs |
-| `google_compute_*` (prod only) | Load balancer + CDN |
+| Resource                                          | Purpose                  |
+| ------------------------------------------------- | ------------------------ |
+| `google_cloud_run_v2_service.web`                 | Next.js frontend         |
+| `google_cloud_run_v2_service.api`                 | FastAPI backend          |
+| `google_cloud_run_v2_service.tcgdex`              | TCGdex card data         |
+| `google_sql_database_instance.main`               | PostgreSQL with pgvector |
+| `google_redis_instance.cache`                     | Redis cache              |
+| `google_compute_network.vpc`                      | Private VPC              |
+| `google_vpc_access_connector.connector`           | Cloud Run → VPC          |
+| `google_secret_manager_secret.*`                  | All secrets              |
+| `google_artifact_registry_repository.docker_repo` | Docker images            |
+| `google_cloudbuild_trigger.deploy`                | CI/CD pipeline           |
+| `google_cloud_scheduler_job.*`                    | Cron jobs                |
+| `google_compute_*` (prod only)                    | Load balancer + CDN      |
 
 **Environment Configurations:**
 
-| Config | Database | Redis | Cloud Run | Load Balancer |
-|--------|----------|-------|-----------|---------------|
-| `dev.tfvars` | db-f1-micro | BASIC 1GB | Scale to 0 | None |
-| `prod.tfvars` | db-custom-1-3840 | HA 2GB | Min 1 | Yes + CDN |
+| Config        | Database         | Redis     | Cloud Run  | Load Balancer |
+| ------------- | ---------------- | --------- | ---------- | ------------- |
+| `dev.tfvars`  | db-f1-micro      | BASIC 1GB | Scale to 0 | None          |
+| `prod.tfvars` | db-custom-1-3840 | HA 2GB    | Min 1      | Yes + CDN     |
 
 See `/terraform/README.md` for full documentation.
 
@@ -1366,6 +1380,7 @@ See `/terraform/README.md` for full documentation.
 Cloud Build is configured via Terraform and uses `cloudbuild.yaml` in the repo root.
 
 **Pipeline Flow:**
+
 ```
 Push to GitHub
     ↓
@@ -1382,6 +1397,7 @@ Deploy to Cloud Run
 ```
 
 **cloudbuild.yaml** handles:
+
 - Detecting branch (main vs feature)
 - Building both frontend and backend images
 - Deploying to Cloud Run with correct env vars
@@ -1390,6 +1406,7 @@ Deploy to Cloud Run
 ### 12.5 Dockerfiles
 
 Dockerfiles for each service are in their respective app directories:
+
 - `apps/web/Dockerfile` - Next.js standalone build
 - `apps/api/Dockerfile` - FastAPI with Poetry
 
@@ -1431,17 +1448,17 @@ gcloud run services update trainerlab-api --region=us-central1 --image=LATEST_IM
 
 ### 12.8 Environment Separation
 
-| Environment | Terraform Config | Database | Cloud Run |
-|-------------|------------------|----------|-----------|
-| Development | `dev.tfvars` | db-f1-micro | Scale to 0 |
-| Production | `prod.tfvars` | db-custom-1-3840 | Min 1 + LB |
+| Environment | Terraform Config | Database         | Cloud Run  |
+| ----------- | ---------------- | ---------------- | ---------- |
+| Development | `dev.tfvars`     | db-f1-micro      | Scale to 0 |
+| Production  | `prod.tfvars`    | db-custom-1-3840 | Min 1 + LB |
 
 ### 12.9 Cost Estimates
 
 | Environment | Monthly Cost |
-|-------------|--------------|
-| Development | $50-100 |
-| Production | $150-250 |
+| ----------- | ------------ |
+| Development | $50-100      |
+| Production  | $150-250     |
 
 Cloud Run scaling to zero is the biggest cost saver for dev environments.
 
@@ -1475,5 +1492,5 @@ Cloud Run scaling to zero is the biggest cost saver for dev environments.
 
 ---
 
-*Last updated: January 2026*
-*For Claude Code implementation*
+_Last updated: January 2026_
+_For Claude Code implementation_

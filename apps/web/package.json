@@ -1,0 +1,14 @@
+{
+  "name": "@trainerlab/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "TrainerLab Next.js frontend",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf .next .turbo node_modules"
+  }
+}

@@ -15,6 +15,7 @@
 - [ ] **Evaluate image hosting** - Can we hotlink? Any restrictions?
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
@@ -30,23 +31,25 @@
 - [ ] **Evaluate scraping as fallback** - Feasibility, ethics, ToS
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
 
 **Outreach template:**
+
 ```
 Subject: Data Partnership Inquiry - Competitive Pokemon TCG Tools
 
 Hi [Limitless Team],
 
-I'm building an open-source tool to help competitive Pokemon TCG players 
-with tournament preparation and deck building. I've long admired the work 
+I'm building an open-source tool to help competitive Pokemon TCG players
+with tournament preparation and deck building. I've long admired the work
 you've done with LimitlessTCG - it's the definitive resource for tournament data.
 
-I'm reaching out to explore whether there might be an opportunity to 
-access tournament data through an API or data partnership. My goal is to 
-build analysis tools on top of your data (with full attribution) that 
+I'm reaching out to explore whether there might be an opportunity to
+access tournament data through an API or data partnership. My goal is to
+build analysis tools on top of your data (with full attribution) that
 complement rather than compete with your platform.
 
 Specifically, I'm looking to:
@@ -54,7 +57,7 @@ Specifically, I'm looking to:
 - Show card inclusion rates across successful lists
 - Help players compare their builds to tournament-performing lists
 
-I'd be happy to discuss attribution, linking back to Limitless for full 
+I'd be happy to discuss attribution, linking back to Limitless for full
 data, or any other arrangement that works for you.
 
 Would you be open to a brief conversation about this?
@@ -73,6 +76,7 @@ Best,
 - [ ] **Document decision** - Build own vs. integrate
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
@@ -90,6 +94,7 @@ Best,
 - [ ] **Document costs at scale** - 1K, 10K, 100K users
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
@@ -105,6 +110,7 @@ Best,
 - [ ] **Document decision** - Which model to use
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
@@ -113,11 +119,11 @@ Best,
 
 ### Hosting Cost Analysis
 
-| Scale | Supabase | Vercel | Railway | Claude API | Total |
-|-------|----------|--------|---------|------------|-------|
-| MVP (100 users) | | | | | |
-| Growth (1K users) | | | | | |
-| Scale (10K users) | | | | | |
+| Scale             | Supabase | Vercel | Railway | Claude API | Total |
+| ----------------- | -------- | ------ | ------- | ---------- | ----- |
+| MVP (100 users)   |          |        |         |            |       |
+| Growth (1K users) |          |        |         |            |       |
+| Scale (10K users) |          |        |         |            |       |
 
 ---
 
@@ -126,12 +132,13 @@ Best,
 ### Creator/Coach Conversations
 
 | Person | Role | Date | Key Feedback | Follow-up Needed |
-|--------|------|------|--------------|------------------|
-| | | | | |
-| | | | | |
-| | | | | |
+| ------ | ---- | ---- | ------------ | ---------------- |
+|        |      |      |              |                  |
+|        |      |      |              |                  |
+|        |      |      |              |                  |
 
 **Common themes:**
+
 ```
 [Synthesize feedback themes here]
 ```
@@ -140,19 +147,20 @@ Best,
 
 ### Beta Tester Recruitment
 
-| Person | Persona | Confirmed? | Contact | Notes |
-|--------|---------|------------|---------|-------|
-| | Aspiring Competitor | | | |
-| | Aspiring Competitor | | | |
-| | Grinder | | | |
-| | Grinder | | | |
-| | Creator/Coach | | | |
+| Person | Persona             | Confirmed? | Contact | Notes |
+| ------ | ------------------- | ---------- | ------- | ----- |
+|        | Aspiring Competitor |            |         |       |
+|        | Aspiring Competitor |            |         |       |
+|        | Grinder             |            |         |       |
+|        | Grinder             |            |         |       |
+|        | Creator/Coach       |            |         |       |
 
 ---
 
 ### Feature Priority Survey
 
 **Survey questions:**
+
 1. What's the most time-consuming part of tournament preparation?
 2. What tools do you currently use? What's missing?
 3. Which feature would you most want?
@@ -165,6 +173,7 @@ Best,
 5. Anything else you wish existed?
 
 **Survey results:**
+
 ```
 [Document survey results here]
 ```
@@ -187,6 +196,7 @@ Best,
   - Document findings
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
@@ -195,13 +205,13 @@ Best,
 
 ### Affiliate Programs
 
-| Partner | Program | Commission | Notes |
-|---------|---------|------------|-------|
-| TCGPlayer | Affiliate | ~5% | Primary card marketplace |
-| eBay Partner Network | Affiliate | 1-4% | Alternative marketplace |
-| Amazon | Associates | 1-3% | Accessories, sleeves, etc. |
-| Card Cavern | ? | TBD | Research if they have program |
-| Full Grip Games | ? | TBD | Research if they have program |
+| Partner              | Program    | Commission | Notes                         |
+| -------------------- | ---------- | ---------- | ----------------------------- |
+| TCGPlayer            | Affiliate  | ~5%        | Primary card marketplace      |
+| eBay Partner Network | Affiliate  | 1-4%       | Alternative marketplace       |
+| Amazon               | Associates | 1-3%       | Accessories, sleeves, etc.    |
+| Card Cavern          | ?          | TBD        | Research if they have program |
+| Full Grip Games      | ?          | TBD        | Research if they have program |
 
 - [ ] **Apply to TCGPlayer affiliate program**
 - [ ] **Research other card shop affiliate options**
@@ -212,6 +222,7 @@ Best,
 ### Sponsorship Outreach
 
 **Potential sponsors to research:**
+
 - [ ] Ultra Pro (sleeves, deck boxes)
 - [ ] Dragon Shield (sleeves)
 - [ ] Local game stores / online retailers
@@ -219,6 +230,7 @@ Best,
 - [ ] Other Pokemon TCG content creators (cross-promo)
 
 **Sponsorship package draft:**
+
 ```
 [Create sponsorship deck when traffic justifies]
 ```
@@ -234,6 +246,7 @@ Best,
   - Other TCG tool subscriptions
 
 **Survey results:**
+
 ```
 [Document survey results here]
 ```
@@ -251,6 +264,7 @@ Best,
 - [ ] **Consider:** Do we need to handle payments ourselves or use a platform?
 
 **Decision:**
+
 ```
 [Document decision here]
 ```
@@ -272,6 +286,7 @@ Best,
   - Japan Championships
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
@@ -291,6 +306,7 @@ Best,
   - Official sources for set release dates?
 
 **Resources found:**
+
 ```
 [Document resources here]
 ```
@@ -302,7 +318,7 @@ Best,
 - [ ] **Research how BO1 affects meta in other games**
   - MTG Arena BO1 vs BO3
   - Hearthstone (primarily BO1)
-  
+
 - [ ] **Document expected differences:**
   - Consistency premium in BO1
   - Aggro/speed favored
@@ -310,6 +326,7 @@ Best,
   - Matchup spread less important than raw power
 
 **Analysis:**
+
 ```
 [Document analysis here]
 ```
@@ -328,6 +345,7 @@ Best,
   - Check if creators mention Japanese meta
 
 **Findings:**
+
 ```
 [Document findings here]
 ```
@@ -358,6 +376,7 @@ Best,
   - Reach out to 2-3 candidates
 
 **Translation test results:**
+
 ```
 [Document findings here]
 ```
@@ -366,14 +385,15 @@ Best,
 
 ### Japanese Source Outreach
 
-| Source | Contact Method | Status | Notes |
-|--------|---------------|--------|-------|
-| LimitlessTCG | Same as main outreach | | Ask about JP data specifically |
-| Pokecabook | Twitter @pokeca_book | | May need Japanese outreach |
-| ポケカ飯 | Twitter @pokekameshi | | Statistical focus aligns with us |
-| pokemoncard.io (arelios) | Site contact | | Already doing English JP reports |
+| Source                   | Contact Method        | Status | Notes                            |
+| ------------------------ | --------------------- | ------ | -------------------------------- |
+| LimitlessTCG             | Same as main outreach |        | Ask about JP data specifically   |
+| Pokecabook               | Twitter @pokeca_book  |        | May need Japanese outreach       |
+| ポケカ飯                 | Twitter @pokekameshi  |        | Statistical focus aligns with us |
+| pokemoncard.io (arelios) | Site contact          |        | Already doing English JP reports |
 
 **Outreach notes:**
+
 ```
 [Document findings here]
 ```
@@ -389,6 +409,7 @@ Best,
 - [ ] **Determine image usage policy**
 
 **Findings:**
+
 ```
 [Document findings here after research]
 ```
@@ -406,6 +427,7 @@ Best,
 - [ ] **Decide launch timing** - Before or after MVP?
 
 **Channel structure draft:**
+
 ```
 # INFORMATION
 - welcome
@@ -430,13 +452,13 @@ Best,
 
 ### Content Calendar (Post-Launch)
 
-| Week | Content Type | Topic | Status |
-|------|--------------|-------|--------|
-| Launch | Announcement | Platform launch post | |
-| +1 | Article | "State of the Meta" snapshot | |
-| +2 | Tutorial | How to use deck builder | |
-| +3 | Article | Meta trends analysis | |
-| +4 | Feature | New feature announcement | |
+| Week   | Content Type | Topic                        | Status |
+| ------ | ------------ | ---------------------------- | ------ |
+| Launch | Announcement | Platform launch post         |        |
+| +1     | Article      | "State of the Meta" snapshot |        |
+| +2     | Tutorial     | How to use deck builder      |        |
+| +3     | Article      | Meta trends analysis         |        |
+| +4     | Feature      | New feature announcement     |        |
 
 ---
 
@@ -444,22 +466,22 @@ Best,
 
 Track key decisions and rationale.
 
-| Date | Decision | Options Considered | Rationale |
-|------|----------|-------------------|-----------|
-| | Stack: Next.js + FastAPI + Supabase | Various | Backend expertise, cost, simplicity |
-| | | | |
-| | | | |
+| Date | Decision                            | Options Considered | Rationale                           |
+| ---- | ----------------------------------- | ------------------ | ----------------------------------- |
+|      | Stack: Next.js + FastAPI + Supabase | Various            | Backend expertise, cost, simplicity |
+|      |                                     |                    |                                     |
+|      |                                     |                    |                                     |
 
 ---
 
 ## Blockers & Risks
 
-| Risk | Likelihood | Impact | Mitigation | Status |
-|------|------------|--------|------------|--------|
-| LimitlessTCG says no to partnership | Medium | High | Build scraper fallback, focus on analysis layer | Open |
-| Hosting costs exceed budget | Low | Medium | Aggressive caching, free tier limits | Open |
-| Low adoption | Medium | High | Validate before building, creator partnerships | Open |
-| Pokemon Company legal action | Low | High | Follow fan content guidelines, attribute properly | Open |
+| Risk                                | Likelihood | Impact | Mitigation                                        | Status |
+| ----------------------------------- | ---------- | ------ | ------------------------------------------------- | ------ |
+| LimitlessTCG says no to partnership | Medium     | High   | Build scraper fallback, focus on analysis layer   | Open   |
+| Hosting costs exceed budget         | Low        | Medium | Aggressive caching, free tier limits              | Open   |
+| Low adoption                        | Medium     | High   | Validate before building, creator partnerships    | Open   |
+| Pokemon Company legal action        | Low        | High   | Follow fan content guidelines, attribute properly | Open   |
 
 ---
 

@@ -11,6 +11,7 @@
 TrainerLab is a competitive intelligence platform for Pokemon TCG. We help trainers, coaches, content creators, and families make data-driven decisions about deck building, format preparation, and the hobby.
 
 **Key Features:**
+
 - 🔬 **Meta Dashboard** — What's winning, where, and how it's trending
 - 🇯🇵 **Japanese Format Preview** — Translated results with BO1 context
 - 🃏 **Smart Deck Builder** — Inclusion rates, consistency metrics, compare to top lists
@@ -20,12 +21,12 @@ TrainerLab is a competitive intelligence platform for Pokemon TCG. We help train
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [SPEC.md](./SPEC.md) | Full implementation specification |
-| [PROJECT_STATUS.md](./PROJECT_STATUS.md) | Current project status and decisions |
-| [terraform/README.md](./terraform/README.md) | Infrastructure documentation |
-| [docs/TRAINERLAB_BRAND.md](./docs/TRAINERLAB_BRAND.md) | Brand guide and messaging |
+| Document                                               | Description                          |
+| ------------------------------------------------------ | ------------------------------------ |
+| [SPEC.md](./SPEC.md)                                   | Full implementation specification    |
+| [PROJECT_STATUS.md](./PROJECT_STATUS.md)               | Current project status and decisions |
+| [terraform/README.md](./terraform/README.md)           | Infrastructure documentation         |
+| [docs/TRAINERLAB_BRAND.md](./docs/TRAINERLAB_BRAND.md) | Brand guide and messaging            |
 
 ---
 
@@ -88,6 +89,7 @@ See [terraform/README.md](./terraform/README.md) for full deployment instruction
 Japan plays new Pokemon TCG sets **2-3 months before international release**. Their tournament results preview your future meta — but the data is in Japanese and lacks context.
 
 TrainerLab:
+
 - Translates Japanese tournament data automatically
 - Contextualizes BO1 vs BO3 format differences
 - Explains tie rules (favors aggro in Japan)
@@ -101,4 +103,4 @@ TBD
 
 ---
 
-*TrainerLab — Do the homework. Win the tournament.*
+_TrainerLab — Do the homework. Win the tournament._

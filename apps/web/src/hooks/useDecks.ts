@@ -12,6 +12,7 @@ const STORAGE_KEY = "trainerlab-saved-decks";
 export function useDecks() {
   const [decks, setDecks] = useState<SavedDeck[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load decks from localStorage
   useEffect(() => {
@@ -20,20 +21,26 @@ export function useDecks() {
       if (stored) {
         setDecks(JSON.parse(stored));
       }
+      setLoadError(null);
     } catch (error) {
       console.error("Failed to load decks from localStorage:", error);
+      setLoadError(
+        "Could not load your saved decks. Your browser storage may be corrupted or unavailable.",
+      );
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Save decks to localStorage whenever they change
-  const saveDecks = useCallback((newDecks: SavedDeck[]) => {
+  // Save decks to localStorage - returns true on success, false on failure
+  const saveDecks = useCallback((newDecks: SavedDeck[]): boolean => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newDecks));
       setDecks(newDecks);
+      return true;
     } catch (error) {
       console.error("Failed to save decks to localStorage:", error);
+      return false;
     }
   }, []);
 
@@ -43,7 +50,7 @@ export function useDecks() {
       description: string;
       format: DeckFormat;
       cards: DeckCard[];
-    }): SavedDeck => {
+    }): { deck: SavedDeck; saved: boolean } => {
       const now = new Date().toISOString();
       const newDeck: SavedDeck = {
         id: generateId(),
@@ -55,8 +62,8 @@ export function useDecks() {
         updatedAt: now,
       };
 
-      saveDecks([...decks, newDeck]);
-      return newDeck;
+      const saved = saveDecks([...decks, newDeck]);
+      return { deck: newDeck, saved };
     },
     [decks, saveDecks],
   );
@@ -70,9 +77,9 @@ export function useDecks() {
         format: DeckFormat;
         cards: DeckCard[];
       }>,
-    ): SavedDeck | null => {
+    ): { deck: SavedDeck | null; saved: boolean } => {
       const deckIndex = decks.findIndex((d) => d.id === id);
-      if (deckIndex === -1) return null;
+      if (deckIndex === -1) return { deck: null, saved: false };
 
       const updatedDeck: SavedDeck = {
         ...decks[deckIndex],
@@ -82,20 +89,22 @@ export function useDecks() {
 
       const newDecks = [...decks];
       newDecks[deckIndex] = updatedDeck;
-      saveDecks(newDecks);
+      const saved = saveDecks(newDecks);
 
-      return updatedDeck;
+      return { deck: updatedDeck, saved };
     },
     [decks, saveDecks],
   );
 
   const deleteDeck = useCallback(
-    (id: string): boolean => {
+    (id: string): { found: boolean; saved: boolean } => {
       const newDecks = decks.filter((d) => d.id !== id);
-      if (newDecks.length === decks.length) return false;
+      if (newDecks.length === decks.length) {
+        return { found: false, saved: false };
+      }
 
-      saveDecks(newDecks);
-      return true;
+      const saved = saveDecks(newDecks);
+      return { found: true, saved };
     },
     [decks, saveDecks],
   );
@@ -110,6 +119,7 @@ export function useDecks() {
   return {
     decks,
     isLoading,
+    loadError,
     createDeck,
     updateDeck,
     deleteDeck,
@@ -121,7 +131,7 @@ export function useDecks() {
  * Hook for a single deck by ID.
  */
 export function useDeck(id: string) {
-  const { getDeck, isLoading, updateDeck, deleteDeck } = useDecks();
+  const { getDeck, isLoading, loadError, updateDeck, deleteDeck } = useDecks();
   const [deck, setDeck] = useState<SavedDeck | undefined>(undefined);
 
   useEffect(() => {
@@ -133,6 +143,7 @@ export function useDeck(id: string) {
   return {
     deck,
     isLoading,
+    loadError,
     updateDeck: (
       updates: Partial<{
         name: string;

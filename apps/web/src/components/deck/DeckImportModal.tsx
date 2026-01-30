@@ -23,7 +23,7 @@ interface DeckImportModalProps {
 
 interface ImportStatus {
   card: ParsedCard;
-  status: "pending" | "found" | "not_found";
+  status: "pending" | "found" | "not_found" | "error";
 }
 
 export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
@@ -107,7 +107,7 @@ export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
         console.error(`Failed to find card: ${parsedCard.name}`, error);
         setImportStatuses((prev) =>
           prev.map((s, idx) =>
-            idx === i ? { ...s, status: "not_found" as const } : s,
+            idx === i ? { ...s, status: "error" as const } : s,
           ),
         );
       }
@@ -126,6 +126,7 @@ export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
   const notFoundCount = importStatuses.filter(
     (s) => s.status === "not_found",
   ).length;
+  const errorCount = importStatuses.filter((s) => s.status === "error").length;
   const importComplete = importStatuses.length > 0 && !isImporting;
 
   return (
@@ -208,6 +209,7 @@ Energy: 10
                 {importComplete && (
                   <span className="text-muted-foreground">
                     {foundCount} found, {notFoundCount} not found
+                    {errorCount > 0 && `, ${errorCount} failed`}
                   </span>
                 )}
               </div>
@@ -220,6 +222,7 @@ Energy: 10
                       "flex items-center gap-2",
                       status.status === "found" && "text-green-600",
                       status.status === "not_found" && "text-red-600",
+                      status.status === "error" && "text-amber-600",
                       status.status === "pending" && "text-muted-foreground",
                     )}
                   >
@@ -232,7 +235,13 @@ Energy: 10
                     {status.status === "not_found" && (
                       <AlertCircle className="h-3 w-3" />
                     )}
+                    {status.status === "error" && (
+                      <AlertCircle className="h-3 w-3" />
+                    )}
                     {status.card.quantity}x {status.card.name}
+                    {status.status === "error" && (
+                      <span className="text-amber-600">(network error)</span>
+                    )}
                   </div>
                 ))}
               </div>

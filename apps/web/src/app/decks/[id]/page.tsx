@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { DeckBuilder, DeckExportModal } from "@/components/deck";
 import { DeckListReadOnly } from "./DeckListReadOnly";
 import { useDeckStore } from "@/stores/deckStore";
-import { useDecks, useDeck } from "@/hooks/useDecks";
+import { useDecks } from "@/hooks/useDecks";
 import type { DeckState } from "@/types/deck";
 
 export default function DeckDetailPage() {
@@ -39,7 +39,6 @@ export default function DeckDetailPage() {
   const loadDeck = useDeckStore((state) => state.loadDeck);
   const resetModified = useDeckStore((state) => state.resetModified);
   const isModified = useDeckStore((state) => state.isModified);
-  const cards = useDeckStore((state) => state.cards);
 
   // Load deck into store when entering edit mode
   useEffect(() => {
@@ -57,21 +56,30 @@ export default function DeckDetailPage() {
     async (deckData: Omit<DeckState, "isModified">) => {
       setIsSaving(true);
 
-      try {
-        updateDeck(deckId, {
-          name: deckData.name || "Untitled Deck",
-          description: deckData.description,
-          format: deckData.format,
-          cards: deckData.cards,
-        });
+      const result = updateDeck(deckId, {
+        name: deckData.name || "Untitled Deck",
+        description: deckData.description,
+        format: deckData.format,
+        cards: deckData.cards,
+      });
 
-        resetModified();
-        setIsEditMode(false);
-      } catch (error) {
-        console.error("Failed to save deck:", error);
-      } finally {
+      if (!result.deck) {
+        alert("Could not save deck. It may have been deleted.");
         setIsSaving(false);
+        return;
       }
+
+      if (!result.saved) {
+        alert(
+          "Could not save deck. Your browser storage may be full or unavailable.",
+        );
+        setIsSaving(false);
+        return;
+      }
+
+      resetModified();
+      setIsEditMode(false);
+      setIsSaving(false);
     },
     [deckId, updateDeck, resetModified],
   );
@@ -79,13 +87,22 @@ export default function DeckDetailPage() {
   const handleDelete = useCallback(async () => {
     setIsDeleting(true);
 
-    try {
-      deleteDeck(deckId);
-      router.push("/decks");
-    } catch (error) {
-      console.error("Failed to delete deck:", error);
+    const result = deleteDeck(deckId);
+
+    if (!result.found) {
+      alert("Could not delete deck. It may have already been deleted.");
       setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      return;
     }
+
+    if (!result.saved) {
+      alert("Could not delete deck. Your browser storage may be unavailable.");
+      setIsDeleting(false);
+      return;
+    }
+
+    router.push("/decks");
   }, [deckId, deleteDeck, router]);
 
   const handleToggleEdit = useCallback(() => {

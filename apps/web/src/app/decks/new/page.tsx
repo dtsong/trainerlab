@@ -30,20 +30,23 @@ export default function NewDeckPage() {
     async (deck: Omit<DeckState, "isModified">) => {
       setIsSaving(true);
 
-      try {
-        const savedDeck = createDeck({
-          name: deck.name || "Untitled Deck",
-          description: deck.description,
-          format: deck.format,
-          cards: deck.cards,
-        });
+      const result = createDeck({
+        name: deck.name || "Untitled Deck",
+        description: deck.description,
+        format: deck.format,
+        cards: deck.cards,
+      });
 
-        resetModified();
-        router.push(`/decks/${savedDeck.id}`);
-      } catch (error) {
-        console.error("Failed to save deck:", error);
+      if (!result.saved) {
+        alert(
+          "Could not save deck. Your browser storage may be full or unavailable.",
+        );
         setIsSaving(false);
+        return;
       }
+
+      resetModified();
+      router.push(`/decks/${result.deck.id}`);
     },
     [createDeck, resetModified, router],
   );

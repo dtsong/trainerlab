@@ -22,7 +22,7 @@ export default function DecksPage() {
   const [sortBy, setSortBy] = useState<SortOption>("updated");
   const [filterFormat, setFilterFormat] = useState<FilterFormat>("all");
 
-  const { decks, isLoading } = useDecks();
+  const { decks, isLoading, loadError } = useDecks();
 
   const filteredAndSortedDecks = useMemo(() => {
     let result = [...decks];
@@ -126,8 +126,21 @@ export default function DecksPage() {
         </div>
       )}
 
+      {/* Error State */}
+      {!isLoading && loadError && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-destructive font-medium mb-2">
+            Failed to load decks
+          </p>
+          <p className="text-muted-foreground mb-4 max-w-md">{loadError}</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Empty State */}
-      {!isLoading && decks.length === 0 && (
+      {!isLoading && !loadError && decks.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold mb-2">No decks yet</h2>

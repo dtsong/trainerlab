@@ -31,10 +31,10 @@ export default function CardsPage() {
     supertype: filters.supertype !== "all" ? filters.supertype : undefined,
     types: filters.types !== "all" ? filters.types : undefined,
     set_id: filters.set_id !== "all" ? filters.set_id : undefined,
-    standard_legal: filters.standard_legal === "standard" ? true : undefined,
-    expanded_legal: filters.standard_legal === "expanded" ? true : undefined,
+    standard: filters.standard_legal === "standard" ? true : undefined,
+    expanded: filters.standard_legal === "expanded" ? true : undefined,
     page,
-    page_size: DEFAULT_PAGE_SIZE,
+    limit: DEFAULT_PAGE_SIZE,
   };
 
   const { data, isLoading, isError, error } = useCards(searchParams);
@@ -54,7 +54,7 @@ export default function CardsPage() {
 
   const handlePrevPage = () => setPage((p) => Math.max(1, p - 1));
   const handleNextPage = () => {
-    if (data && page < data.pages) {
+    if (data && page < data.total_pages) {
       setPage((p) => p + 1);
     }
   };
@@ -87,7 +87,8 @@ export default function CardsPage() {
       {data && (
         <p className="text-sm text-muted-foreground mb-4">
           Showing {data.items.length} of {data.total} cards
-          {data.pages > 1 && ` (Page ${data.page} of ${data.pages})`}
+          {data.total_pages > 1 &&
+            ` (Page ${data.page} of ${data.total_pages})`}
         </p>
       )}
 
@@ -108,7 +109,7 @@ export default function CardsPage() {
       {data && !isLoading && <CardGrid cards={data.items} />}
 
       {/* Pagination */}
-      {data && data.pages > 1 && (
+      {data && data.total_pages > 1 && (
         <div className="flex justify-center gap-4 mt-8">
           <Button
             variant="outline"
@@ -118,12 +119,12 @@ export default function CardsPage() {
             Previous
           </Button>
           <span className="flex items-center text-sm text-muted-foreground">
-            Page {page} of {data.pages}
+            Page {page} of {data.total_pages}
           </span>
           <Button
             variant="outline"
             onClick={handleNextPage}
-            disabled={page >= data.pages}
+            disabled={page >= data.total_pages}
           >
             Next
           </Button>

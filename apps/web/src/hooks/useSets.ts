@@ -20,10 +20,10 @@ export function useSet(id: string) {
   });
 }
 
-export function useSetCards(id: string, page = 1, pageSize = 20) {
+export function useSetCards(id: string, page = 1, limit = 20) {
   return useQuery({
-    queryKey: ["set-cards", id, page, pageSize],
-    queryFn: () => setsApi.getCards(id, page, pageSize),
+    queryKey: ["set-cards", id, page, limit],
+    queryFn: () => setsApi.getCards(id, page, limit),
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });

@@ -233,11 +233,31 @@ describe("ApiPaginatedResponse type", () => {
       ],
       total: 100,
       page: 1,
-      page_size: 20,
-      pages: 5,
+      limit: 20,
+      has_next: true,
+      has_prev: false,
+      total_pages: 5,
     };
 
     expect(response.items).toHaveLength(1);
     expect(response.total).toBe(100);
+    expect(response.has_next).toBe(true);
+    expect(response.has_prev).toBe(false);
+    expect(response.total_pages).toBe(5);
+  });
+
+  it("accepts paginated response with next_cursor", () => {
+    const response: ApiPaginatedResponse<ApiCardSummary> = {
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      has_next: false,
+      has_prev: false,
+      total_pages: 0,
+      next_cursor: "cursor123",
+    };
+
+    expect(response.next_cursor).toBe("cursor123");
   });
 });

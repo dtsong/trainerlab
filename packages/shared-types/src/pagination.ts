@@ -7,6 +7,9 @@ export interface ApiPaginatedResponse<T> {
   items: T[];
   total: number;
   page: number;
-  page_size: number;
-  pages: number;
+  limit: number;
+  has_next: boolean;
+  has_prev: boolean;
+  total_pages: number;
+  next_cursor?: string | null;
 }

@@ -53,10 +53,10 @@ export interface CardSearchParams {
   supertype?: string;
   types?: string;
   set_id?: string;
-  standard_legal?: boolean;
-  expanded_legal?: boolean;
+  standard?: boolean;
+  expanded?: boolean;
   page?: number;
-  page_size?: number;
+  limit?: number;
 }
 
 // Cards API
@@ -67,13 +67,12 @@ export const cardsApi = {
     if (params.supertype) searchParams.set("supertype", params.supertype);
     if (params.types) searchParams.set("types", params.types);
     if (params.set_id) searchParams.set("set_id", params.set_id);
-    if (params.standard_legal !== undefined)
-      searchParams.set("standard_legal", String(params.standard_legal));
-    if (params.expanded_legal !== undefined)
-      searchParams.set("expanded_legal", String(params.expanded_legal));
+    if (params.standard !== undefined)
+      searchParams.set("standard", String(params.standard));
+    if (params.expanded !== undefined)
+      searchParams.set("expanded", String(params.expanded));
     if (params.page) searchParams.set("page", String(params.page));
-    if (params.page_size)
-      searchParams.set("page_size", String(params.page_size));
+    if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
     return fetchApi<ApiPaginatedResponse<ApiCardSummary>>(
@@ -96,9 +95,9 @@ export const setsApi = {
     return fetchApi<ApiSet>(`/api/v1/sets/${encodeURIComponent(id)}`);
   },
 
-  getCards: (id: string, page = 1, pageSize = 20) => {
+  getCards: (id: string, page = 1, limit = 20) => {
     return fetchApi<ApiPaginatedResponse<ApiCardSummary>>(
-      `/api/v1/sets/${encodeURIComponent(id)}/cards?page=${page}&page_size=${pageSize}`,
+      `/api/v1/sets/${encodeURIComponent(id)}/cards?page=${page}&limit=${limit}`,
     );
   },
 };

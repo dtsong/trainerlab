@@ -14,9 +14,12 @@ from src.models.user import User
 from src.schemas import (
     DeckCreate,
     DeckResponse,
+    DeckStatsResponse,
     DeckSummaryResponse,
     DeckUpdate,
+    EnergyCurvePoint,
     PaginatedResponse,
+    TypeBreakdown,
 )
 
 logger = logging.getLogger(__name__)
@@ -148,6 +151,111 @@ class DeckService:
             return None
 
         return self._to_response(deck)
+
+    async def get_deck_stats(
+        self,
+        deck_id: UUID,
+        user: User | None = None,
+    ) -> DeckStatsResponse | None:
+        """Get statistics for a deck.
+
+        Args:
+            deck_id: The deck ID
+            user: The authenticated user (optional, for private deck access)
+
+        Returns:
+            DeckStatsResponse if deck found and accessible, None otherwise
+        """
+        query = select(Deck).where(Deck.id == deck_id)
+        result = await self.session.execute(query)
+        deck = result.scalar_one_or_none()
+
+        if deck is None:
+            return None
+
+        # Check access
+        if not deck.is_public and (user is None or deck.user_id != user.id):
+            return None
+
+        # Get card IDs from deck
+        card_entries = deck.cards
+        if not card_entries:
+            return DeckStatsResponse(
+                type_breakdown=TypeBreakdown(),
+                average_hp=None,
+                energy_curve=[],
+                total_cards=0,
+            )
+
+        # Build card_id -> quantity mapping
+        card_quantities: dict[str, int] = {}
+        for entry in card_entries:
+            card_id = entry.get("card_id", "")
+            quantity = entry.get("quantity", 0)
+            card_quantities[card_id] = quantity
+
+        # Fetch actual card data
+        card_ids = list(card_quantities.keys())
+        card_query = select(Card).where(Card.id.in_(card_ids))
+        card_result = await self.session.execute(card_query)
+        cards = card_result.scalars().all()
+
+        # Warn if any cards are missing from the database
+        found_ids = {card.id for card in cards}
+        missing_ids = set(card_ids) - found_ids
+        if missing_ids:
+            logger.warning(
+                "Deck %s stats: %d card(s) not found in database: %s",
+                deck_id,
+                len(missing_ids),
+                sorted(missing_ids),
+            )
+
+        # Calculate stats
+        type_counts = {"Pokemon": 0, "Trainer": 0, "Energy": 0}
+        total_hp = 0
+        pokemon_count = 0
+        attack_costs: dict[int, int] = {}
+
+        for card in cards:
+            qty = card_quantities.get(card.id, 1)
+            supertype = card.supertype or ""
+
+            # Type breakdown
+            if supertype in type_counts:
+                type_counts[supertype] += qty
+
+            # HP stats (Pokemon only)
+            if supertype == "Pokemon" and card.hp:
+                total_hp += card.hp * qty
+                pokemon_count += qty
+
+            # Attack cost distribution
+            if card.attacks:
+                for attack in card.attacks:
+                    cost_list = attack.get("cost", [])
+                    cost = len(cost_list) if cost_list else 0
+                    attack_costs[cost] = attack_costs.get(cost, 0) + qty
+
+        # Build energy curve
+        energy_curve = [
+            EnergyCurvePoint(cost=cost, count=count)
+            for cost, count in sorted(attack_costs.items())
+        ]
+
+        total_cards = sum(card_quantities.values())
+        avg_hp = total_hp / pokemon_count if pokemon_count > 0 else None
+
+        return DeckStatsResponse(
+            type_breakdown=TypeBreakdown(
+                pokemon=type_counts["Pokemon"],
+                trainer=type_counts["Trainer"],
+                energy=type_counts["Energy"],
+            ),
+            average_hp=avg_hp,
+            energy_curve=energy_curve,
+            total_cards=total_cards,
+        )
 
     async def update_deck(
         self,

@@ -294,6 +294,82 @@ class TestDeckService:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_get_deck_stats_empty_deck(
+        self, service: DeckService, sample_deck: MagicMock
+    ) -> None:
+        """Test stats for an empty deck."""
+        sample_deck.cards = []
+        sample_deck.is_public = True
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.get_deck_stats(sample_deck.id, user=None)
+
+        assert result is not None
+        assert result.total_cards == 0
+        assert result.average_hp is None
+        assert result.type_breakdown.pokemon == 0
+
+    @pytest.mark.asyncio
+    async def test_get_deck_stats_with_cards(
+        self, service: DeckService, sample_deck: MagicMock
+    ) -> None:
+        """Test stats for a deck with cards."""
+        from src.models.card import Card
+
+        sample_deck.cards = [
+            {"card_id": "sv4-6", "quantity": 4},
+            {"card_id": "sv4-1", "quantity": 2},
+        ]
+        sample_deck.is_public = True
+
+        # Mock cards
+        mock_pokemon = MagicMock(spec=Card)
+        mock_pokemon.id = "sv4-6"
+        mock_pokemon.supertype = "Pokemon"
+        mock_pokemon.hp = 100
+        mock_pokemon.attacks = [{"cost": ["Fire", "Fire"]}]
+
+        mock_trainer = MagicMock(spec=Card)
+        mock_trainer.id = "sv4-1"
+        mock_trainer.supertype = "Trainer"
+        mock_trainer.hp = None
+        mock_trainer.attacks = None
+
+        mock_deck_result = MagicMock()
+        mock_deck_result.scalar_one_or_none.return_value = sample_deck
+        mock_cards_result = MagicMock()
+        mock_cards_result.scalars.return_value.all.return_value = [
+            mock_pokemon,
+            mock_trainer,
+        ]
+
+        service.session.execute = AsyncMock(
+            side_effect=[mock_deck_result, mock_cards_result]
+        )
+
+        result = await service.get_deck_stats(sample_deck.id, user=None)
+
+        assert result is not None
+        assert result.total_cards == 6
+        assert result.type_breakdown.pokemon == 4
+        assert result.type_breakdown.trainer == 2
+        assert result.average_hp == 100.0  # 4 Pokemon * 100 HP / 4
+
+    @pytest.mark.asyncio
+    async def test_get_deck_stats_not_found(self, service: DeckService) -> None:
+        """Test stats for non-existent deck."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.get_deck_stats(uuid4(), user=None)
+
+        assert result is None
+
+    @pytest.mark.asyncio
     async def test_update_deck_success(
         self, service: DeckService, sample_user: MagicMock, sample_deck: MagicMock
     ) -> None:
@@ -663,6 +739,52 @@ class TestDeckEndpoints:
 
         assert response.status_code == 400
         assert "Card IDs not found" in response.json()["detail"]
+
+    def test_get_deck_stats_success(
+        self, client: TestClient, mock_db: AsyncMock, mock_user: MagicMock
+    ) -> None:
+        """Test GET /api/v1/decks/{id}/stats returns stats."""
+        from src.models.card import Card
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = mock_user.id
+        mock_deck.is_public = True
+        mock_deck.cards = [{"card_id": "sv4-6", "quantity": 4}]
+
+        mock_pokemon = MagicMock(spec=Card)
+        mock_pokemon.id = "sv4-6"
+        mock_pokemon.supertype = "Pokemon"
+        mock_pokemon.hp = 120
+        mock_pokemon.attacks = [{"cost": ["Fire"]}]
+
+        mock_deck_result = MagicMock()
+        mock_deck_result.scalar_one_or_none.return_value = mock_deck
+        mock_cards_result = MagicMock()
+        mock_cards_result.scalars.return_value.all.return_value = [mock_pokemon]
+
+        mock_db.execute = AsyncMock(side_effect=[mock_deck_result, mock_cards_result])
+
+        response = client.get(f"/api/v1/decks/{deck_id}/stats")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_cards"] == 4
+        assert data["type_breakdown"]["pokemon"] == 4
+        assert data["average_hp"] == 120.0
+
+    def test_get_deck_stats_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test GET /api/v1/decks/{id}/stats returns 404 for non-existent deck."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.get(f"/api/v1/decks/{uuid4()}/stats")
+
+        assert response.status_code == 404
 
     def test_update_deck_success(
         self, client: TestClient, mock_db: AsyncMock, mock_user: MagicMock

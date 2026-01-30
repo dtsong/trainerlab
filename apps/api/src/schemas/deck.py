@@ -107,3 +107,34 @@ class DeckSummaryResponse(BaseModel):
     card_count: int = Field(0, description="Total number of cards in deck")
     created_at: datetime
     updated_at: datetime
+
+
+class TypeBreakdown(BaseModel):
+    """Count of cards by supertype."""
+
+    pokemon: int = Field(0, description="Number of Pokemon cards")
+    trainer: int = Field(0, description="Number of Trainer cards")
+    energy: int = Field(0, description="Number of Energy cards")
+
+
+class EnergyCurvePoint(BaseModel):
+    """Energy cost distribution for attacks."""
+
+    cost: int = Field(..., description="Energy cost (0, 1, 2, etc.)")
+    count: int = Field(..., description="Number of attacks at this cost")
+
+
+class DeckStatsResponse(BaseModel):
+    """Statistics about a deck's composition."""
+
+    type_breakdown: TypeBreakdown = Field(
+        ..., description="Count of cards by supertype"
+    )
+    average_hp: float | None = Field(
+        None, description="Average HP of Pokemon cards (null if no Pokemon)"
+    )
+    energy_curve: list[EnergyCurvePoint] = Field(
+        default_factory=list,
+        description="Distribution of attack costs",
+    )
+    total_cards: int = Field(..., description="Total number of cards in deck")

@@ -11,6 +11,7 @@ from src.dependencies import CurrentUser, OptionalUser
 from src.schemas import (
     DeckCreate,
     DeckResponse,
+    DeckStatsResponse,
     DeckSummaryResponse,
     DeckUpdate,
     PaginatedResponse,
@@ -76,6 +77,26 @@ async def get_deck(
             status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"
         )
     return deck
+
+
+@router.get("/{deck_id}/stats")
+async def get_deck_stats(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: OptionalUser,
+    deck_id: UUID,
+) -> DeckStatsResponse:
+    """Get statistics for a deck.
+
+    Returns type breakdown, average HP, energy curve, and attack
+    cost distribution. Public decks are accessible to everyone.
+    """
+    service = DeckService(db)
+    stats = await service.get_deck_stats(deck_id, current_user)
+    if stats is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"
+        )
+    return stats
 
 
 @router.put("/{deck_id}")

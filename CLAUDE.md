@@ -19,6 +19,13 @@ Competitive intelligence platform for Pokemon TCG. See full docs in Obsidian vau
 - Japanese meta data needs BO1 context (tie = double loss)
 - Target: competitors, coaches, creators, parents
 
+## Testing
+
+- All feature work must include unit tests
+- Write tests before or alongside implementation (TDD preferred)
+- Frontend: Vitest + React Testing Library
+- Backend: pytest
+
 ## Git Workflow
 
 - All changes must be submitted via pull request

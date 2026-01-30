@@ -9,6 +9,7 @@ from src.schemas.card import (
     SetSummaryResponse,
 )
 from src.schemas.pagination import PaginatedResponse
+from src.schemas.set import SetResponse
 
 
 class TestCardSchemas:
@@ -205,3 +206,40 @@ class TestPaginationSchemas:
         assert "page" in data
         assert "total_pages" in data
         assert data["total_pages"] == 1
+
+
+class TestSetSchemas:
+    """Tests for set-related schemas."""
+
+    def test_set_response_full(self):
+        """Test SetResponse with all fields."""
+        set_data = SetResponse(
+            id="sv4",
+            name="Paradox Rift",
+            series="Scarlet & Violet",
+            release_date=date(2023, 11, 3),
+            release_date_jp=date(2023, 9, 22),
+            card_count=266,
+            logo_url="https://example.com/logo.png",
+            symbol_url="https://example.com/symbol.png",
+            legalities={"standard": "Legal", "expanded": "Legal"},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        assert set_data.id == "sv4"
+        assert set_data.name == "Paradox Rift"
+        assert set_data.card_count == 266
+        assert set_data.legalities["standard"] == "Legal"
+
+    def test_set_response_minimal(self):
+        """Test SetResponse with minimal required fields."""
+        set_data = SetResponse(
+            id="sv4",
+            name="Paradox Rift",
+            series="Scarlet & Violet",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        assert set_data.id == "sv4"
+        assert set_data.release_date is None
+        assert set_data.card_count is None

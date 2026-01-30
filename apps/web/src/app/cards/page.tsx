@@ -8,6 +8,7 @@ import {
   CardGridSkeleton,
   CardSearchInput,
   CardFilters,
+  DEFAULT_FILTERS,
   type CardFiltersValues,
 } from "@/components/cards";
 import { Button } from "@/components/ui/button";
@@ -17,12 +18,7 @@ const DEFAULT_PAGE_SIZE = 20;
 export default function CardsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<CardFiltersValues>({
-    supertype: "all",
-    types: "all",
-    set_id: "all",
-    standard_legal: "all",
-  });
+  const [filters, setFilters] = useState<CardFiltersValues>(DEFAULT_FILTERS);
 
   const { data: setsData } = useSets();
 
@@ -52,6 +48,11 @@ export default function CardsPage() {
     [],
   );
 
+  const handleClearFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTERS);
+    setPage(1);
+  }, []);
+
   const handlePrevPage = () => setPage((p) => Math.max(1, p - 1));
   const handleNextPage = () => {
     if (data && page < data.total_pages) {
@@ -79,6 +80,7 @@ export default function CardsPage() {
         <CardFilters
           values={filters}
           onChange={handleFilterChange}
+          onClear={handleClearFilters}
           sets={setsData}
         />
       </div>

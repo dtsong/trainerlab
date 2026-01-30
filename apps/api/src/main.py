@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import get_settings
+from src.routers import health_router
 
 settings = get_settings()
 
@@ -37,8 +38,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/api/v1/health")
-async def health_check() -> dict[str, str]:
-    """Basic health check endpoint."""
-    return {"status": "ok", "version": "0.0.1"}
+# Include routers
+app.include_router(health_router)

@@ -1,5 +1,6 @@
 """Deck service for database operations."""
 
+import logging
 from typing import Literal, cast
 from uuid import UUID, uuid4
 
@@ -17,6 +18,8 @@ from src.schemas import (
     DeckUpdate,
     PaginatedResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CardValidationError(Exception):
@@ -185,8 +188,12 @@ class DeckService:
         for field, value in update_data.items():
             setattr(deck, field, value)
 
-        await self.session.commit()
-        await self.session.refresh(deck, ["user"])
+        try:
+            await self.session.commit()
+            await self.session.refresh(deck, ["user"])
+        except Exception:
+            logger.exception("Failed to update deck %s", deck_id)
+            raise
 
         return self._to_response(deck)
 

@@ -18,6 +18,9 @@ __pycache__/
 *.py[cod]
 .venv/
 .python-version
+.coverage
+htmlcov/
+.pytest_cache/
 
 # IDE
 .idea/

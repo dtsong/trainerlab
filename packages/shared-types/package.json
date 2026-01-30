@@ -10,10 +10,15 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist node_modules"
   },
   "devDependencies": {
-    "typescript": "^5.3.0"
+    "@vitest/coverage-v8": "^2.1.0",
+    "typescript": "^5.3.0",
+    "vitest": "^2.1.0"
   }
 }

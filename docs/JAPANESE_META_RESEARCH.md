@@ -11,6 +11,7 @@
 **The challenge:** Language barrier, cultural context, and ensuring insights aren't "lost in translation" when terminology, strategy nuance, and metagame reasoning cross from Japanese to English.
 
 **The solution:** A multi-layered approach combining:
+
 1. Primary Japanese data sources (structured data - easier to work with)
 2. LLM-powered translation for content/insights (unstructured - requires more care)
 3. Community validation partnerships with bilingual players
@@ -23,8 +24,10 @@
 ### Tier 1: Primary Data Sources (Structured/Semi-Structured)
 
 #### 1. LimitlessTCG Japanese Coverage
-**URL:** https://limitlesstcg.com/tournaments/jp  
+
+**URL:** https://limitlesstcg.com/tournaments/jp
 **Data available:**
+
 - City League results (weekly across Japan)
 - Champions League results (4-5 per year, 5K+ players each)
 - Deck lists with card counts
@@ -32,11 +35,13 @@
 - Player standings
 
 **Advantages:**
+
 - Already translated/normalized to English card names
 - Consistent data structure with international data
 - Single source for both regions
 
 **Considerations:**
+
 - Same partnership/access conversation as international data
 - They likely source from official/community Japanese sources
 
@@ -45,10 +50,12 @@
 ---
 
 #### 2. Pokecabook (ポケカブック)
-**URL:** https://pokecabook.com  
+
+**URL:** https://pokecabook.com
 **Twitter:** @pokeca_book
 
 **Data available:**
+
 - シティリーグ (City League) results - comprehensive coverage
 - ジムバトル (Gym Battle) results - daily local events
 - チャンピオンズリーグ (Champions League) coverage
@@ -57,6 +64,7 @@
 - デッキレシピ (Deck recipes) organized by archetype
 
 **Site structure (for scraping consideration):**
+
 ```
 /archives/category/tournament/city-league  - City League results
 /archives/category/tournament/jim-battle   - Gym Battle results
@@ -67,12 +75,14 @@
 ```
 
 **Advantages:**
+
 - Very comprehensive Japanese coverage
 - Card adoption rates are differentiated data
 - Tier lists provide Japanese player perspective
 - Active daily updates
 
 **Considerations:**
+
 - All content in Japanese (translation required)
 - Would need translation pipeline
 - Scraping ethics - should reach out for partnership
@@ -82,20 +92,24 @@
 ---
 
 #### 3. Official Pokemon Japan Players Site
-**URL:** https://players.pokemon-card.com  
+
+**URL:** https://players.pokemon-card.com
 **Official results page visible in Twitter links:** `players.pokemon-card.com/event/detail/{id}/result`
 
 **Data available:**
+
 - Official City League results
 - Official tournament standings
 - Player decklist codes (links to official deck viewer)
 
 **Advantages:**
+
 - Authoritative source
 - Deck codes link to official card database
 - Most accurate/official data
 
 **Considerations:**
+
 - May have access restrictions
 - Data structure unknown without deeper exploration
 - Japanese language
@@ -105,22 +119,26 @@
 ---
 
 #### 4. ポケカ飯 (Pokeka-meshi)
-**URL:** https://pokekameshi.com  
+
+**URL:** https://pokekameshi.com
 **Twitter:** @pokekameshi
 
 **Data available:**
+
 - City League results aggregation
 - Tier tables with statistics
 - Win rates, meta share percentages
 - Links to official tournament results
 
 **Unique features:**
+
 - Publishes statistical breakdowns:
   - CSP (Championship Points) totals by archetype
   - 入賞シェア率 (top finish share rate)
   - 前週比 (week-over-week changes)
 
 **Advantages:**
+
 - Statistical focus aligns with our platform goals
 - Pre-calculated meta percentages
 - Active community engagement
@@ -130,21 +148,25 @@
 ---
 
 #### 5. Pokemoncard.io Weekly Japanese Reports
+
 **URL:** https://pokemoncard.io (search for "Weekly Japanese Tournament Result")
 **Author:** arelios
 
 **Data available:**
+
 - Weekly aggregation of Japanese tournament results
 - Already translated to English
 - Organized by deck variant
 - Covers both City League and daily shop tournaments
 
 **Advantages:**
+
 - Already in English!
 - Organized analysis, not just raw data
 - Regular weekly cadence
 
 **Considerations:**
+
 - One person's interpretation/aggregation
 - May lag behind real-time
 
@@ -158,12 +180,12 @@ These sources provide **qualitative insights** rather than just data - strategy 
 
 #### YouTube Channels
 
-| Channel | Focus | Subscribers | Notes |
-|---------|-------|-------------|-------|
-| ポケモンカードチャンネル (Pokemon Card Channel) | Official Pokemon TCG Japan | 269K | Official source, new card reveals, tournament streams |
-| @305 (Daichi Shimada) | Top player gameplay | 106K | World Championship competitor, high-level gameplay |
-| Shintaro Ito | Pro player | ~30K | Another Worlds-level player |
-| @PokecaCH | Community content | ~100K+ | Japanese news, meta overview, gameplay |
+| Channel                                         | Focus                      | Subscribers | Notes                                                 |
+| ----------------------------------------------- | -------------------------- | ----------- | ----------------------------------------------------- |
+| ポケモンカードチャンネル (Pokemon Card Channel) | Official Pokemon TCG Japan | 269K        | Official source, new card reveals, tournament streams |
+| @305 (Daichi Shimada)                           | Top player gameplay        | 106K        | World Championship competitor, high-level gameplay    |
+| Shintaro Ito                                    | Pro player                 | ~30K        | Another Worlds-level player                           |
+| @PokecaCH                                       | Community content          | ~100K+      | Japanese news, meta overview, gameplay                |
 
 **Value:** These channels show how Japanese players actually pilot decks, their decision-making, sequencing, and strategic reasoning - things that don't translate from just looking at deck lists.
 
@@ -171,12 +193,12 @@ These sources provide **qualitative insights** rather than just data - strategy 
 
 #### Twitter/X Accounts
 
-| Account | Focus |
-|---------|-------|
-| @pokeca_book | Pokecabook official - daily results |
-| @pokekameshi | Statistical meta analysis |
-| @ggrui_Pokeka | In-depth City League analysis reports |
-| @pokecamatomeru | News aggregation |
+| Account         | Focus                                 |
+| --------------- | ------------------------------------- |
+| @pokeca_book    | Pokecabook official - daily results   |
+| @pokekameshi    | Statistical meta analysis             |
+| @ggrui_Pokeka   | In-depth City League analysis reports |
+| @pokecamatomeru | News aggregation                      |
 
 ---
 
@@ -184,11 +206,11 @@ These sources provide **qualitative insights** rather than just data - strategy 
 
 #### Card Databases with Japanese Support
 
-| Resource | Japanese Support | Notes |
-|----------|-----------------|-------|
-| TCGdex API | 14 languages including Japanese | Potential card name mapping source |
-| pokemontcg.io | Limited Japanese | Primary for English |
-| Official pokemon-card.com | Full Japanese | Authoritative card text |
+| Resource                  | Japanese Support                | Notes                              |
+| ------------------------- | ------------------------------- | ---------------------------------- |
+| TCGdex API                | 14 languages including Japanese | Potential card name mapping source |
+| pokemontcg.io             | Limited Japanese                | Primary for English                |
+| Official pokemon-card.com | Full Japanese                   | Authoritative card text            |
 
 #### Other Analysis Sites
 
@@ -250,11 +272,13 @@ card_mappings:
 ```
 
 **Sources for mapping:**
+
 - Bulbapedia has comprehensive Japanese ↔ English card mappings
 - TCGdex API supports multiple languages
 - Can be built incrementally as cards are encountered
 
 **For unreleased cards (Japan-only):**
+
 - Keep Japanese name with romanization
 - Add English translation of effect
 - Flag as "Not yet released internationally"
@@ -265,33 +289,34 @@ card_mappings:
 
 Build a glossary of Pokemon TCG-specific terms:
 
-| Japanese | Romaji | English | Context |
-|----------|--------|---------|---------|
-| ポケモンカード / ポケカ | Pokeka | Pokemon TCG | Game name |
-| 環境 | Kankyō | Meta/Environment | Metagame |
-| デッキ | Dekki | Deck | - |
-| ワザ | Waza | Attack | - |
-| 特性 | Tokusei | Ability | - |
-| エネルギー | Enerugī | Energy | - |
-| トレーナーズ | Torēnāzu | Trainer | Card type |
-| サポート | Sapōto | Supporter | Card type |
-| グッズ | Guzzu | Item | Card type |
-| スタジアム | Sutajiamu | Stadium | Card type |
-| 優勝 | Yūshō | Winner/Champion | Tournament |
-| 準優勝 | Jun-yūshō | Runner-up | Tournament |
-| ベスト4 | Besuto 4 | Top 4 | Tournament |
-| ベスト8 | Besuto 8 | Top 8 | Tournament |
-| シティリーグ | Shitī Rīgu | City League | Tournament |
-| チャンピオンズリーグ | Chanpionzu Rīgu | Champions League | Tournament |
-| ジムバトル | Jimu Batoru | Gym Battle | Local event |
-| 採用率 | Saiyō-ritsu | Adoption/Inclusion rate | Card usage |
-| Tier表 | Tier hyō | Tier list | Meta ranking |
+| Japanese                | Romaji          | English                 | Context      |
+| ----------------------- | --------------- | ----------------------- | ------------ |
+| ポケモンカード / ポケカ | Pokeka          | Pokemon TCG             | Game name    |
+| 環境                    | Kankyō          | Meta/Environment        | Metagame     |
+| デッキ                  | Dekki           | Deck                    | -            |
+| ワザ                    | Waza            | Attack                  | -            |
+| 特性                    | Tokusei         | Ability                 | -            |
+| エネルギー              | Enerugī         | Energy                  | -            |
+| トレーナーズ            | Torēnāzu        | Trainer                 | Card type    |
+| サポート                | Sapōto          | Supporter               | Card type    |
+| グッズ                  | Guzzu           | Item                    | Card type    |
+| スタジアム              | Sutajiamu       | Stadium                 | Card type    |
+| 優勝                    | Yūshō           | Winner/Champion         | Tournament   |
+| 準優勝                  | Jun-yūshō       | Runner-up               | Tournament   |
+| ベスト4                 | Besuto 4        | Top 4                   | Tournament   |
+| ベスト8                 | Besuto 8        | Top 8                   | Tournament   |
+| シティリーグ            | Shitī Rīgu      | City League             | Tournament   |
+| チャンピオンズリーグ    | Chanpionzu Rīgu | Champions League        | Tournament   |
+| ジムバトル              | Jimu Batoru     | Gym Battle              | Local event  |
+| 採用率                  | Saiyō-ritsu     | Adoption/Inclusion rate | Card usage   |
+| Tier表                  | Tier hyō        | Tier list               | Meta ranking |
 
 ---
 
 ### Layer 3: LLM Translation Strategy
 
 **When to use LLM translation:**
+
 - Strategy analysis articles
 - Player interviews
 - Card evaluation content
@@ -300,6 +325,7 @@ Build a glossary of Pokemon TCG-specific terms:
 **Best practices:**
 
 1. **Provide TCG context in system prompt:**
+
 ```
 You are translating Pokemon TCG content from Japanese to English.
 Use these term mappings consistently:
@@ -332,17 +358,20 @@ Best-of-1 format. Keep strategic nuance intact.
 **The best translation is validated translation.**
 
 **Strategy:** Partner with 1-2 bilingual competitive players who can:
+
 - Spot-check LLM translations for accuracy
 - Provide cultural/strategic context
 - Correct terminology errors
 - Flag nuances that machines miss
 
 **Where to find bilingual players:**
+
 - Japanese players who compete internationally
 - English speakers living in Japan
 - Players who follow both metas actively
 
 **Incentive structure:**
+
 - Free Pro tier access
 - Credit as "Translation Advisor"
 - Early access to Japanese features
@@ -354,16 +383,16 @@ Best-of-1 format. Keep strategic nuance intact.
 
 ### Why Japanese Meta Differs
 
-| Factor | Japanese (BO1) | International (BO3) |
-|--------|---------------|---------------------|
-| Sideboard | None | N/A (no sideboard in PTCG, but game 2/3 knowledge matters) |
-| Consistency premium | Very high | High but can recover |
-| Aggro viability | Higher | Medium |
-| Tech cards | Lower value | Higher value (can adjust play) |
-| Matchup spread | Less important | Very important |
-| Donk potential | Matters more | Averaged over 3 games |
-| Comeback potential | Low | Higher (games 2, 3) |
-| **Tie rules** | **Double game loss** | **Ties less punishing** |
+| Factor              | Japanese (BO1)       | International (BO3)                                        |
+| ------------------- | -------------------- | ---------------------------------------------------------- |
+| Sideboard           | None                 | N/A (no sideboard in PTCG, but game 2/3 knowledge matters) |
+| Consistency premium | Very high            | High but can recover                                       |
+| Aggro viability     | Higher               | Medium                                                     |
+| Tech cards          | Lower value          | Higher value (can adjust play)                             |
+| Matchup spread      | Less important       | Very important                                             |
+| Donk potential      | Matters more         | Averaged over 3 games                                      |
+| Comeback potential  | Low                  | Higher (games 2, 3)                                        |
+| **Tie rules**       | **Double game loss** | **Ties less punishing**                                    |
 
 ### The Tie Rule: A Massive Meta Shaper
 
@@ -372,12 +401,14 @@ Best-of-1 format. Keep strategic nuance intact.
 In Japanese tournaments, **if a game ends in a tie, BOTH players receive a game loss.** This fundamentally changes deck selection incentives:
 
 **Decks that are FAVORED in Japanese meta:**
+
 - Fast, aggressive strategies that win or lose quickly
 - Linear game plans with clear, fast win conditions
 - Decks that close games before time becomes a factor
 - High damage output, proactive strategies
 
 **Decks that are PENALIZED in Japanese meta:**
+
 - Control decks aiming to deck out opponents
 - Slow, methodical strategies
 - Decks relying on late-game comeback chains (Counter Catcher + Iono)
@@ -388,18 +419,21 @@ In Japanese tournaments, **if a game ends in a tie, BOTH players receive a game 
 
 **Example: Control decks**
 A deck focused on decking out the opponent (making them unable to draw for turn) is risky in Japan because:
+
 1. Games go long → higher tie risk
 2. If you tie, you effectively lost
 3. Even winning slowly means you might not finish in time
 
 **Example: Comeback decks**
 Strategies that fall behind early, then chain Iono + Counter Catcher to steal games late are weaker because:
+
 1. Requires the game to go long
 2. More decision points = slower play = tie risk
 3. Japanese players actively avoid these lines
 
 **Example: Charizard ex**
 A deck like Charizard ex might show different play patterns:
+
 - In Japan: More aggressive builds, faster energy acceleration priorities
 - Internationally: Can afford slower, more controlling variants
 - Japanese lists may cut late-game cards that international lists keep
@@ -416,24 +450,26 @@ A deck like Charizard ex might show different play patterns:
 interface ArchetypeMetadata {
   name: string;
   // ... other fields
-  
+
   // BO1 vs BO3 relevance
   game_speed: "fast" | "medium" | "slow";
   tie_risk: "low" | "medium" | "high";
   bo1_viability: "favored" | "neutral" | "unfavored";
   bo3_viability: "favored" | "neutral" | "unfavored";
-  
+
   // Explanatory notes
-  format_notes?: string;  // "Tie rules hurt this deck in Japan"
+  format_notes?: string; // "Tie rules hurt this deck in Japan"
 }
 ```
 
 **UI callouts:**
 
 For decks with high tie risk showing in Japanese data:
+
 > ⚠️ **Format Note:** This deck shows X% in Japan but may underperform due to tie rules. International results may differ.
 
 For aggressive decks overrepresented in Japan:
+
 > 📊 **Format Note:** Fast decks like this are favored by Japan's tie = double loss rule. Expect slightly lower meta share internationally.
 
 ### Analytical Opportunities
@@ -441,22 +477,24 @@ For aggressive decks overrepresented in Japan:
 **"BO1 Tax" Analysis:**
 Track which archetypes are systematically over/under-represented in Japan vs International:
 
-| Archetype | Japan Meta % | International Meta % | Difference | Likely Cause |
-|-----------|-------------|---------------------|------------|--------------|
-| Aggro Deck X | 18% | 12% | +6% | Tie rule favors speed |
-| Control Deck Y | 3% | 9% | -6% | Tie rule penalizes |
-| Midrange Deck Z | 15% | 14% | +1% | Neutral |
+| Archetype       | Japan Meta % | International Meta % | Difference | Likely Cause          |
+| --------------- | ------------ | -------------------- | ---------- | --------------------- |
+| Aggro Deck X    | 18%          | 12%                  | +6%        | Tie rule favors speed |
+| Control Deck Y  | 3%           | 9%                   | -6%        | Tie rule penalizes    |
+| Midrange Deck Z | 15%          | 14%                  | +1%        | Neutral               |
 
 This becomes **differentiated analysis content** that helps players understand what Japanese data actually means for their format.
 
 ### Content Ideas
 
 **Educational content:**
+
 - "Why Japanese Meta Looks Different: The Tie Rule Explained"
 - "Which Japanese Trends Will (and Won't) Transfer Internationally"
 - "The BO1 Tax: Decks That Are Better Than Japan Shows"
 
 **Regular analysis:**
+
 - Include "BO1 adjustment" notes in Format Forecast reports
 - Track "Japan vs International delta" for each archetype
 - Highlight decks that might be "sleepers" internationally
@@ -468,32 +506,38 @@ This becomes **differentiated analysis content** that helps players understand w
 ### Phase 1: Foundation (MVP)
 
 **Data:**
+
 - [ ] Integrate LimitlessTCG Japanese data (same pipeline as international)
 - [ ] Build initial card name mapping table (top 200 cards)
 - [ ] Create TCG terminology glossary
 
 **UI:**
+
 - [ ] Add "Japan" to region selector in meta dashboard
 - [ ] Add "Best-of-1" indicator for Japanese data
 - [ ] Simple Japanese meta share display
 
 **Translation:**
+
 - [ ] No LLM translation in MVP
 - [ ] Rely on LimitlessTCG's already-normalized data
 
 ### Phase 2: Enhanced Coverage
 
 **Data:**
+
 - [ ] Explore Pokecabook data integration (card adoption rates)
 - [ ] Build automated scraping pipeline (with partnership if possible)
 - [ ] Expand card mapping to comprehensive coverage
 
 **UI:**
+
 - [ ] BO1 vs BO3 comparison view
 - [ ] "Format Forecast" section for upcoming international formats
 - [ ] Card adoption rate display (unique from Pokecabook)
 
 **Translation:**
+
 - [ ] Implement LLM translation pipeline for analysis content
 - [ ] Build glossary-enhanced prompts
 - [ ] Partner with 1 bilingual validator
@@ -501,16 +545,19 @@ This becomes **differentiated analysis content** that helps players understand w
 ### Phase 3: Deep Insights
 
 **Data:**
+
 - [ ] Integrate Japanese YouTube/content analysis
 - [ ] Track Japanese player opinions on new cards
 - [ ] Build historical trend data for format transitions
 
 **Content:**
+
 - [ ] Regular "Japan Meta Report" (weekly/bi-weekly)
 - [ ] "Format Forecast" analysis when new sets drop in Japan
 - [ ] "BO1 vs BO3: What Transfers" educational content
 
 **Translation:**
+
 - [ ] Scale validation partnership
 - [ ] Consider community translation contributions
 - [ ] Build confidence scoring for translations
@@ -519,13 +566,13 @@ This becomes **differentiated analysis content** that helps players understand w
 
 ## Risk Assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Translation errors embarrass platform | Medium | High | Validator partnership, uncertainty flags |
-| Japanese sources change/block access | Low | High | Multiple sources, partnership approach |
-| BO1 meta misleads international players | Medium | Medium | Clear labeling, educational content |
-| LLM costs for translation too high | Low | Medium | Cache aggressively, translate only high-value content |
-| Bilingual validator unavailable | Medium | Medium | Build relationship with 2-3 candidates |
+| Risk                                    | Likelihood | Impact | Mitigation                                            |
+| --------------------------------------- | ---------- | ------ | ----------------------------------------------------- |
+| Translation errors embarrass platform   | Medium     | High   | Validator partnership, uncertainty flags              |
+| Japanese sources change/block access    | Low        | High   | Multiple sources, partnership approach                |
+| BO1 meta misleads international players | Medium     | Medium | Clear labeling, educational content                   |
+| LLM costs for translation too high      | Low        | Medium | Cache aggressively, translate only high-value content |
+| Bilingual validator unavailable         | Medium     | Medium | Build relationship with 2-3 candidates                |
 
 ---
 
@@ -582,23 +629,24 @@ Early access to card translations during reveal season is crucial for theorycraf
 
 #### Primary Translation Sources
 
-| Source | Platform | Focus | Speed | Data Quality |
-|--------|----------|-------|-------|--------------|
-| **LimitlessTCG /translations** | Web | Comprehensive set translations | Fast (usually within hours of JP reveal) | Very high - structured data |
-| **JustInBasil.com** | Web | Set translations with visual proxies | Fast | High |
-| **PokeBeach** | Web + X | News + translations | Very fast | High |
-| **PokeGuardian** | Web + X | Card reveals + news | Fast | Medium-High |
+| Source                         | Platform | Focus                                | Speed                                    | Data Quality                |
+| ------------------------------ | -------- | ------------------------------------ | ---------------------------------------- | --------------------------- |
+| **LimitlessTCG /translations** | Web      | Comprehensive set translations       | Fast (usually within hours of JP reveal) | Very high - structured data |
+| **JustInBasil.com**            | Web      | Set translations with visual proxies | Fast                                     | High                        |
+| **PokeBeach**                  | Web + X  | News + translations                  | Very fast                                | High                        |
+| **PokeGuardian**               | Web + X  | Card reveals + news                  | Fast                                     | Medium-High                 |
 
 #### Social Media Translation Accounts (X/Twitter)
 
-| Account | Handle | Notes |
-|---------|--------|-------|
-| PokeBeach | @pokebeach | 22+ years of coverage, works with translators |
-| PokeGuardian | @PokeGuardian | Card reveals with images |
-| JustInBasil | @justinbasiltcg | Translations + visual proxies |
-| Pokecabook | @pokeca_book | Japanese source with translations |
+| Account      | Handle          | Notes                                         |
+| ------------ | --------------- | --------------------------------------------- |
+| PokeBeach    | @pokebeach      | 22+ years of coverage, works with translators |
+| PokeGuardian | @PokeGuardian   | Card reveals with images                      |
+| JustInBasil  | @justinbasiltcg | Translations + visual proxies                 |
+| Pokecabook   | @pokeca_book    | Japanese source with translations             |
 
 #### Bluesky Accounts
+
 - JustInBasil is also on Bluesky (@justinbasil.com)
 - PokeBeach community presence
 - Growing TCG community on Bluesky
@@ -609,13 +657,14 @@ LimitlessTCG's `/translations` page is particularly valuable because:
 
 1. **Organized by set**: Main expansions and side products separated
 2. **Complete coverage**: "All translated unreleased cards" view available
-3. **Structured URLs**: 
+3. **Structured URLs**:
    - `/cards/jp/M3` - Set page (Nihil Zero)
    - `/cards/jp?translate=en&q=is:unreleased` - All unreleased cards in English
 4. **Count tracking**: Shows "X new cards" and "X translated" for each set
 5. **API potential**: URL structure suggests queryable data
 
 **Current sets tracked (as of Jan 2026):**
+
 - M3 Nihil Zero (80 cards)
 - M2a Mega Dream ex (87 cards)
 - MC Starter Decks 100 Battle Collection (68 cards)
@@ -661,6 +710,7 @@ LimitlessTCG's `/translations` page is particularly valuable because:
 ### Data Sources Priority
 
 **Tier 1: Structured (Primary)**
+
 ```
 LimitlessTCG /translations
 ├── High data quality
@@ -670,6 +720,7 @@ LimitlessTCG /translations
 ```
 
 **Tier 2: Semi-Structured (Supplementary)**
+
 ```
 JustInBasil.com /translations
 ├── Excellent visual proxies
@@ -678,6 +729,7 @@ JustInBasil.com /translations
 ```
 
 **Tier 3: Real-time (Speed)**
+
 ```
 Social Media (X/Bluesky)
 ├── Fastest for breaking reveals
@@ -691,31 +743,35 @@ Social Media (X/Bluesky)
 #### Strategy 1: Poll-Based (MVP)
 
 **How it works:**
+
 - Periodic polling of LimitlessTCG translations page
 - Check for new cards every 1-4 hours
 - Parse page, compare to known cards, ingest new ones
 
 **Pros:**
+
 - Simple to implement
 - No partnership required initially
 - Reliable
 
 **Cons:**
+
 - Latency (hours, not minutes)
 - Wasteful polling
 - Could be rate-limited
 
 **Implementation:**
+
 ```python
 # Pseudocode for poll-based ingestion
 async def poll_limitless_translations():
     page = await fetch("https://limitlesstcg.com/translations")
     sets = parse_sets_from_page(page)
-    
+
     for set in sets:
         cards_url = f"https://limitlesstcg.com/cards/jp/{set.id}?translate=en"
         cards = await fetch_and_parse_cards(cards_url)
-        
+
         for card in cards:
             if not card_exists_in_db(card):
                 card.status = "jp_only_unreleased"
@@ -728,22 +784,26 @@ async def poll_limitless_translations():
 #### Strategy 2: Social Media Monitoring (Real-time)
 
 **How it works:**
+
 - Monitor X/Bluesky for specific accounts and keywords
 - Parse card reveals from tweets/posts
 - Use LLM to extract structured card data from images/text
 - Cross-reference with LimitlessTCG for validation
 
 **Pros:**
+
 - Near real-time (minutes)
 - Catches breaking news
 - Good for alerts
 
 **Cons:**
+
 - Noisy - needs filtering
 - Unstructured - needs LLM processing
 - API costs/limits (X API is expensive)
 
 **Implementation considerations:**
+
 - Bluesky API is free and more accessible
 - Consider using RSS feeds where available
 - LLM vision to parse card images is possible but expensive
@@ -751,16 +811,19 @@ async def poll_limitless_translations():
 #### Strategy 3: Partnership API (Ideal)
 
 **How it works:**
+
 - Formal partnership with LimitlessTCG
 - Access to structured API or data feed
 - Webhook notifications for new cards
 
 **Pros:**
+
 - Cleanest data
 - Real-time possible
 - Sustainable long-term
 
 **Cons:**
+
 - Requires partnership negotiation
 - May have costs or obligations
 
@@ -769,11 +832,11 @@ async def poll_limitless_translations():
 ```typescript
 interface UnreleasedCard {
   // Core identification
-  id: string;                      // Generated ID until official
-  japanese_id?: string;            // Japanese set ID (e.g., "M3-001")
-  name_en: string;                 // Translated English name
-  name_jp: string;                 // Original Japanese name
-  
+  id: string; // Generated ID until official
+  japanese_id?: string; // Japanese set ID (e.g., "M3-001")
+  name_en: string; // Translated English name
+  name_jp: string; // Original Japanese name
+
   // Card details
   supertype: "Pokemon" | "Trainer" | "Energy";
   subtypes: string[];
@@ -782,30 +845,30 @@ interface UnreleasedCard {
   attacks?: Attack[];
   abilities?: Ability[];
   rules?: string[];
-  
+
   // Set information
-  set_jp: string;                  // Japanese set name
-  set_jp_code: string;             // e.g., "M3"
-  set_en_expected?: string;        // Expected English set
-  
+  set_jp: string; // Japanese set name
+  set_jp_code: string; // e.g., "M3"
+  set_en_expected?: string; // Expected English set
+
   // Release tracking
   jp_release_date: Date;
   en_release_date_expected?: Date;
   status: "revealed" | "jp_released" | "en_released";
-  
+
   // Source tracking
   source: "limitless" | "pokebeach" | "social" | "official";
   source_url?: string;
   first_seen_at: Date;
   last_updated_at: Date;
-  
+
   // Translation metadata
   translation_confidence: "official" | "community" | "machine";
   translation_notes?: string;
-  
+
   // Platform features
-  text_embedding?: number[];       // For semantic search
-  competitive_notes?: string;      // Early analysis
+  text_embedding?: number[]; // For semantic search
+  competitive_notes?: string; // Early analysis
 }
 ```
 
@@ -818,15 +881,15 @@ interface CardRevealNotification {
   card: UnreleasedCard;
   relevance: {
     // Why this card might matter to the user
-    affects_archetypes: string[];    // ["Charizard ex", "Gardevoir ex"]
-    is_staple_candidate: boolean;    // Likely to see wide play
-    is_tech_option: boolean;         // Potential counter/tech
+    affects_archetypes: string[]; // ["Charizard ex", "Gardevoir ex"]
+    is_staple_candidate: boolean; // Likely to see wide play
+    is_tech_option: boolean; // Potential counter/tech
     meta_impact_estimate: "low" | "medium" | "high";
   };
   delivery: {
     in_app: boolean;
-    email: boolean;                  // Pro tier only
-    push: boolean;                   // Future mobile
+    email: boolean; // Pro tier only
+    push: boolean; // Future mobile
   };
 }
 ```
@@ -836,24 +899,26 @@ interface CardRevealNotification {
 When new cards are revealed, automatically analyze potential meta impact:
 
 ```typescript
-async function analyzeMetaImpact(card: UnreleasedCard): Promise<MetaImpactAnalysis> {
+async function analyzeMetaImpact(
+  card: UnreleasedCard,
+): Promise<MetaImpactAnalysis> {
   // Use LLM to analyze card's potential impact
   const prompt = `
     Analyze this new Pokemon TCG card for competitive impact:
     ${JSON.stringify(card)}
-    
+
     Current meta archetypes: ${await getCurrentMetaArchetypes()}
-    
+
     Consider:
     1. Does this card strengthen any existing archetypes?
     2. Does this card enable new archetypes?
     3. Does this card counter any existing top decks?
     4. What existing cards does this synergize with?
     5. BO1 vs BO3 implications?
-    
+
     Respond with structured analysis.
   `;
-  
+
   return await llm.analyze(prompt);
 }
 ```
@@ -865,12 +930,14 @@ async function analyzeMetaImpact(card: UnreleasedCard): Promise<MetaImpactAnalys
 ### Phase 1: Basic Ingestion (MVP)
 
 **Scope:**
+
 - [ ] Poll LimitlessTCG /translations page every 4 hours
 - [ ] Parse and store unreleased card data
 - [ ] Display "Upcoming Cards" section on platform
 - [ ] Basic card detail view with translation
 
 **UI:**
+
 - [ ] "Upcoming Sets" page listing JP-only sets
 - [ ] Card browser filtered to unreleased cards
 - [ ] "Japan-only" badge on cards not yet international
@@ -878,12 +945,14 @@ async function analyzeMetaImpact(card: UnreleasedCard): Promise<MetaImpactAnalys
 ### Phase 2: Enhanced Features
 
 **Scope:**
+
 - [ ] Reduce poll interval (1-2 hours)
 - [ ] Add social media monitoring for speed alerts
 - [ ] Implement notification system for new reveals
 - [ ] Add LLM-powered meta impact analysis
 
 **UI:**
+
 - [ ] "New Reveals" feed on homepage
 - [ ] Subscription to specific archetypes/card types
 - [ ] "Meta Impact" badge on high-impact reveals
@@ -891,12 +960,14 @@ async function analyzeMetaImpact(card: UnreleasedCard): Promise<MetaImpactAnalys
 ### Phase 3: Real-time & Analysis
 
 **Scope:**
+
 - [ ] Partnership API access (if secured)
 - [ ] Real-time webhook notifications
 - [ ] Deep meta impact analysis with trends
 - [ ] "Format Forecast" automated reports
 
 **UI:**
+
 - [ ] Real-time reveal notifications
 - [ ] Theorycraft deck builder with unreleased cards
 - [ ] "What this means for your deck" personalized analysis
@@ -906,21 +977,25 @@ async function analyzeMetaImpact(card: UnreleasedCard): Promise<MetaImpactAnalys
 ## References
 
 ### Japanese Sources
+
 - Pokecabook: https://pokecabook.com
 - ポケカ飯: https://pokekameshi.com
 - Official JP site: https://www.pokemon-card.com
 - Pokemon Card Channel (YouTube): https://www.youtube.com/@PokemonCardChannel
 
 ### English Aggregators of Japanese Data
+
 - LimitlessTCG Japan: https://limitlesstcg.com/tournaments/jp
 - Pokemoncard.io Weekly Reports: https://pokemoncard.io (search "Weekly Japanese")
 - PTCG Legends: https://www.ptcglegends.com
 
 ### Translation Research
+
 - Claude/GPT-4 consistently top performers for JP↔EN (Lokalise study, WMT24)
 - DeepL next-gen LLM: 1.7x improvement for Japanese
 - TCGdex: Multi-language card database API
 
 ### Community Analysis
+
 - Ecency post on Pokecabook: https://ecency.com/pokemontcg/@dkmathstats/pokecabook-site-for-japan-pokemon
 - JustInBasil external resources: https://www.justinbasil.com/external

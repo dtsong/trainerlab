@@ -43,22 +43,58 @@ TrainerLab is a competitive intelligence platform for Pokemon TCG. We help train
 
 ## Getting Started
 
-### Local Development
+### Prerequisites
+
+- [Node.js 18+](https://nodejs.org/) (recommend using [nvm](https://github.com/nvm-sh/nvm))
+- [pnpm 8+](https://pnpm.io/) — `npm install -g pnpm`
+- [uv](https://docs.astral.sh/uv/) — `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- [Docker](https://www.docker.com/) (for local services)
+
+### Quick Start
 
 ```bash
-# Start local services (Postgres, Redis, TCGdex)
-docker-compose up -d
-
-# Frontend
-cd apps/web
+# 1. Clone and install dependencies
+git clone https://github.com/dtsong/trainerlab.git
+cd trainerlab
 pnpm install
-pnpm dev
 
-# Backend
-cd apps/api
-poetry install
-poetry run uvicorn src.main:app --reload
+# 2. Setup pre-commit hooks
+pre-commit install
+
+# 3. Start local services (Postgres, Redis, TCGdex)
+docker compose up -d
+
+# 4. Setup environment files
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
 ```
+
+### Development
+
+```bash
+# Frontend (Next.js)
+pnpm dev                    # Start dev server (apps/web)
+
+# Backend (FastAPI)
+cd apps/api
+uv sync                     # Install Python dependencies
+uv run uvicorn src.main:app --reload
+
+# Run tests
+pnpm --filter @trainerlab/shared-types test
+cd apps/api && uv run pytest
+```
+
+### Tooling
+
+| Tool   | Purpose                     | Commands                           |
+| ------ | --------------------------- | ---------------------------------- |
+| pnpm   | Node.js package manager     | `pnpm install`, `pnpm dev`         |
+| uv     | Python package manager      | `uv sync`, `uv run pytest`         |
+| ruff   | Python linting & formatting | `uv run ruff check`, `ruff format` |
+| ty     | Python type checking        | `uv run ty check src`              |
+| vitest | TypeScript testing          | `pnpm test`, `pnpm test:coverage`  |
 
 ### Deploy Infrastructure
 

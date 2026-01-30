@@ -6,7 +6,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.card import Card
-from src.schemas import CardSummaryResponse, PaginatedResponse
+from src.schemas import CardResponse, CardSummaryResponse, PaginatedResponse
 
 
 class SortField(str, Enum):
@@ -40,6 +40,9 @@ class CardService:
         q: str | None = None,
         supertype: list[str] | None = None,
         types: list[str] | None = None,
+        set_id: str | None = None,
+        standard: bool | None = None,
+        expanded: bool | None = None,
     ) -> PaginatedResponse[CardSummaryResponse]:
         """List cards with pagination and sorting.
 
@@ -51,6 +54,9 @@ class CardService:
             q: Optional text search query (searches name field)
             supertype: Filter by supertype(s) (Pokemon, Trainer, Energy)
             types: Filter by Pokemon type(s) (Fire, Water, Grass, etc.)
+            set_id: Filter by exact set ID
+            standard: Filter by standard format legality
+            expanded: Filter by expanded format legality
 
         Returns:
             Paginated response with card summaries
@@ -69,6 +75,16 @@ class CardService:
         # Apply types filter (array overlap)
         if types:
             query = query.where(Card.types.overlap(types))
+
+        # Apply set_id filter
+        if set_id:
+            query = query.where(Card.set_id == set_id)
+
+        # Apply legality filters (JSON path)
+        if standard is True:
+            query = query.where(Card.legalities["standard"].astext == "true")
+        if expanded is True:
+            query = query.where(Card.legalities["expanded"].astext == "true")
 
         # Apply sorting
         query = self._apply_sorting(query, sort_by, sort_order)
@@ -113,3 +129,19 @@ class CardService:
         count_query = select(func.count()).select_from(query.subquery())
         result = await self.session.execute(count_query)
         return result.scalar() or 0
+
+    async def get_card(self, card_id: str) -> CardResponse | None:
+        """Get a single card by ID.
+
+        Args:
+            card_id: The card ID (e.g., "sv4-6")
+
+        Returns:
+            CardResponse if found, None otherwise
+        """
+        query = select(Card).where(Card.id == card_id)
+        result = await self.session.execute(query)
+        card = result.scalar_one_or_none()
+        if card is None:
+            return None
+        return CardResponse.model_validate(card)

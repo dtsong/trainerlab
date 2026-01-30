@@ -11,7 +11,7 @@ from src.main import app
 from src.models.deck import Deck
 from src.models.user import User
 from src.schemas import DeckCreate, PaginatedResponse
-from src.services.deck_service import DeckService
+from src.services.deck_service import CardValidationError, DeckService
 
 
 class TestDeckService:
@@ -130,7 +130,7 @@ class TestDeckService:
     async def test_create_deck_invalid_card_raises(
         self, service: DeckService, sample_user: MagicMock
     ) -> None:
-        """Test that invalid card IDs raise ValueError."""
+        """Test that invalid card IDs raise CardValidationError."""
         from src.schemas import CardInDeck
 
         deck_data = DeckCreate(
@@ -145,7 +145,7 @@ class TestDeckService:
         mock_result.all.return_value = []
         service.session.execute = AsyncMock(return_value=mock_result)
 
-        with pytest.raises(ValueError, match="Card IDs not found"):
+        with pytest.raises(CardValidationError, match="Card IDs not found"):
             await service.create_deck(sample_user, deck_data)
 
     @pytest.mark.asyncio
@@ -526,3 +526,85 @@ class TestDeckEndpoints:
         response = client.get(f"/api/v1/decks/{uuid4()}")
 
         assert response.status_code == 404
+
+    def test_create_deck_invalid_cards_returns_400(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test POST /api/v1/decks returns 400 for invalid card IDs."""
+        # Mock card validation - no cards exist
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        response = client.post(
+            "/api/v1/decks",
+            json={
+                "name": "Bad Deck",
+                "cards": [{"card_id": "nonexistent-card", "quantity": 4}],
+                "format": "standard",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "Card IDs not found" in response.json()["detail"]
+
+
+class TestDeckEndpointsAuth:
+    """Tests for deck endpoint authentication requirements."""
+
+    @pytest.fixture
+    def mock_db(self) -> AsyncMock:
+        """Create a mock database session."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def no_auth_client(self, mock_db: AsyncMock) -> TestClient:
+        """Create test client that does NOT override auth dependencies.
+
+        This allows testing the actual 401 behavior when no auth is provided.
+        """
+        from src.db.database import get_db
+
+        async def override_get_db():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = override_get_db
+        # Intentionally NOT overriding get_current_user or get_current_user_optional
+
+        yield TestClient(app)
+
+        app.dependency_overrides.clear()
+
+    def test_create_deck_unauthenticated_returns_401(
+        self, no_auth_client: TestClient
+    ) -> None:
+        """Test POST /api/v1/decks returns 401 without authentication."""
+        response = no_auth_client.post(
+            "/api/v1/decks",
+            json={"name": "Test Deck", "format": "standard"},
+        )
+
+        assert response.status_code == 401
+        assert "Authorization header required" in response.json()["detail"]
+
+    def test_list_decks_unauthenticated_returns_401(
+        self, no_auth_client: TestClient
+    ) -> None:
+        """Test GET /api/v1/decks returns 401 without authentication."""
+        response = no_auth_client.get("/api/v1/decks")
+
+        assert response.status_code == 401
+        assert "Authorization header required" in response.json()["detail"]
+
+    def test_get_deck_with_invalid_auth_returns_401(
+        self, no_auth_client: TestClient
+    ) -> None:
+        """Test GET /api/v1/decks/{id} returns 401 with malformed auth header."""
+        deck_id = uuid4()
+        response = no_auth_client.get(
+            f"/api/v1/decks/{deck_id}",
+            headers={"Authorization": "Bearer invalid-not-a-uuid"},
+        )
+
+        assert response.status_code == 401
+        assert "Invalid user ID" in response.json()["detail"]

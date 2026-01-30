@@ -18,6 +18,12 @@ from src.schemas import (
 )
 
 
+class CardValidationError(Exception):
+    """Raised when card IDs in a deck are invalid or don't exist."""
+
+    pass
+
+
 class DeckService:
     """Service for deck CRUD operations."""
 
@@ -39,7 +45,7 @@ class DeckService:
             The created deck response
 
         Raises:
-            ValueError: If any card_id references don't exist
+            CardValidationError: If any card_id references don't exist
         """
         # Validate card references exist
         if deck_data.cards:
@@ -146,7 +152,7 @@ class DeckService:
             card_ids: List of card IDs to validate
 
         Raises:
-            ValueError: If any card IDs don't exist
+            CardValidationError: If any card IDs don't exist
         """
         if not card_ids:
             return
@@ -162,7 +168,9 @@ class DeckService:
         # Find missing IDs
         missing_ids = set(unique_ids) - existing_ids
         if missing_ids:
-            raise ValueError(f"Card IDs not found: {', '.join(sorted(missing_ids))}")
+            raise CardValidationError(
+                f"Card IDs not found: {', '.join(sorted(missing_ids))}"
+            )
 
     async def _get_total_count(self, query: Select[tuple[Deck]]) -> int:
         """Get total count for a query (without pagination)."""

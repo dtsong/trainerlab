@@ -84,20 +84,25 @@ async def get_current_user_optional(
     Used for endpoints that have different behavior for authenticated
     vs unauthenticated users (e.g., viewing public decks).
 
+    If no authorization header is provided, returns None (anonymous access).
+    If an authorization header IS provided, it must be valid - invalid tokens
+    will raise 401 rather than silently falling back to anonymous access.
+
     Args:
         db: Database session
         authorization: Authorization header (optional)
 
     Returns:
-        User model if authenticated, None otherwise
+        User model if authenticated, None if no auth header provided
+
+    Raises:
+        HTTPException: If authorization header is provided but invalid
     """
     if not authorization:
         return None
 
-    try:
-        return await get_current_user(db, authorization)
-    except HTTPException:
-        return None
+    # If auth is provided, it must be valid - don't silently fall back to anonymous
+    return await get_current_user(db, authorization)
 
 
 # Type aliases for cleaner dependency injection

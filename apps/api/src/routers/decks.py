@@ -14,7 +14,7 @@ from src.schemas import (
     DeckSummaryResponse,
     PaginatedResponse,
 )
-from src.services.deck_service import DeckService
+from src.services.deck_service import CardValidationError, DeckService
 
 router = APIRouter(prefix="/api/v1/decks", tags=["decks"])
 
@@ -33,7 +33,7 @@ async def create_deck(
     service = DeckService(db)
     try:
         return await service.create_deck(current_user, deck_data)
-    except ValueError as e:
+    except CardValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e

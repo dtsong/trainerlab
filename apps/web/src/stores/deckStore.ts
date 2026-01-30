@@ -46,7 +46,7 @@ const initialState: DeckState = {
   isModified: false,
 };
 
-export const useDeckStore = create<DeckState & DeckActions>((set, get) => ({
+export const useDeckStore = create<DeckState & DeckActions>((set) => ({
   ...initialState,
 
   addCard: (card: ApiCardSummary) => {

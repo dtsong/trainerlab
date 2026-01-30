@@ -219,6 +219,48 @@ class TestDeckService:
         assert result.has_prev is True
 
     @pytest.mark.asyncio
+    async def test_list_public_decks(
+        self, service: DeckService, sample_deck: MagicMock
+    ) -> None:
+        """Test listing public decks."""
+        sample_deck.is_public = True
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sample_deck]
+        service.session.execute = AsyncMock(
+            side_effect=[
+                MagicMock(scalar=MagicMock(return_value=1)),  # total count
+                mock_result,
+            ]
+        )
+
+        result = await service.list_public_decks()
+
+        assert len(result.items) == 1
+        assert result.total == 1
+
+    @pytest.mark.asyncio
+    async def test_list_public_decks_with_filters(
+        self, service: DeckService, sample_deck: MagicMock
+    ) -> None:
+        """Test listing public decks with format filter."""
+        sample_deck.is_public = True
+        sample_deck.format = "standard"
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sample_deck]
+        service.session.execute = AsyncMock(
+            side_effect=[
+                MagicMock(scalar=MagicMock(return_value=1)),  # total count
+                mock_result,
+            ]
+        )
+
+        result = await service.list_public_decks(format="standard")
+
+        assert len(result.items) == 1
+
+    @pytest.mark.asyncio
     async def test_get_deck_public(
         self, service: DeckService, sample_deck: MagicMock
     ) -> None:
@@ -768,6 +810,62 @@ class TestDeckEndpoints:
         assert data["page"] == 2
         assert data["limit"] == 50
 
+    def test_list_public_decks_success(
+        self, unauthenticated_client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test GET /api/v1/decks/public returns public decks."""
+        from datetime import datetime
+
+        deck_id = uuid4()
+        mock_deck = MagicMock(spec=Deck)
+        mock_deck.id = deck_id
+        mock_deck.user_id = uuid4()
+        mock_deck.name = "Public Deck"
+        mock_deck.format = "standard"
+        mock_deck.archetype = "Charizard"
+        mock_deck.is_public = True
+        mock_deck.cards = [{"card_id": "sv4-6", "quantity": 4}]
+        mock_deck.created_at = datetime.now(UTC)
+        mock_deck.updated_at = datetime.now(UTC)
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_deck]
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                MagicMock(scalar=MagicMock(return_value=1)),  # count
+                mock_result,  # decks
+            ]
+        )
+
+        response = unauthenticated_client.get("/api/v1/decks/public")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "Public Deck"
+
+    def test_list_public_decks_with_filters(
+        self, unauthenticated_client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test GET /api/v1/decks/public with format filter."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(
+            side_effect=[
+                MagicMock(scalar=MagicMock(return_value=0)),
+                mock_result,
+            ]
+        )
+
+        response = unauthenticated_client.get(
+            "/api/v1/decks/public?format=standard&sort=popular"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+
     def test_get_deck_public(
         self, unauthenticated_client: TestClient, mock_db: AsyncMock
     ) -> None:
@@ -1105,7 +1203,6 @@ class TestDeckEndpoints:
 
         # Returns 404 to avoid leaking existence
         assert response.status_code == 404
-
 
 
 class TestDeckEndpointsAuth:

@@ -124,6 +124,67 @@ class DeckService:
             has_prev=page > 1,
         )
 
+    async def list_public_decks(
+        self,
+        *,
+        page: int = 1,
+        limit: int = 20,
+        format: str | None = None,
+        archetype: str | None = None,
+        sort: Literal["recent", "popular"] = "recent",
+    ) -> PaginatedResponse[DeckSummaryResponse]:
+        """List public decks with optional filters.
+
+        Args:
+            page: Page number (1-indexed)
+            limit: Items per page
+            format: Filter by deck format (standard, expanded)
+            archetype: Filter by archetype
+            sort: Sort order ('recent' or 'popular')
+
+        Returns:
+            Paginated response with deck summaries
+        """
+        # Build base query for public decks
+        query = select(Deck).where(Deck.is_public == True)  # noqa: E712
+
+        # Apply filters
+        if format:
+            query = query.where(Deck.format == format)
+        if archetype:
+            query = query.where(Deck.archetype == archetype)
+
+        # Apply sort order
+        if sort == "popular":
+            # For now, use updated_at as proxy for popularity
+            # TODO: Add view_count or like_count column for proper popularity sorting
+            query = query.order_by(Deck.updated_at.desc())
+        else:  # recent
+            query = query.order_by(Deck.created_at.desc())
+
+        # Get total count
+        total = await self._get_total_count(query)
+
+        # Apply pagination
+        offset = (page - 1) * limit
+        query = query.offset(offset).limit(limit)
+
+        # Execute query
+        result = await self.session.execute(query)
+        decks = result.scalars().all()
+
+        # Build response
+        items = [self._to_summary_response(deck) for deck in decks]
+
+        return PaginatedResponse[DeckSummaryResponse](
+            items=items,
+            total=total,
+            page=page,
+            limit=limit,
+            has_next=page * limit < total,
+            has_prev=page > 1,
+        )
+
     async def get_deck(
         self,
         deck_id: UUID,

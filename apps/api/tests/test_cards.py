@@ -332,6 +332,179 @@ class TestCardService:
         assert result is None
 
 
+class TestCardServiceSearch:
+    """Tests for CardService.search_cards with fuzzy matching."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        """Create a mock async session."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> CardService:
+        """Create a CardService with mock session."""
+        return CardService(mock_session)
+
+    @pytest.fixture
+    def pikachu_card(self) -> MagicMock:
+        """Create a Pikachu card mock."""
+        card = MagicMock(spec=Card)
+        card.id = "sv4-6"
+        card.name = "Pikachu"
+        card.japanese_name = "ピカチュウ"
+        card.supertype = "Pokemon"
+        card.types = ["Lightning"]
+        card.set_id = "sv4"
+        card.rarity = "Common"
+        card.image_small = "https://example.com/pikachu.png"
+        card.abilities = None
+        card.attacks = [{"name": "Thunderbolt", "effect": "Discard all Energy"}]
+        card.rules = None
+        return card
+
+    @pytest.fixture
+    def charizard_card(self) -> MagicMock:
+        """Create a Charizard card mock."""
+        card = MagicMock(spec=Card)
+        card.id = "sv3-6"
+        card.name = "Charizard ex"
+        card.japanese_name = "リザードンex"
+        card.supertype = "Pokemon"
+        card.types = ["Fire"]
+        card.set_id = "sv3"
+        card.rarity = "Double Rare"
+        card.image_small = "https://example.com/charizard.png"
+        card.abilities = [{"name": "Inferno Reign", "effect": "Discard 2 Energy"}]
+        card.attacks = [{"name": "Burning Darkness", "effect": "Does 30 more damage"}]
+        card.rules = ["Pokemon ex rule"]
+        return card
+
+    @pytest.mark.asyncio
+    async def test_search_cards_fuzzy_match(
+        self, service: CardService, pikachu_card: MagicMock
+    ) -> None:
+        """Test fuzzy search finds cards with typos (pikchu -> Pikachu)."""
+        # Mock results
+        mock_result = MagicMock()
+        # search_cards returns (Card, relevance) tuples
+        mock_result.all.return_value = [(pikachu_card, 60.0)]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),  # count query
+            mock_result,  # main query
+        ]
+
+        result = await service.search_cards(q="pikchu")
+
+        assert len(result.items) == 1
+        assert result.items[0].name == "Pikachu"
+
+    @pytest.mark.asyncio
+    async def test_search_cards_exact_match_ranks_higher(
+        self, service: CardService, pikachu_card: MagicMock
+    ) -> None:
+        """Test exact matches are ranked highest."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(pikachu_card, 100.0)]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.search_cards(q="Pikachu")
+
+        assert len(result.items) == 1
+        assert result.items[0].name == "Pikachu"
+
+    @pytest.mark.asyncio
+    async def test_search_cards_with_text_search(
+        self, service: CardService, charizard_card: MagicMock
+    ) -> None:
+        """Test searching abilities and attacks when search_text=True."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(charizard_card, 10.0)]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.search_cards(q="Inferno", search_text=True)
+
+        assert len(result.items) == 1
+        assert result.items[0].name == "Charizard ex"
+
+    @pytest.mark.asyncio
+    async def test_search_cards_with_filters(
+        self, service: CardService, pikachu_card: MagicMock
+    ) -> None:
+        """Test search with filters applied."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(pikachu_card, 80.0)]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.search_cards(
+            q="pika", supertype=["Pokemon"], types=["Lightning"]
+        )
+
+        assert len(result.items) == 1
+        assert result.items[0].supertype == "Pokemon"
+
+    @pytest.mark.asyncio
+    async def test_search_cards_empty_results(self, service: CardService) -> None:
+        """Test search with no matching results."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        result = await service.search_cards(q="zznonexistent")
+
+        assert result.items == []
+        assert result.total == 0
+
+    @pytest.mark.asyncio
+    async def test_search_cards_pagination(
+        self, service: CardService, pikachu_card: MagicMock
+    ) -> None:
+        """Test search pagination."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(pikachu_card, 50.0)]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=50)),  # 50 total results
+            mock_result,
+        ]
+
+        result = await service.search_cards(q="pika", page=2, limit=10)
+
+        assert result.page == 2
+        assert result.limit == 10
+        assert result.total == 50
+        assert result.has_next is True
+        assert result.has_prev is True
+
+    @pytest.mark.asyncio
+    async def test_search_cards_japanese_name(
+        self, service: CardService, pikachu_card: MagicMock
+    ) -> None:
+        """Test search finds cards by Japanese name."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(pikachu_card, 30.0)]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.search_cards(q="ピカチュウ")
+
+        assert len(result.items) == 1
+        # Card was found by Japanese name search
+        assert result.items[0].name == "Pikachu"
+
+
 class TestUsageService:
     """Tests for UsageService."""
 
@@ -790,3 +963,109 @@ class TestCardsEndpoint:
         assert data["card_id"] == "sv4-6"
         assert data["inclusion_rate"] == 0.0
         assert data["sample_size"] == 0
+
+
+class TestSearchEndpoint:
+    """Tests for /api/v1/cards/search endpoint."""
+
+    @pytest.fixture
+    def mock_db(self) -> AsyncMock:
+        """Create mock database session."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def client(self, mock_db: AsyncMock) -> TestClient:
+        """Create test client with mocked database."""
+        from src.db.database import get_db
+
+        async def override_get_db():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = override_get_db
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    def test_search_endpoint_exists(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that the search endpoint exists and accepts query."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards/search?q=pikachu")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+
+    def test_search_requires_query(self, client: TestClient) -> None:
+        """Test that search requires q parameter."""
+        response = client.get("/api/v1/cards/search")
+        assert response.status_code == 422
+
+    def test_search_query_min_length(self, client: TestClient) -> None:
+        """Test that search query requires minimum 2 characters."""
+        response = client.get("/api/v1/cards/search?q=a")
+        assert response.status_code == 422
+
+    def test_search_with_filters(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Test search with all filter options."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get(
+            "/api/v1/cards/search?q=pikachu&supertype=Pokemon&types=Lightning"
+            "&set_id=sv4&standard=true&expanded=true"
+        )
+
+        assert response.status_code == 200
+
+    def test_search_with_text_search_enabled(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test search with search_text=true."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards/search?q=thunderbolt&search_text=true")
+
+        assert response.status_code == 200
+
+    def test_search_pagination(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Test search pagination parameters."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards/search?q=pikachu&page=2&limit=50")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 2
+        assert data["limit"] == 50
+
+    def test_search_invalid_page(self, client: TestClient) -> None:
+        """Test that page < 1 returns 422."""
+        response = client.get("/api/v1/cards/search?q=pikachu&page=0")
+        assert response.status_code == 422
+
+    def test_search_invalid_limit(self, client: TestClient) -> None:
+        """Test that limit > 100 returns 422."""
+        response = client.get("/api/v1/cards/search?q=pikachu&limit=101")
+        assert response.status_code == 422

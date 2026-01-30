@@ -18,7 +18,7 @@
 
 **In scope for initial build:**
 
-- Card database with search (keyword + semantic)
+- Card database with search (keyword + fuzzy)
 - Deck builder (create, save, load, export)
 - Meta dashboard (archetype shares, trends)
 - Japanese meta view (separate BO1 context)
@@ -202,16 +202,16 @@ trainerlab/
 
 ### 3.3 Infrastructure (GCP)
 
-| Technology    | GCP Service               | Purpose                  |
-| ------------- | ------------------------- | ------------------------ |
-| PostgreSQL 15 | Cloud SQL                 | Primary database         |
-| pgvector      | Cloud SQL extension       | Vector similarity search |
-| Redis         | Memorystore               | Caching                  |
-| TCGdex        | Cloud Run (self-hosted)   | Card data source         |
-| Auth          | Firebase Auth or Supabase | User authentication      |
-| Secrets       | Secret Manager            | Environment variables    |
-| CDN           | Cloud CDN                 | Static asset caching     |
-| CI/CD         | Cloud Build               | Auto-deploy on push      |
+| Technology    | GCP Service               | Purpose               |
+| ------------- | ------------------------- | --------------------- |
+| PostgreSQL 15 | Cloud SQL                 | Primary database      |
+| pg_trgm       | Cloud SQL extension       | Fuzzy text matching   |
+| Redis         | Memorystore               | Caching               |
+| TCGdex        | Cloud Run (self-hosted)   | Card data source      |
+| Auth          | Firebase Auth or Supabase | User authentication   |
+| Secrets       | Secret Manager            | Environment variables |
+| CDN           | Cloud CDN                 | Static asset caching  |
+| CI/CD         | Cloud Build               | Auto-deploy on push   |
 
 ### 3.4 Development
 
@@ -230,8 +230,8 @@ trainerlab/
 ### 4.1 Core Tables
 
 ```sql
--- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Enable trigram extension for fuzzy matching
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- Cards table
 CREATE TABLE cards (
@@ -274,9 +274,6 @@ CREATE TABLE cards (
     legality_expanded TEXT,
     regulation_mark TEXT,                   -- "G", "H", etc.
 
-    -- Semantic search
-    text_embedding vector(1536),            -- OpenAI ada-002 dimensions
-
     -- Metadata
     tcgdex_updated_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -285,12 +282,12 @@ CREATE TABLE cards (
 
 -- Indexes
 CREATE INDEX idx_cards_name_en ON cards USING gin(to_tsvector('english', name_en));
+CREATE INDEX idx_cards_name_en_trgm ON cards USING gin(name_en gin_trgm_ops);  -- Fuzzy search
 CREATE INDEX idx_cards_name_ja ON cards (name_ja) WHERE name_ja IS NOT NULL;
 CREATE INDEX idx_cards_set_id ON cards (set_id);
 CREATE INDEX idx_cards_supertype ON cards (supertype);
 CREATE INDEX idx_cards_types ON cards USING gin(types);
 CREATE INDEX idx_cards_legality_standard ON cards (legality_standard);
-CREATE INDEX idx_cards_embedding ON cards USING ivfflat (text_embedding vector_cosine_ops);
 
 -- Sets table
 CREATE TABLE sets (
@@ -467,8 +464,6 @@ GET  /api/v1/cards                    # List/search cards
 
 GET  /api/v1/cards/{id}               # Get single card
 GET  /api/v1/cards/{id}/usage         # Get usage stats for card
-GET  /api/v1/cards/search/semantic    # Semantic search
-     ?q=pokemon that discards energy
 ```
 
 ### 5.2 Decks
@@ -688,60 +683,38 @@ export const useDeckStore = create<DeckState>()(
 );
 ```
 
-### 6.3 Card Search with Semantic Fallback
+### 6.3 Card Search with Full-Text and Fuzzy Matching
 
 ```python
 # src/services/search_service.py
 
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
-import openai
 
 async def search_cards(
     db: AsyncSession,
     query: str,
     filters: dict = None,
-    use_semantic: bool = True,
     limit: int = 20
 ) -> list[Card]:
     """
-    Search cards with keyword + optional semantic search.
-    Falls back to semantic when keyword results are poor.
+    Search cards with full-text search + trigram fuzzy matching.
+    Uses PostgreSQL's native capabilities for fast, typo-tolerant search.
     """
-    # First, try keyword search
-    keyword_results = await keyword_search(db, query, filters, limit)
-
-    # If good results, return them
-    if len(keyword_results) >= 5:
-        return keyword_results
-
-    # Otherwise, try semantic search
-    if use_semantic and len(query.split()) >= 3:
-        semantic_results = await semantic_search(db, query, filters, limit)
-
-        # Merge and dedupe
-        seen_ids = {r.id for r in keyword_results}
-        for card in semantic_results:
-            if card.id not in seen_ids:
-                keyword_results.append(card)
-                if len(keyword_results) >= limit:
-                    break
-
-    return keyword_results
-
-async def keyword_search(
-    db: AsyncSession,
-    query: str,
-    filters: dict = None,
-    limit: int = 20
-) -> list[Card]:
-    """Full-text search on card names and text."""
+    # Combine exact, full-text, and fuzzy results
     stmt = select(Card).where(
         or_(
+            # Exact/partial match
             Card.name_en.ilike(f"%{query}%"),
             Card.name_ja.ilike(f"%{query}%"),
-            func.to_tsvector('english', Card.name_en).match(query)
+            # Full-text search
+            func.to_tsvector('english', Card.name_en).match(query),
+            # Trigram fuzzy match (handles typos like "pikchu" -> "Pikachu")
+            func.similarity(Card.name_en, query) > 0.3,
         )
+    ).order_by(
+        # Rank by relevance: exact matches first, then similarity
+        func.similarity(Card.name_en, query).desc()
     )
 
     if filters:
@@ -756,35 +729,25 @@ async def keyword_search(
     result = await db.execute(stmt)
     return result.scalars().all()
 
-async def semantic_search(
+async def search_by_ability_or_attack(
     db: AsyncSession,
     query: str,
-    filters: dict = None,
     limit: int = 20
 ) -> list[Card]:
-    """Vector similarity search for natural language queries."""
-    # Generate embedding for query
-    embedding = await get_embedding(query)
-
-    # Search by vector similarity
-    stmt = select(Card).order_by(
-        Card.text_embedding.cosine_distance(embedding)
+    """Search cards by ability names or attack text."""
+    stmt = select(Card).where(
+        or_(
+            # Search in abilities JSONB
+            func.cast(Card.abilities, Text).ilike(f"%{query}%"),
+            # Search in attacks JSONB
+            func.cast(Card.attacks, Text).ilike(f"%{query}%"),
+            # Search in rules text
+            func.array_to_string(Card.rules, ' ').ilike(f"%{query}%"),
+        )
     ).limit(limit)
-
-    if filters:
-        # Apply same filters as keyword search
-        pass
 
     result = await db.execute(stmt)
     return result.scalars().all()
-
-async def get_embedding(text: str) -> list[float]:
-    """Get embedding from OpenAI."""
-    response = await openai.embeddings.create(
-        model="text-embedding-ada-002",
-        input=text
-    )
-    return response.data[0].embedding
 ```
 
 ### 6.4 Meta Dashboard Data Aggregation
@@ -942,9 +905,6 @@ REDIS_URL=redis://localhost:6379
 # TCGdex
 TCGDEX_URL=http://localhost:3000
 
-# OpenAI (for embeddings)
-OPENAI_API_KEY=sk-...
-
 # Auth verification
 FIREBASE_PROJECT_ID=your-project
 # OR
@@ -964,7 +924,6 @@ In production, secrets are injected via Cloud Run's Secret Manager integration:
 ```bash
 # Cloud Run service config
 --set-secrets="DATABASE_URL=database-url:latest"
---set-secrets="OPENAI_API_KEY=openai-key:latest"
 --set-secrets="REDIS_URL=redis-url:latest"
 
 # Non-secret env vars set directly
@@ -979,7 +938,6 @@ In production, secrets are injected via Cloud Run's Secret Manager integration:
 | -------------------------- | ---------------------------------------- |
 | `database-url`             | Cloud SQL connection string              |
 | `redis-url`                | Memorystore connection string            |
-| `openai-key`               | OpenAI API key                           |
 | `firebase-service-account` | Firebase admin SDK (if using Firebase)   |
 | `supabase-service-key`     | Supabase service key (if using Supabase) |
 
@@ -1001,9 +959,9 @@ services:
     environment:
       - PORT=3000
 
-  # PostgreSQL with pgvector
+  # PostgreSQL
   postgres:
-    image: pgvector/pgvector:pg16
+    image: postgres:16
     ports:
       - "5432:5432"
     environment:
@@ -1045,7 +1003,7 @@ volumes:
 - [ ] Create SQLAlchemy models
 - [ ] Set up Alembic migrations
 - [ ] Run initial migration
-- [ ] Verify pgvector extension
+- [ ] Verify pg_trgm extension
 
 **Day 5-7: Card Data Pipeline**
 
@@ -1070,11 +1028,11 @@ volumes:
 - [ ] Build /cards/[id] page
 - [ ] Show Japanese name when available
 
-**Day 6-7: Semantic Search**
+**Day 6-7: Enhanced Search**
 
-- [ ] Generate embeddings for cards
-- [ ] Implement semantic search endpoint
-- [ ] Add to search UI with fallback
+- [ ] Implement fuzzy name search (trigram)
+- [ ] Add ability/attack text search
+- [ ] Add relevance ranking
 
 ### Phase 3: Deck Builder (Week 3)
 
@@ -1306,7 +1264,7 @@ describe('CardSearch', () => {
 │       │     ┌──────────────┐    │                                          │
 │       │     │ Cloud SQL    │◄───┘                                          │
 │       │     │ (PostgreSQL) │                                                │
-│       │     │ + pgvector   │                                                │
+│       │     │ + pg_trgm    │                                                │
 │       │     └──────────────┘                                                │
 │       │            │                                                        │
 │       │            ▼                                                        │
@@ -1351,20 +1309,20 @@ terraform apply -var-file=environments/dev.tfvars
 
 **What Terraform Creates:**
 
-| Resource                                          | Purpose                  |
-| ------------------------------------------------- | ------------------------ |
-| `google_cloud_run_v2_service.web`                 | Next.js frontend         |
-| `google_cloud_run_v2_service.api`                 | FastAPI backend          |
-| `google_cloud_run_v2_service.tcgdex`              | TCGdex card data         |
-| `google_sql_database_instance.main`               | PostgreSQL with pgvector |
-| `google_redis_instance.cache`                     | Redis cache              |
-| `google_compute_network.vpc`                      | Private VPC              |
-| `google_vpc_access_connector.connector`           | Cloud Run → VPC          |
-| `google_secret_manager_secret.*`                  | All secrets              |
-| `google_artifact_registry_repository.docker_repo` | Docker images            |
-| `google_cloudbuild_trigger.deploy`                | CI/CD pipeline           |
-| `google_cloud_scheduler_job.*`                    | Cron jobs                |
-| `google_compute_*` (prod only)                    | Load balancer + CDN      |
+| Resource                                          | Purpose                 |
+| ------------------------------------------------- | ----------------------- |
+| `google_cloud_run_v2_service.web`                 | Next.js frontend        |
+| `google_cloud_run_v2_service.api`                 | FastAPI backend         |
+| `google_cloud_run_v2_service.tcgdex`              | TCGdex card data        |
+| `google_sql_database_instance.main`               | PostgreSQL with pg_trgm |
+| `google_redis_instance.cache`                     | Redis cache             |
+| `google_compute_network.vpc`                      | Private VPC             |
+| `google_vpc_access_connector.connector`           | Cloud Run → VPC         |
+| `google_secret_manager_secret.*`                  | All secrets             |
+| `google_artifact_registry_repository.docker_repo` | Docker images           |
+| `google_cloudbuild_trigger.deploy`                | CI/CD pipeline          |
+| `google_cloud_scheduler_job.*`                    | Cron jobs               |
+| `google_compute_*` (prod only)                    | Load balancer + CDN     |
 
 **Environment Configurations:**
 
@@ -1415,17 +1373,14 @@ Dockerfiles for each service are in their respective app directories:
 After running `terraform apply`, a few manual steps remain:
 
 ```bash
-# 1. Set OpenAI API key
-echo -n "sk-your-key" | gcloud secrets versions add openai-key --data-file=-
-
-# 2. Enable pgvector in Cloud SQL
+# 1. Enable pg_trgm in Cloud SQL
 gcloud sql connect trainerlab-db-development --user=app_user --database=trainerlab
-# Then in psql: CREATE EXTENSION IF NOT EXISTS vector;
+# Then in psql: CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-# 3. Configure Docker auth
+# 2. Configure Docker auth
 gcloud auth configure-docker us-central1-docker.pkg.dev
 
-# 4. Connect GitHub repo to Cloud Build (via Console)
+# 3. Connect GitHub repo to Cloud Build (via Console)
 # https://console.cloud.google.com/cloud-build/triggers
 ```
 

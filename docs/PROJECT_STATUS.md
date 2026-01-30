@@ -36,7 +36,7 @@
 | **Hosting**          | GCP (Cloud Run, Cloud SQL, Memorystore) | Familiarity, Terraform support, scalable                           |
 | **Frontend**         | Next.js 14+                             | SSR, good DX, App Router                                           |
 | **Backend**          | FastAPI (Python)                        | Type-safe, good for data work                                      |
-| **Database**         | PostgreSQL 15 + pgvector                | Managed via Cloud SQL, vector search for semantic                  |
+| **Database**         | PostgreSQL 15 + pg_trgm                 | Managed via Cloud SQL, full-text + fuzzy search                    |
 | **Auth**             | Firebase Auth or Supabase               | TBD - both integrate well                                          |
 
 ---
@@ -65,7 +65,7 @@
 
 | Feature            | Priority | Description                                  |
 | ------------------ | -------- | -------------------------------------------- |
-| Card Database      | P0       | Search with Japanese names, semantic search  |
+| Card Database      | P0       | Search with Japanese names, fuzzy matching   |
 | Deck Builder       | P0       | Build, save, export with inclusion rates     |
 | Meta Dashboard     | P0       | Archetype shares, trends, regional breakdown |
 | Japanese Meta View | P0       | Translated results with BO1 context          |

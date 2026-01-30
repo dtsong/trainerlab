@@ -194,7 +194,7 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
       },
 
       clearDeck: () => {
-        set({ cards: [], isModified: true });
+        set({ cards: [], name: "", description: "", isModified: true });
       },
 
       loadDeck: (deck: Omit<DeckState, "isModified">) => {

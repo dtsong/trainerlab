@@ -61,6 +61,41 @@ async def list_decks(
     return await service.list_user_decks(current_user, page=page, limit=limit)
 
 
+@router.get("/public")
+async def list_public_decks(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+    limit: Annotated[
+        int, Query(ge=1, le=100, description="Items per page (max 100)")
+    ] = 20,
+    format: Annotated[
+        Literal["standard", "expanded"] | None,
+        Query(description="Filter by deck format"),
+    ] = None,
+    archetype: Annotated[
+        str | None,
+        Query(max_length=255, description="Filter by archetype"),
+    ] = None,
+    sort: Annotated[
+        Literal["recent", "popular"],
+        Query(description="Sort order: 'recent' (newest) or 'popular'"),
+    ] = "recent",
+) -> PaginatedResponse[DeckSummaryResponse]:
+    """Browse public decks.
+
+    No authentication required. Returns public decks with optional
+    filtering by format and archetype.
+    """
+    service = DeckService(db)
+    return await service.list_public_decks(
+        page=page,
+        limit=limit,
+        format=format,
+        archetype=archetype,
+        sort=sort,
+    )
+
+
 @router.get("/{deck_id}")
 async def get_deck(
     db: Annotated[AsyncSession, Depends(get_db)],

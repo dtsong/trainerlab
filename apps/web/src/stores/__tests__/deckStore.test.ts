@@ -355,4 +355,152 @@ describe("deckStore", () => {
       expect(useDeckStore.getState().isModified).toBe(false);
     });
   });
+
+  describe("computed getters", () => {
+    describe("totalCards", () => {
+      it("should return 0 for empty deck", () => {
+        expect(useDeckStore.getState().totalCards()).toBe(0);
+      });
+
+      it("should sum quantities of all cards", () => {
+        useDeckStore.getState().addCard(createMockCard({ id: "card-1" }));
+        useDeckStore.getState().addCard(createMockCard({ id: "card-1" })); // qty 2
+        useDeckStore.getState().addCard(createMockCard({ id: "card-2" })); // qty 1
+        expect(useDeckStore.getState().totalCards()).toBe(3);
+      });
+    });
+
+    describe("pokemonCount", () => {
+      it("should count only Pokemon cards", () => {
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "p1", supertype: "Pokemon" }));
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "p1", supertype: "Pokemon" }));
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "t1", supertype: "Trainer" }));
+        expect(useDeckStore.getState().pokemonCount()).toBe(2);
+      });
+    });
+
+    describe("trainerCount", () => {
+      it("should count only Trainer cards", () => {
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "p1", supertype: "Pokemon" }));
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "t1", supertype: "Trainer" }));
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "t1", supertype: "Trainer" }));
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "t1", supertype: "Trainer" }));
+        expect(useDeckStore.getState().trainerCount()).toBe(3);
+      });
+    });
+
+    describe("energyCount", () => {
+      it("should count only Energy cards", () => {
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "p1", supertype: "Pokemon" }));
+        useDeckStore.getState().addCard(createBasicEnergyCard());
+        useDeckStore.getState().addCard(createBasicEnergyCard());
+        expect(useDeckStore.getState().energyCount()).toBe(2);
+      });
+    });
+
+    describe("supertypeCounts", () => {
+      it("should return counts by supertype", () => {
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "p1", supertype: "Pokemon" }));
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "p1", supertype: "Pokemon" }));
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "t1", supertype: "Trainer" }));
+        useDeckStore.getState().addCard(createBasicEnergyCard());
+
+        const counts = useDeckStore.getState().supertypeCounts();
+        expect(counts).toEqual({
+          Pokemon: 2,
+          Trainer: 1,
+          Energy: 1,
+        });
+      });
+
+      it("should return zeros for empty deck", () => {
+        const counts = useDeckStore.getState().supertypeCounts();
+        expect(counts).toEqual({
+          Pokemon: 0,
+          Trainer: 0,
+          Energy: 0,
+        });
+      });
+    });
+
+    describe("isValid", () => {
+      it("should return false for empty deck", () => {
+        expect(useDeckStore.getState().isValid()).toBe(false);
+      });
+
+      it("should return false for deck with < 60 cards", () => {
+        for (let i = 0; i < 10; i++) {
+          useDeckStore.getState().addCard(createBasicEnergyCard());
+        }
+        expect(useDeckStore.getState().isValid()).toBe(false);
+      });
+
+      it("should return true for deck with exactly 60 cards", () => {
+        // Add 60 basic energy cards
+        const energy = createBasicEnergyCard();
+        for (let i = 0; i < 60; i++) {
+          useDeckStore.getState().addCard(energy);
+        }
+        expect(useDeckStore.getState().isValid()).toBe(true);
+      });
+    });
+
+    describe("cardsByType", () => {
+      it("should group cards by supertype", () => {
+        const pokemon = createMockCard({
+          id: "p1",
+          supertype: "Pokemon",
+          name: "Pikachu",
+        });
+        const trainer = createMockCard({
+          id: "t1",
+          supertype: "Trainer",
+          name: "Pokeball",
+        });
+        const energy = createBasicEnergyCard();
+
+        useDeckStore.getState().addCard(pokemon);
+        useDeckStore.getState().addCard(trainer);
+        useDeckStore.getState().addCard(energy);
+
+        const grouped = useDeckStore.getState().cardsByType();
+        expect(grouped.Pokemon).toHaveLength(1);
+        expect(grouped.Trainer).toHaveLength(1);
+        expect(grouped.Energy).toHaveLength(1);
+        expect(grouped.Pokemon[0].card.name).toBe("Pikachu");
+      });
+
+      it("should return empty arrays for missing types", () => {
+        useDeckStore
+          .getState()
+          .addCard(createMockCard({ id: "p1", supertype: "Pokemon" }));
+        const grouped = useDeckStore.getState().cardsByType();
+        expect(grouped.Pokemon).toHaveLength(1);
+        expect(grouped.Trainer).toHaveLength(0);
+        expect(grouped.Energy).toHaveLength(0);
+      });
+    });
+  });
 });

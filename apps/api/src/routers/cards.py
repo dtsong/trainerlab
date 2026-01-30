@@ -30,6 +30,10 @@ async def list_cards(
         list[str] | None,
         Query(description="Filter by supertype (Pokemon, Trainer, Energy)"),
     ] = None,
+    types: Annotated[
+        list[str] | None,
+        Query(description="Filter by Pokemon type (Fire, Water, Grass, etc.)"),
+    ] = None,
 ) -> PaginatedResponse[CardSummaryResponse]:
     """List all cards with pagination.
 
@@ -39,6 +43,8 @@ async def list_cards(
     Use the `q` parameter for case-insensitive partial matching on card names.
     Use the `supertype` parameter to filter by card type. Multiple values can
     be provided: ?supertype=Pokemon&supertype=Trainer
+    Use the `types` parameter to filter by Pokemon type. Returns cards that
+    have any of the specified types: ?types=Fire&types=Water
     """
     service = CardService(db)
     return await service.list_cards(
@@ -48,4 +54,5 @@ async def list_cards(
         sort_order=sort_order,
         q=q,
         supertype=supertype,
+        types=types,
     )

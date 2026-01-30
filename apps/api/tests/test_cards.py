@@ -183,6 +183,39 @@ class TestCardService:
 
         assert len(result.items) == 1
 
+    @pytest.mark.asyncio
+    async def test_list_cards_with_types_filter(
+        self, service: CardService, sample_card: MagicMock
+    ) -> None:
+        """Test filtering by single Pokemon type."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sample_card]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.list_cards(types=["Lightning"])
+
+        assert len(result.items) == 1
+        assert result.items[0].types == ["Lightning"]
+
+    @pytest.mark.asyncio
+    async def test_list_cards_with_multiple_types(
+        self, service: CardService, sample_card: MagicMock
+    ) -> None:
+        """Test filtering by multiple Pokemon types."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sample_card]
+        service.session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=1)),
+            mock_result,
+        ]
+
+        result = await service.list_cards(types=["Fire", "Water"])
+
+        assert len(result.items) == 1
+
 
 class TestSortEnums:
     """Tests for sort enums."""
@@ -299,5 +332,35 @@ class TestCardsEndpoint:
         ]
 
         response = client.get("/api/v1/cards?supertype=Pokemon&supertype=Trainer")
+
+        assert response.status_code == 200
+
+    def test_list_cards_with_types_filter(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that types filter parameter is accepted."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards?types=Fire")
+
+        assert response.status_code == 200
+
+    def test_list_cards_with_multiple_types(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that multiple types values are accepted."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards?types=Fire&types=Water")
 
         assert response.status_code == 200

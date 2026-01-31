@@ -253,19 +253,19 @@ class TestListArchetypes(TestMetaEndpoints):
         assert data[1]["name"] == "Lugia VSTAR"
         assert data[2]["name"] == "Giratina VSTAR"
 
-    def test_list_archetypes_empty(
+    def test_list_archetypes_not_found(
         self, client: TestClient, mock_db: AsyncMock
     ) -> None:
-        """Test listing archetypes when no snapshot exists."""
+        """Test listing archetypes when no snapshot exists returns 404."""
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
 
         response = client.get("/api/v1/meta/archetypes")
 
-        assert response.status_code == 200
+        assert response.status_code == 404
         data = response.json()
-        assert data == []
+        assert "No meta snapshot found" in data["detail"]
 
     def test_list_archetypes_empty_snapshot(
         self, client: TestClient, mock_db: AsyncMock
@@ -369,10 +369,10 @@ class TestMetaSchemas:
         """Test CardUsageSummary schema validation."""
         from src.schemas.meta import CardUsageSummary
 
-        usage = CardUsageSummary(card_id="sv4-6", inclusion_rate=0.85, avg_count=3.5)
+        usage = CardUsageSummary(card_id="sv4-6", inclusion_rate=0.85, avg_copies=3.5)
         assert usage.card_id == "sv4-6"
         assert usage.inclusion_rate == 0.85
-        assert usage.avg_count == 3.5
+        assert usage.avg_copies == 3.5
 
     def test_meta_snapshot_response_validation(self) -> None:
         """Test MetaSnapshotResponse schema validation."""
@@ -391,7 +391,7 @@ class TestMetaSchemas:
                 ArchetypeResponse(name="Charizard ex", share=0.15),
             ],
             card_usage=[
-                CardUsageSummary(card_id="sv4-6", inclusion_rate=0.85, avg_count=3.5),
+                CardUsageSummary(card_id="sv4-6", inclusion_rate=0.85, avg_copies=3.5),
             ],
             sample_size=100,
             tournaments_included=["tournament-1"],

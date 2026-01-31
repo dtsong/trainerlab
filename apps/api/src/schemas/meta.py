@@ -1,6 +1,7 @@
 """Meta snapshot Pydantic schemas."""
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,7 +30,7 @@ class CardUsageSummary(BaseModel):
     inclusion_rate: float = Field(
         ge=0.0, le=1.0, description="Rate of decks including this card (0.0-1.0)"
     )
-    avg_count: float = Field(ge=0.0, description="Average copies when included")
+    avg_copies: float = Field(ge=0.0, description="Average copies when included")
 
 
 class MetaSnapshotResponse(BaseModel):
@@ -41,7 +42,7 @@ class MetaSnapshotResponse(BaseModel):
     region: str | None = Field(
         default=None, description="Region (NA, EU, JP, etc.) or null for global"
     )
-    format: str = Field(description="Game format (standard, expanded)")
+    format: Literal["standard", "expanded"] = Field(description="Game format")
     best_of: int = Field(description="Match format (1 for BO1, 3 for BO3)")
     archetype_breakdown: list[ArchetypeResponse] = Field(
         description="List of archetypes with their meta shares"
@@ -57,6 +58,8 @@ class MetaSnapshotResponse(BaseModel):
 
 class MetaHistoryResponse(BaseModel):
     """Meta history response with multiple snapshots."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     snapshots: list[MetaSnapshotResponse] = Field(
         description="List of meta snapshots ordered by date descending"

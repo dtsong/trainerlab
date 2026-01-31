@@ -41,14 +41,14 @@ def _snapshot_to_response(snapshot: MetaSnapshot) -> MetaSnapshotResponse:
                 CardUsageSummary(
                     card_id=card_id,
                     inclusion_rate=usage_data.get("inclusion_rate", 0.0),
-                    avg_count=usage_data.get("avg_count", 0.0),
+                    avg_copies=usage_data.get("avg_count", 0.0),
                 )
             )
 
     return MetaSnapshotResponse(
         snapshot_date=snapshot.snapshot_date,
         region=snapshot.region,
-        format=snapshot.format,
+        format=snapshot.format,  # type: ignore[arg-type]
         best_of=snapshot.best_of,
         archetype_breakdown=archetype_breakdown,
         card_usage=card_usage,
@@ -96,7 +96,10 @@ async def get_current_meta(
     if snapshot is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No meta snapshot found for the specified filters",
+            detail=(
+                f"No meta snapshot found for region={region or 'global'}, "
+                f"format={format}, best_of={best_of}"
+            ),
         )
 
     return _snapshot_to_response(snapshot)
@@ -185,7 +188,13 @@ async def list_archetypes(
     snapshot = result.scalar_one_or_none()
 
     if snapshot is None:
-        return []
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"No meta snapshot found for region={region or 'global'}, "
+                f"format={format}, best_of={best_of}"
+            ),
+        )
 
     archetypes = [
         ArchetypeResponse(name=name, share=share)

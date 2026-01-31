@@ -6,12 +6,13 @@ Create Date: 2026-01-30
 
 This migration creates a materialized view for computing card inclusion rates
 from tournament placements. The view calculates:
-- Cards appearing in top tournament decks
-- Percentage of decks including each card
-- Average copies when the card is included
-- Filtered by format and date range
+- Cards appearing in tournament decks with available decklists
+- Percentage of decks including each card (inclusion_rate)
+- Average copies when the card is included (avg_copies)
+- Grouped by format, region, and best_of (match format)
 
-The view uses tournament placements that have decklists available.
+Includes first_seen and last_seen dates for trend analysis.
+The view uses tournament placements that have non-empty decklists.
 """
 
 from collections.abc import Sequence
@@ -32,6 +33,8 @@ def upgrade() -> None:
         CREATE MATERIALIZED VIEW card_usage_stats AS
         WITH decklist_cards AS (
             -- Extract individual card entries from JSON decklists
+            -- Filters out entries with missing card_id or quantity to prevent
+            -- silent data loss and cast failures
             SELECT
                 tp.id AS placement_id,
                 tp.tournament_id,
@@ -46,6 +49,10 @@ def upgrade() -> None:
             JOIN tournaments t ON t.id = tp.tournament_id
             CROSS JOIN LATERAL jsonb_array_elements(tp.decklist) AS card_entry
             WHERE tp.decklist IS NOT NULL
+              AND jsonb_typeof(tp.decklist) = 'array'
+              AND jsonb_array_length(tp.decklist) > 0
+              AND card_entry->>'card_id' IS NOT NULL
+              AND card_entry->>'quantity' IS NOT NULL
         ),
         card_aggregates AS (
             -- Calculate inclusion rate and average copies per card
@@ -55,10 +62,13 @@ def upgrade() -> None:
                 region,
                 best_of,
                 COUNT(DISTINCT placement_id) AS decks_including,
+                -- Count total decks with valid decklists for same format/region/best_of
                 (SELECT COUNT(DISTINCT id)
                  FROM tournament_placements tp2
                  JOIN tournaments t2 ON t2.id = tp2.tournament_id
                  WHERE tp2.decklist IS NOT NULL
+                   AND jsonb_typeof(tp2.decklist) = 'array'
+                   AND jsonb_array_length(tp2.decklist) > 0
                    AND t2.format = dc.format
                    AND (t2.region = dc.region
                         OR (t2.region IS NULL AND dc.region IS NULL))

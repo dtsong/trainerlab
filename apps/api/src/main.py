@@ -13,6 +13,7 @@ from src.routers import (
     health_router,
     meta_router,
     sets_router,
+    tournaments_router,
 )
 
 settings = get_settings()
@@ -50,3 +51,4 @@ app.include_router(decks_router)
 app.include_router(health_router)
 app.include_router(meta_router)
 app.include_router(sets_router)
+app.include_router(tournaments_router)

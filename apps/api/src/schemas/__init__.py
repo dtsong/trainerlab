@@ -33,6 +33,7 @@ from src.schemas.meta import (
 )
 from src.schemas.pagination import PaginatedResponse
 from src.schemas.set import SetResponse
+from src.schemas.tournament import TopPlacement, TournamentSummary
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
 
 __all__ = [
@@ -61,6 +62,8 @@ __all__ = [
     "SampleDeckResponse",
     "SetResponse",
     "SetSummaryResponse",
+    "TopPlacement",
+    "TournamentSummary",
     "TypeBreakdown",
     "UnmatchedCard",
     "UsageTrendPoint",

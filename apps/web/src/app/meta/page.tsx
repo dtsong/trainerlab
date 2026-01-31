@@ -13,6 +13,7 @@ import {
   ArchetypeCard,
   RegionFilter,
   DateRangePicker,
+  ChartErrorBoundary,
 } from "@/components/meta";
 import { metaApi, ApiError } from "@/lib/api";
 import { transformSnapshot, parseRegion, parseDays } from "@/lib/meta-utils";
@@ -127,17 +128,17 @@ function MetaPageContent() {
       name: a.name,
       share: a.share,
       keyCards: a.key_cards ?? undefined,
-    })) || [];
+    })) ?? [];
 
   const cardUsage: CardUsageSummary[] =
     currentMeta?.card_usage.map((c) => ({
       cardId: c.card_id,
       inclusionRate: c.inclusion_rate,
       avgCopies: c.avg_copies,
-    })) || [];
+    })) ?? [];
 
   const snapshots: MetaSnapshot[] =
-    metaHistory?.snapshots.map(transformSnapshot) || [];
+    metaHistory?.snapshots.map(transformSnapshot) ?? [];
 
   const isLoading = isLoadingCurrent || isLoadingHistory;
   const error = currentError || historyError;
@@ -216,7 +217,9 @@ function MetaPageContent() {
               </CardHeader>
               <CardContent>
                 {archetypes.length > 0 ? (
-                  <MetaPieChart data={archetypes} />
+                  <ChartErrorBoundary chartName="MetaPieChart">
+                    <MetaPieChart data={archetypes} />
+                  </ChartErrorBoundary>
                 ) : (
                   <p className="py-12 text-center text-muted-foreground">
                     No archetype data available
@@ -230,7 +233,9 @@ function MetaPageContent() {
               </CardHeader>
               <CardContent>
                 {cardUsage.length > 0 ? (
-                  <MetaBarChart data={cardUsage} limit={10} />
+                  <ChartErrorBoundary chartName="MetaBarChart">
+                    <MetaBarChart data={cardUsage} limit={10} />
+                  </ChartErrorBoundary>
                 ) : (
                   <p className="py-12 text-center text-muted-foreground">
                     No card usage data available
@@ -247,7 +252,9 @@ function MetaPageContent() {
             </CardHeader>
             <CardContent>
               {snapshots.length > 1 ? (
-                <MetaTrendChart snapshots={snapshots} />
+                <ChartErrorBoundary chartName="MetaTrendChart">
+                  <MetaTrendChart snapshots={snapshots} />
+                </ChartErrorBoundary>
               ) : (
                 <p className="py-12 text-center text-muted-foreground">
                   Not enough historical data for trends

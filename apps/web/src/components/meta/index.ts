@@ -5,3 +5,4 @@ export { ArchetypeCard } from "./ArchetypeCard";
 export { RegionFilter } from "./RegionFilter";
 export { DateRangePicker } from "./DateRangePicker";
 export { BO1ContextBanner } from "./BO1ContextBanner";
+export { ChartErrorBoundary } from "./ChartErrorBoundary";

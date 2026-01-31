@@ -20,16 +20,24 @@ from src.schemas.deck import (
     UnmatchedCard,
     UserSummary,
 )
+from src.schemas.meta import (
+    ArchetypeResponse,
+    CardUsageSummary,
+    MetaHistoryResponse,
+    MetaSnapshotResponse,
+)
 from src.schemas.pagination import PaginatedResponse
 from src.schemas.set import SetResponse
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
 
 __all__ = [
+    "ArchetypeResponse",
     "AttackSchema",
     "CardInDeck",
     "CardResponse",
     "CardSummaryResponse",
     "CardUsageResponse",
+    "CardUsageSummary",
     "DeckCreate",
     "DeckImportRequest",
     "DeckImportResponse",
@@ -38,6 +46,8 @@ __all__ = [
     "DeckSummaryResponse",
     "DeckUpdate",
     "EnergyCurvePoint",
+    "MetaHistoryResponse",
+    "MetaSnapshotResponse",
     "PaginatedResponse",
     "SetResponse",
     "SetSummaryResponse",

@@ -2,28 +2,21 @@
 
 import logging
 from datetime import date, timedelta
-from enum import IntEnum
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.db.database import get_db
 from src.models import Tournament
-from src.schemas import PaginatedResponse, TopPlacement, TournamentSummary
+from src.schemas import BestOf, PaginatedResponse, TopPlacement, TournamentSummary
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/meta/tournaments", tags=["tournaments"])
-
-
-class BestOf(IntEnum):
-    """Match format options."""
-
-    BO1 = 1
-    BO3 = 3
 
 
 @router.get("")
@@ -86,15 +79,50 @@ async def list_tournaments(
     count_query = select(func.count()).select_from(
         query.with_only_columns(Tournament.id).subquery()
     )
-    total_result = await db.execute(count_query)
-    total = total_result.scalar() or 0
+
+    try:
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+    except SQLAlchemyError:
+        logger.error(
+            "Database error counting tournaments: region=%s, format=%s, "
+            "start_date=%s, end_date=%s, best_of=%s",
+            region,
+            format,
+            start_date,
+            end_date,
+            best_of,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve tournaments. Please try again later.",
+        ) from None
 
     # Apply pagination
     offset = (page - 1) * limit
     query = query.order_by(Tournament.date.desc()).offset(offset).limit(limit)
 
-    result = await db.execute(query)
-    tournaments = result.scalars().unique().all()
+    try:
+        result = await db.execute(query)
+        tournaments = result.scalars().unique().all()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching tournaments: region=%s, format=%s, "
+            "start_date=%s, end_date=%s, best_of=%s, page=%s, limit=%s",
+            region,
+            format,
+            start_date,
+            end_date,
+            best_of,
+            page,
+            limit,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve tournaments. Please try again later.",
+        ) from None
 
     # Build response
     items: list[TournamentSummary] = []
@@ -112,8 +140,8 @@ async def list_tournaments(
                 date=tournament.date,
                 region=tournament.region,
                 country=tournament.country,
-                format=tournament.format,  # type: ignore[arg-type]
-                best_of=tournament.best_of,
+                format=tournament.format,  # type: ignore[invalid-argument-type]
+                best_of=tournament.best_of,  # type: ignore[invalid-argument-type]
                 participant_count=tournament.participant_count,
                 top_placements=[
                     TopPlacement(

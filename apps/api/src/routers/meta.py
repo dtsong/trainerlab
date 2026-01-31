@@ -4,7 +4,6 @@ import logging
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date, timedelta
-from enum import IntEnum
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,6 +17,7 @@ from src.schemas import (
     ArchetypeDetailResponse,
     ArchetypeHistoryPoint,
     ArchetypeResponse,
+    BestOf,
     CardUsageSummary,
     FormatNotes,
     KeyCardResponse,
@@ -29,13 +29,6 @@ from src.schemas import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/meta", tags=["meta"])
-
-
-class BestOf(IntEnum):
-    """Match format options."""
-
-    BO1 = 1
-    BO3 = 3
 
 
 # Format notes for Japan BO1

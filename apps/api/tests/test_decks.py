@@ -787,6 +787,118 @@ Total Cards - 6"""
         assert len(result.unmatched) == 0
         assert result.total_cards == 0
 
+    @pytest.mark.asyncio
+    async def test_import_duplicate_cards(self, service: DeckImportService) -> None:
+        """Test importing a deck with duplicate card entries."""
+        # Same card appears on multiple lines
+        deck_list = """* 4 Charizard ex SV4 6
+* 2 Charizard ex SV4 6"""
+
+        mock_charizard = MagicMock(spec=Card)
+        mock_charizard.id = "sv4-6"
+        mock_charizard.set_id = "sv4"
+        mock_charizard.number = "6"
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_charizard]
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.import_deck(deck_list)
+
+        # Both entries should be matched (duplicates preserved, not merged)
+        assert len(result.cards) == 2
+        assert result.cards[0].card_id == "sv4-6"
+        assert result.cards[0].quantity == 4
+        assert result.cards[1].card_id == "sv4-6"
+        assert result.cards[1].quantity == 2
+        assert result.total_cards == 6
+
+    @pytest.mark.asyncio
+    async def test_import_card_with_letter_suffix(
+        self, service: DeckImportService
+    ) -> None:
+        """Test importing cards with letter suffixes in card numbers."""
+        deck_list = "* 1 Pikachu SWSH 25a"
+
+        mock_card = MagicMock(spec=Card)
+        mock_card.id = "swsh-25a"
+        mock_card.set_id = "swsh"
+        mock_card.number = "25a"
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_card]
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.import_deck(deck_list)
+
+        assert len(result.cards) == 1
+        assert result.cards[0].card_id == "swsh-25a"
+        assert result.cards[0].quantity == 1
+
+    @pytest.mark.asyncio
+    async def test_import_all_unmatched(self, service: DeckImportService) -> None:
+        """Test import when all cards fail to match."""
+        deck_list = """* 4 Fake Card ABC 123
+* 2 Another Fake XYZ 456"""
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.import_deck(deck_list)
+
+        assert len(result.cards) == 0
+        assert len(result.unmatched) == 2
+        assert result.unmatched[0].name == "Fake Card"
+        assert result.unmatched[1].name == "Another Fake"
+        assert result.total_cards == 0
+
+    @pytest.mark.asyncio
+    async def test_import_case_insensitive_set_codes(
+        self, service: DeckImportService
+    ) -> None:
+        """Test that set codes are matched case-insensitively."""
+        deck_list = "* 4 Charizard ex sv4 6"  # lowercase set code
+
+        mock_card = MagicMock(spec=Card)
+        mock_card.id = "sv4-6"
+        mock_card.set_id = "SV4"  # Database has uppercase
+        mock_card.number = "6"
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_card]
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.import_deck(deck_list)
+
+        assert len(result.cards) == 1
+        assert result.cards[0].card_id == "sv4-6"
+
+    @pytest.mark.asyncio
+    async def test_import_with_malformed_lines(
+        self, service: DeckImportService
+    ) -> None:
+        """Test that malformed lines are skipped without error."""
+        deck_list = """Some random text
+* 4 Charizard ex SV4 6
+This line doesn't match
+Pokemon - 4"""
+
+        mock_card = MagicMock(spec=Card)
+        mock_card.id = "sv4-6"
+        mock_card.set_id = "sv4"
+        mock_card.number = "6"
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_card]
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.import_deck(deck_list)
+
+        # Only the valid line should be parsed
+        assert len(result.cards) == 1
+        assert len(result.unmatched) == 0
+
 
 class TestDeckEndpoints:
     """Tests for deck API endpoints."""

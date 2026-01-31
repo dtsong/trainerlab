@@ -146,6 +146,7 @@ class DeckImportRequest(BaseModel):
     deck_list: str = Field(
         ...,
         min_length=1,
+        max_length=50000,
         description="Deck list text in PTCGO or Pokemon Card Live format",
     )
 
@@ -157,7 +158,7 @@ class UnmatchedCard(BaseModel):
     name: str = Field(..., description="Parsed card name")
     set_code: str = Field(..., description="Parsed set code")
     number: str = Field(..., description="Parsed card number")
-    quantity: int = Field(..., description="Parsed quantity")
+    quantity: int = Field(..., ge=1, description="Parsed quantity")
 
 
 class DeckImportResponse(BaseModel):
@@ -169,4 +170,4 @@ class DeckImportResponse(BaseModel):
     unmatched: list[UnmatchedCard] = Field(
         default_factory=list, description="Cards that could not be matched"
     )
-    total_cards: int = Field(..., description="Total number of cards matched")
+    total_cards: int = Field(..., ge=0, description="Total number of cards matched")

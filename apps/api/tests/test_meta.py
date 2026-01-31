@@ -485,3 +485,25 @@ class TestJapanBO1Meta(TestMetaEndpoints):
         assert len(data["snapshots"]) == 1
         assert data["snapshots"][0]["format_notes"] is not None
         assert "double loss" in data["snapshots"][0]["format_notes"]["tie_rules"]
+
+    def test_bo1_non_jp_region_no_format_notes(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test that BO1 with non-JP region does not include format notes.
+
+        International major events are all BO3, so only Japan BO1
+        tournaments need the special tie rule documentation.
+        """
+        sample_snapshot.best_of = 1
+        sample_snapshot.region = "NA"
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_snapshot
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/current?best_of=1&region=NA")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["best_of"] == 1
+        assert data["region"] == "NA"
+        assert data["format_notes"] is None

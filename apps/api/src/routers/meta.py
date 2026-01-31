@@ -45,8 +45,12 @@ JAPAN_BO1_FORMAT_NOTES = FormatNotes(
 
 
 def _get_format_notes(best_of: int, region: str | None) -> FormatNotes | None:
-    """Get format-specific notes based on best_of and region."""
-    if best_of == 1:
+    """Get format-specific notes based on best_of and region.
+
+    Only Japan (JP) BO1 tournaments have special format notes since
+    international major events are all Best-of-3.
+    """
+    if best_of == 1 and region == "JP":
         return JAPAN_BO1_FORMAT_NOTES
     return None
 

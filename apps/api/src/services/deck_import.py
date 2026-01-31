@@ -50,6 +50,10 @@ class DeckImportService:
         parsed_cards = self._parse_deck_list(deck_list)
 
         if not parsed_cards:
+            logger.warning(
+                "Deck import parsed 0 cards from input of length %d",
+                len(deck_list),
+            )
             return DeckImportResponse(cards=[], unmatched=[], total_cards=0)
 
         # Match cards against database
@@ -57,6 +61,13 @@ class DeckImportService:
 
         # Calculate total
         total = sum(card.quantity for card in matched_cards)
+
+        logger.info(
+            "Deck import completed: %d matched, %d unmatched, %d total cards",
+            len(matched_cards),
+            len(unmatched_cards),
+            total,
+        )
 
         return DeckImportResponse(
             cards=matched_cards,
@@ -115,7 +126,8 @@ class DeckImportService:
                 continue
 
             # If neither pattern matches, log and skip
-            logger.debug("Could not parse line: %s", line)
+            # Use warning level so this is visible in production logs
+            logger.warning("Could not parse deck list line: %s", line)
 
         return parsed
 
@@ -150,9 +162,16 @@ class DeckImportService:
         # Query all potentially matching cards
         from sqlalchemy import or_
 
-        query = select(Card).where(or_(*conditions))
-        result = await self.session.execute(query)
-        db_cards = result.scalars().all()
+        try:
+            query = select(Card).where(or_(*conditions))
+            result = await self.session.execute(query)
+            db_cards = result.scalars().all()
+        except Exception:
+            logger.exception(
+                "Database error while matching %d cards from deck import",
+                len(parsed_cards),
+            )
+            raise
 
         # Build lookup by (set_id_lower, number)
         card_lookup: dict[tuple[str, str], Card] = {}

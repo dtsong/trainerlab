@@ -1,5 +1,6 @@
 """Deck endpoints."""
 
+import logging
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -22,6 +23,8 @@ from src.schemas import (
 from src.services.deck_export import DeckExportService
 from src.services.deck_import import DeckImportService
 from src.services.deck_service import CardValidationError, DeckService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/decks", tags=["decks"])
 
@@ -59,7 +62,14 @@ async def import_deck(
     Returns the matched cards and any cards that couldn't be found.
     """
     service = DeckImportService(db)
-    return await service.import_deck(import_data.deck_list)
+    try:
+        return await service.import_deck(import_data.deck_list)
+    except Exception:
+        logger.exception("Failed to import deck from deck list")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to import deck. Please check your deck list format.",
+        ) from None
 
 
 @router.get("")

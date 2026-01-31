@@ -737,6 +737,65 @@ class TestDeckExportService:
 
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_export_pokemoncard_private_deck_no_auth(
+        self, service: DeckExportService, sample_deck: MagicMock
+    ) -> None:
+        """Test export for private deck without auth returns None."""
+        sample_deck.is_public = False
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_deck
+        service.session.execute = AsyncMock(return_value=mock_result)
+
+        result = await service.export_pokemoncard(sample_deck.id, user=None)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_export_pokemoncard_with_missing_cards(
+        self,
+        service: DeckExportService,
+        sample_deck: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test export logs warning and continues when cards are missing."""
+        import logging
+
+        sample_deck.cards = [
+            {"card_id": "sv4-6", "quantity": 4},
+            {"card_id": "nonexistent-card", "quantity": 2},
+        ]
+
+        # Only sv4-6 exists in database
+        mock_pokemon = MagicMock(spec=Card)
+        mock_pokemon.id = "sv4-6"
+        mock_pokemon.name = "Charizard ex"
+        mock_pokemon.supertype = "Pokemon"
+        mock_pokemon.set_id = "sv4"
+        mock_pokemon.number = "6"
+
+        mock_deck_result = MagicMock()
+        mock_deck_result.scalar_one_or_none.return_value = sample_deck
+        mock_cards_result = MagicMock()
+        mock_cards_result.scalars.return_value.all.return_value = [mock_pokemon]
+
+        service.session.execute = AsyncMock(
+            side_effect=[mock_deck_result, mock_cards_result]
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = await service.export_pokemoncard(sample_deck.id)
+
+        # Should log warning about missing card
+        assert "nonexistent-card" in caplog.text
+        assert "not found in database" in caplog.text
+
+        # Should still export the card that was found
+        assert result is not None
+        assert "4 Charizard ex SV4 6" in result
+        assert "Pokemon - 4" in result
+
 
 class TestDeckImportService:
     """Tests for DeckImportService."""

@@ -15,8 +15,13 @@ import {
   DateRangePicker,
   ChartErrorBoundary,
 } from "@/components/meta";
-import { metaApi, ApiError } from "@/lib/api";
-import { transformSnapshot, parseRegion, parseDays } from "@/lib/meta-utils";
+import { metaApi } from "@/lib/api";
+import {
+  transformSnapshot,
+  parseRegion,
+  parseDays,
+  getErrorMessage,
+} from "@/lib/meta-utils";
 import { Button } from "@/components/ui/button";
 import type {
   Region,
@@ -24,22 +29,6 @@ import type {
   Archetype,
   CardUsageSummary,
 } from "@trainerlab/shared-types";
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 0) {
-      return "Unable to connect to the server. Please check your internet connection.";
-    }
-    if (error.status >= 500) {
-      return "Server error. Please try again later.";
-    }
-    if (error.status === 404) {
-      return "Meta data not found for the selected filters.";
-    }
-    return `Error loading data (${error.status}). Please try again.`;
-  }
-  return "An unexpected error occurred. Please try again.";
-}
 
 function MetaPageContent() {
   const router = useRouter();
@@ -85,6 +74,9 @@ function MetaPageContent() {
   };
 
   // Fetch current meta snapshot
+  // Japan uses Best-of-1 format; all other regions use Best-of-3
+  const bestOf = region === "JP" ? 1 : 3;
+
   const {
     data: currentMeta,
     isLoading: isLoadingCurrent,
@@ -96,7 +88,7 @@ function MetaPageContent() {
       metaApi.getCurrent({
         region: region === "global" ? undefined : region,
         format: "standard",
-        best_of: region === "JP" ? 1 : 3,
+        best_of: bestOf,
       }),
   });
 
@@ -112,7 +104,7 @@ function MetaPageContent() {
       metaApi.getHistory({
         region: region === "global" ? undefined : region,
         format: "standard",
-        best_of: region === "JP" ? 1 : 3,
+        best_of: bestOf,
         days,
       }),
   });

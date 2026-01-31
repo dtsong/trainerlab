@@ -1,4 +1,9 @@
-import type { MetaSnapshot, Region } from "@trainerlab/shared-types";
+import type {
+  MetaSnapshot,
+  Region,
+  ApiMetaSnapshot,
+} from "@trainerlab/shared-types";
+import { ApiError } from "./api";
 
 const VALID_REGIONS: Region[] = ["global", "NA", "EU", "JP", "LATAM", "OCE"];
 
@@ -19,11 +24,17 @@ export function parseRegion(
   if (value && isValidRegion(value)) {
     return value;
   }
+  if (value) {
+    console.warn(
+      `[parseRegion] Invalid region "${value}", using default "${defaultRegion}"`,
+    );
+  }
   return defaultRegion;
 }
 
 /**
  * Parse and validate days from a string, returning a default if invalid.
+ * Valid range is 1-365 days.
  */
 export function parseDays(
   value: string | null | undefined,
@@ -32,30 +43,42 @@ export function parseDays(
   if (!value) return defaultDays;
   const parsed = parseInt(value, 10);
   if (isNaN(parsed) || parsed < 1 || parsed > 365) {
+    console.warn(
+      `[parseDays] Invalid days value "${value}", using default ${defaultDays}`,
+    );
     return defaultDays;
   }
   return parsed;
 }
 
-export interface ApiMetaSnapshotData {
-  snapshot_date: string;
-  region: string | null;
-  format: "standard" | "expanded";
-  best_of: 1 | 3;
-  archetype_breakdown: {
-    name: string;
-    share: number;
-    key_cards?: string[] | null;
-  }[];
-  card_usage: {
-    card_id: string;
-    inclusion_rate: number;
-    avg_copies: number;
-  }[];
-  sample_size: number;
+/**
+ * Get a user-friendly error message from an API error.
+ * @param error The error to extract a message from
+ * @param context Optional context for 404 errors (e.g., "Japan meta")
+ */
+export function getErrorMessage(error: unknown, context?: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return "Unable to connect to the server. Please check your internet connection.";
+    }
+    if (error.status >= 500) {
+      return "Server error. Please try again later.";
+    }
+    if (error.status === 404) {
+      return context
+        ? `${context} data not found for the selected filters.`
+        : "Meta data not found for the selected filters.";
+    }
+    return `Error loading data (${error.status}). Please try again.`;
+  }
+  return "An unexpected error occurred. Please try again.";
 }
 
-export function transformSnapshot(data: ApiMetaSnapshotData): MetaSnapshot {
+/**
+ * Transforms API response data (snake_case) to frontend format (camelCase).
+ * Validates region values and converts null arrays to undefined.
+ */
+export function transformSnapshot(data: ApiMetaSnapshot): MetaSnapshot {
   return {
     snapshotDate: data.snapshot_date,
     region: isValidRegion(data.region) ? data.region : null,
@@ -87,10 +110,12 @@ export function safeFormatDate(
   try {
     const parsed = parseISOFn(isoString);
     if (isNaN(parsed.getTime())) {
+      console.warn("[safeFormatDate] Invalid date value:", isoString);
       return isoString;
     }
     return formatFn(parsed, formatString);
-  } catch {
+  } catch (error) {
+    console.warn("[safeFormatDate] Failed to parse date:", isoString, error);
     return isoString;
   }
 }

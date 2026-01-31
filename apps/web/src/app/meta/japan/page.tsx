@@ -15,30 +15,18 @@ import {
   BO1ContextBanner,
   ChartErrorBoundary,
 } from "@/components/meta";
-import { metaApi, ApiError } from "@/lib/api";
-import { transformSnapshot, parseDays } from "@/lib/meta-utils";
+import { metaApi } from "@/lib/api";
+import {
+  transformSnapshot,
+  parseDays,
+  getErrorMessage,
+} from "@/lib/meta-utils";
 import { Button } from "@/components/ui/button";
 import type {
   MetaSnapshot,
   Archetype,
   CardUsageSummary,
 } from "@trainerlab/shared-types";
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 0) {
-      return "Unable to connect to the server. Please check your internet connection.";
-    }
-    if (error.status >= 500) {
-      return "Server error. Please try again later.";
-    }
-    if (error.status === 404) {
-      return "Japan meta data not found for the selected date range.";
-    }
-    return `Error loading data (${error.status}). Please try again.`;
-  }
-  return "An unexpected error occurred. Please try again.";
-}
 
 function JapanMetaPageContent() {
   const router = useRouter();
@@ -159,7 +147,7 @@ function JapanMetaPageContent() {
               Failed to load Japan meta data
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {getErrorMessage(error)}
+              {getErrorMessage(error, "Japan meta")}
             </p>
             <Button
               variant="outline"

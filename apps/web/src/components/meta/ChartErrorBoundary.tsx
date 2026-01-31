@@ -32,7 +32,8 @@ export class ChartErrorBoundary extends Component<Props, State> {
       componentStack: errorInfo.componentStack,
     });
 
-    // TODO: When Sentry is added, capture this error:
+    // TODO(sentry-integration): Add Sentry error capture when monitoring is set up
+    // See: https://docs.sentry.io/platforms/javascript/guides/react/features/error-boundary/
     // Sentry.captureException(error, {
     //   tags: { component: "ChartErrorBoundary", chartName },
     //   extra: { componentStack: errorInfo.componentStack },

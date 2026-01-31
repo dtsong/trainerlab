@@ -15,6 +15,7 @@ export interface ApiCardUsageSummary {
 
 export interface ApiMetaSnapshot {
   snapshot_date: string;
+  /** Raw region from API - validated to Region type in transformSnapshot */
   region: string | null;
   format: "standard" | "expanded";
   best_of: 1 | 3;

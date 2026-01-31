@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pydantic import ValidationError
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.db.database import async_session_factory
 from src.fixtures.tournaments import TournamentFixture, normalize_archetype
@@ -98,17 +99,24 @@ async def clear_tournaments() -> int:
 
     Returns:
         Number of tournaments deleted.
+
+    Raises:
+        SQLAlchemyError: If database operation fails.
     """
-    async with async_session_factory() as session:
-        # Count existing
-        result = await session.execute(select(Tournament))
-        count = len(result.scalars().all())
+    try:
+        async with async_session_factory() as session:
+            # Count existing
+            result = await session.execute(select(Tournament))
+            count = len(result.scalars().all())
 
-        # Delete all (cascades to placements)
-        await session.execute(delete(Tournament))
-        await session.commit()
+            # Delete all (cascades to placements)
+            await session.execute(delete(Tournament))
+            await session.commit()
 
-        return count
+            return count
+    except SQLAlchemyError:
+        logger.error("Failed to clear tournaments", exc_info=True)
+        raise
 
 
 async def seed_tournament(fixture: TournamentFixture, dry_run: bool = False) -> bool:
@@ -209,7 +217,12 @@ def seed(
     # Clear if requested
     if clear and not dry_run:
         console.print("[yellow]Clearing existing tournaments...[/yellow]")
-        deleted = asyncio.run(clear_tournaments())
+        try:
+            deleted = asyncio.run(clear_tournaments())
+        except SQLAlchemyError as e:
+            console.print(f"[red]Error:[/red] Failed to clear tournaments: {e}")
+            console.print("Check database connection and try again.")
+            raise typer.Exit(1) from None
         console.print(f"Deleted {deleted} tournaments.\n")
 
     # Seed tournaments
@@ -226,21 +239,45 @@ def seed(
             else:
                 skipped += 1
                 logger.info("Skipped (exists): %s", fixture.name)
+        except IntegrityError as e:
+            console.print(
+                f"[red]Database integrity error for '{fixture.name}':[/red] {e}"
+            )
+            logger.error(
+                "Integrity error seeding %s - check for duplicate data or "
+                "constraint violations: %s",
+                fixture.name,
+                str(e),
+            )
+            console.print("[red]Aborting seed due to integrity error.[/red]")
+            raise typer.Exit(1) from None
+        except SQLAlchemyError as e:
+            failed += 1
+            console.print(f"[red]Database error seeding '{fixture.name}':[/red] {e}")
+            logger.error("Database error seeding %s: %s", fixture.name, str(e))
         except Exception as e:
             failed += 1
-            console.print(f"[red]Error seeding '{fixture.name}':[/red] {e}")
-            logger.error("Failed to seed %s: %s", fixture.name, str(e))
+            error_type = type(e).__name__
+            console.print(
+                f"[red]Unexpected error seeding '{fixture.name}':[/red] "
+                f"{error_type}: {e}"
+            )
+            logger.error(
+                "Unexpected error seeding %s: %s", fixture.name, str(e), exc_info=True
+            )
 
     # Summary
     console.print()
     if failed > 0:
         console.print("[yellow]Seed completed with errors.[/yellow]")
+        console.print(f"  Created: {created}")
+        console.print(f"  Skipped: {skipped}")
+        console.print(f"  [red]Failed: {failed}[/red]")
+        raise typer.Exit(1)
     else:
         console.print("[green]Seed complete![/green]")
-    console.print(f"  Created: {created}")
-    console.print(f"  Skipped: {skipped}")
-    if failed > 0:
-        console.print(f"  [red]Failed: {failed}[/red]")
+        console.print(f"  Created: {created}")
+        console.print(f"  Skipped: {skipped}")
 
     # Show preview table
     if fixtures:

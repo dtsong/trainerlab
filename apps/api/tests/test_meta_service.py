@@ -5,61 +5,10 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
-from src.models import Tournament, TournamentPlacement
+from src.models import MetaSnapshot, Tournament, TournamentPlacement
 from src.services.meta_service import MetaService
-
-
-class TestMetaService:
-    """Tests for MetaService."""
-
-    @pytest.fixture
-    def mock_session(self) -> AsyncMock:
-        return AsyncMock()
-
-    @pytest.fixture
-    def service(self, mock_session: AsyncMock) -> MetaService:
-        return MetaService(mock_session)
-
-    @pytest.fixture
-    def sample_tournament(self) -> Tournament:
-        """Create a sample tournament for testing."""
-        tournament = MagicMock(spec=Tournament)
-        tournament.id = uuid4()
-        tournament.name = "Test Regional"
-        tournament.date = date(2024, 6, 1)
-        tournament.region = "NA"
-        tournament.format = "standard"
-        tournament.best_of = 3
-        return tournament
-
-    @pytest.fixture
-    def sample_placements(
-        self, sample_tournament: Tournament
-    ) -> list[TournamentPlacement]:
-        """Create sample placements for testing."""
-        placements = []
-        archetypes = [
-            "Charizard ex",
-            "Charizard ex",
-            "Lugia VSTAR",
-            "Gardevoir ex",
-            "Charizard ex",
-            "Roaring Moon ex",
-            "Lugia VSTAR",
-            "Raging Bolt ex",
-        ]
-
-        for i, archetype in enumerate(archetypes, 1):
-            placement = MagicMock(spec=TournamentPlacement)
-            placement.id = uuid4()
-            placement.tournament_id = sample_tournament.id
-            placement.placement = i
-            placement.archetype = archetype
-            placement.decklist = None
-            placements.append(placement)
-
-        return placements
 
 
 class TestComputeArchetypeShares:
@@ -221,6 +170,73 @@ class TestComputeCardUsage:
         assert keys[1] == "card-b"  # 66%
         assert keys[2] == "card-c"  # 33%
 
+    def test_handles_non_dict_card_entries(self, service: MetaService) -> None:
+        """Should skip non-dict entries in decklist."""
+        p = MagicMock(spec=TournamentPlacement)
+        p.decklist = ["invalid_string", {"card_id": "valid-card", "quantity": 2}]
+
+        usage = service._compute_card_usage([p])
+
+        assert "valid-card" in usage
+        assert len(usage) == 1
+
+    def test_handles_empty_card_id(self, service: MetaService) -> None:
+        """Should skip entries with empty card_id."""
+        p = MagicMock(spec=TournamentPlacement)
+        p.decklist = [
+            {"card_id": "", "quantity": 4},
+            {"card_id": "valid-card", "quantity": 2},
+        ]
+
+        usage = service._compute_card_usage([p])
+
+        assert "valid-card" in usage
+        assert "" not in usage
+        assert len(usage) == 1
+
+    def test_handles_invalid_quantity_string(self, service: MetaService) -> None:
+        """Should skip entries with non-numeric quantity."""
+        p = MagicMock(spec=TournamentPlacement)
+        p.decklist = [
+            {"card_id": "bad-qty", "quantity": "not-a-number"},
+            {"card_id": "good-card", "quantity": 3},
+        ]
+
+        usage = service._compute_card_usage([p])
+
+        assert "good-card" in usage
+        assert "bad-qty" not in usage
+        assert len(usage) == 1
+
+    def test_handles_invalid_quantity_zero(self, service: MetaService) -> None:
+        """Should skip entries with zero or negative quantity."""
+        p = MagicMock(spec=TournamentPlacement)
+        p.decklist = [
+            {"card_id": "zero-qty", "quantity": 0},
+            {"card_id": "negative-qty", "quantity": -1},
+            {"card_id": "good-card", "quantity": 1},
+        ]
+
+        usage = service._compute_card_usage([p])
+
+        assert "good-card" in usage
+        assert "zero-qty" not in usage
+        assert "negative-qty" not in usage
+        assert len(usage) == 1
+
+    def test_handles_missing_card_id_key(self, service: MetaService) -> None:
+        """Should skip entries missing card_id key."""
+        p = MagicMock(spec=TournamentPlacement)
+        p.decklist = [
+            {"quantity": 4},  # Missing card_id
+            {"card_id": "valid-card", "quantity": 2},
+        ]
+
+        usage = service._compute_card_usage([p])
+
+        assert "valid-card" in usage
+        assert len(usage) == 1
+
 
 class TestCreateEmptySnapshot:
     """Tests for empty snapshot creation."""
@@ -273,3 +289,456 @@ class TestCreateEmptySnapshot:
 
         assert snapshot.region == "JP"
         assert snapshot.best_of == 1
+
+
+class TestComputeMetaSnapshotAsync:
+    """Async tests for compute_meta_snapshot method."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_snapshot_when_no_tournaments(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return empty snapshot when no tournaments found."""
+        # Mock empty tournament result
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert snapshot.sample_size == 0
+        assert snapshot.archetype_shares == {}
+        assert snapshot.card_usage is None
+        assert snapshot.tournaments_included == []
+
+    @pytest.mark.asyncio
+    async def test_computes_snapshot_from_tournaments(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should compute snapshot with archetype shares from placements."""
+        # Create mock tournament
+        mock_tournament = MagicMock(spec=Tournament)
+        mock_tournament.id = uuid4()
+
+        # Create mock placements
+        mock_placements = []
+        for archetype in ["Charizard ex", "Charizard ex", "Lugia VSTAR"]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = archetype
+            p.decklist = None
+            mock_placements.append(p)
+
+        # Setup execute to return tournaments then placements
+        tournament_result = MagicMock()
+        tournament_result.scalars.return_value.all.return_value = [mock_tournament]
+
+        placement_result = MagicMock()
+        placement_result.scalars.return_value.all.return_value = mock_placements
+
+        mock_session.execute.side_effect = [tournament_result, placement_result]
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert snapshot.sample_size == 3
+        assert "Charizard ex" in snapshot.archetype_shares
+        assert snapshot.archetype_shares["Charizard ex"] == pytest.approx(2 / 3)
+        assert snapshot.archetype_shares["Lugia VSTAR"] == pytest.approx(1 / 3)
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_snapshot_when_no_placements(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return empty snapshot when no placements found."""
+        mock_tournament = MagicMock(spec=Tournament)
+        mock_tournament.id = uuid4()
+
+        tournament_result = MagicMock()
+        tournament_result.scalars.return_value.all.return_value = [mock_tournament]
+
+        placement_result = MagicMock()
+        placement_result.scalars.return_value.all.return_value = []
+
+        mock_session.execute.side_effect = [tournament_result, placement_result]
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert snapshot.sample_size == 0
+        assert snapshot.archetype_shares == {}
+
+    @pytest.mark.asyncio
+    async def test_raises_on_tournament_query_error(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should raise SQLAlchemyError when tournament query fails."""
+        mock_session.execute.side_effect = SQLAlchemyError("Connection failed")
+
+        with pytest.raises(SQLAlchemyError):
+            await service.compute_meta_snapshot(
+                snapshot_date=date(2024, 6, 15),
+                region="NA",
+                game_format="standard",
+                best_of=3,
+            )
+
+    @pytest.mark.asyncio
+    async def test_raises_on_placement_query_error(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should raise SQLAlchemyError when placement query fails."""
+        mock_tournament = MagicMock(spec=Tournament)
+        mock_tournament.id = uuid4()
+
+        tournament_result = MagicMock()
+        tournament_result.scalars.return_value.all.return_value = [mock_tournament]
+
+        mock_session.execute.side_effect = [
+            tournament_result,
+            SQLAlchemyError("Query failed"),
+        ]
+
+        with pytest.raises(SQLAlchemyError):
+            await service.compute_meta_snapshot(
+                snapshot_date=date(2024, 6, 15),
+                region="NA",
+                game_format="standard",
+                best_of=3,
+            )
+
+    @pytest.mark.asyncio
+    async def test_computes_card_usage_from_decklists(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should compute card usage when placements have decklists."""
+        mock_tournament = MagicMock(spec=Tournament)
+        mock_tournament.id = uuid4()
+
+        # Create placements with decklists
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.archetype = "Charizard ex"
+        p1.decklist = [
+            {"card_id": "card-a", "quantity": 4},
+            {"card_id": "card-b", "quantity": 2},
+        ]
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.archetype = "Charizard ex"
+        p2.decklist = [{"card_id": "card-a", "quantity": 3}]
+
+        tournament_result = MagicMock()
+        tournament_result.scalars.return_value.all.return_value = [mock_tournament]
+
+        placement_result = MagicMock()
+        placement_result.scalars.return_value.all.return_value = [p1, p2]
+
+        mock_session.execute.side_effect = [tournament_result, placement_result]
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert snapshot.card_usage is not None
+        assert "card-a" in snapshot.card_usage
+        assert snapshot.card_usage["card-a"]["inclusion_rate"] == 1.0
+
+    @pytest.mark.asyncio
+    async def test_populates_tournaments_included(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should populate tournaments_included with tournament IDs."""
+        t1 = MagicMock(spec=Tournament)
+        t1.id = uuid4()
+        t2 = MagicMock(spec=Tournament)
+        t2.id = uuid4()
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.archetype = "Charizard ex"
+        p1.decklist = None
+
+        tournament_result = MagicMock()
+        tournament_result.scalars.return_value.all.return_value = [t1, t2]
+
+        placement_result = MagicMock()
+        placement_result.scalars.return_value.all.return_value = [p1]
+
+        mock_session.execute.side_effect = [tournament_result, placement_result]
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert len(snapshot.tournaments_included) == 2
+        assert str(t1.id) in snapshot.tournaments_included
+        assert str(t2.id) in snapshot.tournaments_included
+
+    @pytest.mark.asyncio
+    async def test_computes_global_snapshot_without_region(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should compute snapshot for global (region=None)."""
+        mock_tournament = MagicMock(spec=Tournament)
+        mock_tournament.id = uuid4()
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.archetype = "Charizard ex"
+        p1.decklist = None
+
+        tournament_result = MagicMock()
+        tournament_result.scalars.return_value.all.return_value = [mock_tournament]
+
+        placement_result = MagicMock()
+        placement_result.scalars.return_value.all.return_value = [p1]
+
+        mock_session.execute.side_effect = [tournament_result, placement_result]
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region=None,  # Global
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert snapshot.region is None
+        assert snapshot.sample_size == 1
+
+
+class TestSaveSnapshotAsync:
+    """Async tests for save_snapshot method."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        session = AsyncMock()
+        session.add = MagicMock()
+        return session
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    @pytest.fixture
+    def sample_snapshot(self) -> MetaSnapshot:
+        """Create a sample snapshot for testing."""
+        return MetaSnapshot(
+            id=uuid4(),
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            format="standard",
+            best_of=3,
+            archetype_shares={"Charizard ex": 0.5},
+            card_usage=None,
+            sample_size=10,
+            tournaments_included=["t1", "t2"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_inserts_new_snapshot(
+        self,
+        service: MetaService,
+        mock_session: AsyncMock,
+        sample_snapshot: MetaSnapshot,
+    ) -> None:
+        """Should insert new snapshot when none exists."""
+        # Mock no existing snapshot
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        await service.save_snapshot(sample_snapshot)
+
+        mock_session.add.assert_called_once_with(sample_snapshot)
+        mock_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_returns_snapshot_and_calls_refresh(
+        self,
+        service: MetaService,
+        mock_session: AsyncMock,
+        sample_snapshot: MetaSnapshot,
+    ) -> None:
+        """Should return the saved snapshot after commit and refresh."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.save_snapshot(sample_snapshot)
+
+        assert result is sample_snapshot
+        mock_session.refresh.assert_called_once_with(sample_snapshot)
+
+    @pytest.mark.asyncio
+    async def test_returns_updated_existing_snapshot(
+        self,
+        service: MetaService,
+        mock_session: AsyncMock,
+        sample_snapshot: MetaSnapshot,
+    ) -> None:
+        """Should return the existing snapshot after update and refresh."""
+        existing = MagicMock(spec=MetaSnapshot)
+        existing.archetype_shares = {}
+        existing.card_usage = None
+        existing.sample_size = 5
+        existing.tournaments_included = []
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing
+        mock_session.execute.return_value = mock_result
+
+        result = await service.save_snapshot(sample_snapshot)
+
+        # Should return existing (not the input snapshot)
+        assert result is existing
+        mock_session.refresh.assert_called_once_with(existing)
+
+    @pytest.mark.asyncio
+    async def test_updates_existing_snapshot(
+        self,
+        service: MetaService,
+        mock_session: AsyncMock,
+        sample_snapshot: MetaSnapshot,
+    ) -> None:
+        """Should update existing snapshot with same dimensions."""
+        existing = MagicMock(spec=MetaSnapshot)
+        existing.archetype_shares = {}
+        existing.card_usage = None
+        existing.sample_size = 5
+        existing.tournaments_included = []
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing
+        mock_session.execute.return_value = mock_result
+
+        await service.save_snapshot(sample_snapshot)
+
+        # Should update existing, not add new
+        mock_session.add.assert_not_called()
+        assert existing.archetype_shares == sample_snapshot.archetype_shares
+        assert existing.sample_size == sample_snapshot.sample_size
+        mock_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_raises_and_rollsback_on_error(
+        self,
+        service: MetaService,
+        mock_session: AsyncMock,
+        sample_snapshot: MetaSnapshot,
+    ) -> None:
+        """Should rollback and raise on database error."""
+        mock_session.execute.side_effect = SQLAlchemyError("Insert failed")
+
+        with pytest.raises(SQLAlchemyError):
+            await service.save_snapshot(sample_snapshot)
+
+        mock_session.rollback.assert_called_once()
+
+
+class TestGetSnapshotAsync:
+    """Async tests for get_snapshot method."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_returns_snapshot_when_found(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return snapshot when found."""
+        expected = MagicMock(spec=MetaSnapshot)
+        expected.snapshot_date = date(2024, 6, 15)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = expected
+        mock_session.execute.return_value = mock_result
+
+        result = await service.get_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert result == expected
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_not_found(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return None when no snapshot found."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.get_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handles_global_region(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should query with NULL region for global snapshots."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        await service.get_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region=None,
+            game_format="standard",
+            best_of=3,
+        )
+
+        # Verify execute was called (query construction verified implicitly)
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_raises_on_database_error(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should raise SQLAlchemyError on database failure."""
+        mock_session.execute.side_effect = SQLAlchemyError("Query failed")
+
+        with pytest.raises(SQLAlchemyError):
+            await service.get_snapshot(
+                snapshot_date=date(2024, 6, 15),
+                region="NA",
+                game_format="standard",
+                best_of=3,
+            )

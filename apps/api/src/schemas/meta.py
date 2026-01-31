@@ -33,6 +33,25 @@ class CardUsageSummary(BaseModel):
     avg_copies: float = Field(ge=0.0, description="Average copies when included")
 
 
+class FormatNotes(BaseModel):
+    """Format-specific notes and context."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    tie_rules: str | None = Field(
+        default=None,
+        description="How ties are handled in this format",
+    )
+    typical_regions: list[str] | None = Field(
+        default=None,
+        description="Regions where this format is typically used",
+    )
+    notes: str | None = Field(
+        default=None,
+        description="Additional context about this format",
+    )
+
+
 class MetaSnapshotResponse(BaseModel):
     """Full meta snapshot response."""
 
@@ -53,6 +72,10 @@ class MetaSnapshotResponse(BaseModel):
     sample_size: int = Field(ge=0, description="Number of placements in sample")
     tournaments_included: list[str] | None = Field(
         default=None, description="Tournament IDs included in the snapshot"
+    )
+    format_notes: FormatNotes | None = Field(
+        default=None,
+        description="Format-specific notes (e.g., Japan BO1 tie rules)",
     )
 
 

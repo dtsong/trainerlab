@@ -23,6 +23,7 @@ from src.schemas.deck import (
 from src.schemas.meta import (
     ArchetypeResponse,
     CardUsageSummary,
+    FormatNotes,
     MetaHistoryResponse,
     MetaSnapshotResponse,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "DeckSummaryResponse",
     "DeckUpdate",
     "EnergyCurvePoint",
+    "FormatNotes",
     "MetaHistoryResponse",
     "MetaSnapshotResponse",
     "PaginatedResponse",

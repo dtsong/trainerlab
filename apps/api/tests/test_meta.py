@@ -420,3 +420,90 @@ class TestMetaSchemas:
         )
 
         assert len(history.snapshots) == 1
+
+
+class TestJapanBO1Meta(TestMetaEndpoints):
+    """Tests for Japan BO1 meta handling."""
+
+    def test_bo1_meta_includes_format_notes(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test that BO1 meta snapshots include Japan format notes."""
+        sample_snapshot.best_of = 1
+        sample_snapshot.region = "JP"
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_snapshot
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/current?best_of=1&region=JP")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["best_of"] == 1
+        assert data["format_notes"] is not None
+        assert "double loss" in data["format_notes"]["tie_rules"]
+        assert "JP" in data["format_notes"]["typical_regions"]
+
+    def test_bo3_meta_no_format_notes(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test that BO3 meta snapshots do not include BO1 format notes."""
+        sample_snapshot.best_of = 3
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_snapshot
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/current?best_of=3")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["best_of"] == 3
+        assert data["format_notes"] is None
+
+    def test_bo1_history_includes_format_notes(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that BO1 meta history includes format notes."""
+        snapshot = MagicMock(spec=MetaSnapshot)
+        snapshot.snapshot_date = date(2024, 1, 15)
+        snapshot.region = "JP"
+        snapshot.format = "standard"
+        snapshot.best_of = 1
+        snapshot.archetype_shares = {"Charizard ex": 0.15}
+        snapshot.card_usage = {}
+        snapshot.sample_size = 100
+        snapshot.tournaments_included = []
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [snapshot]
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/history?best_of=1&region=JP")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["snapshots"]) == 1
+        assert data["snapshots"][0]["format_notes"] is not None
+        assert "double loss" in data["snapshots"][0]["format_notes"]["tie_rules"]
+
+    def test_bo1_non_jp_region_no_format_notes(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test that BO1 with non-JP region does not include format notes.
+
+        International major events are all BO3, so only Japan BO1
+        tournaments need the special tie rule documentation.
+        """
+        sample_snapshot.best_of = 1
+        sample_snapshot.region = "NA"
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_snapshot
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/current?best_of=1&region=NA")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["best_of"] == 1
+        assert data["region"] == "NA"
+        assert data["format_notes"] is None

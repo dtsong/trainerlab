@@ -1,0 +1,66 @@
+"""Meta snapshot Pydantic schemas."""
+
+from datetime import date
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ArchetypeResponse(BaseModel):
+    """Single archetype in meta snapshot."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str = Field(description="Archetype name (e.g., 'Charizard ex')")
+    share: float = Field(ge=0.0, le=1.0, description="Meta share percentage (0.0-1.0)")
+    sample_decks: list[str] | None = Field(
+        default=None, description="Sample deck IDs for this archetype"
+    )
+    key_cards: list[str] | None = Field(
+        default=None, description="Key card IDs that define this archetype"
+    )
+
+
+class CardUsageSummary(BaseModel):
+    """Card usage statistics in meta snapshot."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    card_id: str = Field(description="Card ID")
+    inclusion_rate: float = Field(
+        ge=0.0, le=1.0, description="Rate of decks including this card (0.0-1.0)"
+    )
+    avg_copies: float = Field(ge=0.0, description="Average copies when included")
+
+
+class MetaSnapshotResponse(BaseModel):
+    """Full meta snapshot response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    snapshot_date: date = Field(description="Date of the snapshot")
+    region: str | None = Field(
+        default=None, description="Region (NA, EU, JP, etc.) or null for global"
+    )
+    format: Literal["standard", "expanded"] = Field(description="Game format")
+    best_of: int = Field(description="Match format (1 for BO1, 3 for BO3)")
+    archetype_breakdown: list[ArchetypeResponse] = Field(
+        description="List of archetypes with their meta shares"
+    )
+    card_usage: list[CardUsageSummary] = Field(
+        default_factory=list, description="Card usage statistics"
+    )
+    sample_size: int = Field(ge=0, description="Number of placements in sample")
+    tournaments_included: list[str] | None = Field(
+        default=None, description="Tournament IDs included in the snapshot"
+    )
+
+
+class MetaHistoryResponse(BaseModel):
+    """Meta history response with multiple snapshots."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    snapshots: list[MetaSnapshotResponse] = Field(
+        description="List of meta snapshots ordered by date descending"
+    )

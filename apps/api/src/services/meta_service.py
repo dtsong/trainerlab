@@ -12,6 +12,7 @@ from typing import Literal
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
@@ -52,7 +53,7 @@ class MetaService:
             MetaSnapshot with computed stats.
 
         Raises:
-            Exception: If database query fails.
+            SQLAlchemyError: If database query fails.
         """
         start_date = date.fromordinal(snapshot_date.toordinal() - lookback_days)
 
@@ -69,14 +70,13 @@ class MetaService:
 
             result = await self.session.execute(tournament_query)
             tournaments = result.scalars().all()
-        except Exception as e:
+        except SQLAlchemyError:
             logger.error(
-                "Failed to query tournaments: region=%s, format=%s, best_of=%s, "
-                "error=%s",
+                "Failed to query tournaments: region=%s, format=%s, best_of=%s",
                 region,
                 game_format,
                 best_of,
-                str(e),
+                exc_info=True,
             )
             raise
 
@@ -100,11 +100,11 @@ class MetaService:
             )
             placement_result = await self.session.execute(placement_query)
             placements = placement_result.scalars().all()
-        except Exception as e:
+        except SQLAlchemyError:
             logger.error(
-                "Failed to query placements for tournaments %s: %s",
+                "Failed to query placements for tournaments %s",
                 tournament_ids,
-                str(e),
+                exc_info=True,
             )
             raise
 
@@ -144,7 +144,7 @@ class MetaService:
             The saved snapshot.
 
         Raises:
-            Exception: If database operation fails.
+            SQLAlchemyError: If database operation fails.
         """
         try:
             existing_query = select(MetaSnapshot).where(
@@ -176,13 +176,13 @@ class MetaService:
                 await self.session.commit()
                 await self.session.refresh(snapshot)
                 return snapshot
-        except Exception as e:
+        except SQLAlchemyError:
             logger.error(
-                "Failed to save meta snapshot: date=%s, region=%s, format=%s, error=%s",
+                "Failed to save meta snapshot: date=%s, region=%s, format=%s",
                 snapshot.snapshot_date,
                 snapshot.region,
                 snapshot.format,
-                str(e),
+                exc_info=True,
             )
             await self.session.rollback()
             raise
@@ -205,6 +205,9 @@ class MetaService:
 
         Returns:
             MetaSnapshot if found, None otherwise.
+
+        Raises:
+            SQLAlchemyError: If database query fails.
         """
         query = select(MetaSnapshot).where(
             MetaSnapshot.snapshot_date == snapshot_date,
@@ -217,8 +220,19 @@ class MetaService:
         else:
             query = query.where(MetaSnapshot.region == region)
 
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
+        try:
+            result = await self.session.execute(query)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError:
+            logger.error(
+                "Failed to get snapshot: date=%s, region=%s, format=%s, best_of=%s",
+                snapshot_date,
+                region,
+                game_format,
+                best_of,
+                exc_info=True,
+            )
+            raise
 
     def _compute_archetype_shares(
         self, placements: Sequence[TournamentPlacement]
@@ -270,32 +284,56 @@ class MetaService:
         card_appearances: dict[str, int] = defaultdict(int)
         card_total_count: dict[str, int] = defaultdict(int)
 
+        # Track data quality issues
+        invalid_entry_count = 0
+        invalid_quantity_count = 0
+        empty_card_id_count = 0
+
         for placement in placements_with_lists:
             seen_cards: set[str] = set()
             for card_entry in placement.decklist or []:
                 if not isinstance(card_entry, dict):
-                    logger.warning(
-                        "Invalid decklist entry (not a dict): %s", card_entry
-                    )
+                    invalid_entry_count += 1
                     continue
 
                 card_id = card_entry.get("card_id", "")
+                if not card_id:
+                    empty_card_id_count += 1
+                    continue
+
                 raw_quantity = card_entry.get("quantity", 1)
 
                 try:
                     quantity = int(raw_quantity)
+                    if quantity < 1:
+                        invalid_quantity_count += 1
+                        continue
                 except (TypeError, ValueError):
-                    logger.warning(
-                        "Invalid quantity for card %s: %s", card_id, raw_quantity
-                    )
-                    quantity = 1
+                    invalid_quantity_count += 1
+                    continue
 
-                if card_id and card_id not in seen_cards:
+                if card_id not in seen_cards:
                     card_appearances[card_id] += 1
                     seen_cards.add(card_id)
 
-                if card_id:
-                    card_total_count[card_id] += quantity
+                card_total_count[card_id] += quantity
+
+        # Log aggregate data quality issues
+        has_issues = (
+            invalid_entry_count > 0
+            or invalid_quantity_count > 0
+            or empty_card_id_count > 0
+        )
+        if has_issues:
+            logger.warning(
+                "Data quality issues in card_usage computation: "
+                "invalid_entries=%d, invalid_quantities=%d, empty_card_ids=%d, "
+                "total_placements=%d",
+                invalid_entry_count,
+                invalid_quantity_count,
+                empty_card_id_count,
+                len(placements_with_lists),
+            )
 
         card_usage = {}
         for card_id in card_appearances:

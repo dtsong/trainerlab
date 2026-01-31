@@ -14,8 +14,9 @@ import {
   RegionFilter,
   DateRangePicker,
 } from "@/components/meta";
-import { metaApi } from "@/lib/api";
-import { transformSnapshot } from "@/lib/meta-utils";
+import { metaApi, ApiError } from "@/lib/api";
+import { transformSnapshot, parseRegion, parseDays } from "@/lib/meta-utils";
+import { Button } from "@/components/ui/button";
 import type {
   Region,
   MetaSnapshot,
@@ -23,13 +24,29 @@ import type {
   CardUsageSummary,
 } from "@trainerlab/shared-types";
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return "Unable to connect to the server. Please check your internet connection.";
+    }
+    if (error.status >= 500) {
+      return "Server error. Please try again later.";
+    }
+    if (error.status === 404) {
+      return "Meta data not found for the selected filters.";
+    }
+    return `Error loading data (${error.status}). Please try again.`;
+  }
+  return "An unexpected error occurred. Please try again.";
+}
+
 function MetaPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Parse URL params with defaults
-  const initialRegion = (searchParams.get("region") as Region) || "global";
-  const initialDays = parseInt(searchParams.get("days") || "30", 10);
+  // Parse URL params with validation
+  const initialRegion = parseRegion(searchParams.get("region"));
+  const initialDays = parseDays(searchParams.get("days"));
 
   const [region, setRegion] = useState<Region>(initialRegion);
   const [dateRange, setDateRange] = useState({
@@ -71,6 +88,7 @@ function MetaPageContent() {
     data: currentMeta,
     isLoading: isLoadingCurrent,
     error: currentError,
+    refetch: refetchCurrent,
   } = useQuery({
     queryKey: ["meta", "current", region],
     queryFn: () =>
@@ -86,6 +104,7 @@ function MetaPageContent() {
     data: metaHistory,
     isLoading: isLoadingHistory,
     error: historyError,
+    refetch: refetchHistory,
   } = useQuery({
     queryKey: ["meta", "history", region, days],
     queryFn: () =>
@@ -96,6 +115,11 @@ function MetaPageContent() {
         days,
       }),
   });
+
+  const handleRetry = () => {
+    refetchCurrent();
+    refetchHistory();
+  };
 
   // Transform API data
   const archetypes: Archetype[] =
@@ -142,9 +166,20 @@ function MetaPageContent() {
       {error && (
         <Card className="border-destructive">
           <CardContent className="pt-6">
-            <p className="text-destructive">
-              Failed to load meta data. Please try again later.
+            <p className="font-medium text-destructive">
+              Failed to load meta data
             </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {getErrorMessage(error)}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={handleRetry}
+            >
+              Try Again
+            </Button>
           </CardContent>
         </Card>
       )}

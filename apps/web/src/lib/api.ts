@@ -30,16 +30,28 @@ async function fetchApi<T>(
   options?: RequestInit,
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+  } catch (error) {
+    console.error("Network error fetching", endpoint, error);
+    throw new ApiError(
+      "Network error: Unable to reach the server. Please check your connection.",
+      0,
+      { originalError: error },
+    );
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => undefined);
+    console.error("API error", endpoint, response.status, body);
     throw new ApiError(
       `API request failed: ${response.status} ${response.statusText}`,
       response.status,
@@ -47,7 +59,14 @@ async function fetchApi<T>(
     );
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch (error) {
+    console.error("JSON parse error", endpoint, error);
+    throw new ApiError("Server returned invalid data format", response.status, {
+      parseError: error,
+    });
+  }
 }
 
 // Card search parameters

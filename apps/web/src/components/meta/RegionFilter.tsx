@@ -24,6 +24,12 @@ const REGIONS: { value: Region; label: string; flag: string }[] = [
   { value: "OCE", label: "Oceania", flag: "🇦🇺" },
 ];
 
+const VALID_REGIONS: Region[] = ["global", "NA", "EU", "JP", "LATAM", "OCE"];
+
+function isValidRegion(value: string): value is Region {
+  return VALID_REGIONS.includes(value as Region);
+}
+
 export function RegionFilter({
   value,
   onChange,
@@ -31,8 +37,14 @@ export function RegionFilter({
 }: RegionFilterProps) {
   const selectedRegion = REGIONS.find((r) => r.value === value);
 
+  const handleChange = (newValue: string) => {
+    if (isValidRegion(newValue)) {
+      onChange(newValue);
+    }
+  };
+
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as Region)}>
+    <Select value={value} onValueChange={handleChange}>
       <SelectTrigger className={className} data-testid="region-filter">
         <SelectValue>
           {selectedRegion && (

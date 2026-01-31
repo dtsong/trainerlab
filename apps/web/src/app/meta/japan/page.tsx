@@ -14,19 +14,36 @@ import {
   DateRangePicker,
   BO1ContextBanner,
 } from "@/components/meta";
-import { metaApi } from "@/lib/api";
-import { transformSnapshot } from "@/lib/meta-utils";
+import { metaApi, ApiError } from "@/lib/api";
+import { transformSnapshot, parseDays } from "@/lib/meta-utils";
+import { Button } from "@/components/ui/button";
 import type {
   MetaSnapshot,
   Archetype,
   CardUsageSummary,
 } from "@trainerlab/shared-types";
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return "Unable to connect to the server. Please check your internet connection.";
+    }
+    if (error.status >= 500) {
+      return "Server error. Please try again later.";
+    }
+    if (error.status === 404) {
+      return "Japan meta data not found for the selected date range.";
+    }
+    return `Error loading data (${error.status}). Please try again.`;
+  }
+  return "An unexpected error occurred. Please try again.";
+}
+
 function JapanMetaPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const initialDays = parseInt(searchParams.get("days") || "30", 10);
+  const initialDays = parseDays(searchParams.get("days"));
 
   const [dateRange, setDateRange] = useState({
     start: startOfDay(subDays(new Date(), initialDays)),
@@ -59,6 +76,7 @@ function JapanMetaPageContent() {
     data: currentMeta,
     isLoading: isLoadingCurrent,
     error: currentError,
+    refetch: refetchCurrent,
   } = useQuery({
     queryKey: ["meta", "current", "JP", 1],
     queryFn: () =>
@@ -74,6 +92,7 @@ function JapanMetaPageContent() {
     data: metaHistory,
     isLoading: isLoadingHistory,
     error: historyError,
+    refetch: refetchHistory,
   } = useQuery({
     queryKey: ["meta", "history", "JP", 1, days],
     queryFn: () =>
@@ -84,6 +103,11 @@ function JapanMetaPageContent() {
         days,
       }),
   });
+
+  const handleRetry = () => {
+    refetchCurrent();
+    refetchHistory();
+  };
 
   // Transform API data
   const archetypes: Archetype[] =
@@ -130,9 +154,20 @@ function JapanMetaPageContent() {
       {error && (
         <Card className="border-destructive">
           <CardContent className="pt-6">
-            <p className="text-destructive">
-              Failed to load Japan meta data. Please try again later.
+            <p className="font-medium text-destructive">
+              Failed to load Japan meta data
             </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {getErrorMessage(error)}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={handleRetry}
+            >
+              Try Again
+            </Button>
           </CardContent>
         </Card>
       )}

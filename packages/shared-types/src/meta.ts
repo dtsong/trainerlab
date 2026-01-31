@@ -30,6 +30,8 @@ export interface ApiMetaHistoryResponse {
 
 // Frontend types (camelCase)
 
+export type Region = "global" | "NA" | "EU" | "JP" | "LATAM" | "OCE";
+
 export interface Archetype {
   name: string;
   share: number;
@@ -45,7 +47,7 @@ export interface CardUsageSummary {
 
 export interface MetaSnapshot {
   snapshotDate: string;
-  region: string | null;
+  region: Region | null;
   format: "standard" | "expanded";
   bestOf: 1 | 3;
   archetypeBreakdown: Archetype[];
@@ -53,8 +55,6 @@ export interface MetaSnapshot {
   sampleSize: number;
   tournamentsIncluded?: string[];
 }
-
-export type Region = "global" | "NA" | "EU" | "JP" | "LATAM" | "OCE";
 
 export interface MetaFilters {
   region: Region;

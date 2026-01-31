@@ -39,6 +39,7 @@ export function DateRangePicker({
   const [isOpen, setIsOpen] = useState(false);
   const [startDate, setStartDate] = useState(format(value.start, "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(format(value.end, "yyyy-MM-dd"));
+  const [error, setError] = useState<string | null>(null);
 
   const handlePreset = (days: number) => {
     const end = endOfDay(new Date());
@@ -46,16 +47,27 @@ export function DateRangePicker({
     onChange({ start, end });
     setStartDate(format(start, "yyyy-MM-dd"));
     setEndDate(format(end, "yyyy-MM-dd"));
+    setError(null);
     setIsOpen(false);
   };
 
   const handleApply = () => {
     const start = startOfDay(new Date(startDate));
     const end = endOfDay(new Date(endDate));
-    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
-      onChange({ start, end });
-      setIsOpen(false);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      setError("Please enter valid dates");
+      return;
     }
+
+    if (start > end) {
+      setError("Start date must be before end date");
+      return;
+    }
+
+    setError(null);
+    onChange({ start, end });
+    setIsOpen(false);
   };
 
   const formatDisplay = () => {
@@ -97,22 +109,39 @@ export function DateRangePicker({
           </div>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Start Date</label>
+              <label htmlFor="date-range-start" className="text-sm font-medium">
+                Start Date
+              </label>
               <Input
+                id="date-range-start"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setError(null);
+                }}
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium">End Date</label>
+              <label htmlFor="date-range-end" className="text-sm font-medium">
+                End Date
+              </label>
               <Input
+                id="date-range-end"
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setError(null);
+                }}
               />
             </div>
           </div>
+          {error && (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancel

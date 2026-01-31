@@ -401,11 +401,18 @@ async def get_archetype_detail(
         placements = placement_result.scalars().all()
     except SQLAlchemyError:
         logger.error(
-            "Database error fetching archetype placements: name=%s",
+            "Database error fetching archetype placements: "
+            "name=%s, region=%s, format=%s, best_of=%s",
             name,
+            region,
+            format,
+            best_of,
             exc_info=True,
         )
-        placements = []
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve archetype details. Please try again later.",
+        ) from None
 
     # Compute key cards from placements with decklists
     key_cards = _compute_key_cards(placements)
@@ -492,7 +499,16 @@ async def _build_sample_decks(
             result = await db.execute(tournament_query)
             tournaments = {t.id: t for t in result.scalars().all()}
         except SQLAlchemyError:
-            tournaments = {}
+            logger.error(
+                "Database error fetching tournaments for sample decks: "
+                "tournament_ids=%s",
+                tournament_ids,
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to retrieve archetype details. Please try again later.",
+            ) from None
     else:
         tournaments = {}
 

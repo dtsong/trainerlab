@@ -648,3 +648,268 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         assert len(data["history"]) == 2
         assert data["history"][0]["share"] == 0.15
         assert data["history"][1]["share"] == 0.12
+
+    def test_get_archetype_detail_snapshot_db_error_returns_503(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test database error during snapshot query returns 503."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        mock_db.execute.side_effect = SQLAlchemyError("Connection failed")
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 503
+        assert "try again later" in response.json()["detail"]
+
+    def test_get_archetype_detail_placement_db_error_returns_503(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test database error during placement query returns 503."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        mock_db.execute.side_effect = [
+            mock_snapshot_result,
+            SQLAlchemyError("Placement query failed"),
+        ]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 503
+        assert "try again later" in response.json()["detail"]
+
+    def test_get_archetype_detail_tournament_db_error_returns_503(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test database error during tournament lookup returns 503."""
+        from uuid import uuid4
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.tournament_id = uuid4()
+        placement.decklist = [{"card_id": "sv4-6", "quantity": 4}]
+
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = [placement]
+
+        mock_db.execute.side_effect = [
+            mock_snapshot_result,
+            mock_placement_result,
+            SQLAlchemyError("Tournament query failed"),
+        ]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 503
+        assert "try again later" in response.json()["detail"]
+
+    def test_get_archetype_detail_no_snapshots_returns_404(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test 404 when no meta snapshots exist."""
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = []
+        mock_db.execute.return_value = mock_snapshot_result
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    def test_get_archetype_detail_invalid_format(self, client: TestClient) -> None:
+        """Test invalid format parameter returns 422."""
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex?format=invalid")
+        assert response.status_code == 422
+
+    def test_get_archetype_detail_invalid_best_of(self, client: TestClient) -> None:
+        """Test invalid best_of parameter returns 422."""
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex?best_of=2")
+        assert response.status_code == 422
+
+    def test_get_archetype_detail_invalid_days(self, client: TestClient) -> None:
+        """Test invalid days parameter returns 422."""
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex?days=0")
+        assert response.status_code == 422
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex?days=400")
+        assert response.status_code == 422
+
+    def test_get_archetype_detail_with_format_filter(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test filtering archetype detail by format."""
+        sample_snapshot.format = "expanded"
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute.side_effect = [mock_snapshot_result, mock_placement_result]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex?format=expanded")
+
+        assert response.status_code == 200
+
+    def test_get_archetype_detail_with_best_of_filter(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test filtering archetype detail by best_of (BO1 for Japan)."""
+        sample_snapshot.best_of = 1
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute.side_effect = [mock_snapshot_result, mock_placement_result]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex?best_of=1")
+
+        assert response.status_code == 200
+
+    def test_get_archetype_detail_zero_share_handled_correctly(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test current_share=0.0 is returned correctly (not skipped)."""
+        snapshot = MagicMock(spec=MetaSnapshot)
+        snapshot.snapshot_date = date(2024, 1, 15)
+        snapshot.archetype_shares = {"Charizard ex": 0.0}  # Archetype dropped to 0%
+        snapshot.sample_size = 100
+
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [snapshot]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute.side_effect = [mock_snapshot_result, mock_placement_result]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["current_share"] == 0.0  # Should be 0.0, not skipped
+        assert len(data["history"]) == 1
+        assert data["history"][0]["share"] == 0.0
+
+    def test_get_archetype_detail_handles_malformed_decklist(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test key cards computation handles malformed decklist data gracefully."""
+        from uuid import uuid4
+
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.tournament_id = uuid4()
+        placement.placement = 1
+        placement.player_name = "Test Player"
+        placement.decklist = [
+            {"card_id": "sv4-6", "quantity": 4},  # Valid
+            "not_a_dict",  # Non-dict entry (should be skipped)
+            {"quantity": 2},  # Missing card_id (should be skipped)
+            {"card_id": "", "quantity": 2},  # Empty card_id (should be skipped)
+            {"card_id": "sv3-1", "quantity": "invalid"},  # Non-numeric (skip)
+            {"card_id": "sv3-2", "quantity": 0},  # Zero quantity (skip)
+            {"card_id": "sv3-3", "quantity": -1},  # Negative quantity (skip)
+        ]
+
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = placement.tournament_id
+        tournament.name = "Test Tournament"
+
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = [placement]
+
+        mock_tournament_result = MagicMock()
+        mock_tournament_result.scalars.return_value.all.return_value = [tournament]
+
+        mock_db.execute.side_effect = [
+            mock_snapshot_result,
+            mock_placement_result,
+            mock_tournament_result,
+        ]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 200
+        data = response.json()
+        # Only sv4-6 should appear in key_cards (only valid entry)
+        assert len(data["key_cards"]) == 1
+        assert data["key_cards"][0]["card_id"] == "sv4-6"
+        assert data["key_cards"][0]["inclusion_rate"] == 1.0
+        assert data["key_cards"][0]["avg_copies"] == 4.0
+
+    def test_get_archetype_detail_key_card_calculations(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test key card inclusion_rate and avg_copies are calculated correctly."""
+        from uuid import uuid4
+
+        # Two placements with different card counts
+        placement1 = MagicMock(spec=TournamentPlacement)
+        placement1.id = uuid4()
+        placement1.tournament_id = uuid4()
+        placement1.placement = 1
+        placement1.player_name = "Player 1"
+        placement1.decklist = [
+            {"card_id": "sv4-6", "quantity": 4},  # In both
+            {"card_id": "sv3-1", "quantity": 2},  # Only in placement1
+        ]
+
+        placement2 = MagicMock(spec=TournamentPlacement)
+        placement2.id = uuid4()
+        placement2.tournament_id = placement1.tournament_id
+        placement2.placement = 2
+        placement2.player_name = "Player 2"
+        placement2.decklist = [
+            {"card_id": "sv4-6", "quantity": 3},  # In both (different count)
+        ]
+
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = placement1.tournament_id
+        tournament.name = "Test Tournament"
+
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = [
+            placement1,
+            placement2,
+        ]
+
+        mock_tournament_result = MagicMock()
+        mock_tournament_result.scalars.return_value.all.return_value = [tournament]
+
+        mock_db.execute.side_effect = [
+            mock_snapshot_result,
+            mock_placement_result,
+            mock_tournament_result,
+        ]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # sv4-6: in both placements (2/2 = 100%), avg (4+3)/2 = 3.5
+        # sv3-1: in 1 placement (1/2 = 50%), avg = 2.0
+        key_cards = {kc["card_id"]: kc for kc in data["key_cards"]}
+
+        assert key_cards["sv4-6"]["inclusion_rate"] == 1.0
+        assert key_cards["sv4-6"]["avg_copies"] == 3.5
+
+        assert key_cards["sv3-1"]["inclusion_rate"] == 0.5
+        assert key_cards["sv3-1"]["avg_copies"] == 2.0

@@ -11,6 +11,8 @@ from src.db.database import get_db
 from src.dependencies import CurrentUser, OptionalUser
 from src.schemas import (
     DeckCreate,
+    DeckImportRequest,
+    DeckImportResponse,
     DeckResponse,
     DeckStatsResponse,
     DeckSummaryResponse,
@@ -18,6 +20,7 @@ from src.schemas import (
     PaginatedResponse,
 )
 from src.services.deck_export import DeckExportService
+from src.services.deck_import import DeckImportService
 from src.services.deck_service import CardValidationError, DeckService
 
 router = APIRouter(prefix="/api/v1/decks", tags=["decks"])
@@ -41,6 +44,22 @@ async def create_deck(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
+
+
+@router.post("/import")
+async def import_deck(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    import_data: DeckImportRequest,
+) -> DeckImportResponse:
+    """Import a deck from PTCGO or Pokemon Card Live format.
+
+    Parses the deck list text and matches cards against the database.
+    No authentication required - this is a parsing utility.
+
+    Returns the matched cards and any cards that couldn't be found.
+    """
+    service = DeckImportService(db)
+    return await service.import_deck(import_data.deck_list)
 
 
 @router.get("")

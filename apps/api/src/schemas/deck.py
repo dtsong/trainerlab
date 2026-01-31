@@ -138,3 +138,35 @@ class DeckStatsResponse(BaseModel):
         description="Distribution of attack costs",
     )
     total_cards: int = Field(..., description="Total number of cards in deck")
+
+
+class DeckImportRequest(BaseModel):
+    """Request body for importing a deck from text."""
+
+    deck_list: str = Field(
+        ...,
+        min_length=1,
+        description="Deck list text in PTCGO or Pokemon Card Live format",
+    )
+
+
+class UnmatchedCard(BaseModel):
+    """Info about a card that could not be matched in the database."""
+
+    line: str = Field(..., description="Original line from the deck list")
+    name: str = Field(..., description="Parsed card name")
+    set_code: str = Field(..., description="Parsed set code")
+    number: str = Field(..., description="Parsed card number")
+    quantity: int = Field(..., description="Parsed quantity")
+
+
+class DeckImportResponse(BaseModel):
+    """Response from importing a deck."""
+
+    cards: list[CardInDeck] = Field(
+        default_factory=list, description="Successfully matched cards"
+    )
+    unmatched: list[UnmatchedCard] = Field(
+        default_factory=list, description="Cards that could not be matched"
+    )
+    total_cards: int = Field(..., description="Total number of cards matched")

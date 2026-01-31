@@ -171,17 +171,20 @@ async def export_deck(
     current_user: OptionalUser,
     deck_id: UUID,
     format: Annotated[
-        Literal["ptcgo"],
-        Query(description="Export format (currently only 'ptcgo' is supported)"),
+        Literal["ptcgo", "pokemoncard"],
+        Query(description="Export format: 'ptcgo' or 'pokemoncard' (PCL)"),
     ] = "ptcgo",
 ) -> PlainTextResponse:
     """Export a deck to a text format.
 
-    Currently supports PTCGO format, which can be imported directly
-    into Pokemon TCG Online/Live. Public decks are accessible to everyone.
+    Supports PTCGO format (Pokemon TCG Online) and pokemoncard format
+    (Pokemon Card Live). Public decks are accessible to everyone.
     """
     service = DeckExportService(db)
-    exported = await service.export_ptcgo(deck_id, current_user)
+    if format == "pokemoncard":
+        exported = await service.export_pokemoncard(deck_id, current_user)
+    else:
+        exported = await service.export_ptcgo(deck_id, current_user)
     if exported is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Deck not found"

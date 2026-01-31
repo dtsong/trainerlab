@@ -87,3 +87,56 @@ class MetaHistoryResponse(BaseModel):
     snapshots: list[MetaSnapshotResponse] = Field(
         description="List of meta snapshots ordered by date descending"
     )
+
+
+class ArchetypeHistoryPoint(BaseModel):
+    """Single point in archetype history."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    snapshot_date: date = Field(description="Date of the snapshot")
+    share: float = Field(ge=0.0, le=1.0, description="Meta share at this date")
+    sample_size: int = Field(ge=0, description="Number of placements in sample")
+
+
+class KeyCardResponse(BaseModel):
+    """Key card with usage stats for an archetype."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    card_id: str = Field(description="Card ID")
+    inclusion_rate: float = Field(
+        ge=0.0, le=1.0, description="Rate of archetype decks including this card"
+    )
+    avg_copies: float = Field(ge=0.0, description="Average copies when included")
+
+
+class SampleDeckResponse(BaseModel):
+    """Sample deck for an archetype."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    deck_id: str = Field(description="Deck or placement ID")
+    tournament_name: str | None = Field(default=None, description="Tournament name")
+    placement: int | None = Field(default=None, description="Tournament placement")
+    player_name: str | None = Field(
+        default=None, description="Player name if available"
+    )
+
+
+class ArchetypeDetailResponse(BaseModel):
+    """Detailed archetype information with history."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str = Field(description="Archetype name")
+    current_share: float = Field(
+        ge=0.0, le=1.0, description="Current meta share percentage"
+    )
+    history: list[ArchetypeHistoryPoint] = Field(
+        description="Historical meta share over time"
+    )
+    key_cards: list[KeyCardResponse] = Field(description="Key cards with usage stats")
+    sample_decks: list[SampleDeckResponse] = Field(
+        default_factory=list, description="Sample decklists from tournaments"
+    )

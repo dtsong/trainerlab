@@ -353,7 +353,7 @@ async def get_archetype_detail(
 
     # Build history from snapshots
     history: list[ArchetypeHistoryPoint] = []
-    current_share = 0.0
+    current_share: float | None = None
     found = False
 
     for snapshot in snapshots:
@@ -368,7 +368,8 @@ async def get_archetype_detail(
                     sample_size=snapshot.sample_size,
                 )
             )
-            if not current_share and history:
+            # Set current_share from first (most recent) snapshot only
+            if current_share is None:
                 current_share = share
 
     if not found:
@@ -389,7 +390,9 @@ async def get_archetype_detail(
         )
     )
 
-    if region:
+    if region is None:
+        placement_query = placement_query.where(Tournament.region.is_(None))
+    else:
         placement_query = placement_query.where(Tournament.region == region)
 
     placement_query = placement_query.order_by(
@@ -422,7 +425,7 @@ async def get_archetype_detail(
 
     return ArchetypeDetailResponse(
         name=name,
-        current_share=current_share,
+        current_share=current_share if current_share is not None else 0.0,
         history=history,
         key_cards=key_cards,
         sample_decks=sample_decks,

@@ -17,7 +17,7 @@ class PlacementFixture(BaseModel):
         placement: Final standing (1 = winner, 2 = finalist, etc.)
         player_name: Optional player name
         archetype: Deck archetype name (e.g., "Charizard ex", "Lugia VSTAR")
-        decklist: Optional deck list as card_id -> quantity mapping
+        decklist: Optional deck list as list of {card_id, quantity} dicts
         decklist_source: Optional URL/source for the deck list
     """
 
@@ -137,6 +137,9 @@ ARCHETYPE_MAPPING: dict[str, str] = {
 
 def normalize_archetype(archetype: str) -> str:
     """Normalize an archetype name to its canonical form.
+
+    Input is lowercased and stripped before lookup, so "Charizard EX" and
+    " charizard ex " both map to "Charizard ex".
 
     Args:
         archetype: Raw archetype name from tournament data

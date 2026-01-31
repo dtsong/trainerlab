@@ -23,6 +23,7 @@ from rich.table import Table
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from pydantic import ValidationError
 from sqlalchemy import delete, select
 
 from src.db.database import async_session_factory
@@ -54,18 +55,40 @@ def setup_logging(verbose: bool) -> None:
 
 
 def load_fixtures() -> list[TournamentFixture]:
-    """Load tournament fixtures from JSON file."""
+    """Load tournament fixtures from JSON file.
+
+    Returns:
+        List of validated TournamentFixture objects.
+
+    Raises:
+        typer.Exit: If file not found, invalid JSON, or validation fails.
+    """
     if not FIXTURES_PATH.exists():
         console.print(f"[red]Error:[/red] Fixtures file not found: {FIXTURES_PATH}")
         raise typer.Exit(1)
 
-    with open(FIXTURES_PATH) as f:
-        data = json.load(f)
+    try:
+        with open(FIXTURES_PATH) as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        console.print(f"[red]Error:[/red] Invalid JSON in fixtures file: {e}")
+        raise typer.Exit(1) from None
+    except OSError as e:
+        console.print(f"[red]Error:[/red] Failed to read fixtures file: {e}")
+        raise typer.Exit(1) from None
 
     tournaments = []
-    for item in data.get("tournaments", []):
-        tournament = TournamentFixture.model_validate(item)
-        tournaments.append(tournament)
+    for i, item in enumerate(data.get("tournaments", [])):
+        try:
+            tournament = TournamentFixture.model_validate(item)
+            tournaments.append(tournament)
+        except ValidationError as e:
+            tournament_name = item.get("name", f"index {i}")
+            console.print(
+                f"[red]Error:[/red] Invalid tournament data for '{tournament_name}':"
+            )
+            console.print(f"  {e}")
+            raise typer.Exit(1) from None
 
     return tournaments
 
@@ -192,21 +215,32 @@ def seed(
     # Seed tournaments
     created = 0
     skipped = 0
+    failed = 0
 
     for fixture in fixtures:
-        was_created = asyncio.run(seed_tournament(fixture, dry_run))
-        if was_created:
-            created += 1
-            logger.info("Created: %s (%s)", fixture.name, fixture.region)
-        else:
-            skipped += 1
-            logger.info("Skipped (exists): %s", fixture.name)
+        try:
+            was_created = asyncio.run(seed_tournament(fixture, dry_run))
+            if was_created:
+                created += 1
+                logger.info("Created: %s (%s)", fixture.name, fixture.region)
+            else:
+                skipped += 1
+                logger.info("Skipped (exists): %s", fixture.name)
+        except Exception as e:
+            failed += 1
+            console.print(f"[red]Error seeding '{fixture.name}':[/red] {e}")
+            logger.error("Failed to seed %s: %s", fixture.name, str(e))
 
     # Summary
     console.print()
-    console.print("[green]Seed complete![/green]")
+    if failed > 0:
+        console.print("[yellow]Seed completed with errors.[/yellow]")
+    else:
+        console.print("[green]Seed complete![/green]")
     console.print(f"  Created: {created}")
     console.print(f"  Skipped: {skipped}")
+    if failed > 0:
+        console.print(f"  [red]Failed: {failed}[/red]")
 
     # Show preview table
     if fixtures:
@@ -216,7 +250,7 @@ def seed(
         table.add_column("Date")
         table.add_column("Format")
         table.add_column("BO")
-        table.add_column("Top 8", justify="right")
+        table.add_column("Placements", justify="right")
 
         for fixture in fixtures:
             table.add_row(

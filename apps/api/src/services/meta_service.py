@@ -42,7 +42,7 @@ class MetaService:
         - Sample size and tournaments included
 
         Args:
-            snapshot_date: Date for the snapshot (usually today).
+            snapshot_date: Reference date for the snapshot (lookback starts here).
             region: Region filter (NA, EU, JP, LATAM, OCE) or None for global.
             game_format: Game format (standard, expanded).
             best_of: Match format (1 for Japan BO1, 3 for international BO3).
@@ -50,23 +50,35 @@ class MetaService:
 
         Returns:
             MetaSnapshot with computed stats.
+
+        Raises:
+            Exception: If database query fails.
         """
-        # Calculate date range
         start_date = date.fromordinal(snapshot_date.toordinal() - lookback_days)
 
-        # Build query for tournaments
-        tournament_query = select(Tournament).where(
-            Tournament.date >= start_date,
-            Tournament.date <= snapshot_date,
-            Tournament.format == game_format,
-            Tournament.best_of == best_of,
-        )
+        try:
+            tournament_query = select(Tournament).where(
+                Tournament.date >= start_date,
+                Tournament.date <= snapshot_date,
+                Tournament.format == game_format,
+                Tournament.best_of == best_of,
+            )
 
-        if region:
-            tournament_query = tournament_query.where(Tournament.region == region)
+            if region:
+                tournament_query = tournament_query.where(Tournament.region == region)
 
-        result = await self.session.execute(tournament_query)
-        tournaments = result.scalars().all()
+            result = await self.session.execute(tournament_query)
+            tournaments = result.scalars().all()
+        except Exception as e:
+            logger.error(
+                "Failed to query tournaments: region=%s, format=%s, best_of=%s, "
+                "error=%s",
+                region,
+                game_format,
+                best_of,
+                str(e),
+            )
+            raise
 
         if not tournaments:
             logger.warning(
@@ -82,12 +94,19 @@ class MetaService:
         tournament_ids = [t.id for t in tournaments]
         tournament_names = [str(t.id) for t in tournaments]
 
-        # Get all placements for these tournaments
-        placement_query = select(TournamentPlacement).where(
-            TournamentPlacement.tournament_id.in_(tournament_ids)
-        )
-        placement_result = await self.session.execute(placement_query)
-        placements = placement_result.scalars().all()
+        try:
+            placement_query = select(TournamentPlacement).where(
+                TournamentPlacement.tournament_id.in_(tournament_ids)
+            )
+            placement_result = await self.session.execute(placement_query)
+            placements = placement_result.scalars().all()
+        except Exception as e:
+            logger.error(
+                "Failed to query placements for tournaments %s: %s",
+                tournament_ids,
+                str(e),
+            )
+            raise
 
         if not placements:
             logger.warning("No placements found for tournaments: %s", tournament_ids)
@@ -95,13 +114,9 @@ class MetaService:
                 snapshot_date, region, game_format, best_of
             )
 
-        # Compute archetype shares
         archetype_shares = self._compute_archetype_shares(placements)
-
-        # Compute card usage
         card_usage = self._compute_card_usage(placements)
 
-        # Create snapshot
         snapshot = MetaSnapshot(
             id=uuid4(),
             snapshot_date=snapshot_date,
@@ -120,46 +135,57 @@ class MetaService:
         """Save a meta snapshot to the database.
 
         If a snapshot with the same dimensions already exists, it will be updated.
+        Dimensions are: snapshot_date, region, format, and best_of.
 
         Args:
             snapshot: The snapshot to save.
 
         Returns:
             The saved snapshot.
-        """
-        # Check for existing snapshot
-        existing_query = select(MetaSnapshot).where(
-            MetaSnapshot.snapshot_date == snapshot.snapshot_date,
-            MetaSnapshot.format == snapshot.format,
-            MetaSnapshot.best_of == snapshot.best_of,
-        )
 
-        # Handle nullable region comparison
-        if snapshot.region is None:
-            existing_query = existing_query.where(MetaSnapshot.region.is_(None))
-        else:
-            existing_query = existing_query.where(
-                MetaSnapshot.region == snapshot.region
+        Raises:
+            Exception: If database operation fails.
+        """
+        try:
+            existing_query = select(MetaSnapshot).where(
+                MetaSnapshot.snapshot_date == snapshot.snapshot_date,
+                MetaSnapshot.format == snapshot.format,
+                MetaSnapshot.best_of == snapshot.best_of,
             )
 
-        result = await self.session.execute(existing_query)
-        existing = result.scalar_one_or_none()
+            if snapshot.region is None:
+                existing_query = existing_query.where(MetaSnapshot.region.is_(None))
+            else:
+                existing_query = existing_query.where(
+                    MetaSnapshot.region == snapshot.region
+                )
 
-        if existing:
-            # Update existing snapshot
-            existing.archetype_shares = snapshot.archetype_shares
-            existing.card_usage = snapshot.card_usage
-            existing.sample_size = snapshot.sample_size
-            existing.tournaments_included = snapshot.tournaments_included
-            await self.session.commit()
-            await self.session.refresh(existing)
-            return existing
-        else:
-            # Insert new snapshot
-            self.session.add(snapshot)
-            await self.session.commit()
-            await self.session.refresh(snapshot)
-            return snapshot
+            result = await self.session.execute(existing_query)
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                existing.archetype_shares = snapshot.archetype_shares
+                existing.card_usage = snapshot.card_usage
+                existing.sample_size = snapshot.sample_size
+                existing.tournaments_included = snapshot.tournaments_included
+                await self.session.commit()
+                await self.session.refresh(existing)
+                return existing
+            else:
+                self.session.add(snapshot)
+                await self.session.commit()
+                await self.session.refresh(snapshot)
+                return snapshot
+        except Exception as e:
+            logger.error(
+                "Failed to save meta snapshot: date=%s, region=%s, format=%s, error=%s",
+                snapshot.snapshot_date,
+                snapshot.region,
+                snapshot.format,
+                str(e),
+            )
+            await self.session.rollback()
+            raise
 
     async def get_snapshot(
         self,
@@ -200,18 +226,20 @@ class MetaService:
         """Compute archetype share percentages from placements.
 
         Args:
-            placements: List of tournament placements.
+            placements: Sequence of tournament placements.
 
         Returns:
             Dict mapping archetype name to share percentage (0.0-1.0).
         """
+        if not placements:
+            return {}
+
         archetype_counts: dict[str, int] = defaultdict(int)
         total = len(placements)
 
         for placement in placements:
             archetype_counts[placement.archetype] += 1
 
-        # Convert to percentages, sorted by share descending
         shares = {
             archetype: count / total
             for archetype, count in sorted(
@@ -227,13 +255,12 @@ class MetaService:
         """Compute card usage rates from placements with decklists.
 
         Args:
-            placements: List of tournament placements.
+            placements: Sequence of tournament placements.
 
         Returns:
-            Dict mapping card_id to usage stats:
+            Dict mapping card_id to usage stats (values are rounded):
             {"card_id": {"inclusion_rate": 0.85, "avg_count": 3.2}}
         """
-        # Filter placements with decklists
         placements_with_lists = [p for p in placements if p.decklist]
 
         if not placements_with_lists:
@@ -246,8 +273,22 @@ class MetaService:
         for placement in placements_with_lists:
             seen_cards: set[str] = set()
             for card_entry in placement.decklist or []:
+                if not isinstance(card_entry, dict):
+                    logger.warning(
+                        "Invalid decklist entry (not a dict): %s", card_entry
+                    )
+                    continue
+
                 card_id = card_entry.get("card_id", "")
-                quantity = card_entry.get("quantity", 1)
+                raw_quantity = card_entry.get("quantity", 1)
+
+                try:
+                    quantity = int(raw_quantity)
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Invalid quantity for card %s: %s", card_id, raw_quantity
+                    )
+                    quantity = 1
 
                 if card_id and card_id not in seen_cards:
                     card_appearances[card_id] += 1
@@ -256,7 +297,6 @@ class MetaService:
                 if card_id:
                     card_total_count[card_id] += quantity
 
-        # Compute rates
         card_usage = {}
         for card_id in card_appearances:
             inclusion_rate = card_appearances[card_id] / total_lists
@@ -266,7 +306,6 @@ class MetaService:
                 "avg_count": round(avg_count, 2),
             }
 
-        # Sort by inclusion rate descending
         return dict(
             sorted(
                 card_usage.items(), key=lambda x: x[1]["inclusion_rate"], reverse=True

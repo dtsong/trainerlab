@@ -15,6 +15,7 @@ from src.models import MetaSnapshot
 from src.schemas import (
     ArchetypeResponse,
     CardUsageSummary,
+    FormatNotes,
     MetaHistoryResponse,
     MetaSnapshotResponse,
 )
@@ -31,7 +32,29 @@ class BestOf(IntEnum):
     BO3 = 3
 
 
-def _snapshot_to_response(snapshot: MetaSnapshot) -> MetaSnapshotResponse:
+# Format notes for Japan BO1
+JAPAN_BO1_FORMAT_NOTES = FormatNotes(
+    tie_rules="Tie = double loss (both players receive a loss)",
+    typical_regions=["JP"],
+    notes=(
+        "Japan uses Best-of-1 format for most tournaments. "
+        "Ties result in double losses, which can significantly impact "
+        "archetype viability compared to international BO3 formats."
+    ),
+)
+
+
+def _get_format_notes(best_of: int, region: str | None) -> FormatNotes | None:
+    """Get format-specific notes based on best_of and region."""
+    if best_of == 1:
+        return JAPAN_BO1_FORMAT_NOTES
+    return None
+
+
+def _snapshot_to_response(
+    snapshot: MetaSnapshot,
+    include_format_notes: bool = True,
+) -> MetaSnapshotResponse:
     """Convert a MetaSnapshot model to response schema."""
     archetype_breakdown = [
         ArchetypeResponse(name=name, share=share)
@@ -49,6 +72,10 @@ def _snapshot_to_response(snapshot: MetaSnapshot) -> MetaSnapshotResponse:
                 )
             )
 
+    format_notes = None
+    if include_format_notes:
+        format_notes = _get_format_notes(snapshot.best_of, snapshot.region)
+
     return MetaSnapshotResponse(
         snapshot_date=snapshot.snapshot_date,
         region=snapshot.region,
@@ -58,6 +85,7 @@ def _snapshot_to_response(snapshot: MetaSnapshot) -> MetaSnapshotResponse:
         card_usage=card_usage,
         sample_size=snapshot.sample_size,
         tournaments_included=snapshot.tournaments_included,
+        format_notes=format_notes,
     )
 
 

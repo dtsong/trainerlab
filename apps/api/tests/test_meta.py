@@ -8,6 +8,8 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 from src.models.meta_snapshot import MetaSnapshot
+from src.models.tournament import Tournament
+from src.models.tournament_placement import TournamentPlacement
 
 
 class TestMetaEndpoints:
@@ -507,3 +509,142 @@ class TestJapanBO1Meta(TestMetaEndpoints):
         assert data["best_of"] == 1
         assert data["region"] == "NA"
         assert data["format_notes"] is None
+
+
+class TestGetArchetypeDetail(TestMetaEndpoints):
+    """Tests for GET /api/v1/meta/archetypes/{name}."""
+
+    def test_get_archetype_detail_success(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test getting archetype detail successfully."""
+        # Mock snapshot query
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        # Mock placement query (empty placements)
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute.side_effect = [mock_snapshot_result, mock_placement_result]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Charizard ex"
+        assert data["current_share"] == 0.15
+        assert len(data["history"]) == 1
+        assert data["history"][0]["share"] == 0.15
+
+    def test_get_archetype_detail_not_found(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test getting archetype that doesn't exist returns 404."""
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+        mock_db.execute.return_value = mock_snapshot_result
+
+        response = client.get("/api/v1/meta/archetypes/NonexistentArchetype")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    def test_get_archetype_detail_with_placements(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test archetype detail includes key cards from placements."""
+        from uuid import uuid4
+
+        # Mock placement with decklist
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.tournament_id = uuid4()
+        placement.archetype = "Charizard ex"
+        placement.placement = 1
+        placement.player_name = "Test Player"
+        placement.decklist = [
+            {"card_id": "sv4-6", "quantity": 4},
+            {"card_id": "sv3-1", "quantity": 3},
+        ]
+
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = placement.tournament_id
+        tournament.name = "Test Tournament"
+
+        # Mock snapshot query
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        # Mock placement query
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = [placement]
+
+        # Mock tournament query
+        mock_tournament_result = MagicMock()
+        mock_tournament_result.scalars.return_value.all.return_value = [tournament]
+
+        mock_db.execute.side_effect = [
+            mock_snapshot_result,
+            mock_placement_result,
+            mock_tournament_result,
+        ]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["key_cards"]) == 2
+        assert data["key_cards"][0]["card_id"] in ["sv4-6", "sv3-1"]
+        assert len(data["sample_decks"]) == 1
+        assert data["sample_decks"][0]["tournament_name"] == "Test Tournament"
+
+    def test_get_archetype_detail_with_region_filter(
+        self, client: TestClient, mock_db: AsyncMock, sample_snapshot: MagicMock
+    ) -> None:
+        """Test filtering archetype detail by region."""
+        sample_snapshot.region = "NA"
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [sample_snapshot]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute.side_effect = [mock_snapshot_result, mock_placement_result]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex?region=NA")
+
+        assert response.status_code == 200
+
+    def test_get_archetype_detail_history_over_time(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test archetype history shows share changes over time."""
+        snapshot1 = MagicMock(spec=MetaSnapshot)
+        snapshot1.snapshot_date = date(2024, 1, 15)
+        snapshot1.archetype_shares = {"Charizard ex": 0.15}
+        snapshot1.sample_size = 100
+
+        snapshot2 = MagicMock(spec=MetaSnapshot)
+        snapshot2.snapshot_date = date(2024, 1, 8)
+        snapshot2.archetype_shares = {"Charizard ex": 0.12}
+        snapshot2.sample_size = 80
+
+        mock_snapshot_result = MagicMock()
+        mock_snapshot_result.scalars.return_value.all.return_value = [
+            snapshot1,
+            snapshot2,
+        ]
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalars.return_value.all.return_value = []
+
+        mock_db.execute.side_effect = [mock_snapshot_result, mock_placement_result]
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["history"]) == 2
+        assert data["history"][0]["share"] == 0.15
+        assert data["history"][1]["share"] == 0.12

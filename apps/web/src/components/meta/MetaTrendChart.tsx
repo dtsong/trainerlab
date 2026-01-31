@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { format, parseISO } from "date-fns";
 import type { MetaSnapshot } from "@trainerlab/shared-types";
+import { safeFormatDate } from "@/lib/meta-utils";
 
 // Colors for different archetypes
 const COLORS = [
@@ -49,7 +50,7 @@ function CustomTooltip({
     return (
       <div className="rounded-lg border bg-background p-3 shadow-md">
         <p className="mb-2 font-medium">
-          {format(parseISO(label), "MMM d, yyyy")}
+          {safeFormatDate(label, "MMM d, yyyy", format, parseISO)}
         </p>
         {payload.map((entry, index) => (
           <div key={index} className="flex items-center gap-2 text-sm">
@@ -120,7 +121,9 @@ export function MetaTrendChart({ snapshots, className }: MetaTrendChartProps) {
         >
           <XAxis
             dataKey="date"
-            tickFormatter={(value: string) => format(parseISO(value), "MMM d")}
+            tickFormatter={(value: string) =>
+              safeFormatDate(value, "MMM d", format, parseISO)
+            }
             fontSize={12}
           />
           <YAxis

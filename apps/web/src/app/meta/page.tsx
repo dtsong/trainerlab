@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Suspense, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { subDays, endOfDay, startOfDay } from "date-fns";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ import {
   DateRangePicker,
 } from "@/components/meta";
 import { metaApi } from "@/lib/api";
+import { transformSnapshot } from "@/lib/meta-utils";
 import type {
   Region,
   MetaSnapshot,
@@ -22,39 +23,7 @@ import type {
   CardUsageSummary,
 } from "@trainerlab/shared-types";
 
-function transformSnapshot(data: {
-  snapshot_date: string;
-  region: string | null;
-  format: "standard" | "expanded";
-  best_of: 1 | 3;
-  archetype_breakdown: {
-    name: string;
-    share: number;
-    key_cards?: string[] | null;
-  }[];
-  card_usage: { card_id: string; inclusion_rate: number; avg_copies: number }[];
-  sample_size: number;
-}): MetaSnapshot {
-  return {
-    snapshotDate: data.snapshot_date,
-    region: data.region,
-    format: data.format,
-    bestOf: data.best_of,
-    archetypeBreakdown: data.archetype_breakdown.map((a) => ({
-      name: a.name,
-      share: a.share,
-      keyCards: a.key_cards ?? undefined,
-    })),
-    cardUsage: data.card_usage.map((c) => ({
-      cardId: c.card_id,
-      inclusionRate: c.inclusion_rate,
-      avgCopies: c.avg_copies,
-    })),
-    sampleSize: data.sample_size,
-  };
-}
-
-export default function MetaPage() {
+function MetaPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -269,5 +238,48 @@ export default function MetaPage() {
         </>
       )}
     </div>
+  );
+}
+
+function MetaPageLoading() {
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="h-9 w-48 animate-pulse rounded bg-muted" />
+          <div className="mt-2 h-5 w-64 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <div className="h-10 w-[180px] animate-pulse rounded bg-muted" />
+          <div className="h-10 w-[200px] animate-pulse rounded bg-muted" />
+        </div>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Archetype Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[350px] animate-pulse rounded bg-muted" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Cards</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[350px] animate-pulse rounded bg-muted" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+export default function MetaPage() {
+  return (
+    <Suspense fallback={<MetaPageLoading />}>
+      <MetaPageContent />
+    </Suspense>
   );
 }

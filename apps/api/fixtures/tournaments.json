@@ -1,0 +1,376 @@
+{
+  "tournaments": [
+    {
+      "name": "NAIC 2024",
+      "date": "2024-06-07",
+      "region": "NA",
+      "country": "USA",
+      "format": "standard",
+      "best_of": 3,
+      "participant_count": 1426,
+      "source": "limitless",
+      "source_url": "https://limitlesstcg.com/tournaments/na/2024/naic",
+      "placements": [
+        {
+          "placement": 1,
+          "player_name": "Tord Reklev",
+          "archetype": "Charizard ex",
+          "decklist": [
+            { "card_id": "sv4-6", "quantity": 3 },
+            { "card_id": "sv3-95", "quantity": 2 },
+            { "card_id": "sv3pt5-49", "quantity": 1 },
+            { "card_id": "sv3pt5-36", "quantity": 4 }
+          ]
+        },
+        {
+          "placement": 2,
+          "player_name": "Isaiah Bradner",
+          "archetype": "Lugia VSTAR"
+        },
+        {
+          "placement": 3,
+          "player_name": "Andrew Hedrick",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 4,
+          "player_name": "Caleb Gedemer",
+          "archetype": "Gardevoir ex"
+        },
+        {
+          "placement": 5,
+          "player_name": "Brent Tonisson",
+          "archetype": "Roaring Moon ex"
+        },
+        {
+          "placement": 6,
+          "player_name": "Hunter Butler",
+          "archetype": "Raging Bolt ex"
+        },
+        {
+          "placement": 7,
+          "player_name": "Connor Finton",
+          "archetype": "Dragapult ex"
+        },
+        {
+          "placement": 8,
+          "player_name": "Rahul Reddy",
+          "archetype": "Charizard ex"
+        }
+      ]
+    },
+    {
+      "name": "EUIC 2024",
+      "date": "2024-04-19",
+      "region": "EU",
+      "country": "UK",
+      "format": "standard",
+      "best_of": 3,
+      "participant_count": 1834,
+      "source": "limitless",
+      "source_url": "https://limitlesstcg.com/tournaments/eu/2024/euic",
+      "placements": [
+        {
+          "placement": 1,
+          "player_name": "Vance Kelley",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 2,
+          "player_name": "Fabien Pujol",
+          "archetype": "Lugia VSTAR"
+        },
+        {
+          "placement": 3,
+          "player_name": "Tord Reklev",
+          "archetype": "Roaring Moon ex"
+        },
+        {
+          "placement": 4,
+          "player_name": "Isaiah Williams",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 5,
+          "player_name": "Michael Pramawat",
+          "archetype": "Lost Box"
+        },
+        {
+          "placement": 6,
+          "player_name": "Robin Schulz",
+          "archetype": "Miraidon ex"
+        },
+        {
+          "placement": 7,
+          "player_name": "Daniel Altavilla",
+          "archetype": "Gardevoir ex"
+        },
+        {
+          "placement": 8,
+          "player_name": "Stephane Ivanoff",
+          "archetype": "Charizard ex"
+        }
+      ]
+    },
+    {
+      "name": "LAIC 2024",
+      "date": "2024-11-15",
+      "region": "LATAM",
+      "country": "Brazil",
+      "format": "standard",
+      "best_of": 3,
+      "participant_count": 1100,
+      "source": "limitless",
+      "placements": [
+        {
+          "placement": 1,
+          "player_name": "Fernando Cifuentes",
+          "archetype": "Regidrago VSTAR"
+        },
+        {
+          "placement": 2,
+          "player_name": "Gustavo Wada",
+          "archetype": "Dragapult ex"
+        },
+        {
+          "placement": 3,
+          "player_name": "Pedro Torres",
+          "archetype": "Raging Bolt ex"
+        },
+        {
+          "placement": 4,
+          "player_name": "Carlos Pero",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 5,
+          "player_name": "James Simiqui",
+          "archetype": "Lugia VSTAR"
+        },
+        {
+          "placement": 6,
+          "player_name": "Azul Garcia Griego",
+          "archetype": "Gardevoir ex"
+        },
+        {
+          "placement": 7,
+          "player_name": "Ian Robb",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 8,
+          "player_name": "Tate Whitesell",
+          "archetype": "Snorlax Stall"
+        }
+      ]
+    },
+    {
+      "name": "OCIC 2024",
+      "date": "2024-02-17",
+      "region": "OCE",
+      "country": "Australia",
+      "format": "standard",
+      "best_of": 3,
+      "participant_count": 576,
+      "source": "limitless",
+      "placements": [
+        {
+          "placement": 1,
+          "player_name": "Isaiah Bradner",
+          "archetype": "Roaring Moon ex"
+        },
+        {
+          "placement": 2,
+          "player_name": "Kosuke Koseki",
+          "archetype": "Lugia VSTAR"
+        },
+        {
+          "placement": 3,
+          "player_name": "Azul Garcia Griego",
+          "archetype": "Lost Box"
+        },
+        {
+          "placement": 4,
+          "player_name": "Isaiah Williams",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 5,
+          "player_name": "Henry Brand",
+          "archetype": "Gardevoir ex"
+        },
+        {
+          "placement": 6,
+          "player_name": "Cameron Shenoy",
+          "archetype": "Miraidon ex"
+        },
+        {
+          "placement": 7,
+          "player_name": "Sam Hough",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 8,
+          "player_name": "Ethan Wills",
+          "archetype": "Giratina VSTAR"
+        }
+      ]
+    },
+    {
+      "name": "Champions League Yokohama 2024",
+      "date": "2024-05-04",
+      "region": "JP",
+      "country": "Japan",
+      "format": "standard",
+      "best_of": 1,
+      "participant_count": 4096,
+      "source": "pokemon-card.com",
+      "placements": [
+        {
+          "placement": 1,
+          "player_name": "Yuta Komatsuda",
+          "archetype": "Raging Bolt ex"
+        },
+        {
+          "placement": 2,
+          "player_name": "Shoma Honami",
+          "archetype": "Dragapult ex"
+        },
+        {
+          "placement": 3,
+          "player_name": "Kouki Saito",
+          "archetype": "Regidrago VSTAR"
+        },
+        {
+          "placement": 4,
+          "player_name": "Hayato Kobayashi",
+          "archetype": "Lugia VSTAR"
+        },
+        {
+          "placement": 5,
+          "player_name": "Takumi Saito",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 6,
+          "player_name": "Yuki Hirose",
+          "archetype": "Gardevoir ex"
+        },
+        {
+          "placement": 7,
+          "player_name": "Kenta Yamamoto",
+          "archetype": "Lost Box"
+        },
+        {
+          "placement": 8,
+          "player_name": "Ryo Nakamura",
+          "archetype": "Charizard ex"
+        }
+      ]
+    },
+    {
+      "name": "Champions League Tokyo 2024",
+      "date": "2024-09-21",
+      "region": "JP",
+      "country": "Japan",
+      "format": "standard",
+      "best_of": 1,
+      "participant_count": 4096,
+      "source": "pokemon-card.com",
+      "placements": [
+        {
+          "placement": 1,
+          "player_name": "Kenji Tanaka",
+          "archetype": "Regidrago VSTAR"
+        },
+        {
+          "placement": 2,
+          "player_name": "Masashi Onodera",
+          "archetype": "Raging Bolt ex"
+        },
+        {
+          "placement": 3,
+          "player_name": "Tatsuya Fujiwara",
+          "archetype": "Dragapult ex"
+        },
+        {
+          "placement": 4,
+          "player_name": "Hiroshi Nakamura",
+          "archetype": "Snorlax Stall"
+        },
+        {
+          "placement": 5,
+          "player_name": "Yusuke Sasaki",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 6,
+          "player_name": "Daichi Shimada",
+          "archetype": "Lugia VSTAR"
+        },
+        {
+          "placement": 7,
+          "player_name": "Shota Yamazaki",
+          "archetype": "Gardevoir ex"
+        },
+        {
+          "placement": 8,
+          "player_name": "Ryuji Honda",
+          "archetype": "Iron Thorns ex"
+        }
+      ]
+    },
+    {
+      "name": "Portland Regional 2024",
+      "date": "2024-03-16",
+      "region": "NA",
+      "country": "USA",
+      "format": "expanded",
+      "best_of": 3,
+      "participant_count": 852,
+      "source": "rk9",
+      "placements": [
+        {
+          "placement": 1,
+          "player_name": "Alex Schemanske",
+          "archetype": "Mew VMAX"
+        },
+        {
+          "placement": 2,
+          "player_name": "Isaiah Bradner",
+          "archetype": "Lugia VSTAR"
+        },
+        {
+          "placement": 3,
+          "player_name": "Xander Pero",
+          "archetype": "Charizard ex"
+        },
+        {
+          "placement": 4,
+          "player_name": "Grant Manley",
+          "archetype": "Roaring Moon ex"
+        },
+        {
+          "placement": 5,
+          "player_name": "Corey McIntosh",
+          "archetype": "Gardevoir ex"
+        },
+        {
+          "placement": 6,
+          "player_name": "Hunter Butler",
+          "archetype": "Raging Bolt ex"
+        },
+        {
+          "placement": 7,
+          "player_name": "Daniel Lynch",
+          "archetype": "Miraidon ex"
+        },
+        {
+          "placement": 8,
+          "player_name": "Connor Finton",
+          "archetype": "Ancient Box"
+        }
+      ]
+    }
+  ]
+}

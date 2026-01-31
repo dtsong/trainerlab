@@ -205,6 +205,9 @@ class MetaService:
 
         Returns:
             MetaSnapshot if found, None otherwise.
+
+        Raises:
+            SQLAlchemyError: If database query fails.
         """
         query = select(MetaSnapshot).where(
             MetaSnapshot.snapshot_date == snapshot_date,
@@ -217,8 +220,19 @@ class MetaService:
         else:
             query = query.where(MetaSnapshot.region == region)
 
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
+        try:
+            result = await self.session.execute(query)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError:
+            logger.error(
+                "Failed to get snapshot: date=%s, region=%s, format=%s, best_of=%s",
+                snapshot_date,
+                region,
+                game_format,
+                best_of,
+                exc_info=True,
+            )
+            raise
 
     def _compute_archetype_shares(
         self, placements: Sequence[TournamentPlacement]

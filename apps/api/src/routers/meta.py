@@ -1,11 +1,13 @@
 """Meta snapshot endpoints."""
 
+import logging
 from datetime import date, timedelta
 from enum import IntEnum
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
@@ -16,6 +18,8 @@ from src.schemas import (
     MetaHistoryResponse,
     MetaSnapshotResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/meta", tags=["meta"])
 
@@ -90,8 +94,21 @@ async def get_current_meta(
 
     query = query.order_by(MetaSnapshot.snapshot_date.desc()).limit(1)
 
-    result = await db.execute(query)
-    snapshot = result.scalar_one_or_none()
+    try:
+        result = await db.execute(query)
+        snapshot = result.scalar_one_or_none()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching current meta: region=%s, format=%s, best_of=%s",
+            region,
+            format,
+            best_of,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve meta snapshot. Please try again later.",
+        ) from None
 
     if snapshot is None:
         raise HTTPException(
@@ -145,8 +162,23 @@ async def get_meta_history(
 
     query = query.order_by(MetaSnapshot.snapshot_date.desc())
 
-    result = await db.execute(query)
-    snapshots = result.scalars().all()
+    try:
+        result = await db.execute(query)
+        snapshots = result.scalars().all()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching meta history: "
+            "region=%s, format=%s, best_of=%s, days=%s",
+            region,
+            format,
+            best_of,
+            days,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve meta history. Please try again later.",
+        ) from None
 
     return MetaHistoryResponse(snapshots=[_snapshot_to_response(s) for s in snapshots])
 
@@ -184,8 +216,21 @@ async def list_archetypes(
 
     query = query.order_by(MetaSnapshot.snapshot_date.desc()).limit(1)
 
-    result = await db.execute(query)
-    snapshot = result.scalar_one_or_none()
+    try:
+        result = await db.execute(query)
+        snapshot = result.scalar_one_or_none()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching archetypes: region=%s, format=%s, best_of=%s",
+            region,
+            format,
+            best_of,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve archetypes. Please try again later.",
+        ) from None
 
     if snapshot is None:
         raise HTTPException(

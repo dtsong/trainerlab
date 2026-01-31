@@ -53,7 +53,7 @@ class MetaService:
             MetaSnapshot with computed stats.
 
         Raises:
-            Exception: If database query fails.
+            SQLAlchemyError: If database query fails.
         """
         start_date = date.fromordinal(snapshot_date.toordinal() - lookback_days)
 
@@ -144,7 +144,7 @@ class MetaService:
             The saved snapshot.
 
         Raises:
-            Exception: If database operation fails.
+            SQLAlchemyError: If database operation fails.
         """
         try:
             existing_query = select(MetaSnapshot).where(

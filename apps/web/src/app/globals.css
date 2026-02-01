@@ -24,6 +24,68 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    /* Teal scale (primary brand) */
+    --teal-50: 166 76% 97%;
+    --teal-100: 167 85% 89%;
+    --teal-200: 168 84% 78%;
+    --teal-300: 171 77% 64%;
+    --teal-400: 172 66% 50%;
+    --teal-500: 173 80% 40%;
+    --teal-600: 175 84% 32%;
+    --teal-700: 175 77% 26%;
+    --teal-800: 176 69% 22%;
+    --teal-900: 176 61% 19%;
+    --teal-950: 179 84% 10%;
+
+    /* Amber scale (accent/warning) */
+    --amber-50: 48 100% 96%;
+    --amber-500: 38 92% 50%;
+    --amber-600: 32 95% 44%;
+
+    /* Parchment (editorial backgrounds) */
+    --parchment-50: 48 100% 98%;
+    --parchment-100: 48 96% 95%;
+    --parchment-200: 48 89% 91%;
+
+    /* Archetype colors */
+    --archetype-fire: 17 83% 56%;
+    --archetype-water: 199 89% 48%;
+    --archetype-lightning: 48 96% 53%;
+    --archetype-psychic: 292 84% 61%;
+    --archetype-fighting: 25 75% 47%;
+    --archetype-darkness: 240 4% 31%;
+    --archetype-metal: 220 13% 69%;
+    --archetype-grass: 142 71% 45%;
+    --archetype-dragon: 44 87% 63%;
+    --archetype-colorless: 220 13% 91%;
+    --archetype-fairy: 330 81% 78%;
+
+    /* Tier colors */
+    --tier-s: 45 93% 56%;
+    --tier-a: 173 58% 39%;
+    --tier-b: 217 91% 60%;
+    --tier-c: 220 9% 46%;
+    --tier-rogue: 258 90% 66%;
+
+    /* Signal colors */
+    --signal-up: 142 71% 45%;
+    --signal-down: 0 84% 60%;
+    --signal-stable: 220 9% 46%;
+    --signal-jp: 347 91% 62%;
+
+    /* Terminal panel */
+    --terminal-bg: 213 33% 8%;
+    --terminal-surface: 213 20% 13%;
+    --terminal-border: 213 13% 20%;
+    --terminal-text: 210 29% 90%;
+    --terminal-muted: 212 9% 50%;
+    --terminal-accent: 173 58% 39%;
+
+    /* Font families */
+    --font-display: var(--font-playfair);
+    --font-sans: var(--font-dm-sans);
+    --font-mono: var(--font-jetbrains-mono);
   }
 
   .dark {
@@ -46,6 +108,29 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    /* Teal scale (same for dark) */
+    --teal-50: 166 76% 97%;
+    --teal-100: 167 85% 89%;
+    --teal-200: 168 84% 78%;
+    --teal-300: 171 77% 64%;
+    --teal-400: 172 66% 50%;
+    --teal-500: 173 80% 40%;
+    --teal-600: 175 84% 32%;
+    --teal-700: 175 77% 26%;
+    --teal-800: 176 69% 22%;
+    --teal-900: 176 61% 19%;
+    --teal-950: 179 84% 10%;
+
+    /* Amber scale */
+    --amber-50: 48 100% 96%;
+    --amber-500: 38 92% 50%;
+    --amber-600: 32 95% 44%;
+
+    /* Parchment */
+    --parchment-50: 48 100% 98%;
+    --parchment-100: 48 96% 95%;
+    --parchment-200: 48 89% 91%;
   }
 }
 

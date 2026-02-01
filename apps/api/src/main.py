@@ -16,6 +16,7 @@ from src.routers import (
     meta_router,
     sets_router,
     tournaments_router,
+    users_router,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,3 +63,4 @@ app.include_router(health_router)
 app.include_router(meta_router)
 app.include_router(sets_router)
 app.include_router(tournaments_router)
+app.include_router(users_router)

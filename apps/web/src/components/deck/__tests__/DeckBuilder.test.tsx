@@ -39,9 +39,9 @@ describe("DeckBuilder", () => {
 
   it("should render search input", () => {
     render(<DeckBuilder />);
-    expect(
-      screen.getByPlaceholderText("Search cards to add..."),
-    ).toBeInTheDocument();
+    // Both mobile and desktop versions have search inputs
+    const inputs = screen.getAllByPlaceholderText("Search cards to add...");
+    expect(inputs.length).toBeGreaterThan(0);
   });
 
   it("should disable save button when deck is not modified", () => {
@@ -67,9 +67,11 @@ describe("DeckBuilder", () => {
 
   it("should show empty state message when no search", () => {
     render(<DeckBuilder />);
-    expect(
-      screen.getByText("Search for cards to add to your deck"),
-    ).toBeInTheDocument();
+    // Both mobile and desktop versions show this message
+    const messages = screen.getAllByText(
+      "Search for cards to add to your deck",
+    );
+    expect(messages.length).toBeGreaterThan(0);
   });
 
   it("should show loading state during search", async () => {
@@ -80,8 +82,9 @@ describe("DeckBuilder", () => {
     const user = userEvent.setup();
     render(<DeckBuilder />);
 
-    const input = screen.getByPlaceholderText("Search cards to add...");
-    await user.type(input, "Pikachu");
+    // Use first input (desktop version)
+    const inputs = screen.getAllByPlaceholderText("Search cards to add...");
+    await user.type(inputs[0], "Pikachu");
 
     // Wait for debounce
     await waitFor(() => {
@@ -113,11 +116,13 @@ describe("DeckBuilder", () => {
     const user = userEvent.setup();
     render(<DeckBuilder />);
 
-    const input = screen.getByPlaceholderText("Search cards to add...");
-    await user.type(input, "Pikachu");
+    const inputs = screen.getAllByPlaceholderText("Search cards to add...");
+    await user.type(inputs[0], "Pikachu");
 
     await waitFor(() => {
-      expect(screen.getByText("Pikachu")).toBeInTheDocument();
+      // Both mobile and desktop show results
+      const results = screen.getAllByText("Pikachu");
+      expect(results.length).toBeGreaterThan(0);
     });
   });
 
@@ -145,16 +150,18 @@ describe("DeckBuilder", () => {
     const user = userEvent.setup();
     render(<DeckBuilder />);
 
-    const input = screen.getByPlaceholderText("Search cards to add...");
-    await user.type(input, "Pikachu");
+    const inputs = screen.getAllByPlaceholderText("Search cards to add...");
+    await user.type(inputs[0], "Pikachu");
 
     await waitFor(() => {
-      expect(screen.getByText("Pikachu")).toBeInTheDocument();
+      // Both mobile and desktop show results
+      const results = screen.getAllByText("Pikachu");
+      expect(results.length).toBeGreaterThan(0);
     });
 
-    // Click the card button to add it
-    const cardButton = screen.getByRole("button", { name: /pikachu/i });
-    await user.click(cardButton);
+    // Click the first card button to add it (both mobile and desktop render)
+    const cardButtons = screen.getAllByRole("button", { name: /pikachu/i });
+    await user.click(cardButtons[0]);
 
     expect(useDeckStore.getState().cards).toHaveLength(1);
     expect(useDeckStore.getState().cards[0].card.name).toBe("Pikachu");
@@ -166,13 +173,15 @@ describe("DeckBuilder", () => {
     const user = userEvent.setup();
     render(<DeckBuilder />);
 
-    const input = screen.getByPlaceholderText("Search cards to add...");
-    await user.type(input, "Pikachu");
+    const inputs = screen.getAllByPlaceholderText("Search cards to add...");
+    await user.type(inputs[0], "Pikachu");
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Failed to search cards. Please try again."),
-      ).toBeInTheDocument();
+      // Both mobile and desktop show error
+      const errors = screen.getAllByText(
+        "Failed to search cards. Please try again.",
+      );
+      expect(errors.length).toBeGreaterThan(0);
     });
   });
 
@@ -190,11 +199,13 @@ describe("DeckBuilder", () => {
     const user = userEvent.setup();
     render(<DeckBuilder />);
 
-    const input = screen.getByPlaceholderText("Search cards to add...");
-    await user.type(input, "NonexistentCard");
+    const inputs = screen.getAllByPlaceholderText("Search cards to add...");
+    await user.type(inputs[0], "NonexistentCard");
 
     await waitFor(() => {
-      expect(screen.getByText("No cards found")).toBeInTheDocument();
+      // Both mobile and desktop show "No cards found"
+      const messages = screen.getAllByText("No cards found");
+      expect(messages.length).toBeGreaterThan(0);
     });
   });
 });

@@ -185,7 +185,7 @@ function MetaPageContent() {
               <CardTitle>Archetype Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[350px] animate-pulse rounded bg-muted" />
+              <div className="h-[280px] md:h-[350px] animate-pulse rounded bg-muted" />
             </CardContent>
           </Card>
           <Card>
@@ -193,7 +193,7 @@ function MetaPageContent() {
               <CardTitle>Top Cards</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[350px] animate-pulse rounded bg-muted" />
+              <div className="h-[280px] md:h-[350px] animate-pulse rounded bg-muted" />
             </CardContent>
           </Card>
         </div>
@@ -202,7 +202,7 @@ function MetaPageContent() {
       {/* Charts section */}
       {!isLoading && !error && (
         <>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Archetype Breakdown</CardTitle>
@@ -258,7 +258,7 @@ function MetaPageContent() {
           {/* Archetype cards grid */}
           <section>
             <h2 className="mb-4 text-2xl font-semibold">Top Archetypes</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {archetypes.slice(0, 8).map((archetype) => (
                 <ArchetypeCard key={archetype.name} archetype={archetype} />
               ))}
@@ -288,13 +288,13 @@ function MetaPageLoading() {
           <div className="h-10 w-[200px] animate-pulse rounded bg-muted" />
         </div>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Archetype Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[350px] animate-pulse rounded bg-muted" />
+            <div className="h-[280px] md:h-[350px] animate-pulse rounded bg-muted" />
           </CardContent>
         </Card>
         <Card>
@@ -302,7 +302,7 @@ function MetaPageLoading() {
             <CardTitle>Top Cards</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[350px] animate-pulse rounded bg-muted" />
+            <div className="h-[280px] md:h-[350px] animate-pulse rounded bg-muted" />
           </CardContent>
         </Card>
       </div>

@@ -13,6 +13,7 @@ import { DeckImportModal } from "./DeckImportModal";
 import { CardSearchInput } from "@/components/cards/CardSearchInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { ApiCardSummary } from "@trainerlab/shared-types";
 import type { DeckState } from "@/types/deck";
@@ -173,8 +174,76 @@ export function DeckBuilder({
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Mobile tabs */}
+      <div className="md:hidden flex-1 flex flex-col overflow-hidden">
+        <Tabs defaultValue="search" className="flex-1 flex flex-col">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="search">Search</TabsTrigger>
+            <TabsTrigger value="deck">
+              Deck ({cards.reduce((sum, c) => sum + c.quantity, 0)})
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent
+            value="search"
+            className="flex-1 flex flex-col overflow-hidden"
+          >
+            <div className="p-4 border-b">
+              <CardSearchInput
+                value={searchQuery}
+                onChange={handleSearch}
+                placeholder="Search cards to add..."
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {isSearching && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {searchError && (
+                <div className="text-center py-8 text-destructive">
+                  {searchError}
+                </div>
+              )}
+              {!isSearching && !searchError && searchResults.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  {searchQuery
+                    ? "No cards found"
+                    : "Search for cards to add to your deck"}
+                </div>
+              )}
+              {!isSearching && searchResults.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {searchResults.map((card) => (
+                    <SearchResultCard
+                      key={card.id}
+                      card={card}
+                      onClick={handleAddCard}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent
+            value="deck"
+            className="flex-1 flex flex-col overflow-hidden"
+          >
+            <div className="p-4 border-b">
+              <DeckStats />
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <DeckList />
+            </div>
+            <div className="p-4 border-t">
+              <DeckValidation />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Desktop side-by-side layout */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
         {/* Left panel - Card search */}
         <div className="w-1/2 lg:w-2/3 flex flex-col border-r">
           {/* Search input */}

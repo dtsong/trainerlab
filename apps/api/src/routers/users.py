@@ -1,0 +1,45 @@
+"""User endpoints."""
+
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.db.database import get_db
+from src.dependencies import CurrentUser
+from src.schemas.user import UserPreferencesUpdate, UserResponse
+from src.services.user_service import UserService
+
+router = APIRouter(prefix="/api/v1/users", tags=["users"])
+
+
+@router.get("/me")
+async def get_current_user_info(
+    current_user: CurrentUser,
+) -> UserResponse:
+    """Get the current authenticated user's profile."""
+    return UserResponse.model_validate(current_user)
+
+
+@router.get("/me/preferences")
+async def get_user_preferences(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+) -> dict:
+    """Get the current user's preferences."""
+    service = UserService(db)
+    return await service.get_preferences(current_user)
+
+
+@router.put("/me/preferences")
+async def update_user_preferences(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+    prefs: UserPreferencesUpdate,
+) -> dict:
+    """Update the current user's preferences.
+
+    Only provided fields will be updated. Other preferences are preserved.
+    """
+    service = UserService(db)
+    return await service.update_preferences(current_user, prefs)

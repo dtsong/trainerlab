@@ -1069,3 +1069,244 @@ class TestSearchEndpoint:
         """Test that limit > 100 returns 422."""
         response = client.get("/api/v1/cards/search?q=pikachu&limit=101")
         assert response.status_code == 422
+
+
+class TestCardsEdgeCases:
+    """Edge case tests for cards API."""
+
+    @pytest.fixture
+    def mock_db(self) -> AsyncMock:
+        """Create mock database session."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def client(self, mock_db: AsyncMock) -> TestClient:
+        """Create test client with mocked database."""
+        from src.db.database import get_db
+
+        async def override_get_db():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = override_get_db
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    def test_list_cards_sort_by_name_asc(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test sorting cards by name ascending."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards?sort_by=name&sort_order=asc")
+
+        assert response.status_code == 200
+
+    def test_list_cards_sort_by_set_desc(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test sorting cards by set descending."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards?sort_by=set_id&sort_order=desc")
+
+        assert response.status_code == 200
+
+    def test_list_cards_sort_by_date(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test sorting cards by creation date."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards?sort_by=created_at&sort_order=desc")
+
+        assert response.status_code == 200
+
+    def test_list_cards_invalid_sort_by(self, client: TestClient) -> None:
+        """Test that invalid sort_by returns 422."""
+        response = client.get("/api/v1/cards?sort_by=invalid_field")
+        assert response.status_code == 422
+
+    def test_list_cards_invalid_sort_order(self, client: TestClient) -> None:
+        """Test that invalid sort_order returns 422."""
+        response = client.get("/api/v1/cards?sort_order=invalid")
+        assert response.status_code == 422
+
+    def test_search_with_special_characters(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test search query with special characters."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        # Pokemon ex has special characters
+        response = client.get("/api/v1/cards/search?q=Charizard%20ex")
+
+        assert response.status_code == 200
+
+    def test_search_with_japanese_characters(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test search query with Japanese characters."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        # ピカチュウ URL-encoded
+        response = client.get(
+            "/api/v1/cards/search?q=%E3%83%94%E3%82%AB%E3%83%81%E3%83%A5%E3%82%A6"
+        )
+
+        assert response.status_code == 200
+
+    def test_search_with_quotes(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Test search query with quote characters."""
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=0)),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/cards/search?q=Professor's%20Research")
+
+        assert response.status_code == 200
+
+    def test_get_card_usage_with_format_expanded(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test getting card usage with format=expanded parameter."""
+        from datetime import date, datetime
+
+        mock_card = MagicMock(spec=Card)
+        mock_card.id = "sv4-6"
+        mock_card.local_id = "6"
+        mock_card.name = "Pikachu"
+        mock_card.japanese_name = None
+        mock_card.supertype = "Pokemon"
+        mock_card.subtypes = None
+        mock_card.types = ["Lightning"]
+        mock_card.hp = 60
+        mock_card.stage = None
+        mock_card.evolves_from = None
+        mock_card.evolves_to = None
+        mock_card.attacks = None
+        mock_card.abilities = None
+        mock_card.weaknesses = None
+        mock_card.resistances = None
+        mock_card.retreat_cost = 1
+        mock_card.rules = None
+        mock_card.set_id = "sv4"
+        mock_card.rarity = "Common"
+        mock_card.number = "6"
+        mock_card.image_small = None
+        mock_card.image_large = None
+        mock_card.regulation_mark = None
+        mock_card.legalities = None
+        mock_card.created_at = datetime(2024, 1, 1)
+        mock_card.updated_at = datetime(2024, 1, 1)
+        mock_card.set = None
+
+        mock_snapshot = MagicMock(spec=MetaSnapshot)
+        mock_snapshot.snapshot_date = date(2024, 1, 15)
+        mock_snapshot.format = "expanded"
+        mock_snapshot.sample_size = 50
+        mock_snapshot.card_usage = {
+            "sv4-6": {"inclusion_rate": 0.50, "avg_copies": 2.0}
+        }
+
+        card_result = MagicMock()
+        card_result.scalar_one_or_none.return_value = mock_card
+        usage_result = MagicMock()
+        usage_result.scalars.return_value.all.return_value = [mock_snapshot]
+        mock_db.execute.side_effect = [card_result, usage_result]
+
+        response = client.get("/api/v1/cards/sv4-6/usage?format=expanded")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["inclusion_rate"] == 0.50
+
+    def test_get_card_usage_with_days_param(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test getting card usage with custom days parameter."""
+        from datetime import date, datetime
+
+        mock_card = MagicMock(spec=Card)
+        mock_card.id = "sv4-6"
+        mock_card.local_id = "6"
+        mock_card.name = "Pikachu"
+        mock_card.japanese_name = None
+        mock_card.supertype = "Pokemon"
+        mock_card.subtypes = None
+        mock_card.types = ["Lightning"]
+        mock_card.hp = 60
+        mock_card.stage = None
+        mock_card.evolves_from = None
+        mock_card.evolves_to = None
+        mock_card.attacks = None
+        mock_card.abilities = None
+        mock_card.weaknesses = None
+        mock_card.resistances = None
+        mock_card.retreat_cost = 1
+        mock_card.rules = None
+        mock_card.set_id = "sv4"
+        mock_card.rarity = "Common"
+        mock_card.number = "6"
+        mock_card.image_small = None
+        mock_card.image_large = None
+        mock_card.regulation_mark = None
+        mock_card.legalities = None
+        mock_card.created_at = datetime(2024, 1, 1)
+        mock_card.updated_at = datetime(2024, 1, 1)
+        mock_card.set = None
+
+        mock_snapshot = MagicMock(spec=MetaSnapshot)
+        mock_snapshot.snapshot_date = date(2024, 1, 15)
+        mock_snapshot.format = "standard"
+        mock_snapshot.sample_size = 200
+        mock_snapshot.card_usage = {
+            "sv4-6": {"inclusion_rate": 0.75, "avg_copies": 4.0}
+        }
+
+        card_result = MagicMock()
+        card_result.scalar_one_or_none.return_value = mock_card
+        usage_result = MagicMock()
+        usage_result.scalars.return_value.all.return_value = [mock_snapshot]
+        mock_db.execute.side_effect = [card_result, usage_result]
+
+        response = client.get("/api/v1/cards/sv4-6/usage?days=7")
+
+        assert response.status_code == 200
+
+    def test_get_card_usage_invalid_days(self, client: TestClient) -> None:
+        """Test that invalid days parameter returns 422."""
+        response = client.get("/api/v1/cards/sv4-6/usage?days=0")
+        assert response.status_code == 422
+
+    def test_get_card_usage_days_too_large(self, client: TestClient) -> None:
+        """Test that days > 365 returns 422."""
+        response = client.get("/api/v1/cards/sv4-6/usage?days=400")
+        assert response.status_code == 422

@@ -3,8 +3,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.auth import exceptions as google_auth_exceptions
 
-from src.core.firebase import init_firebase, verify_token
+from src.core.firebase import FirebaseInitError, init_firebase, verify_token
 
 
 class TestFirebaseInit:
@@ -80,6 +81,89 @@ class TestFirebaseInit:
         assert result1 == result2
         # Should only be called once
         assert mock_firebase_admin.initialize_app.call_count == 1
+
+    @patch("src.core.firebase.credentials")
+    @patch("src.core.firebase.get_settings")
+    def test_init_firebase_credentials_error_development(
+        self,
+        mock_get_settings: MagicMock,
+        mock_credentials: MagicMock,
+    ) -> None:
+        """Test that credentials error returns None in development."""
+        mock_settings = MagicMock()
+        mock_settings.firebase_project_id = "test-project"
+        mock_settings.is_production = False
+        mock_get_settings.return_value = mock_settings
+
+        mock_credentials.ApplicationDefault.side_effect = (
+            google_auth_exceptions.DefaultCredentialsError("No credentials")
+        )
+
+        result = init_firebase()
+
+        assert result is None
+
+    @patch("src.core.firebase.credentials")
+    @patch("src.core.firebase.get_settings")
+    def test_init_firebase_credentials_error_production_raises(
+        self,
+        mock_get_settings: MagicMock,
+        mock_credentials: MagicMock,
+    ) -> None:
+        """Test that credentials error raises FirebaseInitError in production."""
+        mock_settings = MagicMock()
+        mock_settings.firebase_project_id = "test-project"
+        mock_settings.is_production = True
+        mock_get_settings.return_value = mock_settings
+
+        mock_credentials.ApplicationDefault.side_effect = (
+            google_auth_exceptions.DefaultCredentialsError("No credentials")
+        )
+
+        with pytest.raises(FirebaseInitError, match="ADC not configured"):
+            init_firebase()
+
+    @patch("src.core.firebase.firebase_admin")
+    @patch("src.core.firebase.credentials")
+    @patch("src.core.firebase.get_settings")
+    def test_init_firebase_value_error_production_raises(
+        self,
+        mock_get_settings: MagicMock,
+        mock_credentials: MagicMock,
+        mock_firebase_admin: MagicMock,
+    ) -> None:
+        """Test that ValueError raises FirebaseInitError in production."""
+        mock_settings = MagicMock()
+        mock_settings.firebase_project_id = "test-project"
+        mock_settings.is_production = True
+        mock_get_settings.return_value = mock_settings
+
+        mock_firebase_admin.initialize_app.side_effect = ValueError(
+            "Already initialized"
+        )
+
+        with pytest.raises(FirebaseInitError, match="initialization error"):
+            init_firebase()
+
+    @patch("src.core.firebase.firebase_admin")
+    @patch("src.core.firebase.credentials")
+    @patch("src.core.firebase.get_settings")
+    def test_init_firebase_unexpected_error_production_raises(
+        self,
+        mock_get_settings: MagicMock,
+        mock_credentials: MagicMock,
+        mock_firebase_admin: MagicMock,
+    ) -> None:
+        """Test that unexpected errors raise FirebaseInitError in production."""
+        mock_settings = MagicMock()
+        mock_settings.firebase_project_id = "test-project"
+        mock_settings.is_production = True
+        mock_get_settings.return_value = mock_settings
+
+        mock_firebase_admin.initialize_app.side_effect = RuntimeError("Unexpected")
+
+        with pytest.raises(FirebaseInitError, match="Unexpected error"):
+            init_firebase()
 
 
 class TestVerifyToken:

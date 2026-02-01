@@ -95,13 +95,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     try {
       await firebaseSignOut(auth);
-    } catch (error) {
-      console.error("Sign out failed:", error);
-      // Still clear local state - user expects to be signed out
-    } finally {
-      // Eagerly clear state for immediate UI update; onAuthStateChanged will also fire
+      // Only clear state after successful sign out
+      // onAuthStateChanged will also fire, but we clear eagerly for immediate UI update
       setUser(null);
       setFirebaseUser(null);
+    } catch (error) {
+      // Don't clear local state - session may still be valid server-side
+      // Re-throw so callers can show an error to the user
+      console.error("Sign out failed:", error);
+      throw error;
     }
   }, []);
 

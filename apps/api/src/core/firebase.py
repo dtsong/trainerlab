@@ -16,6 +16,13 @@ from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+
+class FirebaseInitError(Exception):
+    """Raised when Firebase initialization fails in production."""
+
+    pass
+
+
 _app: firebase_admin.App | None = None
 
 
@@ -28,6 +35,10 @@ def init_firebase() -> firebase_admin.App | None:
 
     Returns:
         Initialized Firebase app, or None if project_id not configured
+
+    Raises:
+        FirebaseInitError: In production, if project_id is configured but
+            initialization fails (credentials error, etc.)
     """
     global _app
 
@@ -55,17 +66,25 @@ def init_firebase() -> firebase_admin.App | None:
         )
         return _app
     except google_auth_exceptions.DefaultCredentialsError as e:
-        logger.error(
-            "Firebase ADC not configured: %s. "
-            "Run 'gcloud auth application-default login' for local dev.",
-            e,
+        msg = (
+            f"Firebase ADC not configured: {e}. "
+            "Run 'gcloud auth application-default login' for local dev."
         )
+        logger.error(msg)
+        if settings.is_production:
+            raise FirebaseInitError(msg) from e
         return None
     except ValueError as e:
-        logger.error("Firebase initialization error: %s", e)
+        msg = f"Firebase initialization error: {e}"
+        logger.error(msg)
+        if settings.is_production:
+            raise FirebaseInitError(msg) from e
         return None
     except Exception as e:
-        logger.exception("Unexpected error initializing Firebase: %s", type(e).__name__)
+        msg = f"Unexpected error initializing Firebase: {type(e).__name__}: {e}"
+        logger.exception(msg)
+        if settings.is_production:
+            raise FirebaseInitError(msg) from e
         return None
 
 

@@ -219,4 +219,115 @@ describe("AuthContext", () => {
 
     expect(unsubscribe).toHaveBeenCalled();
   });
+
+  it("signOut throws error and does not clear state on failure", async () => {
+    const mockUser = {
+      uid: "test-uid",
+      email: "test@example.com",
+      displayName: "Test User",
+      photoURL: null,
+      getIdToken: mockGetIdToken,
+    };
+
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(mockUser), 0);
+      return vi.fn();
+    });
+
+    // Make sign out fail
+    const signOutError = new Error("Network error");
+    mockSignOut.mockRejectedValue(signOutError);
+
+    const user = userEvent.setup();
+
+    // Track if error was thrown
+    let caughtError: Error | null = null;
+
+    // Component that catches sign out errors
+    function TestConsumerWithErrorHandling() {
+      const { user, loading, signOut } = useAuth();
+
+      const handleSignOut = async () => {
+        try {
+          await signOut();
+        } catch (error) {
+          caughtError = error as Error;
+        }
+      };
+
+      return (
+        <div>
+          <div data-testid="loading">{String(loading)}</div>
+          <div data-testid="user">{user ? user.email : "null"}</div>
+          <button onClick={handleSignOut}>Sign Out</button>
+        </div>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <TestConsumerWithErrorHandling />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    // User should be logged in
+    expect(screen.getByTestId("user")).toHaveTextContent("test@example.com");
+
+    // Suppress console.error for this expected error
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await user.click(screen.getByText("Sign Out"));
+
+    await waitFor(() => {
+      expect(caughtError).toBe(signOutError);
+    });
+
+    // User should still be logged in (state not cleared on error)
+    expect(screen.getByTestId("user")).toHaveTextContent("test@example.com");
+
+    consoleSpy.mockRestore();
+  });
+
+  it("signOut clears state on success", async () => {
+    const mockUser = {
+      uid: "test-uid",
+      email: "test@example.com",
+      displayName: "Test User",
+      photoURL: null,
+      getIdToken: mockGetIdToken,
+    };
+
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(mockUser), 0);
+      return vi.fn();
+    });
+
+    mockSignOut.mockResolvedValue(undefined);
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    // User should be logged in
+    expect(screen.getByTestId("user")).toHaveTextContent("test@example.com");
+
+    await user.click(screen.getByText("Sign Out"));
+
+    // User should be logged out (state cleared on success)
+    await waitFor(() => {
+      expect(screen.getByTestId("user")).toHaveTextContent("null");
+    });
+  });
 });

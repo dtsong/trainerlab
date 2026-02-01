@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import get_settings
+from src.core.firebase import init_firebase
 from src.routers import (
     cards_router,
     decks_router,
@@ -23,6 +24,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handle application startup and shutdown."""
     # Startup
+    init_firebase()
     yield
     # Shutdown
 

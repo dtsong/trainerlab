@@ -1,39 +1,41 @@
 """Authentication dependencies for FastAPI endpoints.
 
-This module provides dependency injection functions for authentication.
-Currently uses a placeholder implementation that will be replaced with
-Firebase Auth verification in a future issue.
+This module provides dependency injection functions for Firebase Auth.
 """
 
+import logging
 from typing import Annotated
-from uuid import UUID
+from uuid import uuid4
 
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.firebase import verify_token
 from src.db.database import get_db
 from src.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
-    """Get the current authenticated user.
+    """Get the current authenticated user from Firebase token.
 
-    Currently expects a user ID in the Authorization header for development.
-    Will be replaced with Firebase token verification.
+    Verifies the Firebase ID token and returns the corresponding user.
+    If the user doesn't exist in the database, creates them automatically.
 
     Args:
         db: Database session
-        authorization: Authorization header (format: "Bearer <user_id>")
+        authorization: Authorization header (format: "Bearer <firebase_id_token>")
 
     Returns:
         User model for the authenticated user
 
     Raises:
-        HTTPException: If authorization header is missing or user not found
+        HTTPException: If authorization header is missing or token invalid
     """
     if not authorization:
         raise HTTPException(
@@ -42,7 +44,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Parse "Bearer <user_id>" format
+    # Parse "Bearer <token>" format
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(
@@ -51,26 +53,43 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    try:
-        user_id = UUID(parts[1])
-    except ValueError as e:
+    token = parts[1]
+
+    # Verify Firebase token
+    decoded = await verify_token(token)
+    if decoded is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID in authorization header",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
-        ) from e
+        )
 
-    # Look up user in database
-    query = select(User).where(User.id == user_id)
+    firebase_uid = decoded.get("uid")
+    if not firebase_uid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing user ID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Look up user by Firebase UID
+    query = select(User).where(User.firebase_uid == firebase_uid)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
 
+    # Auto-create user if they don't exist (first login)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
+        user = User(
+            id=uuid4(),
+            firebase_uid=firebase_uid,
+            email=decoded.get("email", ""),
+            display_name=decoded.get("name"),
+            avatar_url=decoded.get("picture"),
         )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        logger.info("Created new user from Firebase: %s", firebase_uid)
 
     return user
 

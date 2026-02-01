@@ -16,6 +16,7 @@ dependencies = [
     "redis>=5.2.0",
     "python-jose[cryptography]>=3.3.0",
     "typer>=0.15.0",
+    "firebase-admin>=6.5.0",
 ]
 
 [dependency-groups]

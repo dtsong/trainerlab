@@ -1772,15 +1772,15 @@ class TestDeckEndpointsAuth:
     def test_get_deck_with_invalid_auth_returns_401(
         self, no_auth_client: TestClient
     ) -> None:
-        """Test GET /api/v1/decks/{id} returns 401 with malformed auth header."""
+        """Test GET /api/v1/decks/{id} returns 401 with invalid token."""
         deck_id = uuid4()
         response = no_auth_client.get(
             f"/api/v1/decks/{deck_id}",
-            headers={"Authorization": "Bearer invalid-not-a-uuid"},
+            headers={"Authorization": "Bearer invalid-token"},
         )
 
         assert response.status_code == 401
-        assert "Invalid user ID" in response.json()["detail"]
+        assert "Invalid or expired token" in response.json()["detail"]
 
     def test_update_deck_unauthenticated_returns_401(
         self, no_auth_client: TestClient

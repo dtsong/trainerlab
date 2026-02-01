@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # Firebase (optional)
     firebase_project_id: str | None = None
 
+    # CORS (comma-separated list of origins)
+    cors_origins: str = "http://localhost:3000"
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -7,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import get_settings
+from src.core.firebase import init_firebase
 from src.routers import (
     cards_router,
     decks_router,
@@ -16,6 +18,7 @@ from src.routers import (
     tournaments_router,
 )
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -23,6 +26,13 @@ settings = get_settings()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handle application startup and shutdown."""
     # Startup
+    firebase_app = init_firebase()
+    if firebase_app:
+        logger.info("Firebase authentication enabled")
+    else:
+        logger.warning(
+            "Firebase authentication disabled - API endpoints requiring auth will fail"
+        )
     yield
     # Shutdown
 
@@ -39,7 +49,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,  # type: ignore[arg-type]
-    allow_origins=["http://localhost:3000"] if settings.is_development else [],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

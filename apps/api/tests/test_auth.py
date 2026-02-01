@@ -5,7 +5,9 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
+from src.core.firebase import TokenVerificationError
 from src.dependencies.auth import get_current_user, get_current_user_optional
 from src.models.user import User
 
@@ -101,6 +103,8 @@ class TestGetCurrentUser:
     async def test_new_user_created(self, mock_verify: MagicMock) -> None:
         """Test that new user is created on first login."""
         mock_db = AsyncMock()
+        # db.add is synchronous, use MagicMock to avoid coroutine warning
+        mock_db.add = MagicMock()
         mock_verify.return_value = {
             "uid": "firebase-uid-new",
             "email": "new@example.com",
@@ -149,6 +153,93 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
         assert "Email required for account creation" in exc_info.value.detail
         mock_db.add.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("src.dependencies.auth.verify_token")
+    async def test_verification_infrastructure_error_returns_503(
+        self, mock_verify: MagicMock
+    ) -> None:
+        """Test that infrastructure errors return 503 Service Unavailable."""
+        mock_db = AsyncMock()
+        mock_verify.side_effect = TokenVerificationError("Network timeout")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(mock_db, authorization="Bearer valid-token")
+
+        assert exc_info.value.status_code == 503
+        assert "temporarily unavailable" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    @patch("src.dependencies.auth.verify_token")
+    async def test_race_condition_integrity_error_fetches_existing_user(
+        self, mock_verify: MagicMock
+    ) -> None:
+        """Test that IntegrityError triggers rollback and fetches existing user."""
+        mock_db = AsyncMock()
+        mock_db.add = MagicMock()
+        mock_verify.return_value = {
+            "uid": "firebase-uid-race",
+            "email": "race@example.com",
+            "name": "Race User",
+        }
+
+        # First execute returns no user (triggering creation attempt)
+        # Second execute (after rollback) returns the user created by concurrent request
+        mock_user = MagicMock(spec=User)
+        mock_user.id = uuid4()
+        mock_user.firebase_uid = "firebase-uid-race"
+
+        first_result = MagicMock()
+        first_result.scalar_one_or_none.return_value = None
+
+        second_result = MagicMock()
+        second_result.scalar_one_or_none.return_value = mock_user
+
+        mock_db.execute.side_effect = [first_result, second_result]
+
+        # db.commit raises IntegrityError (concurrent insert)
+        mock_db.commit.side_effect = IntegrityError(
+            statement="INSERT", params={}, orig=Exception("duplicate key")
+        )
+
+        result = await get_current_user(mock_db, authorization="Bearer valid-token")
+
+        # Verify rollback was called
+        mock_db.rollback.assert_called_once()
+        # Verify we got the existing user
+        assert result == mock_user
+        # Verify execute was called twice (initial lookup + post-rollback lookup)
+        assert mock_db.execute.call_count == 2
+
+    @pytest.mark.asyncio
+    @patch("src.dependencies.auth.verify_token")
+    async def test_race_condition_user_not_found_after_rollback_raises_500(
+        self, mock_verify: MagicMock
+    ) -> None:
+        """Test that 500 is raised if user not found even after rollback."""
+        mock_db = AsyncMock()
+        mock_db.add = MagicMock()
+        mock_verify.return_value = {
+            "uid": "firebase-uid-ghost",
+            "email": "ghost@example.com",
+        }
+
+        # Both executes return no user (shouldn't happen in practice)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        # db.commit raises IntegrityError
+        mock_db.commit.side_effect = IntegrityError(
+            statement="INSERT", params={}, orig=Exception("duplicate key")
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(mock_db, authorization="Bearer valid-token")
+
+        assert exc_info.value.status_code == 500
+        assert "Account creation failed" in exc_info.value.detail
+        mock_db.rollback.assert_called_once()
 
 
 class TestGetCurrentUserOptional:

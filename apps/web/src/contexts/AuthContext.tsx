@@ -37,10 +37,14 @@ interface AuthContextValue {
   user: AuthUser | null;
   /** True while checking initial auth state */
   loading: boolean;
+  /** Error from token refresh failure, null if no error */
+  authError: Error | null;
   /** Sign out the current user */
   signOut: () => Promise<void>;
   /** Get the current ID token for API calls */
   getIdToken: () => Promise<string | null>;
+  /** Clear the auth error (e.g., after user acknowledges) */
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -66,6 +70,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [authError, setAuthError] = useState<Error | null>(null);
+
+  const clearAuthError = useCallback(() => {
+    setAuthError(null);
+  }, []);
 
   useEffect(() => {
     // If Firebase auth is not configured, mark as loaded with no user
@@ -113,10 +122,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     try {
       // forceRefresh: false - SDK uses cached token or auto-refreshes if near expiration
-      return await firebaseUser.getIdToken(false);
+      const token = await firebaseUser.getIdToken(false);
+      // Clear any previous error on success
+      setAuthError(null);
+      return token;
     } catch (error) {
       // Token refresh can fail due to network errors, revoked session, etc.
-      // Return null so callers can handle gracefully (e.g., prompt re-login)
+      // Set authError so UI can prompt re-login
+      const authErr =
+        error instanceof Error ? error : new Error("Token refresh failed");
+      setAuthError(authErr);
       console.error(
         "Failed to get ID token (session may need refresh):",
         error,
@@ -128,8 +143,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextValue = {
     user,
     loading,
+    authError,
     signOut,
     getIdToken,
+    clearAuthError,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

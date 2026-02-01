@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.firebase import verify_token
+from src.core.firebase import TokenVerificationError, verify_token
 from src.db.database import get_db
 from src.models.user import User
 
@@ -42,6 +42,8 @@ async def get_current_user(
             - Firebase token is invalid, expired, or revoked
             - Token missing required uid claim
             - Token missing email claim (required for new user creation)
+        HTTPException: 503 Service Unavailable if:
+            - Token verification fails due to infrastructure issues
     """
     if not authorization:
         raise HTTPException(
@@ -62,7 +64,15 @@ async def get_current_user(
     token = parts[1]
 
     # Verify Firebase token
-    decoded = await verify_token(token)
+    try:
+        decoded = await verify_token(token)
+    except TokenVerificationError as e:
+        logger.error("Token verification infrastructure error: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service temporarily unavailable",
+        ) from e
+
     if decoded is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

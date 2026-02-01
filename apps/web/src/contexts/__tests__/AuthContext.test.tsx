@@ -20,12 +20,16 @@ vi.mock("@/lib/firebase", () => ({
 
 // Test component that uses the hook
 function TestConsumer() {
-  const { user, loading, signOut, getIdToken } = useAuth();
+  const { user, loading, signOut, getIdToken, authError, clearAuthError } =
+    useAuth();
 
   return (
     <div>
       <div data-testid="loading">{String(loading)}</div>
       <div data-testid="user">{user ? user.email : "null"}</div>
+      <div data-testid="auth-error">
+        {authError ? authError.message : "null"}
+      </div>
       <button onClick={signOut}>Sign Out</button>
       <button
         onClick={async () => {
@@ -35,6 +39,7 @@ function TestConsumer() {
       >
         Get Token
       </button>
+      <button onClick={clearAuthError}>Clear Error</button>
     </div>
   );
 }
@@ -329,5 +334,160 @@ describe("AuthContext", () => {
     await waitFor(() => {
       expect(screen.getByTestId("user")).toHaveTextContent("null");
     });
+  });
+
+  it("sets authError when getIdToken fails", async () => {
+    const tokenError = new Error("Token refresh failed");
+    mockGetIdToken.mockRejectedValue(tokenError);
+
+    const mockUser = {
+      uid: "test-uid",
+      email: "test@example.com",
+      displayName: null,
+      photoURL: null,
+      getIdToken: mockGetIdToken,
+    };
+
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(mockUser), 0);
+      return vi.fn();
+    });
+
+    const user = userEvent.setup();
+
+    // Suppress console.error for this expected error
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    // authError should be null initially
+    expect(screen.getByTestId("auth-error")).toHaveTextContent("null");
+
+    await user.click(screen.getByText("Get Token"));
+
+    // authError should be set
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error")).toHaveTextContent(
+        "Token refresh failed",
+      );
+    });
+
+    // Token should be null
+    expect(document.body.getAttribute("data-token")).toBe("null");
+
+    consoleSpy.mockRestore();
+  });
+
+  it("clears authError on successful getIdToken", async () => {
+    // First call fails, second succeeds
+    mockGetIdToken
+      .mockRejectedValueOnce(new Error("Token refresh failed"))
+      .mockResolvedValueOnce("new-token");
+
+    const mockUser = {
+      uid: "test-uid",
+      email: "test@example.com",
+      displayName: null,
+      photoURL: null,
+      getIdToken: mockGetIdToken,
+    };
+
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(mockUser), 0);
+      return vi.fn();
+    });
+
+    const user = userEvent.setup();
+
+    // Suppress console.error for the expected error
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    // First call fails
+    await user.click(screen.getByText("Get Token"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error")).toHaveTextContent(
+        "Token refresh failed",
+      );
+    });
+
+    // Second call succeeds and clears error
+    await user.click(screen.getByText("Get Token"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error")).toHaveTextContent("null");
+    });
+
+    expect(document.body.getAttribute("data-token")).toBe("new-token");
+
+    consoleSpy.mockRestore();
+  });
+
+  it("clearAuthError clears the error", async () => {
+    mockGetIdToken.mockRejectedValue(new Error("Token refresh failed"));
+
+    const mockUser = {
+      uid: "test-uid",
+      email: "test@example.com",
+      displayName: null,
+      photoURL: null,
+      getIdToken: mockGetIdToken,
+    };
+
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(mockUser), 0);
+      return vi.fn();
+    });
+
+    const user = userEvent.setup();
+
+    // Suppress console.error for the expected error
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    // Trigger error
+    await user.click(screen.getByText("Get Token"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error")).toHaveTextContent(
+        "Token refresh failed",
+      );
+    });
+
+    // Clear the error
+    await user.click(screen.getByText("Clear Error"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-error")).toHaveTextContent("null");
+    });
+
+    consoleSpy.mockRestore();
   });
 });

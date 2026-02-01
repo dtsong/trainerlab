@@ -23,6 +23,17 @@ class FirebaseInitError(Exception):
     pass
 
 
+class TokenVerificationError(Exception):
+    """Raised when token verification fails due to infrastructure issues.
+
+    This is distinct from invalid/expired/revoked tokens - it indicates
+    a problem with Firebase service connectivity or unexpected SDK errors.
+    Callers should return 503 Service Unavailable, not 401 Unauthorized.
+    """
+
+    pass
+
+
 _app: firebase_admin.App | None = None
 
 
@@ -108,7 +119,12 @@ async def verify_token(id_token: str) -> dict | None:
         id_token: The Firebase ID token from the client
 
     Returns:
-        Decoded token claims if valid, None if invalid or Firebase not configured
+        Decoded token claims if valid, None if invalid/expired/revoked
+        or Firebase not configured
+
+    Raises:
+        TokenVerificationError: If verification fails due to infrastructure
+            issues (network timeout, Firebase service unavailable, etc.)
     """
     if _app is None:
         logger.warning("Firebase not initialized, cannot verify token")
@@ -128,6 +144,15 @@ async def verify_token(id_token: str) -> dict | None:
     except auth.RevokedIdTokenError as e:
         logger.warning("Firebase token revoked: %s", e)
         return None
+    except auth.CertificateFetchError as e:
+        # Infrastructure issue: can't fetch Google's public keys
+        logger.error("Failed to fetch Firebase certificates: %s", e)
+        raise TokenVerificationError(
+            "Unable to verify token: certificate fetch failed"
+        ) from e
     except Exception as e:
+        # Unexpected error - treat as infrastructure failure, not invalid token
         logger.exception("Unexpected error verifying token: %s", type(e).__name__)
-        return None
+        raise TokenVerificationError(
+            f"Unable to verify token: {type(e).__name__}"
+        ) from e

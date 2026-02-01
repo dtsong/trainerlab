@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from google.auth import exceptions as google_auth_exceptions
 
-from src.core.firebase import FirebaseInitError, init_firebase, verify_token
+from src.core.firebase import (
+    FirebaseInitError,
+    TokenVerificationError,
+    init_firebase,
+    verify_token,
+)
 
 
 class TestFirebaseInit:
@@ -246,3 +251,33 @@ class TestVerifyToken:
         result = await verify_token("revoked-token")
 
         assert result is None
+
+    @pytest.mark.asyncio
+    @patch("src.core.firebase.auth.verify_id_token")
+    async def test_verify_token_certificate_fetch_error(
+        self, mock_verify: MagicMock
+    ) -> None:
+        """Test that certificate fetch error raises TokenVerificationError."""
+        from firebase_admin import auth as real_auth
+
+        import src.core.firebase as firebase_module
+
+        firebase_module._app = MagicMock()
+        mock_verify.side_effect = real_auth.CertificateFetchError(
+            "Failed to fetch certificates", cause=Exception("Network error")
+        )
+
+        with pytest.raises(TokenVerificationError, match="certificate fetch failed"):
+            await verify_token("some-token")
+
+    @pytest.mark.asyncio
+    @patch("src.core.firebase.auth.verify_id_token")
+    async def test_verify_token_unexpected_error(self, mock_verify: MagicMock) -> None:
+        """Test that unexpected errors raise TokenVerificationError."""
+        import src.core.firebase as firebase_module
+
+        firebase_module._app = MagicMock()
+        mock_verify.side_effect = RuntimeError("Network timeout")
+
+        with pytest.raises(TokenVerificationError, match="RuntimeError"):
+            await verify_token("some-token")

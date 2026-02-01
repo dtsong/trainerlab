@@ -73,28 +73,32 @@ NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 ```
 
-## Step 5: Create Service Account for Backend
+## Step 5: Configure Backend Authentication (ADC)
 
-1. Go to **Project settings > Service accounts**
-2. Click **Generate new private key**
-3. Download the JSON file
-4. **IMPORTANT:** Never commit this file to git
+Firebase Admin SDK uses [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) - no JSON key files needed.
 
 ### Local Development
 
-Save the JSON file as `firebase-service-account.json` in a secure location and set:
+1. Install gcloud CLI if not already installed
+2. Run:
 
 ```bash
-# In apps/api/.env
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/firebase-service-account.json
+gcloud auth application-default login
+```
+
+3. Set the project ID in `apps/api/.env`:
+
+```bash
 FIREBASE_PROJECT_ID=your-project-id
 ```
 
 ### Production (GCP Cloud Run)
 
-1. Store the service account JSON in **Secret Manager**
-2. Mount as a secret in Cloud Run
-3. Set `GOOGLE_APPLICATION_CREDENTIALS` to the mount path
+Cloud Run automatically uses ADC with the service's attached IAM service account. Just ensure:
+
+1. The Cloud Run service has a service account attached (default or custom)
+2. That service account has the **Firebase Admin SDK Administrator Service Agent** role (or at minimum `firebaseauth.users.get` permission)
+3. `FIREBASE_PROJECT_ID` is set in Cloud Run environment variables
 
 ## Step 6: Update Environment Files
 
@@ -110,7 +114,6 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 
 ```bash
 FIREBASE_PROJECT_ID=your-project-id
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/firebase-service-account.json
 ```
 
 ## Verification Checklist
@@ -121,13 +124,12 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/firebase-service-account.json
 - [ ] Authorized domains configured
 - [ ] Web app registered
 - [ ] Frontend env vars set
-- [ ] Service account JSON downloaded
-- [ ] Backend env vars set
-- [ ] Service account JSON added to `.gitignore`
+- [ ] `gcloud auth application-default login` run (local dev)
+- [ ] Backend `FIREBASE_PROJECT_ID` set
 
 ## Security Notes
 
-1. **Never commit service account JSON** - it grants admin access to your Firebase project
+1. **Use ADC, not JSON keys** - ADC is more secure and easier to manage than downloading service account keys
 2. **API keys are safe to expose** - Firebase web API keys are meant to be public; security is enforced via Firebase Security Rules and authorized domains
 3. **Use environment-specific projects** - Consider separate Firebase projects for dev/staging/prod
 

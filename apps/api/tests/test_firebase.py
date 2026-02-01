@@ -101,7 +101,7 @@ class TestVerifyToken:
     @pytest.mark.asyncio
     @patch("src.core.firebase.auth.verify_id_token")
     async def test_verify_token_success(self, mock_verify: MagicMock) -> None:
-        """Test successful token verification."""
+        """Test successful token verification with revocation check."""
         import src.core.firebase as firebase_module
 
         firebase_module._app = MagicMock()
@@ -115,7 +115,8 @@ class TestVerifyToken:
         result = await verify_token("valid-token")
 
         assert result == mock_decoded
-        mock_verify.assert_called_once_with("valid-token")
+        # Verify check_revoked=True is passed
+        mock_verify.assert_called_once_with("valid-token", check_revoked=True)
 
     @pytest.mark.asyncio
     @patch("src.core.firebase.auth.verify_id_token")

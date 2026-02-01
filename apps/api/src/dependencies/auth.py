@@ -79,10 +79,18 @@ async def get_current_user(
 
     # Auto-create user if they don't exist (first login)
     if user is None:
+        email = decoded.get("email")
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Email required for account creation",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         user = User(
             id=uuid4(),
             firebase_uid=firebase_uid,
-            email=decoded.get("email", ""),
+            email=email,
             display_name=decoded.get("name"),
             avatar_url=decoded.get("picture"),
         )

@@ -5,6 +5,7 @@ For local development, run: gcloud auth application-default login
 For production on Cloud Run, ADC is automatically configured.
 """
 
+import asyncio
 import logging
 
 import firebase_admin
@@ -70,6 +71,9 @@ def get_firebase_app() -> firebase_admin.App | None:
 async def verify_token(id_token: str) -> dict | None:
     """Verify a Firebase ID token.
 
+    Runs the synchronous Firebase SDK verification in a thread pool
+    to avoid blocking the event loop.
+
     Args:
         id_token: The Firebase ID token from the client
 
@@ -81,7 +85,10 @@ async def verify_token(id_token: str) -> dict | None:
         return None
 
     try:
-        decoded_token = auth.verify_id_token(id_token)
+        # Run blocking Firebase SDK call in thread pool
+        decoded_token = await asyncio.to_thread(
+            auth.verify_id_token, id_token, check_revoked=True
+        )
         return decoded_token
     except (
         auth.InvalidIdTokenError,

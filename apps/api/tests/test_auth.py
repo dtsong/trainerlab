@@ -127,6 +127,29 @@ class TestGetCurrentUser:
         assert created_user.display_name == "New User"
         assert created_user.avatar_url == "https://example.com/avatar.jpg"
 
+    @pytest.mark.asyncio
+    @patch("src.dependencies.auth.verify_token")
+    async def test_new_user_missing_email_raises(self, mock_verify: MagicMock) -> None:
+        """Test that new user creation requires email."""
+        mock_db = AsyncMock()
+        mock_verify.return_value = {
+            "uid": "firebase-uid-new",
+            # No email in token (e.g., phone auth)
+            "name": "New User",
+        }
+
+        # Mock no existing user
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(mock_db, authorization="Bearer valid-token")
+
+        assert exc_info.value.status_code == 401
+        assert "Email required for account creation" in exc_info.value.detail
+        mock_db.add.assert_not_called()
+
 
 class TestGetCurrentUserOptional:
     """Tests for get_current_user_optional dependency."""

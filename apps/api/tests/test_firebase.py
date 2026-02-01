@@ -6,6 +6,7 @@ import pytest
 from google.auth import exceptions as google_auth_exceptions
 
 from src.core.firebase import (
+    DecodedToken,
     FirebaseInitError,
     TokenVerificationError,
     init_firebase,
@@ -199,14 +200,34 @@ class TestVerifyToken:
         mock_decoded = {
             "uid": "test-uid",
             "email": "test@example.com",
+            "name": "Test User",
+            "picture": "https://example.com/photo.jpg",
         }
         mock_verify.return_value = mock_decoded
 
         result = await verify_token("valid-token")
 
-        assert result == mock_decoded
+        assert result == DecodedToken(
+            uid="test-uid",
+            email="test@example.com",
+            name="Test User",
+            picture="https://example.com/photo.jpg",
+        )
         # Verify check_revoked=True is passed
         mock_verify.assert_called_once_with("valid-token", check_revoked=True)
+
+    @pytest.mark.asyncio
+    @patch("src.core.firebase.auth.verify_id_token")
+    async def test_verify_token_missing_uid(self, mock_verify: MagicMock) -> None:
+        """Test that token without uid returns None."""
+        import src.core.firebase as firebase_module
+
+        firebase_module._app = MagicMock()
+        mock_verify.return_value = {"email": "test@example.com"}  # No uid
+
+        result = await verify_token("token-without-uid")
+
+        assert result is None
 
     @pytest.mark.asyncio
     @patch("src.core.firebase.auth.verify_id_token")

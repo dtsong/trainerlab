@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
-from src.core.firebase import TokenVerificationError
+from src.core.firebase import DecodedToken, TokenVerificationError
 from src.dependencies.auth import get_current_user, get_current_user_optional
 from src.models.user import User
 
@@ -63,26 +63,13 @@ class TestGetCurrentUser:
 
     @pytest.mark.asyncio
     @patch("src.dependencies.auth.verify_token")
-    async def test_token_missing_uid(self, mock_verify: MagicMock) -> None:
-        """Test that token without uid raises 401."""
-        mock_db = AsyncMock()
-        mock_verify.return_value = {"email": "test@example.com"}  # No uid
-
-        with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization="Bearer valid-token")
-
-        assert exc_info.value.status_code == 401
-        assert "Token missing user ID" in exc_info.value.detail
-
-    @pytest.mark.asyncio
-    @patch("src.dependencies.auth.verify_token")
     async def test_existing_user_returned(self, mock_verify: MagicMock) -> None:
         """Test that existing user is returned from database."""
         mock_db = AsyncMock()
-        mock_verify.return_value = {
-            "uid": "firebase-uid-123",
-            "email": "test@example.com",
-        }
+        mock_verify.return_value = DecodedToken(
+            uid="firebase-uid-123",
+            email="test@example.com",
+        )
 
         # Mock existing user in database
         mock_user = MagicMock(spec=User)
@@ -105,12 +92,12 @@ class TestGetCurrentUser:
         mock_db = AsyncMock()
         # db.add is synchronous, use MagicMock to avoid coroutine warning
         mock_db.add = MagicMock()
-        mock_verify.return_value = {
-            "uid": "firebase-uid-new",
-            "email": "new@example.com",
-            "name": "New User",
-            "picture": "https://example.com/avatar.jpg",
-        }
+        mock_verify.return_value = DecodedToken(
+            uid="firebase-uid-new",
+            email="new@example.com",
+            name="New User",
+            picture="https://example.com/avatar.jpg",
+        )
 
         # Mock no existing user
         mock_result = MagicMock()
@@ -136,11 +123,11 @@ class TestGetCurrentUser:
     async def test_new_user_missing_email_raises(self, mock_verify: MagicMock) -> None:
         """Test that new user creation requires email."""
         mock_db = AsyncMock()
-        mock_verify.return_value = {
-            "uid": "firebase-uid-new",
-            # No email in token (e.g., phone auth)
-            "name": "New User",
-        }
+        # No email in token (e.g., phone auth)
+        mock_verify.return_value = DecodedToken(
+            uid="firebase-uid-new",
+            name="New User",
+        )
 
         # Mock no existing user
         mock_result = MagicMock()
@@ -177,11 +164,11 @@ class TestGetCurrentUser:
         """Test that IntegrityError triggers rollback and fetches existing user."""
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
-        mock_verify.return_value = {
-            "uid": "firebase-uid-race",
-            "email": "race@example.com",
-            "name": "Race User",
-        }
+        mock_verify.return_value = DecodedToken(
+            uid="firebase-uid-race",
+            email="race@example.com",
+            name="Race User",
+        )
 
         # First execute returns no user (triggering creation attempt)
         # Second execute (after rollback) returns the user created by concurrent request
@@ -219,10 +206,10 @@ class TestGetCurrentUser:
         """Test that 500 is raised if user not found even after rollback."""
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
-        mock_verify.return_value = {
-            "uid": "firebase-uid-ghost",
-            "email": "ghost@example.com",
-        }
+        mock_verify.return_value = DecodedToken(
+            uid="firebase-uid-ghost",
+            email="ghost@example.com",
+        )
 
         # Both executes return no user (shouldn't happen in practice)
         mock_result = MagicMock()
@@ -273,10 +260,10 @@ class TestGetCurrentUserOptional:
     async def test_valid_auth_returns_user(self, mock_verify: MagicMock) -> None:
         """Test that valid auth returns user."""
         mock_db = AsyncMock()
-        mock_verify.return_value = {
-            "uid": "firebase-uid-123",
-            "email": "test@example.com",
-        }
+        mock_verify.return_value = DecodedToken(
+            uid="firebase-uid-123",
+            email="test@example.com",
+        )
 
         mock_user = MagicMock(spec=User)
         mock_user.firebase_uid = "firebase-uid-123"

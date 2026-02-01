@@ -40,7 +40,6 @@ async def get_current_user(
             - Authorization header is missing
             - Authorization header format is invalid (not "Bearer <token>")
             - Firebase token is invalid, expired, or revoked
-            - Token missing required uid claim
             - Token missing email claim (required for new user creation)
         HTTPException: 503 Service Unavailable if:
             - Token verification fails due to infrastructure issues
@@ -80,24 +79,15 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    firebase_uid = decoded.get("uid")
-    if not firebase_uid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing user ID",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Look up user by Firebase UID
-    query = select(User).where(User.firebase_uid == firebase_uid)
+    # Look up user by Firebase UID (uid is guaranteed present in DecodedToken)
+    query = select(User).where(User.firebase_uid == decoded.uid)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
 
     # Auto-create user if they don't exist (first login)
     # Note: Requires email - phone-only or anonymous Firebase users are rejected
     if user is None:
-        email = decoded.get("email")
-        if not email:
+        if not decoded.email:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Email required for account creation",
@@ -106,28 +96,28 @@ async def get_current_user(
 
         user = User(
             id=uuid4(),
-            firebase_uid=firebase_uid,
-            email=email,
-            display_name=decoded.get("name"),
-            avatar_url=decoded.get("picture"),
+            firebase_uid=decoded.uid,
+            email=decoded.email,
+            display_name=decoded.name,
+            avatar_url=decoded.picture,
         )
         try:
             db.add(user)
             await db.commit()
             await db.refresh(user)
-            logger.info("Created new user from Firebase: %s", firebase_uid)
+            logger.info("Created new user from Firebase: %s", decoded.uid)
         except IntegrityError as e:
             # Race condition: user was created by concurrent request
             await db.rollback()
             result = await db.execute(query)
             user = result.scalar_one_or_none()
             if not user:
-                logger.error("User creation failed unexpectedly: %s", firebase_uid)
+                logger.error("User creation failed unexpectedly: %s", decoded.uid)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Account creation failed, please try again",
                 ) from e
-            logger.info("User already created by concurrent request: %s", firebase_uid)
+            logger.info("User already created by concurrent request: %s", decoded.uid)
 
     return user
 

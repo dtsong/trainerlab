@@ -1,7 +1,7 @@
 """Tests for deck endpoints and service."""
 
 from datetime import UTC
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -1769,10 +1769,13 @@ class TestDeckEndpointsAuth:
         assert response.status_code == 401
         assert "Authorization header required" in response.json()["detail"]
 
+    @patch("src.dependencies.auth.verify_token")
     def test_get_deck_with_invalid_auth_returns_401(
-        self, no_auth_client: TestClient
+        self, mock_verify: MagicMock, no_auth_client: TestClient
     ) -> None:
         """Test GET /api/v1/decks/{id} returns 401 with invalid token."""
+        mock_verify.return_value = None  # Simulate invalid token
+
         deck_id = uuid4()
         response = no_auth_client.get(
             f"/api/v1/decks/{deck_id}",

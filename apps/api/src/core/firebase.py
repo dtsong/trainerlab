@@ -7,6 +7,7 @@ For production on Cloud Run, ADC is automatically configured.
 
 import asyncio
 import logging
+from dataclasses import dataclass
 
 import firebase_admin
 from firebase_admin import auth, credentials
@@ -15,6 +16,19 @@ from google.auth import exceptions as google_auth_exceptions
 from src.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class DecodedToken:
+    """Decoded Firebase ID token with typed claims.
+
+    Provides type-safe access to token claims instead of raw dict.
+    """
+
+    uid: str
+    email: str | None = None
+    name: str | None = None
+    picture: str | None = None
 
 
 class FirebaseInitError(Exception):
@@ -108,7 +122,7 @@ def get_firebase_app() -> firebase_admin.App | None:
     return _app
 
 
-async def verify_token(id_token: str) -> dict | None:
+async def verify_token(id_token: str) -> DecodedToken | None:
     """Verify a Firebase ID token.
 
     Runs the synchronous Firebase SDK verification in a thread pool
@@ -119,7 +133,7 @@ async def verify_token(id_token: str) -> dict | None:
         id_token: The Firebase ID token from the client
 
     Returns:
-        Decoded token claims if valid, None if invalid/expired/revoked
+        DecodedToken with typed claims if valid, None if invalid/expired/revoked
 
     Raises:
         TokenVerificationError: If verification fails due to infrastructure
@@ -133,10 +147,19 @@ async def verify_token(id_token: str) -> dict | None:
         )
 
     try:
-        decoded_token = await asyncio.to_thread(
+        decoded = await asyncio.to_thread(
             auth.verify_id_token, id_token, check_revoked=True
         )
-        return decoded_token
+        uid = decoded.get("uid")
+        if not uid:
+            logger.warning("Token missing uid claim")
+            return None
+        return DecodedToken(
+            uid=uid,
+            email=decoded.get("email"),
+            name=decoded.get("name"),
+            picture=decoded.get("picture"),
+        )
     except auth.InvalidIdTokenError as e:
         logger.info("Firebase token invalid: %s", e)
         return None

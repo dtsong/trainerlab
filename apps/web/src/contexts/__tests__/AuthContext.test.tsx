@@ -33,8 +33,13 @@ function TestConsumer() {
       <button onClick={signOut}>Sign Out</button>
       <button
         onClick={async () => {
-          const token = await getIdToken();
-          document.body.setAttribute("data-token", token || "null");
+          try {
+            const token = await getIdToken();
+            document.body.setAttribute("data-token", token || "null");
+          } catch {
+            // Error is set in authError state, nothing else to do
+            document.body.setAttribute("data-token", "error");
+          }
         }}
       >
         Get Token
@@ -380,8 +385,8 @@ describe("AuthContext", () => {
       );
     });
 
-    // Token should be null
-    expect(document.body.getAttribute("data-token")).toBe("null");
+    // Token should indicate error (thrown, not returned null)
+    expect(document.body.getAttribute("data-token")).toBe("error");
 
     consoleSpy.mockRestore();
   });

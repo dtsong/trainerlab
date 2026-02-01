@@ -41,7 +41,7 @@ interface AuthContextValue {
   authError: Error | null;
   /** Sign out the current user */
   signOut: () => Promise<void>;
-  /** Get the current ID token for API calls */
+  /** Get the current ID token for API calls. Throws on refresh failure. */
   getIdToken: () => Promise<string | null>;
   /** Clear the auth error (e.g., after user acknowledges) */
   clearAuthError: () => void;
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return token;
     } catch (error) {
       // Token refresh can fail due to network errors, revoked session, etc.
-      // Set authError so UI can prompt re-login
+      // Set authError so UI can prompt re-login, then re-throw
       const authErr =
         error instanceof Error ? error : new Error("Token refresh failed");
       setAuthError(authErr);
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         "Failed to get ID token (session may need refresh):",
         error,
       );
-      return null;
+      throw authErr;
     }
   }, [firebaseUser]);
 

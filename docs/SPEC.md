@@ -1,6 +1,6 @@
-# TrainerLab - Implementation Spec
+# TrainerLab - Implementation Spec v3.0
 
-> Handoff document for Claude Code to build the initial MVP
+> Competitive intelligence platform for Pokemon TCG
 
 **Domain:** trainerlab.io
 
@@ -12,1440 +12,809 @@
 
 **TrainerLab** — A competitive intelligence platform for Pokemon TCG trainers, coaches, content creators, and families. We help users make data-driven decisions about deck building, format preparation, and the hobby overall.
 
-**Key differentiator:** Japanese metagame integration providing 2-3 month format preview, with proper BO1/BO3 context.
+**Key differentiators:**
 
-### 1.2 MVP Scope
+- Japanese metagame integration providing 2-3 month format preview
+- Progressive disclosure design (Editorial → Hybrid → Terminal)
+- JP Signal system highlighting meta divergence
+- Commerce integration for deck building
 
-**In scope for initial build:**
+### 1.2 Target Users
+
+| User Type           | Primary Need                                          |
+| ------------------- | ----------------------------------------------------- |
+| Competitive Players | Meta analysis, deck building, tournament prep         |
+| Coaches             | Student progress, meta teaching, deck recommendations |
+| Content Creators    | Data for articles/videos, trending topics             |
+| Parents             | Understanding the hobby, budget-conscious decisions   |
+
+### 1.3 MVP Scope (v3.0)
+
+**Completed (Phases 1-4):**
 
 - Card database with search (keyword + fuzzy)
 - Deck builder (create, save, load, export)
 - Meta dashboard (archetype shares, trends)
 - Japanese meta view (separate BO1 context)
-- Basic user authentication
 
-**Out of scope for MVP:**
+**In Progress (Phase 5):**
 
-- Card reveal ingestion pipeline
-- Price tracking
-- Social features
-- Mobile app
+- Firebase authentication
+- User preferences
+- Loading states, error handling
+- Mobile responsiveness
+- Tests
 
-### 1.3 Target User
+**New in v3.0 (Phases 6-14):**
 
-Competitive Pokemon TCG players preparing for tournaments. Assume technical literacy but not developer skills.
-
----
-
-## 2. Repository Structure
-
-```
-trainerlab/
-├── README.md
-├── docker-compose.yml           # Local dev (TCGdex, Postgres, Redis)
-├── cloudbuild.yaml              # GCP Cloud Build CI/CD config
-├── .env.example
-├── .gitignore
-│
-├── apps/
-│   ├── web/                     # Next.js frontend
-│   │   ├── package.json
-│   │   ├── next.config.js
-│   │   ├── tailwind.config.js
-│   │   ├── tsconfig.json
-│   │   ├── .env.local.example
-│   │   │
-│   │   ├── src/
-│   │   │   ├── app/             # App router
-│   │   │   │   ├── layout.tsx
-│   │   │   │   ├── page.tsx                    # Home/landing
-│   │   │   │   ├── cards/
-│   │   │   │   │   ├── page.tsx                # Card search
-│   │   │   │   │   └── [id]/page.tsx           # Card detail
-│   │   │   │   ├── decks/
-│   │   │   │   │   ├── page.tsx                # My decks list
-│   │   │   │   │   ├── new/page.tsx            # Deck builder
-│   │   │   │   │   └── [id]/page.tsx           # Deck view/edit
-│   │   │   │   ├── meta/
-│   │   │   │   │   ├── page.tsx                # Meta dashboard
-│   │   │   │   │   └── japan/page.tsx          # Japan-specific view
-│   │   │   │   ├── api/                        # API routes (if needed)
-│   │   │   │   └── auth/
-│   │   │   │       └── [...nextauth]/route.ts
-│   │   │   │
-│   │   │   ├── components/
-│   │   │   │   ├── ui/                         # shadcn/ui components
-│   │   │   │   ├── cards/
-│   │   │   │   │   ├── CardGrid.tsx
-│   │   │   │   │   ├── CardImage.tsx
-│   │   │   │   │   ├── CardSearch.tsx
-│   │   │   │   │   └── CardDetail.tsx
-│   │   │   │   ├── decks/
-│   │   │   │   │   ├── DeckBuilder.tsx
-│   │   │   │   │   ├── DeckList.tsx
-│   │   │   │   │   ├── DeckStats.tsx
-│   │   │   │   │   └── DeckExport.tsx
-│   │   │   │   ├── meta/
-│   │   │   │   │   ├── MetaChart.tsx
-│   │   │   │   │   ├── ArchetypeCard.tsx
-│   │   │   │   │   └── RegionFilter.tsx
-│   │   │   │   └── layout/
-│   │   │   │       ├── Header.tsx
-│   │   │   │       ├── Sidebar.tsx
-│   │   │   │       └── Footer.tsx
-│   │   │   │
-│   │   │   ├── lib/
-│   │   │   │   ├── api.ts                      # API client
-│   │   │   │   ├── utils.ts
-│   │   │   │   └── constants.ts
-│   │   │   │
-│   │   │   └── types/
-│   │   │       ├── card.ts
-│   │   │       ├── deck.ts
-│   │   │       └── meta.ts
-│   │   │
-│   │   └── public/
-│   │       └── images/
-│   │
-│   └── api/                     # FastAPI backend
-│       ├── pyproject.toml       # Using Poetry
-│       ├── Dockerfile
-│       ├── .env.example
-│       │
-│       └── src/
-│           ├── main.py          # FastAPI app entry
-│           ├── config.py        # Settings/env
-│           │
-│           ├── routers/
-│           │   ├── __init__.py
-│           │   ├── cards.py
-│           │   ├── decks.py
-│           │   ├── meta.py
-│           │   └── health.py
-│           │
-│           ├── models/          # Pydantic models
-│           │   ├── __init__.py
-│           │   ├── card.py
-│           │   ├── deck.py
-│           │   └── meta.py
-│           │
-│           ├── db/
-│           │   ├── __init__.py
-│           │   ├── database.py  # Connection setup
-│           │   ├── models.py    # SQLAlchemy models
-│           │   └── migrations/  # Alembic
-│           │
-│           ├── services/
-│           │   ├── __init__.py
-│           │   ├── card_service.py
-│           │   ├── deck_service.py
-│           │   ├── meta_service.py
-│           │   └── search_service.py
-│           │
-│           └── pipelines/
-│               ├── __init__.py
-│               ├── tcgdex_sync.py      # Card data sync
-│               └── tournament_sync.py   # Tournament data (future)
-│
-├── packages/                    # Shared code (if needed)
-│   └── shared-types/
-│
-├── scripts/
-│   ├── setup-dev.sh             # Local dev environment setup
-│   ├── seed-db.sh               # Seed database with test data
-│   └── sync-cards.py            # Manual card sync trigger
-│
-├── terraform/                   # Infrastructure as Code (GCP)
-│   ├── main.tf                  # All GCP resources
-│   ├── variables.tf             # Variable definitions
-│   ├── outputs.tf               # Output values
-│   ├── README.md                # Terraform documentation
-│   ├── .gitignore
-│   ├── bootstrap/
-│   │   └── main.tf              # State bucket setup (run first)
-│   └── environments/
-│       ├── dev.tfvars           # Development config
-│       └── prod.tfvars          # Production config
-│
-└── docs/
-    ├── SPEC.md                  # This file
-    ├── API.md                   # API documentation
-    └── DEPLOYMENT.md
-```
+- Design system overhaul
+- Home page redesign
+- Meta dashboard with archetype panels
+- From Japan page with predictions
+- Tournament archive
+- Lab Notes content system
+- Commerce integration
+- Data pipeline (scrapers)
 
 ---
 
-## 3. Tech Stack
+## 2. Design System
 
-### 3.1 Frontend
+### 2.1 Progressive Disclosure Layers
 
-| Technology     | Version | Purpose                         |
-| -------------- | ------- | ------------------------------- |
-| Next.js        | 14+     | React framework with App Router |
-| TypeScript     | 5+      | Type safety                     |
-| Tailwind CSS   | 3+      | Styling                         |
-| shadcn/ui      | latest  | UI component library            |
-| TanStack Query | 5+      | Data fetching/caching           |
-| Zustand        | 4+      | Client state (deck builder)     |
-| Recharts       | 2+      | Charts for meta dashboard       |
+TrainerLab uses three visual layers that reveal increasing data density:
 
-### 3.2 Backend
+| Layer | Name      | Typography       | Use Case                     |
+| ----- | --------- | ---------------- | ---------------------------- |
+| 1     | Editorial | Playfair Display | Headlines, hero, marketing   |
+| 2     | Hybrid    | DM Sans          | Body text, navigation, cards |
+| 3     | Terminal  | JetBrains Mono   | Data tables, panels, stats   |
 
-| Technology | Version | Purpose           |
-| ---------- | ------- | ----------------- |
-| Python     | 3.11+   | Runtime           |
-| FastAPI    | 0.100+  | API framework     |
-| SQLAlchemy | 2+      | ORM               |
-| Alembic    | 1.12+   | Migrations        |
-| Pydantic   | 2+      | Validation        |
-| httpx      | 0.25+   | Async HTTP client |
+### 2.2 Color Palette
 
-### 3.3 Infrastructure (GCP)
+#### Primary Colors
 
-| Technology    | GCP Service               | Purpose               |
-| ------------- | ------------------------- | --------------------- |
-| PostgreSQL 15 | Cloud SQL                 | Primary database      |
-| pg_trgm       | Cloud SQL extension       | Fuzzy text matching   |
-| Redis         | Memorystore               | Caching               |
-| TCGdex        | Cloud Run (self-hosted)   | Card data source      |
-| Auth          | Firebase Auth or Supabase | User authentication   |
-| Secrets       | Secret Manager            | Environment variables |
-| CDN           | Cloud CDN                 | Static asset caching  |
-| CI/CD         | Cloud Build               | Auto-deploy on push   |
+```css
+/* Teal - Primary brand color */
+--teal-50: #f0fdfa;
+--teal-100: #ccfbf1;
+--teal-200: #99f6e4;
+--teal-300: #5eead4;
+--teal-400: #2dd4bf;
+--teal-500: #14b8a6; /* Primary */
+--teal-600: #0d9488;
+--teal-700: #0f766e;
+--teal-800: #115e59;
+--teal-900: #134e4a;
+--teal-950: #042f2e;
 
-### 3.4 Development
+/* Amber - Accent/Warning */
+--amber-50: #fffbeb;
+--amber-500: #f59e0b;
+--amber-600: #d97706;
 
-| Tool              | Purpose                      |
-| ----------------- | ---------------------------- |
-| Docker Compose    | Local dev environment        |
-| pnpm              | Frontend package manager     |
-| Poetry            | Python dependency management |
-| ESLint + Prettier | Frontend linting             |
-| Ruff              | Python linting               |
+/* Parchment - Editorial backgrounds */
+--parchment-50: #fefdfb;
+--parchment-100: #fdf9f3;
+--parchment-200: #f5efe6;
+```
+
+#### Terminal Colors
+
+```css
+--terminal-bg: #0f1419;
+--terminal-surface: #1a1f26;
+--terminal-border: #2d333b;
+--terminal-text: #e6edf3;
+--terminal-muted: #7d8590;
+--terminal-accent: #14b8a6;
+```
+
+#### Archetype Colors
+
+```css
+--archetype-fire: #ef4444;
+--archetype-water: #3b82f6;
+--archetype-lightning: #eab308;
+--archetype-psychic: #a855f7;
+--archetype-fighting: #f97316;
+--archetype-darkness: #6366f1;
+--archetype-metal: #6b7280;
+--archetype-grass: #22c55e;
+--archetype-dragon: #8b5cf6;
+--archetype-colorless: #a1a1aa;
+--archetype-fairy: #ec4899;
+```
+
+#### Tier Colors
+
+```css
+--tier-s: #fbbf24; /* Gold */
+--tier-a: #14b8a6; /* Teal */
+--tier-b: #3b82f6; /* Blue */
+--tier-c: #6b7280; /* Gray */
+--tier-rogue: #8b5cf6; /* Purple */
+```
+
+#### Signal Colors
+
+```css
+--signal-up: #22c55e;
+--signal-down: #ef4444;
+--signal-stable: #6b7280;
+--signal-jp: #f43f5e; /* JP divergence */
+```
+
+### 2.3 Typography
+
+#### Font Families
+
+```css
+--font-display: "Playfair Display", Georgia, serif;
+--font-body: "DM Sans", system-ui, sans-serif;
+--font-mono: "JetBrains Mono", "Fira Code", monospace;
+```
+
+#### Type Scale
+
+| Name    | Size | Line Height | Weight | Font      |
+| ------- | ---- | ----------- | ------ | --------- |
+| display | 48px | 56px        | 700    | Playfair  |
+| h1      | 36px | 44px        | 600    | Playfair  |
+| h2      | 24px | 32px        | 600    | DM Sans   |
+| h3      | 18px | 28px        | 500    | DM Sans   |
+| body    | 16px | 24px        | 400    | DM Sans   |
+| small   | 14px | 20px        | 400    | DM Sans   |
+| mono    | 14px | 20px        | 400    | JetBrains |
+| mono-sm | 12px | 16px        | 400    | JetBrains |
+
+### 2.4 Components
+
+#### Base Components (Phase 6)
+
+| Component     | Description                 |
+| ------------- | --------------------------- |
+| PillToggle    | Filter bar toggle group     |
+| SectionLabel  | Mono label + icon + divider |
+| TierBadge     | S/A/B/C/Rogue color badge   |
+| TrendArrow    | Up/down/stable indicator    |
+| JPSignalBadge | Red JP divergence badge     |
+| StatBlock     | Large mono number + label   |
+| PanelOverlay  | Dark overlay for slide-outs |
 
 ---
 
-## 4. Database Schema
+## 3. Navigation
 
-### 4.1 Core Tables
+### 3.1 Desktop Top Bar
 
-```sql
--- Enable trigram extension for fuzzy matching
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
--- Cards table
-CREATE TABLE cards (
-    id TEXT PRIMARY KEY,                    -- TCGdex ID (e.g., "swsh3-136")
-
-    -- Names (multi-language)
-    name_en TEXT NOT NULL,
-    name_ja TEXT,
-
-    -- Core attributes
-    supertype TEXT NOT NULL,                -- "Pokemon", "Trainer", "Energy"
-    subtypes TEXT[],                        -- ["Stage 2", "ex"]
-    hp INTEGER,
-    types TEXT[],                           -- ["Fire", "Water"]
-
-    -- Set info
-    set_id TEXT NOT NULL,
-    set_name TEXT NOT NULL,
-    number TEXT NOT NULL,                   -- Card number in set
-    rarity TEXT,
-
-    -- Game mechanics (stored as JSONB for flexibility)
-    attacks JSONB,
-    abilities JSONB,
-    weaknesses JSONB,
-    resistances JSONB,
-    retreat_cost INTEGER,
-    rules TEXT[],                           -- Rule box text
-
-    -- Evolution
-    evolves_from TEXT,
-    evolves_to TEXT[],
-
-    -- Images
-    image_small TEXT,
-    image_large TEXT,
-
-    -- Legality
-    legality_standard TEXT,                 -- "Legal", "Banned", "Not Legal"
-    legality_expanded TEXT,
-    regulation_mark TEXT,                   -- "G", "H", etc.
-
-    -- Metadata
-    tcgdex_updated_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Indexes
-CREATE INDEX idx_cards_name_en ON cards USING gin(to_tsvector('english', name_en));
-CREATE INDEX idx_cards_name_en_trgm ON cards USING gin(name_en gin_trgm_ops);  -- Fuzzy search
-CREATE INDEX idx_cards_name_ja ON cards (name_ja) WHERE name_ja IS NOT NULL;
-CREATE INDEX idx_cards_set_id ON cards (set_id);
-CREATE INDEX idx_cards_supertype ON cards (supertype);
-CREATE INDEX idx_cards_types ON cards USING gin(types);
-CREATE INDEX idx_cards_legality_standard ON cards (legality_standard);
-
--- Sets table
-CREATE TABLE sets (
-    id TEXT PRIMARY KEY,                    -- TCGdex set ID
-    name TEXT NOT NULL,
-    series TEXT NOT NULL,                   -- "Sword & Shield", "Scarlet & Violet"
-
-    total_cards INTEGER,
-    release_date DATE,
-    release_date_jp DATE,                   -- Japanese release (often earlier)
-
-    -- Images
-    logo_url TEXT,
-    symbol_url TEXT,
-
-    -- Legality
-    legality_standard TEXT,
-    legality_expanded TEXT,
-
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Users table (basic, Supabase Auth handles most)
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE NOT NULL,
-    display_name TEXT,
-
-    -- Preferences (JSONB for flexibility)
-    preferences JSONB DEFAULT '{}',
-
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Decks table
-CREATE TABLE decks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-
-    name TEXT NOT NULL,
-    description TEXT,
-    format TEXT NOT NULL DEFAULT 'standard',  -- "standard", "expanded"
-    archetype TEXT,                            -- "Charizard ex", "Lugia VSTAR"
-
-    -- Deck contents (JSONB array of {card_id, quantity})
-    cards JSONB NOT NULL DEFAULT '[]',
-
-    -- Computed stats (updated on save)
-    pokemon_count INTEGER,
-    trainer_count INTEGER,
-    energy_count INTEGER,
-
-    -- Sharing
-    is_public BOOLEAN DEFAULT FALSE,
-    share_code TEXT UNIQUE,
-
-    -- Metadata
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_decks_user_id ON decks (user_id);
-CREATE INDEX idx_decks_archetype ON decks (archetype);
-CREATE INDEX idx_decks_is_public ON decks (is_public) WHERE is_public = TRUE;
-
--- Tournaments table (for meta data)
-CREATE TABLE tournaments (
-    id TEXT PRIMARY KEY,                    -- Source ID
-    source TEXT NOT NULL,                   -- "limitless", "rk9"
-
-    name TEXT NOT NULL,
-    date DATE NOT NULL,
-    country TEXT,
-    region TEXT,                            -- "NA", "EU", "JP", "LATAM", "APAC"
-
-    format TEXT NOT NULL,                   -- "standard", "expanded"
-    best_of INTEGER NOT NULL DEFAULT 3,     -- 1 for Japan, 3 for international
-
-    player_count INTEGER,
-
-    -- Metadata
-    url TEXT,                               -- Link to source
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_tournaments_date ON tournaments (date DESC);
-CREATE INDEX idx_tournaments_region ON tournaments (region);
-CREATE INDEX idx_tournaments_format ON tournaments (format);
-
--- Tournament placements
-CREATE TABLE tournament_placements (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tournament_id TEXT REFERENCES tournaments(id) ON DELETE CASCADE,
-
-    placement INTEGER NOT NULL,             -- 1, 2, 3, 4, 5-8, 9-16, etc.
-    player_name TEXT,
-
-    -- Deck info
-    archetype TEXT NOT NULL,
-    deck_list JSONB,                        -- Full deck list if available
-
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_placements_tournament ON tournament_placements (tournament_id);
-CREATE INDEX idx_placements_archetype ON tournament_placements (archetype);
-
--- Meta snapshots (computed weekly)
-CREATE TABLE meta_snapshots (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-    snapshot_date DATE NOT NULL,
-    region TEXT NOT NULL,                   -- "global", "NA", "EU", "JP"
-    format TEXT NOT NULL,                   -- "standard", "expanded"
-    best_of INTEGER NOT NULL DEFAULT 3,     -- Separate JP BO1 snapshots
-
-    -- Aggregated data
-    archetype_shares JSONB NOT NULL,        -- {"Charizard ex": 0.15, ...}
-    sample_size INTEGER NOT NULL,           -- Number of decks in sample
-
-    -- Metadata
-    tournaments_included TEXT[],            -- Tournament IDs used
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-
-    UNIQUE(snapshot_date, region, format, best_of)
-);
-
-CREATE INDEX idx_meta_snapshots_date ON meta_snapshots (snapshot_date DESC);
-CREATE INDEX idx_meta_snapshots_region ON meta_snapshots (region);
+```
+[Flask Logo] [Meta] [From Japan] [Tournaments] [Lab Notes]     [Investigate] [User]
 ```
 
-### 4.2 Views
+- Fixed at top, 64px height
+- White background with shadow on scroll
+- Active link: teal underline
+- Investigate: teal CTA button
 
-```sql
--- Current standard meta (convenience view)
-CREATE VIEW current_meta_standard AS
-SELECT * FROM meta_snapshots
-WHERE format = 'standard'
-  AND snapshot_date = (
-    SELECT MAX(snapshot_date) FROM meta_snapshots WHERE format = 'standard'
-  );
+### 3.2 Mobile Bottom Tabs
 
--- Card inclusion rates (computed from tournament_placements)
-CREATE VIEW card_inclusion_rates AS
-SELECT
-    card_id,
-    archetype,
-    COUNT(*) as times_included,
-    AVG(quantity) as avg_quantity,
-    COUNT(*) * 1.0 / (
-        SELECT COUNT(*) FROM tournament_placements WHERE archetype = tp.archetype
-    ) as inclusion_rate
-FROM tournament_placements tp,
-     jsonb_to_recordset(tp.deck_list) AS cards(card_id TEXT, quantity INTEGER)
-GROUP BY card_id, archetype;
 ```
+[Home] [Meta] [JP] [Events] [More]
+```
+
+- Fixed at bottom, 56px height
+- Active tab: teal icon + label
+- More: opens drawer with additional links
+- Safe area padding for iOS
 
 ---
 
-## 5. API Endpoints
+## 4. Pages
 
-### 5.1 Cards
+### 4.1 Home Page
+
+**URL:** `/`
+
+**Sections (in order):**
+
+1. **Hero Section**
+   - Headline: "Data-Driven Deck Building" (Playfair)
+   - Subheadline: Value proposition
+   - Card fan: 3-5 featured cards with CSS transforms
+   - Stats bar: "47 tournaments analyzed this week"
+   - CTA: "Explore the Meta" → /meta
+
+2. **JP Alert Banner** (conditional)
+   - Shows when significant JP divergence detected
+   - Red/rose background, dismissible
+   - Links to /meta/japan
+   - Dismisses for 24h (localStorage)
+
+3. **Meta Snapshot**
+   - Top 5 archetypes with signature cards
+   - Meta share %, trend arrows
+   - "Build It" commerce links
+   - Horizontal scroll on mobile
+
+4. **Evolution Preview**
+   - Featured archetype journey
+   - Mini line chart of meta share
+   - 2-3 adaptation steps with dates
+   - "Read the full story →" (Phase 2)
+
+5. **Content Grid** (3 columns)
+   - Lab Notes: Latest 3 articles
+   - Recent Tournaments: Last 5 events
+   - Upcoming Events: Next 3 major events
+
+6. **JP Preview**
+   - Side-by-side JP vs EN top 3
+   - JP Signal badges for divergent decks
+   - Prediction callout
+
+7. **Why TrainerLab**
+   - 3 value props with icons
+   - Data-Driven, Japan Insights, All-in-One
+
+8. **Research Pass Waitlist**
+   - Email capture form
+   - Teal background section
+   - Premium features teaser
+
+9. **Trainer's Toolkit**
+   - Links to community resources
+   - Limitless, PTCGO, PokemonCard.io, Reddit
+
+### 4.2 Meta Dashboard
+
+**URL:** `/meta`
+
+**Sections:**
+
+1. **Sticky Filter Bar**
+   - Format: Standard | Expanded
+   - Region: Global | NA | EU | JP | LATAM | APAC
+   - Period: Week | Month | Season
+   - Dark slate background (#1e293b)
+
+2. **Meta Health Indicators** (4 cards)
+   - Diversity Index (0-100)
+   - Top Deck Share (%)
+   - Biggest Mover (+/- %)
+   - JP Signal (overall divergence)
+
+3. **Tier List**
+   - Grouped by tier (S/A/B/C/Rogue)
+   - Each row: Signature card, Name, Share %, Trend, JP badge
+   - Click row → opens Archetype Panel
+   - Keyboard navigation (arrow keys)
+
+4. **Build It Banner**
+   - Context-aware: "Build [Selected Archetype]" or "Build the top deck"
+   - DoubleHolo (primary) + TCGPlayer (secondary) buttons
+
+5. **Archetype Panel** (slide-out, 480px)
+   - Terminal dark theme
+   - Sections:
+     1. Header: Name, card, share, tier badge
+     2. Trend Chart: Line chart over time
+     3. Key Cards: Top 8 with inclusion rates
+     4. Build Variants: 2-3 options with differences
+     5. Matchup Spread: vs top 5 opponents
+     6. Recent Results: Last 5 placements
+     7. Commerce CTA: Build buttons
+
+### 4.3 From Japan
+
+**URL:** `/meta/japan`
+
+**Sections:**
+
+1. **Hero**
+   - "From Japan" title
+   - BO1 format context explanation
+
+2. **Meta Comparison**
+   - Two columns: Japan | International
+   - Top 10 archetypes each
+   - JP Signal badges for differences
+
+3. **Prediction Tracker**
+   - Historical predictions with outcomes
+   - Status: Correct (green) | Incorrect (red) | Pending (gray)
+   - Credibility building
+
+4. **Latest Results**
+   - Last 5-10 JP tournaments
+   - Expandable with top 8 archetypes
+   - Links to Limitless
+
+5. **Meta History Timeline**
+   - Horizontal timeline
+   - JP → EN flow visualization
+   - 2-3 month typical lag
+
+6. **Upcoming Cards**
+   - JP-exclusive cards
+   - Translated names/effects
+   - Impact rating (High/Medium/Low)
+
+### 4.4 Tournaments
+
+**URL:** `/tournaments`
+
+**Sections:**
+
+1. **Season Overview Chart**
+   - Stacked area chart
+   - Meta share over time
+   - Archetype colors
+
+2. **Tournament Browser**
+   - Filterable table
+   - Columns: Date, Name, Region, Format, Tier, Players, Winner
+   - Filters: Date range, Format, Region, Tier
+   - Sortable, paginated
+
+**Detail Page:** `/tournaments/[id]`
+
+- Tournament header with metadata
+- Meta breakdown pie chart
+- Top 8 decklists (expandable)
+- External link to Limitless
+
+### 4.5 Lab Notes
+
+**URL:** `/lab-notes`
+
+**Content Types:**
+
+- Weekly Report
+- JP Dispatch
+- Deck Spotlight
+- Format Analysis
+
+**List Page:**
+
+- Type filter pills
+- Card grid of articles
+- Title, excerpt, date, type badge
+
+**Article Page:** `/lab-notes/[slug]`
+
+- Playfair headline
+- Date, author, type badge
+- Markdown content
+- Related articles
+
+**RSS Feed:** `/feed.xml`
+
+### 4.6 Cards & Decks (Existing)
+
+Retain existing functionality:
+
+- `/cards` - Card search
+- `/cards/[id]` - Card detail
+- `/decks` - User's decks
+- `/decks/new` - Deck builder
+- `/decks/[id]` - Deck view/edit
+
+---
+
+## 5. Commerce Integration
+
+### 5.1 Partners
+
+| Partner    | Priority  | Use Case            |
+| ---------- | --------- | ------------------- |
+| DoubleHolo | Primary   | Singles marketplace |
+| TCGPlayer  | Secondary | Price comparison    |
+
+### 5.2 Affiliate Links
+
+```typescript
+function generateAffiliateLink(
+  partner: "doubleholo" | "tcgplayer",
+  context: { archetype?: string; page: string },
+): string {
+  const params = new URLSearchParams({
+    utm_source: "trainerlab",
+    utm_medium: "referral",
+    utm_campaign: context.page,
+    utm_content: context.archetype || "general",
+  });
+  // Partner-specific URL construction
+}
+```
+
+### 5.3 Price Estimates
+
+MVP: Hardcoded average prices per archetype
+Phase 2: API integration for live prices
+
+### 5.4 Analytics
+
+Track events:
+
+- `commerce_link_click`: partner, archetype, page, estimated_value
+
+---
+
+## 6. JP Signal System
+
+### 6.1 Calculation
+
+```python
+def calculate_jp_signal(jp_share: float, en_share: float, threshold: float = 0.05):
+    diff = jp_share - en_share
+    if abs(diff) < threshold:
+        return {"has_signal": False}
+    return {
+        "has_signal": True,
+        "direction": "rising" if diff > 0 else "falling",
+        "difference": diff,
+        "jp_share": jp_share,
+        "en_share": en_share
+    }
+```
+
+### 6.2 Display Rules
+
+- Badge only appears when `|diff| > threshold` (default 5%)
+- Rising (JP > EN): Deck is bigger in Japan, may rise in EN
+- Falling (JP < EN): Deck is smaller in Japan, may decline in EN
+
+### 6.3 Tier Assignment
+
+| Tier  | Meta Share |
+| ----- | ---------- |
+| S     | > 15%      |
+| A     | 8-15%      |
+| B     | 3-8%       |
+| C     | 1-3%       |
+| Rogue | < 1%       |
+
+---
+
+## 7. Data Pipeline
+
+### 7.1 Scrapers
+
+**Limitless EN Scraper:**
+
+- Daily at 6am UTC
+- Extracts tournaments, placements, decklists
+- Stores in PostgreSQL
+
+**Limitless JP Scraper:**
+
+- Daily at 7am UTC
+- Same data, marks `best_of=1`
+- Handles Japanese text
+
+### 7.2 Archetype Detection
+
+```python
+SIGNATURE_CARDS = {
+    "sv4-125": "Charizard ex",
+    "sv1-208": "Lugia VSTAR",
+    "sv2-86": "Gardevoir ex",
+    # ... more mappings
+}
+
+def detect_archetype(decklist: list[dict]) -> str:
+    for card in decklist:
+        if card["id"] in SIGNATURE_CARDS:
+            return SIGNATURE_CARDS[card["id"]]
+    return "Rogue"
+```
+
+### 7.3 Meta Snapshot Computation
+
+- Daily at 8am UTC (after scrapers)
+- Computes archetype shares by region/format
+- Calculates JP Signals
+- Assigns tiers
+- Computes diversity index: `1 - sum(share^2)` normalized
+
+### 7.4 Scheduler
+
+Cloud Scheduler jobs:
+| Job | Schedule | Target |
+|-----|----------|--------|
+| scrape-en | 0 6 \* \* _ | POST /api/v1/pipeline/scrape-en |
+| scrape-jp | 0 7 _ \* _ | POST /api/v1/pipeline/scrape-jp |
+| compute-meta | 0 8 _ \* _ | POST /api/v1/pipeline/compute-meta |
+| sync-cards | 0 3 _ \* 0 | POST /api/v1/pipeline/sync-cards |
+
+---
+
+## 8. API Endpoints
+
+### 8.1 Existing Endpoints
 
 ```
-GET  /api/v1/cards                    # List/search cards
-     ?q=charizard                     # Text search
-     ?supertype=Pokemon               # Filter by supertype
-     ?types=Fire                      # Filter by type
-     ?set_id=sv4                      # Filter by set
-     ?legal_standard=true             # Only standard-legal
-     ?page=1&limit=20                 # Pagination
+GET  /api/v1/cards                    # Search cards
+GET  /api/v1/cards/{id}               # Get card
+GET  /api/v1/sets                     # List sets
+GET  /api/v1/sets/{id}                # Get set
 
-GET  /api/v1/cards/{id}               # Get single card
-GET  /api/v1/cards/{id}/usage         # Get usage stats for card
-```
-
-### 5.2 Decks
-
-```
-GET    /api/v1/decks                  # List user's decks
-POST   /api/v1/decks                  # Create deck
-GET    /api/v1/decks/{id}             # Get deck
-PUT    /api/v1/decks/{id}             # Update deck
+GET  /api/v1/decks                    # User's decks
+POST /api/v1/decks                    # Create deck
+GET  /api/v1/decks/{id}               # Get deck
+PUT  /api/v1/decks/{id}               # Update deck
 DELETE /api/v1/decks/{id}             # Delete deck
 
-GET    /api/v1/decks/{id}/stats       # Get deck statistics
-GET    /api/v1/decks/{id}/export      # Export deck (various formats)
-       ?format=ptcgo                  # PTCGO format
-       ?format=pokemoncard            # pokemoncard.io format
-       ?format=text                   # Plain text
-
-POST   /api/v1/decks/import           # Import deck from code/text
-GET    /api/v1/decks/public           # Browse public decks
-       ?archetype=Charizard%20ex
-```
-
-### 5.3 Meta
-
-```
-GET  /api/v1/meta/current             # Current meta snapshot
-     ?region=global                   # Region filter
-     ?format=standard                 # Format filter
-
-GET  /api/v1/meta/history             # Meta history over time
-     ?region=JP                       # Japan-specific
-     ?start_date=2024-01-01
-     ?end_date=2024-03-01
-
-GET  /api/v1/meta/archetypes          # List known archetypes
-GET  /api/v1/meta/archetypes/{name}   # Archetype details
-     - Sample lists
-     - Key cards
-     - Matchup data (future)
-
+GET  /api/v1/meta/current             # Current meta
+GET  /api/v1/meta/history             # Meta over time
+GET  /api/v1/meta/archetypes          # Archetype list
 GET  /api/v1/meta/tournaments         # Tournament results
-     ?region=JP
-     ?date_from=2024-01-01
-```
 
-### 5.4 Sets
-
-```
-GET  /api/v1/sets                     # List all sets
-GET  /api/v1/sets/{id}                # Get set details
-GET  /api/v1/sets/{id}/cards          # Get all cards in set
-```
-
-### 5.5 Health/Admin
-
-```
 GET  /api/v1/health                   # Health check
-GET  /api/v1/health/db                # Database connectivity
-POST /api/v1/admin/sync/cards         # Trigger card sync (admin only)
+```
+
+### 8.2 New Endpoints (v3.0)
+
+```
+# Waitlist
+POST /api/v1/waitlist                 # Add email to waitlist
+  Body: { "email": "...", "source": "home_page" }
+
+# Matchups
+GET  /api/v1/matchups                 # Matchup data
+  ?archetype=Charizard%20ex
+  ?format=standard
+  ?limit=10
+
+# Tournaments (enhanced)
+GET  /api/v1/tournaments              # Filtered list
+  ?format=standard
+  ?region=NA,EU
+  ?tier=regionals
+  ?date_from=2024-01-01
+  ?date_to=2024-12-31
+  ?page=1
+  ?limit=20
+
+GET  /api/v1/tournaments/{id}         # Tournament detail
+
+# Lab Notes
+GET  /api/v1/lab-notes                # List notes
+  ?type=weekly-report
+  ?page=1
+  ?limit=10
+
+GET  /api/v1/lab-notes/{slug}         # Get note by slug
+
+# Pipeline (admin)
+POST /api/v1/pipeline/scrape-en       # Trigger EN scrape
+POST /api/v1/pipeline/scrape-jp       # Trigger JP scrape
+POST /api/v1/pipeline/compute-meta    # Compute snapshots
+POST /api/v1/pipeline/sync-cards      # Sync cards from TCGdex
 ```
 
 ---
 
-## 6. Key Implementation Details
+## 9. Database Schema
 
-### 6.1 TCGdex Integration
+### 9.1 New Tables (v3.0)
 
-```python
-# src/pipelines/tcgdex_sync.py
+```sql
+-- Waitlist for Research Pass
+CREATE TABLE waitlist_emails (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT UNIQUE NOT NULL,
+    source TEXT DEFAULT 'home_page',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-import httpx
-from typing import AsyncGenerator
+CREATE INDEX idx_waitlist_email ON waitlist_emails (email);
 
-TCGDEX_BASE_URL = "http://localhost:3000"  # Self-hosted instance
+-- Lab Notes content
+CREATE TABLE lab_notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    excerpt TEXT,
+    content TEXT NOT NULL,  -- Markdown
+    type TEXT NOT NULL,     -- 'weekly-report', 'jp-dispatch', etc.
+    tags TEXT[],
+    author TEXT,
+    published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-async def fetch_all_cards(language: str = "en") -> AsyncGenerator[dict, None]:
-    """Fetch all cards from TCGdex, paginated."""
-    async with httpx.AsyncClient() as client:
-        # Get all sets first
-        sets_response = await client.get(f"{TCGDEX_BASE_URL}/{language}/sets")
-        sets = sets_response.json()
+CREATE INDEX idx_lab_notes_slug ON lab_notes (slug);
+CREATE INDEX idx_lab_notes_type ON lab_notes (type);
+CREATE INDEX idx_lab_notes_published ON lab_notes (published_at DESC);
 
-        for set_data in sets:
-            set_id = set_data["id"]
-            # Get full set with cards
-            set_detail = await client.get(
-                f"{TCGDEX_BASE_URL}/{language}/sets/{set_id}"
-            )
-            set_info = set_detail.json()
+-- Archetype metadata (for colors, names, etc.)
+CREATE TABLE archetypes (
+    id TEXT PRIMARY KEY,            -- e.g., "charizard-ex"
+    name TEXT NOT NULL,             -- "Charizard ex"
+    signature_cards TEXT[],         -- Card IDs that identify this archetype
+    color TEXT,                     -- CSS color value
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-            for card in set_info.get("cards", []):
-                # Get full card detail
-                card_detail = await client.get(
-                    f"{TCGDEX_BASE_URL}/{language}/cards/{set_id}/{card['localId']}"
-                )
-                yield card_detail.json()
-
-async def sync_cards_to_db():
-    """Full sync of cards from TCGdex to our database."""
-    # Fetch English
-    async for card in fetch_all_cards("en"):
-        await upsert_card(card, language="en")
-
-    # Fetch Japanese names
-    async for card in fetch_all_cards("ja"):
-        await update_japanese_name(card["id"], card["name"])
-```
-
-### 6.2 Deck Builder State (Zustand)
-
-```typescript
-// src/lib/stores/deckStore.ts
-
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-
-interface DeckCard {
-  cardId: string;
-  quantity: number;
-}
-
-interface DeckState {
-  // Current deck being edited
-  name: string;
-  format: "standard" | "expanded";
-  cards: DeckCard[];
-
-  // Actions
-  setName: (name: string) => void;
-  addCard: (cardId: string) => void;
-  removeCard: (cardId: string) => void;
-  setQuantity: (cardId: string, quantity: number) => void;
-  clearDeck: () => void;
-  loadDeck: (deck: SavedDeck) => void;
-
-  // Computed (these are getters)
-  totalCards: () => number;
-  pokemonCount: () => number;
-  trainerCount: () => number;
-  energyCount: () => number;
-  isValidDeck: () => boolean;
-}
-
-export const useDeckStore = create<DeckState>()(
-  persist(
-    (set, get) => ({
-      name: "Untitled Deck",
-      format: "standard",
-      cards: [],
-
-      setName: (name) => set({ name }),
-
-      addCard: (cardId) => {
-        const cards = get().cards;
-        const existing = cards.find((c) => c.cardId === cardId);
-
-        if (existing) {
-          if (existing.quantity < 4) {
-            // Max 4 copies rule
-            set({
-              cards: cards.map((c) =>
-                c.cardId === cardId ? { ...c, quantity: c.quantity + 1 } : c,
-              ),
-            });
-          }
-        } else {
-          set({ cards: [...cards, { cardId, quantity: 1 }] });
-        }
-      },
-
-      removeCard: (cardId) => {
-        const cards = get().cards;
-        const existing = cards.find((c) => c.cardId === cardId);
-
-        if (existing && existing.quantity > 1) {
-          set({
-            cards: cards.map((c) =>
-              c.cardId === cardId ? { ...c, quantity: c.quantity - 1 } : c,
-            ),
-          });
-        } else {
-          set({ cards: cards.filter((c) => c.cardId !== cardId) });
-        }
-      },
-
-      setQuantity: (cardId, quantity) => {
-        if (quantity <= 0) {
-          set({ cards: get().cards.filter((c) => c.cardId !== cardId) });
-        } else {
-          set({
-            cards: get().cards.map((c) =>
-              c.cardId === cardId
-                ? { ...c, quantity: Math.min(quantity, 4) }
-                : c,
-            ),
-          });
-        }
-      },
-
-      clearDeck: () => set({ name: "Untitled Deck", cards: [] }),
-
-      loadDeck: (deck) =>
-        set({
-          name: deck.name,
-          format: deck.format,
-          cards: deck.cards,
-        }),
-
-      totalCards: () => get().cards.reduce((sum, c) => sum + c.quantity, 0),
-
-      isValidDeck: () => get().totalCards() === 60,
-    }),
-    {
-      name: "deck-builder-storage",
-    },
-  ),
+-- Matchup data (future, placeholder for now)
+CREATE TABLE matchups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    archetype_a TEXT NOT NULL,
+    archetype_b TEXT NOT NULL,
+    win_rate DECIMAL(5,4),          -- 0.0000 to 1.0000
+    sample_size INTEGER,
+    format TEXT NOT NULL,
+    computed_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(archetype_a, archetype_b, format)
 );
 ```
 
-### 6.3 Card Search with Full-Text and Fuzzy Matching
+### 9.2 Schema Updates
 
-```python
-# src/services/search_service.py
+Add to `meta_snapshots`:
 
-from sqlalchemy import select, or_, func, text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-async def search_cards(
-    db: AsyncSession,
-    query: str,
-    filters: dict = None,
-    limit: int = 20
-) -> list[Card]:
-    """
-    Search cards with full-text search + trigram fuzzy matching.
-    Uses PostgreSQL's native capabilities for fast, typo-tolerant search.
-    """
-    # Combine exact, full-text, and fuzzy results
-    stmt = select(Card).where(
-        or_(
-            # Exact/partial match
-            Card.name_en.ilike(f"%{query}%"),
-            Card.name_ja.ilike(f"%{query}%"),
-            # Full-text search
-            func.to_tsvector('english', Card.name_en).match(query),
-            # Trigram fuzzy match (handles typos like "pikchu" -> "Pikachu")
-            func.similarity(Card.name_en, query) > 0.3,
-        )
-    ).order_by(
-        # Rank by relevance: exact matches first, then similarity
-        func.similarity(Card.name_en, query).desc()
-    )
-
-    if filters:
-        if filters.get("supertype"):
-            stmt = stmt.where(Card.supertype == filters["supertype"])
-        if filters.get("types"):
-            stmt = stmt.where(Card.types.contains([filters["types"]]))
-        if filters.get("legal_standard"):
-            stmt = stmt.where(Card.legality_standard == "Legal")
-
-    stmt = stmt.limit(limit)
-    result = await db.execute(stmt)
-    return result.scalars().all()
-
-async def search_by_ability_or_attack(
-    db: AsyncSession,
-    query: str,
-    limit: int = 20
-) -> list[Card]:
-    """Search cards by ability names or attack text."""
-    stmt = select(Card).where(
-        or_(
-            # Search in abilities JSONB
-            func.cast(Card.abilities, Text).ilike(f"%{query}%"),
-            # Search in attacks JSONB
-            func.cast(Card.attacks, Text).ilike(f"%{query}%"),
-            # Search in rules text
-            func.array_to_string(Card.rules, ' ').ilike(f"%{query}%"),
-        )
-    ).limit(limit)
-
-    result = await db.execute(stmt)
-    return result.scalars().all()
+```sql
+ALTER TABLE meta_snapshots
+ADD COLUMN diversity_index DECIMAL(5,4),
+ADD COLUMN tier_assignments JSONB;  -- {"Charizard ex": "S", ...}
 ```
 
-### 6.4 Meta Dashboard Data Aggregation
+Add to `tournaments`:
 
-```python
-# src/services/meta_service.py
-
-from datetime import date, timedelta
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
-
-async def get_current_meta(
-    db: AsyncSession,
-    region: str = "global",
-    format: str = "standard",
-    best_of: int = 3
-) -> dict:
-    """Get current meta snapshot with archetype shares."""
-    # Get most recent snapshot
-    stmt = select(MetaSnapshot).where(
-        MetaSnapshot.region == region,
-        MetaSnapshot.format == format,
-        MetaSnapshot.best_of == best_of
-    ).order_by(MetaSnapshot.snapshot_date.desc()).limit(1)
-
-    result = await db.execute(stmt)
-    snapshot = result.scalar_one_or_none()
-
-    if not snapshot:
-        return {"error": "No meta data available"}
-
-    return {
-        "date": snapshot.snapshot_date,
-        "region": snapshot.region,
-        "format": snapshot.format,
-        "best_of": snapshot.best_of,
-        "archetypes": snapshot.archetype_shares,
-        "sample_size": snapshot.sample_size,
-    }
-
-async def get_meta_history(
-    db: AsyncSession,
-    region: str,
-    format: str,
-    start_date: date,
-    end_date: date,
-    best_of: int = 3
-) -> list[dict]:
-    """Get meta evolution over time."""
-    stmt = select(MetaSnapshot).where(
-        MetaSnapshot.region == region,
-        MetaSnapshot.format == format,
-        MetaSnapshot.best_of == best_of,
-        MetaSnapshot.snapshot_date >= start_date,
-        MetaSnapshot.snapshot_date <= end_date
-    ).order_by(MetaSnapshot.snapshot_date)
-
-    result = await db.execute(stmt)
-    snapshots = result.scalars().all()
-
-    return [
-        {
-            "date": s.snapshot_date,
-            "archetypes": s.archetype_shares,
-            "sample_size": s.sample_size,
-        }
-        for s in snapshots
-    ]
-
-async def compute_meta_snapshot(
-    db: AsyncSession,
-    region: str,
-    format: str,
-    lookback_days: int = 30
-) -> MetaSnapshot:
-    """Compute a new meta snapshot from recent tournament data."""
-    cutoff_date = date.today() - timedelta(days=lookback_days)
-
-    # Determine best_of based on region
-    best_of = 1 if region == "JP" else 3
-
-    # Get placements from recent tournaments
-    stmt = select(
-        TournamentPlacement.archetype,
-        func.count().label("count")
-    ).join(
-        Tournament
-    ).where(
-        Tournament.date >= cutoff_date,
-        Tournament.format == format,
-        Tournament.best_of == best_of,
-        (Tournament.region == region) if region != "global" else True
-    ).group_by(
-        TournamentPlacement.archetype
-    )
-
-    result = await db.execute(stmt)
-    archetype_counts = {row.archetype: row.count for row in result}
-
-    total = sum(archetype_counts.values())
-    archetype_shares = {
-        archetype: count / total
-        for archetype, count in archetype_counts.items()
-    }
-
-    # Create snapshot
-    snapshot = MetaSnapshot(
-        snapshot_date=date.today(),
-        region=region,
-        format=format,
-        best_of=best_of,
-        archetype_shares=archetype_shares,
-        sample_size=total,
-    )
-
-    db.add(snapshot)
-    await db.commit()
-
-    return snapshot
+```sql
+ALTER TABLE tournaments
+ADD COLUMN tier TEXT;  -- 'regionals', 'internationals', 'special'
 ```
 
 ---
 
-## 7. Environment Variables
+## 10. Implementation Phases
 
-### 7.1 Frontend (.env.local for local dev)
+### Phase 5: Polish & Auth (In Progress)
 
-```bash
-# API
-NEXT_PUBLIC_API_URL=http://localhost:8000
+25 open issues - Firebase auth, loading states, mobile responsive, tests
 
-# Auth (Firebase or Supabase)
-NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-# OR
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+### Phase 6: Design System
 
-# Optional: Analytics
-NEXT_PUBLIC_GA_MEASUREMENT_ID=
-```
+9 issues (#204-212)
 
-### 7.2 Backend (.env for local dev)
+- Color tokens, typography, terminal theme
+- PillToggle, SectionLabel, TierBadge, TrendArrow, JPSignalBadge, StatBlock
 
-```bash
-# Database (local)
-DATABASE_URL=postgresql://app_user:localdev@localhost:5432/trainerlab
+### Phase 7: Navigation
 
-# Database (Cloud SQL via proxy - for local dev against cloud)
-# DATABASE_URL=postgresql://app_user:PASSWORD@localhost:5433/trainerlab
+4 issues (#213-216)
 
-# Redis
-REDIS_URL=redis://localhost:6379
+- Desktop top bar, mobile bottom tabs
+- Scroll-to-top, layout updates
 
-# TCGdex
-TCGDEX_URL=http://localhost:3000
+### Phase 8: Home Page
 
-# Auth verification
-FIREBASE_PROJECT_ID=your-project
-# OR
-SUPABASE_URL=your-supabase-url
-SUPABASE_SERVICE_KEY=your-service-key
+10 issues (#217-226)
 
-# Environment
-ENVIRONMENT=development
-DEBUG=true
-GCP_PROJECT_ID=your-gcp-project
-```
+- Hero, JP Alert, Meta Snapshot, Evolution Preview
+- Content Grid, JP Preview, Why TrainerLab
+- Waitlist, Trainer's Toolkit
 
-### 7.3 Production (via Secret Manager)
+### Phase 9: Meta Dashboard
 
-In production, secrets are injected via Cloud Run's Secret Manager integration:
+10 issues (#227-236)
 
-```bash
-# Cloud Run service config
---set-secrets="DATABASE_URL=database-url:latest"
---set-secrets="REDIS_URL=redis-url:latest"
+- Filter bar, health indicators
+- Tier list redesign, archetype panel
+- Matchup spread, commerce banner
 
-# Non-secret env vars set directly
---set-env-vars="ENVIRONMENT=production"
---set-env-vars="GCP_PROJECT_ID=your-project"
---set-env-vars="TCGDEX_URL=https://tcgdex-xxxxx-uc.a.run.app"
-```
+### Phase 10: From Japan
 
-### 7.4 Secret Manager Naming Convention
+6 issues (#237-242)
 
-| Secret Name                | Description                              |
-| -------------------------- | ---------------------------------------- |
-| `database-url`             | Cloud SQL connection string              |
-| `redis-url`                | Memorystore connection string            |
-| `firebase-service-account` | Firebase admin SDK (if using Firebase)   |
-| `supabase-service-key`     | Supabase service key (if using Supabase) |
+- Page layout, meta comparison
+- Prediction tracker, latest results
+- Meta timeline, upcoming cards
 
----
+### Phase 11: Tournaments
 
-## 8. Docker Compose (Local Development)
+5 issues (#243-247)
 
-```yaml
-# docker-compose.yml
+- Page layout, season charts
+- Browser table, detail page
 
-version: "3.8"
+### Phase 12: Lab Notes
 
-services:
-  # TCGdex card data API
-  tcgdex:
-    image: tcgdex/server:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
+6 issues (#248-253)
 
-  # PostgreSQL
-  postgres:
-    image: postgres:16
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trainerlab
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+- List page, article page
+- API endpoints, database model
+- RSS feed
 
-  # Redis for caching
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+### Phase 13: Data Pipeline
 
-volumes:
-  postgres_data:
-  redis_data:
-```
+5 issues (#254-258)
+
+- Limitless EN/JP scrapers
+- Archetype detection
+- Meta computation, scheduler
+
+### Phase 14: Commerce
+
+4 issues (#259-262)
+
+- BuildDeckCTA component
+- Affiliate links, price estimates
+- Click tracking
 
 ---
 
-## 9. Implementation Order
+## 11. Sprint Plan
 
-### Phase 1: Foundation (Week 1)
+### Sprint 1: Foundation
 
-**Day 1-2: Project Setup**
+- Design tokens (colors, typography, terminal)
+- Base components
+- Navigation (top bar, mobile tabs)
 
-- [ ] Initialize monorepo structure
-- [ ] Set up Next.js app with TypeScript, Tailwind, shadcn/ui
-- [ ] Set up FastAPI project with Poetry
-- [ ] Create docker-compose.yml
-- [ ] Configure ESLint, Prettier, Ruff
+### Sprint 2: Home + Commerce
 
-**Day 3-4: Database**
+- Home page redesign (all sections)
+- Commerce components
+- Waitlist functionality
 
-- [ ] Create SQLAlchemy models
-- [ ] Set up Alembic migrations
-- [ ] Run initial migration
-- [ ] Verify pg_trgm extension
+### Sprint 3: Meta Dashboard
 
-**Day 5-7: Card Data Pipeline**
+- Filter bar + health indicators
+- Tier list with JP badges
+- Archetype panel (terminal)
+- Matchup spread
 
-- [ ] Implement TCGdex sync script
-- [ ] Run initial card sync (English + Japanese)
-- [ ] Verify data in database
-- [ ] Create basic card API endpoints
+### Sprint 4: JP + Tournaments
 
-### Phase 2: Card Features (Week 2)
+- From Japan page
+- Tournament archive
+- Scrapers (parallel work)
 
-**Day 1-3: Card Search**
+### Sprint 5: Lab Notes + Polish
 
-- [ ] Implement keyword search endpoint
-- [ ] Create CardSearch component
-- [ ] Create CardGrid component
-- [ ] Create CardImage component
-- [ ] Build /cards page
-
-**Day 4-5: Card Detail**
-
-- [ ] Create CardDetail component
-- [ ] Build /cards/[id] page
-- [ ] Show Japanese name when available
-
-**Day 6-7: Enhanced Search**
-
-- [ ] Implement fuzzy name search (trigram)
-- [ ] Add ability/attack text search
-- [ ] Add relevance ranking
-
-### Phase 3: Deck Builder (Week 3)
-
-**Day 1-2: Deck State**
-
-- [ ] Create Zustand store
-- [ ] Implement add/remove/quantity actions
-- [ ] Persist to localStorage
-
-**Day 3-5: Deck Builder UI**
-
-- [ ] Create DeckBuilder component
-- [ ] Create DeckList component (shows current deck)
-- [ ] Create DeckStats component (counts, curve)
-- [ ] Wire up card search to add cards
-
-**Day 6-7: Deck Persistence**
-
-- [ ] Create deck API endpoints
-- [ ] Implement save/load
-- [ ] Build /decks and /decks/[id] pages
-- [ ] Add export functionality
-
-### Phase 4: Meta Dashboard (Week 4)
-
-**Day 1-2: Tournament Data**
-
-- [ ] Manual import of sample tournament data
-- [ ] Create meta snapshot computation
-- [ ] Run initial snapshot
-
-**Day 3-5: Meta UI**
-
-- [ ] Create MetaChart component (pie/bar)
-- [ ] Create ArchetypeCard component
-- [ ] Create RegionFilter component
-- [ ] Build /meta page
-
-**Day 6-7: Japan View**
-
-- [ ] Create Japan-specific snapshot (BO1)
-- [ ] Build /meta/japan page
-- [ ] Add BO1/tie rule context notices
-
-### Phase 5: Polish (Week 5)
-
-- [ ] Authentication (Supabase)
-- [ ] User preferences
-- [ ] Error handling
-- [ ] Loading states
-- [ ] Mobile responsiveness
-- [ ] Basic tests
-- [ ] Documentation
+- Lab Notes system
+- Mobile responsive polish
+- Tests, bug fixes
 
 ---
 
-## 10. Code Style Guidelines
+## 12. Success Criteria
 
-### 10.1 TypeScript/React
+### MVP (v3.0)
 
-```typescript
-// Use functional components with TypeScript
-interface CardGridProps {
-  cards: Card[];
-  onCardClick?: (card: Card) => void;
-  isLoading?: boolean;
-}
+- [ ] New design system implemented
+- [ ] Home page drives engagement
+- [ ] Meta dashboard shows JP Signals
+- [ ] Archetype panel provides deep analysis
+- [ ] From Japan page delivers unique value
+- [ ] Tournament archive is browsable
+- [ ] Commerce links generate clicks
+- [ ] Data pipeline runs automatically
 
-export function CardGrid({ cards, onCardClick, isLoading = false }: CardGridProps) {
-  if (isLoading) {
-    return <CardGridSkeleton />;
-  }
+### Quality Gates
 
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-      {cards.map((card) => (
-        <CardImage
-          key={card.id}
-          card={card}
-          onClick={() => onCardClick?.(card)}
-        />
-      ))}
-    </div>
-  );
-}
-
-// Use TanStack Query for data fetching
-export function useCards(query: string, filters?: CardFilters) {
-  return useQuery({
-    queryKey: ['cards', query, filters],
-    queryFn: () => api.searchCards(query, filters),
-    enabled: query.length >= 2,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-```
-
-### 10.2 Python/FastAPI
-
-```python
-# Use type hints everywhere
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-
-router = APIRouter(prefix="/cards", tags=["cards"])
-
-@router.get("", response_model=PaginatedResponse[CardResponse])
-async def list_cards(
-    q: str | None = Query(None, description="Search query"),
-    supertype: str | None = Query(None),
-    types: list[str] | None = Query(None),
-    legal_standard: bool | None = Query(None),
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-) -> PaginatedResponse[CardResponse]:
-    """Search and filter cards."""
-    cards, total = await card_service.search_cards(
-        db,
-        query=q,
-        filters={
-            "supertype": supertype,
-            "types": types,
-            "legal_standard": legal_standard,
-        },
-        page=page,
-        limit=limit,
-    )
-
-    return PaginatedResponse(
-        items=[CardResponse.from_orm(c) for c in cards],
-        total=total,
-        page=page,
-        limit=limit,
-    )
-```
+- [ ] Lighthouse score > 90 (performance, accessibility)
+- [ ] Core Web Vitals pass
+- [ ] Test coverage > 70%
+- [ ] No P0 bugs in production
 
 ---
 
-## 11. Testing Requirements
+## 13. Open Questions
 
-### 11.1 Backend Tests
-
-```python
-# tests/test_cards.py
-
-import pytest
-from httpx import AsyncClient
-
-@pytest.mark.asyncio
-async def test_search_cards(client: AsyncClient):
-    response = await client.get("/api/v1/cards", params={"q": "charizard"})
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["items"]) > 0
-    assert "charizard" in data["items"][0]["name_en"].lower()
-
-@pytest.mark.asyncio
-async def test_get_card(client: AsyncClient):
-    response = await client.get("/api/v1/cards/sv4-6")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["id"] == "sv4-6"
-```
-
-### 11.2 Frontend Tests
-
-```typescript
-// __tests__/components/CardSearch.test.tsx
-
-import { render, screen, fireEvent } from '@testing-library/react';
-import { CardSearch } from '@/components/cards/CardSearch';
-
-describe('CardSearch', () => {
-  it('calls onSearch when typing', async () => {
-    const onSearch = jest.fn();
-    render(<CardSearch onSearch={onSearch} />);
-
-    const input = screen.getByPlaceholderText(/search cards/i);
-    fireEvent.change(input, { target: { value: 'charizard' } });
-
-    // Debounced, so wait
-    await new Promise(r => setTimeout(r, 500));
-
-    expect(onSearch).toHaveBeenCalledWith('charizard');
-  });
-});
-```
+1. **DoubleHolo API**: What's the affiliate link format? Need partner docs.
+2. **TCGPlayer affiliate**: Need affiliate program details.
+3. **AI translation**: Claude API for JP→EN content in Phase 2.
+4. **Card images CDN**: Continue using pokemontcg.io directly for MVP. Cloud Storage caching in Phase 2.
+5. **Archetype accent colors**: Unknown archetypes get random color from extended palette.
 
 ---
 
-## 12. Deployment Architecture (GCP)
-
-### 12.1 Why GCP
-
-- Familiarity and comfort with the platform
-- Goal: Match Vercel-like DX with full control
-- Cost-effective at scale
-- All services in one ecosystem
-
-### 12.2 Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              GCP ARCHITECTURE                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────┐                                                        │
-│  │  Cloud DNS      │                                                        │
-│  │  trainerlab.io    │                                                        │
-│  └────────┬────────┘                                                        │
-│           │                                                                  │
-│           ▼                                                                  │
-│  ┌─────────────────────────────────────────────┐                            │
-│  │         Cloud Load Balancer (HTTPS)         │                            │
-│  │         + Cloud CDN + Cloud Armor           │                            │
-│  └──────────────────┬──────────────────────────┘                            │
-│                     │                                                        │
-│        ┌────────────┼────────────┐                                          │
-│        │            │            │                                          │
-│        ▼            ▼            ▼                                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                                    │
-│  │ Cloud    │ │ Cloud    │ │ Cloud    │                                    │
-│  │ Run      │ │ Run      │ │ Run      │                                    │
-│  │ (Next.js)│ │ (FastAPI)│ │ (TCGdex) │                                    │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘                                    │
-│       │            │            │                                           │
-│       │            ▼            │                                           │
-│       │     ┌──────────────┐    │                                          │
-│       │     │ Cloud SQL    │◄───┘                                          │
-│       │     │ (PostgreSQL) │                                                │
-│       │     │ + pg_trgm    │                                                │
-│       │     └──────────────┘                                                │
-│       │            │                                                        │
-│       │            ▼                                                        │
-│       │     ┌──────────────┐                                               │
-│       │     │ Memorystore  │                                               │
-│       │     │ (Redis)      │                                               │
-│       │     └──────────────┘                                               │
-│       │                                                                     │
-│       ▼                                                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                      │
-│  │ Cloud        │  │ Secret       │  │ Cloud        │                      │
-│  │ Storage      │  │ Manager      │  │ Scheduler    │                      │
-│  │ (assets)     │  │ (env vars)   │  │ (cron jobs)  │                      │
-│  └──────────────┘  └──────────────┘  └──────────────┘                      │
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                     Cloud Build (CI/CD)                               │  │
-│  │  GitHub Push → Build → Deploy to Cloud Run (preview or prod)          │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 12.3 Infrastructure as Code (Terraform)
-
-All GCP infrastructure is managed via Terraform in the `/terraform` directory.
-
-**Quick Start:**
-
-```bash
-# 1. Bootstrap state bucket (one-time)
-cd terraform/bootstrap
-terraform init
-terraform apply -var="project_id=YOUR_PROJECT_ID"
-
-# 2. Deploy infrastructure
-cd ..
-terraform init
-terraform plan -var-file=environments/dev.tfvars
-terraform apply -var-file=environments/dev.tfvars
-```
-
-**What Terraform Creates:**
-
-| Resource                                          | Purpose                 |
-| ------------------------------------------------- | ----------------------- |
-| `google_cloud_run_v2_service.web`                 | Next.js frontend        |
-| `google_cloud_run_v2_service.api`                 | FastAPI backend         |
-| `google_cloud_run_v2_service.tcgdex`              | TCGdex card data        |
-| `google_sql_database_instance.main`               | PostgreSQL with pg_trgm |
-| `google_redis_instance.cache`                     | Redis cache             |
-| `google_compute_network.vpc`                      | Private VPC             |
-| `google_vpc_access_connector.connector`           | Cloud Run → VPC         |
-| `google_secret_manager_secret.*`                  | All secrets             |
-| `google_artifact_registry_repository.docker_repo` | Docker images           |
-| `google_cloudbuild_trigger.deploy`                | CI/CD pipeline          |
-| `google_cloud_scheduler_job.*`                    | Cron jobs               |
-| `google_compute_*` (prod only)                    | Load balancer + CDN     |
-
-**Environment Configurations:**
-
-| Config        | Database         | Redis     | Cloud Run  | Load Balancer |
-| ------------- | ---------------- | --------- | ---------- | ------------- |
-| `dev.tfvars`  | db-f1-micro      | BASIC 1GB | Scale to 0 | None          |
-| `prod.tfvars` | db-custom-1-3840 | HA 2GB    | Min 1      | Yes + CDN     |
-
-See `/terraform/README.md` for full documentation.
-
-### 12.4 CI/CD Pipeline (Cloud Build)
-
-Cloud Build is configured via Terraform and uses `cloudbuild.yaml` in the repo root.
-
-**Pipeline Flow:**
-
-```
-Push to GitHub
-    ↓
-Cloud Build Trigger (auto)
-    ↓
-Build Docker images (web + api)
-    ↓
-Push to Artifact Registry
-    ↓
-Deploy to Cloud Run
-    ↓
-(If main branch) → Production
-(If feature branch) → Preview URL
-```
-
-**cloudbuild.yaml** handles:
-
-- Detecting branch (main vs feature)
-- Building both frontend and backend images
-- Deploying to Cloud Run with correct env vars
-- Creating preview deployments for PRs
-
-### 12.5 Dockerfiles
-
-Dockerfiles for each service are in their respective app directories:
-
-- `apps/web/Dockerfile` - Next.js standalone build
-- `apps/api/Dockerfile` - FastAPI with Poetry
-
-### 12.6 Post-Terraform Setup
-
-After running `terraform apply`, a few manual steps remain:
-
-```bash
-# 1. Enable pg_trgm in Cloud SQL
-gcloud sql connect trainerlab-db-development --user=app_user --database=trainerlab
-# Then in psql: CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
-# 2. Configure Docker auth
-gcloud auth configure-docker us-central1-docker.pkg.dev
-
-# 3. Connect GitHub repo to Cloud Build (via Console)
-# https://console.cloud.google.com/cloud-build/triggers
-```
-
-### 12.7 Useful Commands
-
-```bash
-# View service URLs
-terraform output web_url
-terraform output api_url
-
-# Connect to database
-gcloud sql connect $(terraform output -raw database_instance_name) --user=app_user
-
-# View logs
-gcloud logging read 'resource.type="cloud_run_revision"' --limit=50
-
-# Force redeploy
-gcloud run services update trainerlab-api --region=us-central1 --image=LATEST_IMAGE
-```
-
-### 12.8 Environment Separation
-
-| Environment | Terraform Config | Database         | Cloud Run  |
-| ----------- | ---------------- | ---------------- | ---------- |
-| Development | `dev.tfvars`     | db-f1-micro      | Scale to 0 |
-| Production  | `prod.tfvars`    | db-custom-1-3840 | Min 1 + LB |
-
-### 12.9 Cost Estimates
-
-| Environment | Monthly Cost |
-| ----------- | ------------ |
-| Development | $50-100      |
-| Production  | $150-250     |
-
-Cloud Run scaling to zero is the biggest cost saver for dev environments.
-
----
-
-## 13. Success Criteria for MVP
-
-- [ ] User can search cards by name
-- [ ] User can view card details including Japanese name
-- [ ] User can build a 60-card deck
-- [ ] User can save and load decks
-- [ ] User can export deck in PTCGO format
-- [ ] User can view current meta share percentages
-- [ ] User can view Japan-specific meta with BO1 context
-- [ ] Basic authentication works
-- [ ] Site is responsive on mobile
-- [ ] Page load times < 2 seconds
-
----
-
-## 14. Future Considerations (Post-MVP)
-
-- Card reveal ingestion pipeline
-- LimitlessTCG partnership integration
-- Price tracking
-- Matchup data
-- Deck comparison tools
-- Social features (comments, ratings)
-- API for third-party tools
-- Mobile app (React Native)
-
----
-
-_Last updated: January 2026_
-_For Claude Code implementation_
+_Last updated: February 2026_
+_SPEC v3.0 for Claude Code implementation_

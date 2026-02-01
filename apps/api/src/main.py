@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,7 @@ from src.routers import (
     tournaments_router,
 )
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -24,7 +26,13 @@ settings = get_settings()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handle application startup and shutdown."""
     # Startup
-    init_firebase()
+    firebase_app = init_firebase()
+    if firebase_app:
+        logger.info("Firebase authentication enabled")
+    else:
+        logger.warning(
+            "Firebase authentication disabled - API endpoints requiring auth will fail"
+        )
     yield
     # Shutdown
 

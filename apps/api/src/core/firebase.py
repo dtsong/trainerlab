@@ -120,15 +120,17 @@ async def verify_token(id_token: str) -> dict | None:
 
     Returns:
         Decoded token claims if valid, None if invalid/expired/revoked
-        or Firebase not configured
 
     Raises:
         TokenVerificationError: If verification fails due to infrastructure
-            issues (network timeout, Firebase service unavailable, etc.)
+            issues (Firebase not initialized, network timeout, service
+            unavailable, etc.). Callers should return 503, not 401.
     """
     if _app is None:
-        logger.warning("Firebase not initialized, cannot verify token")
-        return None
+        logger.error("Firebase not initialized - cannot verify tokens")
+        raise TokenVerificationError(
+            "Authentication service not configured. Contact support."
+        )
 
     try:
         decoded_token = await asyncio.to_thread(

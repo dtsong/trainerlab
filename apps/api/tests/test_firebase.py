@@ -182,10 +182,11 @@ class TestVerifyToken:
 
     @pytest.mark.asyncio
     async def test_verify_token_firebase_not_initialized(self) -> None:
-        """Test that verify_token returns None when Firebase not initialized."""
-        result = await verify_token("some-token")
+        """Test that verify_token raises when Firebase not initialized."""
+        with pytest.raises(TokenVerificationError) as exc_info:
+            await verify_token("some-token")
 
-        assert result is None
+        assert "not configured" in str(exc_info.value)
 
     @pytest.mark.asyncio
     @patch("src.core.firebase.auth.verify_id_token")

@@ -10,6 +10,7 @@ import logging
 
 import firebase_admin
 from firebase_admin import auth, credentials
+from google.auth import exceptions as google_auth_exceptions
 
 from src.config import get_settings
 
@@ -43,7 +44,6 @@ def init_firebase() -> firebase_admin.App | None:
         return None
 
     try:
-        # Use Application Default Credentials
         cred = credentials.ApplicationDefault()
         _app = firebase_admin.initialize_app(
             cred,
@@ -54,8 +54,18 @@ def init_firebase() -> firebase_admin.App | None:
             settings.firebase_project_id,
         )
         return _app
-    except Exception:
-        logger.exception("Failed to initialize Firebase Admin SDK")
+    except google_auth_exceptions.DefaultCredentialsError as e:
+        logger.error(
+            "Firebase ADC not configured: %s. "
+            "Run 'gcloud auth application-default login' for local dev.",
+            e,
+        )
+        return None
+    except ValueError as e:
+        logger.error("Firebase initialization error: %s", e)
+        return None
+    except Exception as e:
+        logger.exception("Unexpected error initializing Firebase: %s", type(e).__name__)
         return None
 
 
@@ -72,7 +82,8 @@ async def verify_token(id_token: str) -> dict | None:
     """Verify a Firebase ID token.
 
     Runs the synchronous Firebase SDK verification in a thread pool
-    to avoid blocking the event loop.
+    to avoid blocking the event loop. Also checks if the token has been
+    revoked (e.g., after password change or explicit revocation).
 
     Args:
         id_token: The Firebase ID token from the client
@@ -85,18 +96,19 @@ async def verify_token(id_token: str) -> dict | None:
         return None
 
     try:
-        # Run blocking Firebase SDK call in thread pool
         decoded_token = await asyncio.to_thread(
             auth.verify_id_token, id_token, check_revoked=True
         )
         return decoded_token
-    except (
-        auth.InvalidIdTokenError,
-        auth.ExpiredIdTokenError,
-        auth.RevokedIdTokenError,
-    ):
-        logger.debug("Firebase token validation failed")
+    except auth.InvalidIdTokenError as e:
+        logger.info("Firebase token invalid: %s", e)
         return None
-    except Exception:
-        logger.exception("Unexpected error verifying Firebase token")
+    except auth.ExpiredIdTokenError as e:
+        logger.info("Firebase token expired: %s", e)
+        return None
+    except auth.RevokedIdTokenError as e:
+        logger.warning("Firebase token revoked: %s", e)
+        return None
+    except Exception as e:
+        logger.exception("Unexpected error verifying token: %s", type(e).__name__)
         return None

@@ -45,6 +45,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Maps Firebase's full User object to our minimal AuthUser interface.
+ * This prevents exposing Firebase internals throughout the application.
+ */
 function mapFirebaseUser(firebaseUser: FirebaseUser): AuthUser {
   return {
     uid: firebaseUser.uid,
@@ -86,11 +90,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = useCallback(async () => {
     if (!auth) {
+      console.warn("Cannot sign out: Firebase not configured");
       return;
     }
-    await firebaseSignOut(auth);
-    setUser(null);
-    setFirebaseUser(null);
+    try {
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      // Still clear local state - user expects to be signed out
+    } finally {
+      // Eagerly clear state for immediate UI update; onAuthStateChanged will also fire
+      setUser(null);
+      setFirebaseUser(null);
+    }
   }, []);
 
   const getIdToken = useCallback(async (): Promise<string | null> => {
@@ -98,10 +110,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return null;
     }
     try {
-      // forceRefresh: false uses cached token if still valid
+      // forceRefresh: false - SDK uses cached token or auto-refreshes if near expiration
       return await firebaseUser.getIdToken(false);
     } catch (error) {
-      console.error("Failed to get ID token:", error);
+      // Token refresh can fail due to network errors, revoked session, etc.
+      // Return null so callers can handle gracefully (e.g., prompt re-login)
+      console.error(
+        "Failed to get ID token (session may need refresh):",
+        error,
+      );
       return null;
     }
   }, [firebaseUser]);

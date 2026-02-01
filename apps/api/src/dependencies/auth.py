@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.firebase import verify_token
@@ -35,7 +36,12 @@ async def get_current_user(
         User model for the authenticated user
 
     Raises:
-        HTTPException: If authorization header is missing or token invalid
+        HTTPException: 401 Unauthorized if:
+            - Authorization header is missing
+            - Authorization header format is invalid (not "Bearer <token>")
+            - Firebase token is invalid, expired, or revoked
+            - Token missing required uid claim
+            - Token missing email claim (required for new user creation)
     """
     if not authorization:
         raise HTTPException(
@@ -78,6 +84,7 @@ async def get_current_user(
     user = result.scalar_one_or_none()
 
     # Auto-create user if they don't exist (first login)
+    # Note: Requires email - phone-only or anonymous Firebase users are rejected
     if user is None:
         email = decoded.get("email")
         if not email:
@@ -94,10 +101,23 @@ async def get_current_user(
             display_name=decoded.get("name"),
             avatar_url=decoded.get("picture"),
         )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        logger.info("Created new user from Firebase: %s", firebase_uid)
+        try:
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            logger.info("Created new user from Firebase: %s", firebase_uid)
+        except IntegrityError as e:
+            # Race condition: user was created by concurrent request
+            await db.rollback()
+            result = await db.execute(query)
+            user = result.scalar_one_or_none()
+            if not user:
+                logger.error("User creation failed unexpectedly: %s", firebase_uid)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Account creation failed, please try again",
+                ) from e
+            logger.info("User already created by concurrent request: %s", firebase_uid)
 
     return user
 

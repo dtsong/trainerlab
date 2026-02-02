@@ -45,7 +45,11 @@ export function RegionFilter({
 
   return (
     <Select value={value} onValueChange={handleChange}>
-      <SelectTrigger className={className} data-testid="region-filter">
+      <SelectTrigger
+        className={className}
+        data-testid="region-filter"
+        aria-label="Filter by region"
+      >
         <SelectValue>
           {selectedRegion && (
             <span className="flex items-center gap-2">

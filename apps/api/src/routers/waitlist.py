@@ -1,13 +1,16 @@
 """Waitlist endpoints for Research Pass email capture."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, field_validator
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.exc import IntegrityError
 
 from src.db.database import async_session_factory
 from src.models.waitlist import WaitlistEntry
 
 router = APIRouter(prefix="/api/v1/waitlist", tags=["waitlist"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class WaitlistRequest(BaseModel):
@@ -30,14 +33,15 @@ class WaitlistResponse(BaseModel):
 
 
 @router.post("", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED)
-async def join_waitlist(request: WaitlistRequest) -> WaitlistResponse:
+@limiter.limit("5/minute")
+async def join_waitlist(request: Request, body: WaitlistRequest) -> WaitlistResponse:
     """Add an email to the Research Pass waitlist.
 
     Returns success even if email already exists (for privacy).
     """
     async with async_session_factory() as session:
         try:
-            entry = WaitlistEntry(email=request.email)
+            entry = WaitlistEntry(email=body.email)
             session.add(entry)
             await session.commit()
             return WaitlistResponse(

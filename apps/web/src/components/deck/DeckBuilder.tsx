@@ -138,6 +138,7 @@ export function DeckBuilder({
           onChange={(e) => setName(e.target.value)}
           placeholder="Deck name..."
           className="flex-1 max-w-xs"
+          aria-label="Deck name"
         />
         <div className="flex items-center gap-2">
           <Button

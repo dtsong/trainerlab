@@ -229,18 +229,15 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
       },
 
       supertypeCounts: () => {
-        const state = get();
-        return {
-          Pokemon: state.cards
-            .filter((c) => c.card.supertype === "Pokemon")
-            .reduce((sum, c) => sum + c.quantity, 0),
-          Trainer: state.cards
-            .filter((c) => c.card.supertype === "Trainer")
-            .reduce((sum, c) => sum + c.quantity, 0),
-          Energy: state.cards
-            .filter((c) => c.card.supertype === "Energy")
-            .reduce((sum, c) => sum + c.quantity, 0),
-        };
+        const cards = get().cards;
+        const counts: SupertypeCounts = { Pokemon: 0, Trainer: 0, Energy: 0 };
+        for (const c of cards) {
+          const supertype = c.card.supertype as keyof SupertypeCounts;
+          if (supertype in counts) {
+            counts[supertype] += c.quantity;
+          }
+        }
+        return counts;
       },
 
       isValid: () => {
@@ -249,11 +246,14 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
 
       cardsByType: () => {
         const cards = get().cards;
-        return {
-          Pokemon: cards.filter((c) => c.card.supertype === "Pokemon"),
-          Trainer: cards.filter((c) => c.card.supertype === "Trainer"),
-          Energy: cards.filter((c) => c.card.supertype === "Energy"),
-        };
+        const result: CardsByType = { Pokemon: [], Trainer: [], Energy: [] };
+        for (const c of cards) {
+          const supertype = c.card.supertype as keyof CardsByType;
+          if (supertype in result) {
+            result[supertype].push(c);
+          }
+        }
+        return result;
       },
     }),
     {

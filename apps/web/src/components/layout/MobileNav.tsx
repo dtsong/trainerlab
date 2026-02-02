@@ -96,6 +96,7 @@ export function MobileNav() {
               "flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors",
               drawerOpen ? "text-teal-500" : "text-slate-500",
             )}
+            aria-expanded={drawerOpen}
           >
             <Menu className="h-5 w-5" />
             <span className="text-[10px] font-medium">More</span>

@@ -72,7 +72,7 @@ export function CardFilters({
         value={values.supertype}
         onValueChange={(v) => onChange("supertype", v)}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-[140px]" aria-label="Filter by card type">
           <SelectValue placeholder="Type" />
         </SelectTrigger>
         <SelectContent>
@@ -87,7 +87,7 @@ export function CardFilters({
 
       {/* Energy type filter */}
       <Select value={values.types} onValueChange={(v) => onChange("types", v)}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-[140px]" aria-label="Filter by energy type">
           <SelectValue placeholder="Energy" />
         </SelectTrigger>
         <SelectContent>
@@ -105,7 +105,7 @@ export function CardFilters({
         value={values.set_id}
         onValueChange={(v) => onChange("set_id", v)}
       >
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[180px]" aria-label="Filter by set">
           <SelectValue placeholder="Set" />
         </SelectTrigger>
         <SelectContent>
@@ -123,7 +123,7 @@ export function CardFilters({
         value={values.standard_legal}
         onValueChange={(v) => onChange("standard_legal", v)}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-[140px]" aria-label="Filter by format">
           <SelectValue placeholder="Format" />
         </SelectTrigger>
         <SelectContent>

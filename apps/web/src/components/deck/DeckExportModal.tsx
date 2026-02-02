@@ -96,12 +96,14 @@ export function DeckExportModal({
         <div className="space-y-4">
           {/* Format selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Format</label>
+            <label htmlFor="export-format" className="text-sm font-medium">
+              Format
+            </label>
             <Select
               value={format}
               onValueChange={(value) => setFormat(value as DeckExportFormat)}
             >
-              <SelectTrigger>
+              <SelectTrigger id="export-format">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -117,8 +119,11 @@ export function DeckExportModal({
 
           {/* Preview */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Preview</label>
+            <label htmlFor="export-preview" className="text-sm font-medium">
+              Preview
+            </label>
             <Textarea
+              id="export-preview"
               value={exportedText}
               readOnly
               className="font-mono text-xs h-[200px] resize-none"

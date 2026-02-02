@@ -57,6 +57,7 @@ export function CardSearchInput({
         onChange={handleChange}
         placeholder={placeholder}
         className="pl-10 pr-10"
+        aria-label="Search cards"
       />
       {localValue && (
         <Button

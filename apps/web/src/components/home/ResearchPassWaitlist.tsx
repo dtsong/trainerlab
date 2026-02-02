@@ -78,6 +78,7 @@ export function ResearchPassWaitlist() {
                   }}
                   className="pl-10 bg-white"
                   disabled={status === "loading"}
+                  autoComplete="email"
                 />
               </div>
               <Button
@@ -99,7 +100,9 @@ export function ResearchPassWaitlist() {
           )}
 
           {status === "error" && (
-            <p className="mt-3 text-sm text-rose-200">{errorMessage}</p>
+            <p className="mt-3 text-sm text-rose-200" role="alert">
+              {errorMessage}
+            </p>
           )}
 
           <p className="mt-6 text-sm text-teal-100">

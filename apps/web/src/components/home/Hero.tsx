@@ -81,9 +81,9 @@ export function Hero() {
           <div className="relative hidden lg:block">
             <div className="relative mx-auto h-[400px] w-[300px]">
               {/* Card placeholders - will be replaced with actual card images */}
-              <div className="absolute left-1/2 top-1/2 h-[280px] w-[200px] -translate-x-1/2 -translate-y-1/2 -rotate-12 transform rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-xl transition-transform hover:-translate-y-3" />
-              <div className="absolute left-1/2 top-1/2 h-[280px] w-[200px] -translate-x-1/2 -translate-y-1/2 rotate-0 transform rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-xl transition-transform hover:-translate-y-3" />
-              <div className="absolute left-1/2 top-1/2 h-[280px] w-[200px] -translate-x-1/2 -translate-y-1/2 rotate-12 transform rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 shadow-xl transition-transform hover:-translate-y-3" />
+              <div className="absolute left-1/2 top-1/2 h-[280px] w-[200px] -translate-x-1/2 -translate-y-1/2 -rotate-12 transform rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 shadow-xl transition-transform motion-safe:hover:-translate-y-3" />
+              <div className="absolute left-1/2 top-1/2 h-[280px] w-[200px] -translate-x-1/2 -translate-y-1/2 rotate-0 transform rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-xl transition-transform motion-safe:hover:-translate-y-3" />
+              <div className="absolute left-1/2 top-1/2 h-[280px] w-[200px] -translate-x-1/2 -translate-y-1/2 rotate-12 transform rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 shadow-xl transition-transform motion-safe:hover:-translate-y-3" />
             </div>
           </div>
         </div>

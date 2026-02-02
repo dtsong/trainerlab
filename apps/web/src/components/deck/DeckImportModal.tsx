@@ -142,8 +142,11 @@ export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
         <div className="space-y-4">
           {/* Input textarea */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Deck List</label>
+            <label htmlFor="import-decklist" className="text-sm font-medium">
+              Deck List
+            </label>
             <Textarea
+              id="import-decklist"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder={`Paste your deck list here...

@@ -46,7 +46,7 @@ export function TopNav() {
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 hidden h-16 md:flex items-center bg-white transition-shadow duration-200",
+        "fixed top-0 left-0 right-0 z-50 hidden h-16 md:flex items-center bg-white transition-shadow duration-200 motion-reduce:transition-none",
         scrolled && "shadow-md",
       )}
     >

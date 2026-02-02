@@ -30,9 +30,13 @@ describe("TopNav", () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: false,
-      signOut: vi.fn(),
+      authError: null,
       signIn: vi.fn(),
       signUp: vi.fn(),
+      signInWithGoogle: vi.fn(),
+      signOut: vi.fn(),
+      getIdToken: vi.fn(),
+      clearAuthError: vi.fn(),
     });
   });
 
@@ -92,9 +96,13 @@ describe("TopNav", () => {
       mockUseAuth.mockReturnValue({
         user: null,
         loading: true,
-        signOut: vi.fn(),
+        authError: null,
         signIn: vi.fn(),
         signUp: vi.fn(),
+        signInWithGoogle: vi.fn(),
+        signOut: vi.fn(),
+        getIdToken: vi.fn(),
+        clearAuthError: vi.fn(),
       });
       render(<TopNav />);
 

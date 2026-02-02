@@ -7,6 +7,7 @@ from src.models.set import Set
 from src.models.tournament import Tournament
 from src.models.tournament_placement import TournamentPlacement
 from src.models.user import User
+from src.models.waitlist import WaitlistEntry
 
 __all__ = [
     "Card",
@@ -16,4 +17,5 @@ __all__ = [
     "Tournament",
     "TournamentPlacement",
     "User",
+    "WaitlistEntry",
 ]

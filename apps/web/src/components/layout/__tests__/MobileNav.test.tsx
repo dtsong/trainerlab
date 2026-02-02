@@ -30,9 +30,13 @@ describe("MobileNav", () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: false,
-      signOut: vi.fn(),
+      authError: null,
       signIn: vi.fn(),
       signUp: vi.fn(),
+      signInWithGoogle: vi.fn(),
+      signOut: vi.fn(),
+      getIdToken: vi.fn(),
+      clearAuthError: vi.fn(),
     });
   });
 
@@ -110,11 +114,16 @@ describe("MobileNav", () => {
           displayName: "Test User",
           email: "test@example.com",
           uid: "123",
-        } as any,
+          photoURL: null,
+        },
         loading: false,
-        signOut: vi.fn(),
+        authError: null,
         signIn: vi.fn(),
         signUp: vi.fn(),
+        signInWithGoogle: vi.fn(),
+        signOut: vi.fn(),
+        getIdToken: vi.fn(),
+        clearAuthError: vi.fn(),
       });
 
       render(<MobileNav />);

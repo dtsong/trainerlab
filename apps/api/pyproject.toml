@@ -45,6 +45,9 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "N", "S", "C4", "PT"]
 ignore = ["S101"]  # Allow assert in tests
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S106"]  # Allow hardcoded test tokens
+
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
 

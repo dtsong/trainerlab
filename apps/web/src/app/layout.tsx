@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Header, Footer } from "@/components/layout";
+import { Footer, MobileNav, ScrollToTop, TopNav } from "@/components/layout";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -38,11 +38,13 @@ export default function RootLayout({
         className={`${playfair.variable} ${dmSans.variable} ${jetbrainsMono.variable} font-sans`}
       >
         <Providers>
-          <div className="flex min-h-screen flex-col">
-            <Header />
+          <ScrollToTop />
+          <TopNav />
+          <div className="flex min-h-screen flex-col pt-16 pb-14 md:pb-0">
             <main className="flex-1">{children}</main>
             <Footer />
           </div>
+          <MobileNav />
         </Providers>
       </body>
     </html>

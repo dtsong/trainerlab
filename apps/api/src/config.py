@@ -22,6 +22,26 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://postgres:postgres@localhost:5432/trainerlab"
     )
+    database_password: str | None = None  # Override password if set
+
+    @property
+    def effective_database_url(self) -> str:
+        """Get database URL with password injected if DATABASE_PASSWORD is set."""
+        if self.database_password:
+            # Replace password in URL
+            # URL format: postgresql+asyncpg://user:password@host:port/db
+            # or: postgresql+asyncpg://user@host:port/db (no password)
+            from urllib.parse import urlparse, urlunparse
+
+            parsed = urlparse(self.database_url)
+            if parsed.username:
+                # Reconstruct with new password
+                netloc = f"{parsed.username}:{self.database_password}@{parsed.hostname}"
+                if parsed.port:
+                    netloc += f":{parsed.port}"
+                new_url = urlunparse((parsed.scheme, netloc, parsed.path, "", "", ""))
+                return new_url
+        return self.database_url
 
     # Redis
     redis_url: str = "redis://localhost:6379"

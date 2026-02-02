@@ -25,9 +25,9 @@ from src.models import (  # noqa: F401
 # Alembic Config object
 config = context.config
 
-# Set database URL from settings
+# Set database URL from settings (effective_database_url includes password from env)
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", settings.effective_database_url)
 
 # Interpret the config file for Python logging
 if config.config_file_name is not None:

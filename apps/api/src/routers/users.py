@@ -1,14 +1,17 @@
 """User endpoints."""
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
 from src.dependencies import CurrentUser
 from src.schemas.user import UserPreferencesUpdate, UserResponse
-from src.services.user_service import UserService
+from src.services.user_service import DatabaseError, UserService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -41,5 +44,12 @@ async def update_user_preferences(
 
     Only provided fields will be updated. Other preferences are preserved.
     """
-    service = UserService(db)
-    return await service.update_preferences(current_user, prefs)
+    try:
+        service = UserService(db)
+        return await service.update_preferences(current_user, prefs)
+    except DatabaseError as e:
+        logger.error("Failed to update preferences: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable. Please try again.",
+        ) from e

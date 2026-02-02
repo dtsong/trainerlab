@@ -6,8 +6,8 @@ Competitive intelligence platform for Pokemon TCG. See full docs in Obsidian vau
 
 ## Key Docs (Read These First)
 
+- `/docs/CODEMAP.md` — Codebase structure and quick reference (use for navigation)
 - `/docs/SPEC.md` — Full implementation specification
-- `/docs/TECHNICAL_OVERVIEW.md` — Architecture summary
 
 ## Quick Context
 
@@ -16,6 +16,8 @@ Competitive intelligence platform for Pokemon TCG. See full docs in Obsidian vau
 - Database: PostgreSQL + pgvector on GCP Cloud SQL
 - Card Data: TCGdex (self-hosted)
 - Hosting: GCP Cloud Run via Terraform
+
+**Navigation:** Use `/docs/CODEMAP.md` for efficient code traversal. It provides a hierarchical overview of all files, key symbols, and common workflows without needing to explore the full directory structure.
 
 ## Tooling
 

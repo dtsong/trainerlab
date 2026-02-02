@@ -1,0 +1,61 @@
+{
+  "formats": [
+    {
+      "name": "svi-asc",
+      "display_name": "SVI-ASC",
+      "legal_sets": [
+        "SVI",
+        "PAL",
+        "OBF",
+        "MEW",
+        "PAR",
+        "PAF",
+        "TEF",
+        "TWM",
+        "SFA",
+        "SCR",
+        "SSP",
+        "PRE",
+        "JTG",
+        "DRI",
+        "BLK",
+        "WHT",
+        "MEG",
+        "PFL",
+        "ASC"
+      ],
+      "start_date": "2023-03-31",
+      "end_date": "2026-04-10",
+      "is_current": true,
+      "is_upcoming": false,
+      "rotation_details": null
+    },
+    {
+      "name": "tef-asc",
+      "display_name": "TEF-ASC",
+      "legal_sets": [
+        "TEF",
+        "TWM",
+        "SFA",
+        "SCR",
+        "SSP",
+        "PRE",
+        "JTG",
+        "DRI",
+        "BLK",
+        "WHT",
+        "MEG",
+        "PFL",
+        "ASC"
+      ],
+      "start_date": "2026-04-10",
+      "end_date": null,
+      "is_current": false,
+      "is_upcoming": true,
+      "rotation_details": {
+        "rotating_out_sets": ["SVI", "PAL", "OBF", "MEW", "PAR", "PAF"],
+        "new_set": null
+      }
+    }
+  ]
+}

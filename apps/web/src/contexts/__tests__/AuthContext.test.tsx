@@ -7,10 +7,21 @@ import { AuthProvider, useAuth } from "../AuthContext";
 const mockOnAuthStateChanged = vi.fn();
 const mockSignOut = vi.fn();
 const mockGetIdToken = vi.fn();
+const mockSignInWithEmailAndPassword = vi.fn();
+const mockCreateUserWithEmailAndPassword = vi.fn();
+const mockSignInWithPopup = vi.fn();
+const mockUpdateProfile = vi.fn();
 
 vi.mock("firebase/auth", () => ({
   onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
   signOut: (...args: unknown[]) => mockSignOut(...args),
+  signInWithEmailAndPassword: (...args: unknown[]) =>
+    mockSignInWithEmailAndPassword(...args),
+  createUserWithEmailAndPassword: (...args: unknown[]) =>
+    mockCreateUserWithEmailAndPassword(...args),
+  signInWithPopup: (...args: unknown[]) => mockSignInWithPopup(...args),
+  updateProfile: (...args: unknown[]) => mockUpdateProfile(...args),
+  GoogleAuthProvider: vi.fn(),
 }));
 
 // Mock our firebase lib
@@ -20,8 +31,17 @@ vi.mock("@/lib/firebase", () => ({
 
 // Test component that uses the hook
 function TestConsumer() {
-  const { user, loading, signOut, getIdToken, authError, clearAuthError } =
-    useAuth();
+  const {
+    user,
+    loading,
+    signOut,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    getIdToken,
+    authError,
+    clearAuthError,
+  } = useAuth();
 
   return (
     <div>
@@ -31,6 +51,42 @@ function TestConsumer() {
         {authError ? authError.message : "null"}
       </div>
       <button onClick={signOut}>Sign Out</button>
+      <button
+        onClick={async () => {
+          try {
+            await signIn("test@example.com", "password");
+            document.body.setAttribute("data-signin", "success");
+          } catch {
+            document.body.setAttribute("data-signin", "error");
+          }
+        }}
+      >
+        Sign In
+      </button>
+      <button
+        onClick={async () => {
+          try {
+            await signUp("new@example.com", "password", "New User");
+            document.body.setAttribute("data-signup", "success");
+          } catch {
+            document.body.setAttribute("data-signup", "error");
+          }
+        }}
+      >
+        Sign Up
+      </button>
+      <button
+        onClick={async () => {
+          try {
+            await signInWithGoogle();
+            document.body.setAttribute("data-google", "success");
+          } catch {
+            document.body.setAttribute("data-google", "error");
+          }
+        }}
+      >
+        Google Sign In
+      </button>
       <button
         onClick={async () => {
           try {
@@ -494,5 +550,109 @@ describe("AuthContext", () => {
     });
 
     consoleSpy.mockRestore();
+  });
+
+  it("signIn calls signInWithEmailAndPassword", async () => {
+    const mockCredential = {
+      user: { uid: "new-uid", email: "test@example.com" },
+    };
+    mockSignInWithEmailAndPassword.mockResolvedValue(mockCredential);
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(null), 0);
+      return vi.fn();
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    await user.click(screen.getByText("Sign In"));
+
+    await waitFor(() => {
+      expect(document.body.getAttribute("data-signin")).toBe("success");
+    });
+
+    expect(mockSignInWithEmailAndPassword).toHaveBeenCalledWith(
+      { name: "mock-auth" },
+      "test@example.com",
+      "password",
+    );
+  });
+
+  it("signUp creates user and sets display name", async () => {
+    const mockUser = { uid: "new-uid", email: "new@example.com" };
+    const mockCredential = { user: mockUser };
+    mockCreateUserWithEmailAndPassword.mockResolvedValue(mockCredential);
+    mockUpdateProfile.mockResolvedValue(undefined);
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(null), 0);
+      return vi.fn();
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    await user.click(screen.getByText("Sign Up"));
+
+    await waitFor(() => {
+      expect(document.body.getAttribute("data-signup")).toBe("success");
+    });
+
+    expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledWith(
+      { name: "mock-auth" },
+      "new@example.com",
+      "password",
+    );
+    expect(mockUpdateProfile).toHaveBeenCalledWith(mockUser, {
+      displayName: "New User",
+    });
+  });
+
+  it("signInWithGoogle calls signInWithPopup", async () => {
+    const mockCredential = {
+      user: { uid: "google-uid", email: "google@example.com" },
+    };
+    mockSignInWithPopup.mockResolvedValue(mockCredential);
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      setTimeout(() => callback(null), 0);
+      return vi.fn();
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    });
+
+    await user.click(screen.getByText("Google Sign In"));
+
+    await waitFor(() => {
+      expect(document.body.getAttribute("data-google")).toBe("success");
+    });
+
+    expect(mockSignInWithPopup).toHaveBeenCalled();
   });
 });

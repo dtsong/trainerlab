@@ -22,6 +22,12 @@ import {
   User as FirebaseUser,
   onAuthStateChanged,
   signOut as firebaseSignOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  updateProfile,
+  UserCredential,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -39,6 +45,16 @@ interface AuthContextValue {
   loading: boolean;
   /** Error from token refresh failure, null if no error */
   authError: Error | null;
+  /** Sign in with email and password */
+  signIn: (email: string, password: string) => Promise<UserCredential>;
+  /** Create a new account with email and password */
+  signUp: (
+    email: string,
+    password: string,
+    displayName?: string,
+  ) => Promise<UserCredential>;
+  /** Sign in with Google popup */
+  signInWithGoogle: () => Promise<UserCredential>;
   /** Sign out the current user */
   signOut: () => Promise<void>;
   /** Get the current ID token for API calls. Throws on refresh failure. */
@@ -140,10 +156,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [firebaseUser]);
 
+  const signIn = useCallback(
+    async (email: string, password: string): Promise<UserCredential> => {
+      if (!auth) {
+        throw new Error("Firebase not configured");
+      }
+      return signInWithEmailAndPassword(auth, email, password);
+    },
+    [],
+  );
+
+  const signUp = useCallback(
+    async (
+      email: string,
+      password: string,
+      displayName?: string,
+    ): Promise<UserCredential> => {
+      if (!auth) {
+        throw new Error("Firebase not configured");
+      }
+      const credential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      if (displayName && credential.user) {
+        await updateProfile(credential.user, { displayName });
+      }
+      return credential;
+    },
+    [],
+  );
+
+  const signInWithGoogleFn = useCallback(async (): Promise<UserCredential> => {
+    if (!auth) {
+      throw new Error("Firebase not configured");
+    }
+    const provider = new GoogleAuthProvider();
+    return signInWithPopup(auth, provider);
+  }, []);
+
   const value: AuthContextValue = {
     user,
     loading,
     authError,
+    signIn,
+    signUp,
+    signInWithGoogle: signInWithGoogleFn,
     signOut,
     getIdToken,
     clearAuthError,

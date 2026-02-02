@@ -6,8 +6,10 @@ import { useSets } from "@/hooks/useSets";
 import {
   CardGrid,
   CardGridSkeleton,
+  CardFiltersSkeleton,
   CardSearchInput,
   CardFilters,
+  MobileCardFilters,
   DEFAULT_FILTERS,
   type CardFiltersValues,
 } from "@/components/cards";
@@ -20,7 +22,7 @@ export default function CardsPage() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<CardFiltersValues>(DEFAULT_FILTERS);
 
-  const { data: setsData } = useSets();
+  const { data: setsData, isLoading: setsLoading } = useSets();
 
   const searchParams = {
     q: search || undefined,
@@ -71,18 +73,36 @@ export default function CardsPage() {
 
       {/* Search and Filters */}
       <div className="space-y-4 mb-8">
-        <CardSearchInput
-          value={search}
-          onChange={handleSearchChange}
-          placeholder="Search by card name..."
-          className="max-w-md"
-        />
-        <CardFilters
-          values={filters}
-          onChange={handleFilterChange}
-          onClear={handleClearFilters}
-          sets={setsData}
-        />
+        <div className="flex gap-2 items-center">
+          <CardSearchInput
+            value={search}
+            onChange={handleSearchChange}
+            placeholder="Search by card name..."
+            className="max-w-md flex-1"
+          />
+          {/* Mobile filter button */}
+          {!setsLoading && (
+            <MobileCardFilters
+              values={filters}
+              onChange={handleFilterChange}
+              onClear={handleClearFilters}
+              sets={setsData}
+            />
+          )}
+        </div>
+        {/* Desktop filters */}
+        <div className="hidden md:block">
+          {setsLoading ? (
+            <CardFiltersSkeleton />
+          ) : (
+            <CardFilters
+              values={filters}
+              onChange={handleFilterChange}
+              onClear={handleClearFilters}
+              sets={setsData}
+            />
+          )}
+        </div>
       </div>
 
       {/* Results Info */}

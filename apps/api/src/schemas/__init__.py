@@ -35,6 +35,7 @@ from src.schemas.pagination import PaginatedResponse
 from src.schemas.set import SetResponse
 from src.schemas.tournament import BestOf, TopPlacement, TournamentSummary
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
+from src.schemas.user import UserPreferencesUpdate, UserResponse
 
 __all__ = [
     "ArchetypeDetailResponse",
@@ -68,5 +69,7 @@ __all__ = [
     "TypeBreakdown",
     "UnmatchedCard",
     "UsageTrendPoint",
+    "UserPreferencesUpdate",
+    "UserResponse",
     "UserSummary",
 ]

@@ -11,6 +11,14 @@ export const JPSignalBadge = React.forwardRef<
   HTMLSpanElement,
   JPSignalBadgeProps
 >(({ className, jpShare, enShare, threshold = 0.05, ...props }, ref) => {
+  // Validate numeric inputs
+  if (!Number.isFinite(jpShare) || !Number.isFinite(enShare)) {
+    return null;
+  }
+  if (!Number.isFinite(threshold) || threshold < 0) {
+    return null;
+  }
+
   const difference = jpShare - enShare;
   const absDifference = Math.abs(difference);
 

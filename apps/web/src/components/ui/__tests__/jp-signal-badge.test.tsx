@@ -85,4 +85,36 @@ describe("JPSignalBadge", () => {
       expect(badge).toHaveClass("custom-class");
     });
   });
+
+  describe("input validation", () => {
+    it("should not render when jpShare is NaN", () => {
+      render(<JPSignalBadge jpShare={NaN} enShare={0.05} />);
+      expect(screen.queryByTestId("jp-signal-badge")).not.toBeInTheDocument();
+    });
+
+    it("should not render when enShare is NaN", () => {
+      render(<JPSignalBadge jpShare={0.15} enShare={NaN} />);
+      expect(screen.queryByTestId("jp-signal-badge")).not.toBeInTheDocument();
+    });
+
+    it("should not render when jpShare is Infinity", () => {
+      render(<JPSignalBadge jpShare={Infinity} enShare={0.05} />);
+      expect(screen.queryByTestId("jp-signal-badge")).not.toBeInTheDocument();
+    });
+
+    it("should not render when enShare is negative Infinity", () => {
+      render(<JPSignalBadge jpShare={0.15} enShare={-Infinity} />);
+      expect(screen.queryByTestId("jp-signal-badge")).not.toBeInTheDocument();
+    });
+
+    it("should not render when threshold is negative", () => {
+      render(<JPSignalBadge jpShare={0.15} enShare={0.05} threshold={-0.01} />);
+      expect(screen.queryByTestId("jp-signal-badge")).not.toBeInTheDocument();
+    });
+
+    it("should not render when threshold is NaN", () => {
+      render(<JPSignalBadge jpShare={0.15} enShare={0.05} threshold={NaN} />);
+      expect(screen.queryByTestId("jp-signal-badge")).not.toBeInTheDocument();
+    });
+  });
 });

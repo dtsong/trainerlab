@@ -41,6 +41,11 @@ export interface PillToggleProps
 
 export const PillToggle = React.forwardRef<HTMLDivElement, PillToggleProps>(
   ({ className, options, value, onChange, size = "sm", ...props }, ref) => {
+    // Handle empty options array
+    if (!options || options.length === 0) {
+      return null;
+    }
+
     const handleKeyDown = (e: React.KeyboardEvent, currentIndex: number) => {
       if (e.key === "ArrowRight") {
         e.preventDefault();

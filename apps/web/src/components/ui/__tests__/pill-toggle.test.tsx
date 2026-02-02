@@ -252,4 +252,30 @@ describe("PillToggle", () => {
       expect(buttons[2]).toHaveAttribute("aria-pressed", "false");
     });
   });
+
+  describe("input validation", () => {
+    it("should not render when options array is empty", () => {
+      const onChange = vi.fn();
+      const { container } = render(
+        <PillToggle options={[]} value="" onChange={onChange} />,
+      );
+      expect(container.firstChild).toBeNull();
+    });
+
+    it("should not highlight any option when value doesn't match", () => {
+      const onChange = vi.fn();
+      render(
+        <PillToggle
+          options={defaultOptions}
+          value="nonexistent"
+          onChange={onChange}
+        />,
+      );
+
+      const buttons = screen.getAllByRole("button");
+      buttons.forEach((button) => {
+        expect(button).toHaveAttribute("aria-pressed", "false");
+      });
+    });
+  });
 });

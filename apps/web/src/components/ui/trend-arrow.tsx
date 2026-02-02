@@ -37,6 +37,9 @@ function formatValue(
   value: number,
   direction: "up" | "down" | "stable",
 ): string {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
   const absValue = Math.abs(value);
   const sign = direction === "down" ? "-" : "+";
   return `${sign}${absValue}%`;

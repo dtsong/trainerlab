@@ -86,4 +86,26 @@ describe("TrendArrow", () => {
       expect(arrow).toHaveClass("custom-class");
     });
   });
+
+  describe("input validation", () => {
+    it("should not display value when value is NaN", () => {
+      render(<TrendArrow direction="up" value={NaN} />);
+      expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+    });
+
+    it("should not display value when value is Infinity", () => {
+      render(<TrendArrow direction="up" value={Infinity} />);
+      expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+    });
+
+    it("should not display value when value is negative Infinity", () => {
+      render(<TrendArrow direction="down" value={-Infinity} />);
+      expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+    });
+
+    it("should still render arrow when value is invalid", () => {
+      render(<TrendArrow direction="up" value={NaN} />);
+      expect(screen.getByTestId("trend-arrow-up")).toBeInTheDocument();
+    });
+  });
 });

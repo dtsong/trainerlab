@@ -82,10 +82,10 @@
     --terminal-muted: 212 9% 50%;
     --terminal-accent: 173 58% 39%;
 
-    /* Font families */
-    --font-display: var(--font-playfair);
-    --font-sans: var(--font-dm-sans);
-    --font-mono: var(--font-jetbrains-mono);
+    /* Font families (with fallbacks for when Next.js font vars aren't loaded) */
+    --font-display: var(--font-playfair, Georgia, "Times New Roman", serif);
+    --font-sans: var(--font-dm-sans, system-ui, -apple-system, sans-serif);
+    --font-mono: var(--font-jetbrains-mono, ui-monospace, "Cascadia Code", monospace);
   }
 
   .dark {

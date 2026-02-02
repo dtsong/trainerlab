@@ -1,5 +1,5 @@
 # TrainerLab Infrastructure
-# Manages Cloud Scheduler jobs for data pipelines
+# Cloud Run API, Cloud SQL PostgreSQL, and Cloud Scheduler pipelines
 
 terraform {
   required_version = ">= 1.5.0"
@@ -7,21 +7,114 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = ">= 5.0.0"
+      version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
     }
   }
 
-  # Remote state stored in GCS
-  # Uncomment and configure when ready for production
-  # backend "gcs" {
-  #   bucket = "trainerlab-terraform-state"
-  #   prefix = "terraform/state"
-  # }
+  backend "gcs" {
+    bucket = "trainerlab-tfstate-1d22e2f5"
+    prefix = "trainerlab-prod/app"
+  }
 }
 
 provider "google" {
   project = var.project_id
   region  = var.region
+}
+
+# Get project details (for project number)
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
+# =============================================================================
+# Remote State - Network Resources from Foundation
+# =============================================================================
+
+data "terraform_remote_state" "foundation" {
+  backend = "gcs"
+  config = {
+    bucket = "trainerlab-tfstate-1d22e2f5"
+    prefix = "environments/trainerlab-prod"
+  }
+}
+
+locals {
+  # Network resources from foundation state
+  network_id         = data.terraform_remote_state.foundation.outputs.network_id
+  network_self_link  = data.terraform_remote_state.foundation.outputs.network_self_link
+  network_name       = data.terraform_remote_state.foundation.outputs.network_name
+  cloudrun_subnet_id = data.terraform_remote_state.foundation.outputs.cloudrun_subnet_id
+}
+
+# =============================================================================
+# Enable Required APIs
+# =============================================================================
+
+resource "google_project_service" "apis" {
+  for_each = toset([
+    "artifactregistry.googleapis.com",
+    "secretmanager.googleapis.com",
+    "run.googleapis.com",
+    "sqladmin.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "iamcredentials.googleapis.com", # Required for Workload Identity Federation
+  ])
+
+  project            = var.project_id
+  service            = each.value
+  disable_on_destroy = false
+}
+
+# =============================================================================
+# Artifact Registry for Container Images
+# =============================================================================
+
+resource "google_artifact_registry_repository" "api" {
+  project       = var.project_id
+  location      = var.region
+  repository_id = "trainerlab-api"
+  description   = "Docker repository for TrainerLab API images"
+  format        = "DOCKER"
+
+  depends_on = [google_project_service.apis]
+
+  cleanup_policies {
+    id     = "keep-recent"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 10
+    }
+  }
+}
+
+# =============================================================================
+# Service Accounts
+# =============================================================================
+
+# Cloud Run service account
+resource "google_service_account" "api" {
+  account_id   = "trainerlab-api"
+  display_name = "TrainerLab API"
+  description  = "Service account for TrainerLab Cloud Run API"
+}
+
+# Grant API SA access to Cloud SQL
+resource "google_project_iam_member" "api_cloudsql" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+# Grant API SA access to Secret Manager
+resource "google_project_iam_member" "api_secrets" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.api.email}"
 }
 
 # Cloud Scheduler service account
@@ -31,23 +124,128 @@ resource "google_service_account" "scheduler" {
   description  = "Service account for Cloud Scheduler to invoke pipeline endpoints"
 }
 
+# =============================================================================
+# Secrets
+# =============================================================================
+
+# Database password
+resource "random_password" "db_password" {
+  length  = 32
+  special = false
+}
+
+resource "google_secret_manager_secret" "db_password" {
+  project   = var.project_id
+  secret_id = "trainerlab-db-password"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "db_password" {
+  secret      = google_secret_manager_secret.db_password.id
+  secret_data = random_password.db_password.result
+}
+
+# =============================================================================
+# Cloud SQL PostgreSQL (Private)
+# =============================================================================
+
+module "database" {
+  source = "./modules/cloud_sql"
+
+  project_id    = var.project_id
+  region        = var.region
+  instance_name = "trainerlab-db"
+
+  database_version  = "POSTGRES_16"
+  tier              = var.db_tier
+  availability_type = var.environment == "prod" ? "REGIONAL" : "ZONAL"
+  disk_size         = var.db_disk_size
+
+  vpc_id = local.network_self_link
+
+  database_name     = "trainerlab"
+  app_user_name     = "trainerlab_app"
+  app_user_password = random_password.db_password.result
+
+  deletion_protection    = var.environment == "prod"
+  point_in_time_recovery = var.environment == "prod"
+  backup_retention_days  = var.environment == "prod" ? 14 : 7
+
+  labels = {
+    environment = var.environment
+    app         = "trainerlab"
+  }
+}
+
+# =============================================================================
+# Cloud Run API
+# =============================================================================
+
+module "api" {
+  source = "./modules/cloud_run"
+
+  project_id   = var.project_id
+  region       = var.region
+  service_name = "trainerlab-api"
+
+  image = var.api_image
+
+  min_instances = var.environment == "prod" ? 1 : 0
+  max_instances = var.environment == "prod" ? 10 : 3
+  cpu           = "1"
+  memory        = "1Gi"
+
+  service_account_email = google_service_account.api.email
+  subnet_id             = local.cloudrun_subnet_id
+
+  env_vars = {
+    ENVIRONMENT               = var.environment
+    DATABASE_URL              = "postgresql+asyncpg://trainerlab_app@${module.database.private_ip_address}:5432/trainerlab"
+    REDIS_URL                 = var.redis_url
+    TCGDEX_URL                = var.tcgdex_url
+    CORS_ORIGINS              = var.cors_origins
+    CLOUD_RUN_URL             = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
+    SCHEDULER_SERVICE_ACCOUNT = google_service_account.scheduler.email
+  }
+
+  secret_env_vars = {
+    DATABASE_PASSWORD = {
+      secret_id = google_secret_manager_secret.db_password.secret_id
+      version   = "latest"
+    }
+  }
+
+  allow_unauthenticated = false # Org policy blocks allUsers
+  custom_domain         = var.custom_domain
+
+  depends_on_resources = [module.database]
+}
+
 # Grant scheduler SA permission to invoke Cloud Run
-resource "google_cloud_run_service_iam_member" "scheduler_invoker" {
-  count    = var.cloud_run_service_name != "" ? 1 : 0
+resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   project  = var.project_id
   location = var.region
-  service  = var.cloud_run_service_name
+  name     = module.api.service_name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.scheduler.email}"
 }
 
-# Scheduler module
+# =============================================================================
+# Cloud Scheduler Jobs
+# =============================================================================
+
 module "scheduler" {
   source = "./modules/scheduler"
 
-  project_id                = var.project_id
-  region                    = var.region
-  cloud_run_url             = var.cloud_run_url
+  project_id = var.project_id
+  region     = var.region
+  # Use constructed Cloud Run URL that matches API's CLOUD_RUN_URL setting
+  cloud_run_url             = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
   scheduler_service_account = google_service_account.scheduler.email
   timezone                  = var.timezone
   paused                    = var.scheduler_paused

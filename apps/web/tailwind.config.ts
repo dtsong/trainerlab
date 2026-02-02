@@ -120,6 +120,17 @@ const config: Config = {
           muted: "hsl(var(--terminal-muted))",
           accent: "hsl(var(--terminal-accent))",
         },
+        // Notebook palette (Field Notebook aesthetic)
+        notebook: {
+          cream: "hsl(var(--notebook-cream))",
+          grid: "hsl(var(--notebook-grid))",
+          aged: "hsl(var(--notebook-aged))",
+        },
+        ink: {
+          black: "hsl(var(--ink-black))",
+          red: "hsl(var(--ink-red))",
+        },
+        pencil: "hsl(var(--pencil-gray))",
       },
       fontFamily: {
         display: ["var(--font-display)"],

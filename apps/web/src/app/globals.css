@@ -86,6 +86,14 @@
     --font-display: var(--font-playfair, Georgia, "Times New Roman", serif);
     --font-sans: var(--font-dm-sans, system-ui, -apple-system, sans-serif);
     --font-mono: var(--font-jetbrains-mono, ui-monospace, "Cascadia Code", monospace);
+
+    /* Notebook palette (Field Notebook aesthetic) */
+    --notebook-cream: 45 30% 97%;
+    --notebook-grid: 40 15% 88%;
+    --notebook-aged: 42 25% 93%;
+    --ink-black: 0 0% 17%;
+    --ink-red: 0 70% 48%;
+    --pencil-gray: 0 0% 42%;
   }
 
   .dark {
@@ -165,6 +173,14 @@
     --terminal-text: 210 29% 90%;
     --terminal-muted: 212 9% 50%;
     --terminal-accent: 173 58% 39%;
+
+    /* Notebook palette (Field Notebook aesthetic) */
+    --notebook-cream: 45 30% 97%;
+    --notebook-grid: 40 15% 88%;
+    --notebook-aged: 42 25% 93%;
+    --ink-black: 0 0% 17%;
+    --ink-red: 0 70% 48%;
+    --pencil-gray: 0 0% 42%;
   }
 }
 
@@ -182,4 +198,220 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* Dot grid pattern for notebook aesthetic */
+  .bg-dot-grid {
+    background-image: radial-gradient(
+      circle,
+      hsl(var(--notebook-grid)) 1px,
+      transparent 1px
+    );
+    background-size: 20px 20px;
+  }
+
+  /* Larger dot grid for more subtle effect */
+  .bg-dot-grid-lg {
+    background-image: radial-gradient(
+      circle,
+      hsl(var(--notebook-grid)) 1px,
+      transparent 1px
+    );
+    background-size: 32px 32px;
+  }
+
+  /* Subtle paper noise texture */
+  .bg-paper-texture {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  /* Ruled notebook lines */
+  .bg-ruled-lines {
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 23px,
+      hsl(var(--notebook-grid)) 23px,
+      hsl(var(--notebook-grid)) 24px
+    );
+    background-size: 100% 24px;
+    background-position: 0 0;
+  }
+
+  /* Red margin line (notebook style) */
+  .border-margin-red {
+    border-left: 2px solid hsl(var(--ink-red) / 0.5);
+    padding-left: 1rem;
+    margin-left: 1.5rem;
+  }
+
+  /* Tape effect for pinned items */
+  .tape-effect::before {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 16px;
+    background: linear-gradient(
+      to bottom,
+      hsl(48 100% 90% / 0.8),
+      hsl(48 60% 85% / 0.6)
+    );
+    border-radius: 2px;
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.1);
+  }
+
+  /* Pushpin effect */
+  .pushpin::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 12px;
+    background: radial-gradient(
+      circle at 30% 30%,
+      hsl(var(--ink-red)),
+      hsl(0 70% 35%)
+    );
+    border-radius: 50%;
+    box-shadow:
+      0 2px 4px hsl(0 0% 0% / 0.3),
+      inset 0 1px 2px hsl(0 0% 100% / 0.3);
+  }
+
+  /* Paper clip effect */
+  .paper-clip::before {
+    content: "";
+    position: absolute;
+    top: -4px;
+    right: 12px;
+    width: 20px;
+    height: 32px;
+    border: 2px solid hsl(220 9% 60%);
+    border-radius: 10px 10px 0 0;
+    background: transparent;
+    transform: rotate(15deg);
+    z-index: 10;
+  }
+}
+
+/* Card shuffle and float animations */
+@keyframes float-gentle {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--float-rotate, 0deg));
+  }
+  50% {
+    transform: translateY(-8px) rotate(calc(var(--float-rotate, 0deg) + 1deg));
+  }
+}
+
+@keyframes sway-pinned {
+  0%, 100% {
+    transform: rotate(var(--sway-base, 0deg));
+  }
+  25% {
+    transform: rotate(calc(var(--sway-base, 0deg) + 1.5deg));
+  }
+  75% {
+    transform: rotate(calc(var(--sway-base, 0deg) - 1deg));
+  }
+}
+
+@keyframes shuffle-peek {
+  0%, 85%, 100% {
+    transform: translateX(0) translateY(0) rotate(var(--shuffle-rotate, 0deg));
+  }
+  90% {
+    transform: translateX(calc(var(--shuffle-x, 5px))) translateY(-12px) rotate(calc(var(--shuffle-rotate, 0deg) + 3deg));
+  }
+  95% {
+    transform: translateX(calc(var(--shuffle-x, 5px) * -0.5)) translateY(-6px) rotate(calc(var(--shuffle-rotate, 0deg) - 1deg));
+  }
+}
+
+@keyframes tape-wiggle {
+  0%, 100% {
+    transform: translateX(-50%) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-50%) rotate(0.5deg);
+  }
+  75% {
+    transform: translateX(-50%) rotate(-0.5deg);
+  }
+}
+
+@keyframes paper-rustle {
+  0%, 100% {
+    transform: rotate(var(--rustle-base, 0deg)) scale(1);
+  }
+  50% {
+    transform: rotate(calc(var(--rustle-base, 0deg) + 0.3deg)) scale(1.002);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes draw-underline {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@layer utilities {
+  /* Animation utility classes */
+  .animate-float-gentle {
+    animation: float-gentle 6s ease-in-out infinite;
+  }
+
+  .animate-sway-pinned {
+    animation: sway-pinned 8s ease-in-out infinite;
+  }
+
+  .animate-shuffle-peek {
+    animation: shuffle-peek 12s ease-in-out infinite;
+  }
+
+  .animate-tape-wiggle {
+    animation: tape-wiggle 4s ease-in-out infinite;
+  }
+
+  .animate-paper-rustle {
+    animation: paper-rustle 5s ease-in-out infinite;
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out forwards;
+  }
+
+  .animate-draw-underline {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: draw-underline 1s ease-out 0.5s forwards;
+  }
+
+  /* Animation delays for staggering */
+  .animation-delay-100 { animation-delay: 0.1s; }
+  .animation-delay-200 { animation-delay: 0.2s; }
+  .animation-delay-300 { animation-delay: 0.3s; }
+  .animation-delay-500 { animation-delay: 0.5s; }
+  .animation-delay-700 { animation-delay: 0.7s; }
+  .animation-delay-1000 { animation-delay: 1s; }
+  .animation-delay-2000 { animation-delay: 2s; }
+  .animation-delay-3000 { animation-delay: 3s; }
 }

@@ -6,7 +6,9 @@ English (international) and Japanese tournaments.
 
 import logging
 
-from src.clients.limitless import LimitlessClient
+import httpx
+
+from src.clients.limitless import LimitlessClient, LimitlessError
 from src.db.database import async_session_factory
 from src.services.tournament_scrape import ScrapeResult, TournamentScrapeService
 
@@ -205,7 +207,7 @@ async def _scrape_dry_run(
                         t.participant_count,
                     )
 
-            except Exception as e:
+            except (LimitlessError, httpx.RequestError, httpx.HTTPStatusError) as e:
                 result.errors.append(f"Error on page {page}: {e}")
                 break
 

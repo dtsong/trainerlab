@@ -2,7 +2,9 @@
 
 import logging
 
-from src.clients.tcgdex import TCGdexClient
+import httpx
+
+from src.clients.tcgdex import TCGdexClient, TCGdexError
 from src.db.database import async_session_factory
 from src.services.card_sync import CardSyncService, SyncResult
 
@@ -73,7 +75,7 @@ async def sync_japanese_names(dry_run: bool = False) -> int:
                     # Note: Japanese IDs may differ from English IDs
                     name_map[ja_card.id] = ja_card.name
                     logger.debug(f"Mapped {ja_card.id} -> {ja_card.name}")
-            except Exception as e:
+            except (TCGdexError, httpx.RequestError, httpx.HTTPStatusError) as e:
                 logger.warning(f"Error fetching Japanese set {set_summary.id}: {e}")
                 continue
 

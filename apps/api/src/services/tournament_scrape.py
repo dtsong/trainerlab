@@ -162,7 +162,11 @@ class TournamentScrapeService:
                                 )
                                 if placement.decklist and placement.decklist.is_valid:
                                     result.decklists_saved += 1
-                            except Exception as e:
+                            except (
+                                LimitlessError,
+                                httpx.RequestError,
+                                httpx.HTTPStatusError,
+                            ) as e:
                                 url = placement.decklist_url
                                 logger.warning(f"Error fetching decklist {url}: {e}")
 

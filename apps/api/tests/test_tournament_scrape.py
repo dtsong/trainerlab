@@ -247,7 +247,7 @@ class TestScrapeNewTournaments:
         """
         mock_client.fetch_tournament_listings.return_value = [sample_tournament]
         mock_client.fetch_tournament_placements.return_value = [sample_placement]
-        mock_client.fetch_decklist.side_effect = Exception("Network error")
+        mock_client.fetch_decklist.side_effect = LimitlessError("Network error")
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None

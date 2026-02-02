@@ -1,6 +1,7 @@
 """User schemas for API request/response models."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,8 +27,10 @@ class UserPreferencesUpdate(BaseModel):
     All fields are optional - only provided fields will be updated.
     """
 
-    theme: str | None = Field(None, description="UI theme (light, dark, system)")
-    default_format: str | None = Field(
+    theme: Literal["light", "dark", "system"] | None = Field(
+        None, description="UI theme (light, dark, system)"
+    )
+    default_format: Literal["standard", "expanded"] | None = Field(
         None, description="Default deck format (standard, expanded)"
     )
     email_notifications: bool | None = Field(

@@ -63,7 +63,7 @@ def upgrade() -> None:
                 best_of,
                 COUNT(DISTINCT placement_id) AS decks_including,
                 -- Count total decks with valid decklists for same format/region/best_of
-                (SELECT COUNT(DISTINCT id)
+                (SELECT COUNT(DISTINCT tp2.id)
                  FROM tournament_placements tp2
                  JOIN tournaments t2 ON t2.id = tp2.tournament_id
                  WHERE tp2.decklist IS NOT NULL

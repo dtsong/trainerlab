@@ -235,7 +235,7 @@ module "api" {
     REDIS_URL                   = var.redis_url
     TCGDEX_URL                  = var.tcgdex_url
     CORS_ORIGINS                = var.cors_origins
-    CLOUD_RUN_URL               = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
+    CLOUD_RUN_URL               = var.custom_domain != "" ? "https://${var.custom_domain}" : "https://trainerlab-api-5iyuud5joa-uw.a.run.app"
     SCHEDULER_SERVICE_ACCOUNT   = google_service_account.scheduler.email
     OPERATIONS_SERVICE_ACCOUNT  = google_service_account.operations.email
   }

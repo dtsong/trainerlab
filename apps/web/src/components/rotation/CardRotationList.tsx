@@ -132,7 +132,7 @@ export function CardRotationList({ impacts }: CardRotationListProps) {
 
         {filteredCards.length === 0 && (
           <div className="p-8 text-center text-muted-foreground">
-            No cards found matching "{searchQuery}"
+            No cards found matching &quot;{searchQuery}&quot;
           </div>
         )}
       </div>

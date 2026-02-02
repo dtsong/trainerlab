@@ -8,7 +8,7 @@ environment = "prod"
 # Cloud Run
 api_image     = "us-west1-docker.pkg.dev/trainerlab-prod/trainerlab-api/api:latest"
 custom_domain = ""  # Domain mapping requires ownership verification
-cors_origins  = "https://trainerlab.app,https://www.trainerlab.app"
+cors_origins  = "https://trainerlab.io,https://www.trainerlab.io"
 
 # Cloud SQL
 db_tier      = "db-f1-micro"

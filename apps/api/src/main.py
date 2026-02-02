@@ -12,7 +12,10 @@ from src.core.firebase import init_firebase
 from src.routers import (
     cards_router,
     decks_router,
+    format_router,
     health_router,
+    japan_router,
+    lab_notes_router,
     meta_router,
     pipeline_router,
     sets_router,
@@ -61,7 +64,10 @@ app.add_middleware(
 # Include routers
 app.include_router(cards_router)
 app.include_router(decks_router)
+app.include_router(format_router)
 app.include_router(health_router)
+app.include_router(japan_router)
+app.include_router(lab_notes_router)
 app.include_router(meta_router)
 app.include_router(pipeline_router)
 app.include_router(sets_router)

@@ -10,6 +10,21 @@ import type {
   ApiMetaSnapshot,
   ApiMetaHistoryResponse,
   ApiArchetype,
+  ApiFormatConfig,
+  ApiUpcomingFormat,
+  ApiRotationImpactList,
+  ApiRotationImpact,
+  ApiTournamentListResponse,
+  ApiTournamentDetail,
+  TournamentTier,
+  ApiLabNoteListResponse,
+  ApiLabNote,
+  LabNoteType,
+  ApiJPCardInnovationList,
+  ApiJPCardInnovationDetail,
+  ApiJPNewArchetypeList,
+  ApiJPSetImpactList,
+  ApiPredictionList,
 } from "@trainerlab/shared-types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -168,6 +183,186 @@ export const metaApi = {
     const query = searchParams.toString();
     return fetchApi<ApiArchetype[]>(
       `/api/v1/meta/archetypes${query ? `?${query}` : ""}`,
+    );
+  },
+};
+
+// Tournament search parameters
+export interface TournamentSearchParams {
+  region?: string;
+  format?: "standard" | "expanded";
+  start_date?: string;
+  end_date?: string;
+  best_of?: 1 | 3;
+  tier?: TournamentTier;
+  page?: number;
+  limit?: number;
+}
+
+// Tournaments API
+export const tournamentsApi = {
+  list: (params: TournamentSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.region) searchParams.set("region", params.region);
+    if (params.format) searchParams.set("format", params.format);
+    if (params.start_date) searchParams.set("start_date", params.start_date);
+    if (params.end_date) searchParams.set("end_date", params.end_date);
+    if (params.best_of) searchParams.set("best_of", String(params.best_of));
+    if (params.tier) searchParams.set("tier", params.tier);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiTournamentListResponse>(
+      `/api/v1/tournaments${query ? `?${query}` : ""}`,
+    );
+  },
+
+  getById: (id: string) => {
+    return fetchApi<ApiTournamentDetail>(
+      `/api/v1/tournaments/${encodeURIComponent(id)}`,
+    );
+  },
+};
+
+// Lab Notes search parameters
+export interface LabNotesSearchParams {
+  page?: number;
+  limit?: number;
+  note_type?: LabNoteType;
+  tag?: string;
+}
+
+// Lab Notes API
+export const labNotesApi = {
+  list: (params: LabNotesSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.note_type) searchParams.set("note_type", params.note_type);
+    if (params.tag) searchParams.set("tag", params.tag);
+
+    const query = searchParams.toString();
+    return fetchApi<ApiLabNoteListResponse>(
+      `/api/v1/lab-notes${query ? `?${query}` : ""}`,
+    );
+  },
+
+  getBySlug: (slug: string) => {
+    return fetchApi<ApiLabNote>(
+      `/api/v1/lab-notes/${encodeURIComponent(slug)}`,
+    );
+  },
+};
+
+// Format API
+export const formatApi = {
+  getCurrent: () => {
+    return fetchApi<ApiFormatConfig>("/api/v1/format/current");
+  },
+
+  getUpcoming: () => {
+    return fetchApi<ApiUpcomingFormat>("/api/v1/format/upcoming");
+  },
+};
+
+// Rotation API
+export const rotationApi = {
+  getImpacts: (transition: string) => {
+    return fetchApi<ApiRotationImpactList>(
+      `/api/v1/rotation/impact?transition=${encodeURIComponent(transition)}`,
+    );
+  },
+
+  getArchetypeImpact: (archetypeId: string, transition?: string) => {
+    const params = transition
+      ? `?transition=${encodeURIComponent(transition)}`
+      : "";
+    return fetchApi<ApiRotationImpact>(
+      `/api/v1/rotation/impact/${encodeURIComponent(archetypeId)}${params}`,
+    );
+  },
+};
+
+// Japan intelligence search parameters
+export interface JapanInnovationParams {
+  set_code?: string;
+  en_legal?: boolean;
+  min_impact?: number;
+  limit?: number;
+}
+
+export interface JapanArchetypeParams {
+  set_code?: string;
+  limit?: number;
+}
+
+export interface JapanSetImpactParams {
+  set_code?: string;
+  limit?: number;
+}
+
+export interface JapanPredictionParams {
+  category?: string;
+  resolved_only?: boolean;
+  limit?: number;
+}
+
+// Japan API
+export const japanApi = {
+  listInnovations: (params: JapanInnovationParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.set_code) searchParams.set("set_code", params.set_code);
+    if (params.en_legal !== undefined)
+      searchParams.set("en_legal", String(params.en_legal));
+    if (params.min_impact)
+      searchParams.set("min_impact", String(params.min_impact));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiJPCardInnovationList>(
+      `/api/v1/japan/innovation${query ? `?${query}` : ""}`,
+    );
+  },
+
+  getInnovationDetail: (cardId: string) => {
+    return fetchApi<ApiJPCardInnovationDetail>(
+      `/api/v1/japan/innovation/${encodeURIComponent(cardId)}`,
+    );
+  },
+
+  listNewArchetypes: (params: JapanArchetypeParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.set_code) searchParams.set("set_code", params.set_code);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiJPNewArchetypeList>(
+      `/api/v1/japan/archetypes/new${query ? `?${query}` : ""}`,
+    );
+  },
+
+  listSetImpacts: (params: JapanSetImpactParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.set_code) searchParams.set("set_code", params.set_code);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiJPSetImpactList>(
+      `/api/v1/japan/set-impact${query ? `?${query}` : ""}`,
+    );
+  },
+
+  listPredictions: (params: JapanPredictionParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.category) searchParams.set("category", params.category);
+    if (params.resolved_only !== undefined)
+      searchParams.set("resolved_only", String(params.resolved_only));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiPredictionList>(
+      `/api/v1/japan/predictions${query ? `?${query}` : ""}`,
     );
   },
 };

@@ -1,8 +1,10 @@
 """Tournament endpoints."""
 
 import logging
+from collections import Counter
 from datetime import date, timedelta
 from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -13,10 +15,16 @@ from sqlalchemy.orm import selectinload
 from src.db.database import get_db
 from src.models import Tournament
 from src.schemas import BestOf, PaginatedResponse, TopPlacement, TournamentSummary
+from src.schemas.tournament import (
+    ArchetypeMeta,
+    PlacementDetail,
+    TournamentDetailResponse,
+    TournamentTier,
+)
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/meta/tournaments", tags=["tournaments"])
+router = APIRouter(prefix="/api/v1/tournaments", tags=["tournaments"])
 
 
 @router.get("")
@@ -41,6 +49,10 @@ async def list_tournaments(
     best_of: Annotated[
         BestOf | None,
         Query(description="Filter by match format (1 for BO1, 3 for BO3)"),
+    ] = None,
+    tier: Annotated[
+        TournamentTier | None,
+        Query(description="Filter by tier (major, premier, league)"),
     ] = None,
     page: Annotated[
         int,
@@ -74,6 +86,8 @@ async def list_tournaments(
         query = query.where(Tournament.date <= end_date)
     if best_of:
         query = query.where(Tournament.best_of == best_of)
+    if tier:
+        query = query.where(Tournament.tier == tier)
 
     # Get total count
     count_query = select(func.count()).select_from(
@@ -86,12 +100,13 @@ async def list_tournaments(
     except SQLAlchemyError:
         logger.error(
             "Database error counting tournaments: region=%s, format=%s, "
-            "start_date=%s, end_date=%s, best_of=%s",
+            "start_date=%s, end_date=%s, best_of=%s, tier=%s",
             region,
             format,
             start_date,
             end_date,
             best_of,
+            tier,
             exc_info=True,
         )
         raise HTTPException(
@@ -109,12 +124,13 @@ async def list_tournaments(
     except SQLAlchemyError:
         logger.error(
             "Database error fetching tournaments: region=%s, format=%s, "
-            "start_date=%s, end_date=%s, best_of=%s, page=%s, limit=%s",
+            "start_date=%s, end_date=%s, best_of=%s, tier=%s, page=%s, limit=%s",
             region,
             format,
             start_date,
             end_date,
             best_of,
+            tier,
             page,
             limit,
             exc_info=True,
@@ -142,6 +158,7 @@ async def list_tournaments(
                 country=tournament.country,
                 format=tournament.format,  # type: ignore[invalid-argument-type]
                 best_of=tournament.best_of,  # type: ignore[invalid-argument-type]
+                tier=tournament.tier,  # type: ignore[invalid-argument-type]
                 participant_count=tournament.participant_count,
                 top_placements=[
                     TopPlacement(
@@ -161,4 +178,83 @@ async def list_tournaments(
         limit=limit,
         has_next=offset + len(items) < total,
         has_prev=page > 1,
+    )
+
+
+@router.get("/{tournament_id}")
+async def get_tournament(
+    tournament_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TournamentDetailResponse:
+    """Get detailed tournament information.
+
+    Returns full tournament details including all placements and meta breakdown.
+    """
+    query = (
+        select(Tournament)
+        .options(selectinload(Tournament.placements))
+        .where(Tournament.id == tournament_id)
+    )
+
+    try:
+        result = await db.execute(query)
+        tournament = result.scalar_one_or_none()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching tournament: id=%s",
+            tournament_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve tournament. Please try again later.",
+        ) from None
+
+    if tournament is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tournament not found: {tournament_id}",
+        )
+
+    # Sort placements by placement number
+    sorted_placements = sorted(
+        tournament.placements,
+        key=lambda p: p.placement,
+    )
+
+    # Compute meta breakdown from placements
+    archetype_counts = Counter(p.archetype for p in sorted_placements)
+    total_placements = len(sorted_placements)
+    meta_breakdown = [
+        ArchetypeMeta(
+            archetype=archetype,
+            count=count,
+            share=round(count / total_placements, 4) if total_placements > 0 else 0.0,
+        )
+        for archetype, count in archetype_counts.most_common()
+    ]
+
+    return TournamentDetailResponse(
+        id=str(tournament.id),
+        name=tournament.name,
+        date=tournament.date,
+        region=tournament.region,
+        country=tournament.country,
+        format=tournament.format,  # type: ignore[arg-type]
+        best_of=tournament.best_of,  # type: ignore[arg-type]
+        tier=tournament.tier,  # type: ignore[arg-type]
+        participant_count=tournament.participant_count,
+        source=tournament.source,
+        source_url=tournament.source_url,
+        placements=[
+            PlacementDetail(
+                id=str(p.id),
+                placement=p.placement,
+                player_name=p.player_name,
+                archetype=p.archetype,
+                has_decklist=p.decklist is not None and len(p.decklist) > 0,
+            )
+            for p in sorted_placements
+        ],
+        meta_breakdown=meta_breakdown,
     )

@@ -40,6 +40,9 @@ class Tournament(Base, TimestampMixin):
     # Stats
     participant_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Tournament tier: major, premier, league
+    tier: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+
     # Source
     source: Mapped[str | None] = mapped_column(
         String(100), nullable=True

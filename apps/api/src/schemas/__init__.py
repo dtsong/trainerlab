@@ -20,6 +20,21 @@ from src.schemas.deck import (
     UnmatchedCard,
     UserSummary,
 )
+from src.schemas.format import (
+    FormatConfigResponse,
+    RotatingCard,
+    RotationDetails,
+    RotationImpactListResponse,
+    RotationImpactResponse,
+    UpcomingFormatResponse,
+)
+from src.schemas.lab_note import (
+    LabNoteCreate,
+    LabNoteListResponse,
+    LabNoteResponse,
+    LabNoteSummaryResponse,
+    LabNoteUpdate,
+)
 from src.schemas.meta import (
     ArchetypeDetailResponse,
     ArchetypeHistoryPoint,
@@ -44,7 +59,15 @@ from src.schemas.pipeline import (
     SyncCardsResult,
 )
 from src.schemas.set import SetResponse
-from src.schemas.tournament import BestOf, TopPlacement, TournamentSummary
+from src.schemas.tournament import (
+    ArchetypeMeta,
+    BestOf,
+    PlacementDetail,
+    TopPlacement,
+    TournamentDetailResponse,
+    TournamentSummary,
+    TournamentTier,
+)
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
 from src.schemas.user import UserPreferencesUpdate, UserResponse
 
@@ -69,14 +92,24 @@ __all__ = [
     "DeckSummaryResponse",
     "DeckUpdate",
     "EnergyCurvePoint",
+    "FormatConfigResponse",
     "FormatNotes",
     "KeyCardResponse",
+    "LabNoteCreate",
+    "LabNoteListResponse",
+    "LabNoteResponse",
+    "LabNoteSummaryResponse",
+    "LabNoteUpdate",
     "MatchupResponse",
     "MatchupSpreadResponse",
     "MetaHistoryResponse",
     "MetaSnapshotResponse",
     "PaginatedResponse",
     "PipelineRequest",
+    "RotatingCard",
+    "RotationDetails",
+    "RotationImpactListResponse",
+    "RotationImpactResponse",
     "SampleDeckResponse",
     "ScrapeRequest",
     "ScrapeResult",
@@ -84,10 +117,15 @@ __all__ = [
     "SetSummaryResponse",
     "SyncCardsRequest",
     "SyncCardsResult",
+    "ArchetypeMeta",
+    "PlacementDetail",
     "TopPlacement",
+    "TournamentDetailResponse",
     "TournamentSummary",
+    "TournamentTier",
     "TypeBreakdown",
     "UnmatchedCard",
+    "UpcomingFormatResponse",
     "UsageTrendPoint",
     "UserPreferencesUpdate",
     "UserResponse",

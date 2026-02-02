@@ -13,7 +13,7 @@ from src.models.tournament_placement import TournamentPlacement
 
 
 class TestListTournaments:
-    """Tests for GET /api/v1/meta/tournaments."""
+    """Tests for GET /api/v1/tournaments."""
 
     @pytest.fixture
     def mock_db(self) -> AsyncMock:
@@ -43,6 +43,7 @@ class TestListTournaments:
         tournament.country = "USA"
         tournament.format = "standard"
         tournament.best_of = 3
+        tournament.tier = "major"
         tournament.participant_count = 256
 
         # Mock placements
@@ -76,7 +77,7 @@ class TestListTournaments:
 
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
-        response = client.get("/api/v1/meta/tournaments")
+        response = client.get("/api/v1/tournaments")
 
         assert response.status_code == 200
         data = response.json()
@@ -99,7 +100,7 @@ class TestListTournaments:
 
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
-        response = client.get("/api/v1/meta/tournaments")
+        response = client.get("/api/v1/tournaments")
 
         assert response.status_code == 200
         data = response.json()
@@ -120,7 +121,7 @@ class TestListTournaments:
 
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
-        response = client.get("/api/v1/meta/tournaments?region=NA")
+        response = client.get("/api/v1/tournaments?region=NA")
 
         assert response.status_code == 200
         data = response.json()
@@ -140,7 +141,7 @@ class TestListTournaments:
 
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
-        response = client.get("/api/v1/meta/tournaments?format=standard")
+        response = client.get("/api/v1/tournaments?format=standard")
 
         assert response.status_code == 200
         data = response.json()
@@ -161,7 +162,7 @@ class TestListTournaments:
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
         response = client.get(
-            "/api/v1/meta/tournaments?start_date=2024-01-01&end_date=2024-01-31"
+            "/api/v1/tournaments?start_date=2024-01-01&end_date=2024-01-31"
         )
 
         assert response.status_code == 200
@@ -181,7 +182,7 @@ class TestListTournaments:
 
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
-        response = client.get("/api/v1/meta/tournaments?best_of=1")
+        response = client.get("/api/v1/tournaments?best_of=1")
 
         assert response.status_code == 200
         data = response.json()
@@ -201,7 +202,7 @@ class TestListTournaments:
 
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
-        response = client.get("/api/v1/meta/tournaments?page=2&limit=10")
+        response = client.get("/api/v1/tournaments?page=2&limit=10")
 
         assert response.status_code == 200
         data = response.json()
@@ -223,6 +224,7 @@ class TestListTournaments:
         tournament.country = "USA"
         tournament.format = "standard"
         tournament.best_of = 3
+        tournament.tier = "major"
         tournament.participant_count = 256
 
         # Create placements out of order
@@ -246,7 +248,7 @@ class TestListTournaments:
 
         mock_db.execute.side_effect = [mock_count_result, mock_result]
 
-        response = client.get("/api/v1/meta/tournaments")
+        response = client.get("/api/v1/tournaments")
 
         assert response.status_code == 200
         data = response.json()

@@ -107,8 +107,24 @@ class LimitlessTournament:
         Raises:
             ValueError: If date cannot be parsed in any known format.
         """
+        date_str = date_str.strip()
+
+        # Try ISO 8601 format first (2026-02-02T10:00:00.000Z)
+        if "T" in date_str:
+            try:
+                # Handle milliseconds and Z suffix
+                clean = date_str.replace("Z", "+00:00")
+                if "." in clean:
+                    # Remove milliseconds for simpler parsing
+                    clean = clean.split(".")[0] + "+00:00"
+                return datetime.fromisoformat(clean.replace("+00:00", "")).date()
+            except ValueError:
+                pass
+
         formats = [
             "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%SZ",
             "%B %d, %Y",
             "%b %d, %Y",
             "%d/%m/%Y",
@@ -117,7 +133,7 @@ class LimitlessTournament:
 
         for fmt in formats:
             try:
-                return datetime.strptime(date_str.strip(), fmt).date()
+                return datetime.strptime(date_str, fmt).date()
             except ValueError:
                 continue
 
@@ -126,7 +142,19 @@ class LimitlessTournament:
 
 # Limitless set code to TCGdex set ID mapping
 LIMITLESS_SET_MAPPING: dict[str, str] = {
-    # Scarlet & Violet era
+    # Mega Evolution era (ME block)
+    "ASC": "me02.5",  # Ascended Heroes
+    "PFL": "me02",  # Phantasmal Flames
+    "MEG": "me01",  # Mega Evolution (base set)
+    "MEE": "mee",  # Mega Evolution Energy
+    "MEP": "mep",  # Mega Promos
+    # Scarlet & Violet era - Main sets
+    "BLK": "sv10.5b",  # Black Bolt
+    "WHT": "sv10.5w",  # White Flare
+    "DRI": "sv10",  # Destined Rivals
+    "JTG": "sv09",  # Journey Together
+    "PRE": "sv08.5",  # Prismatic Evolutions
+    "SSP": "sv08",  # Surging Sparks
     "SCR": "sv7",  # Stellar Crown
     "SFA": "sv6pt5",  # Shrouded Fable
     "TWM": "sv6",  # Twilight Masquerade
@@ -137,6 +165,7 @@ LIMITLESS_SET_MAPPING: dict[str, str] = {
     "OBF": "sv3",  # Obsidian Flames
     "PAL": "sv2",  # Paldea Evolved
     "SVI": "sv1",  # Scarlet & Violet Base
+    "SVE": "sve",  # Scarlet & Violet Energy
     "SVP": "svp",  # SV Promos
     # Sword & Shield era (still legal in expanded)
     "CRZ": "swsh12pt5",  # Crown Zenith
@@ -387,22 +416,28 @@ class LimitlessClient:
         Returns:
             List of tournament metadata (without placements).
         """
-        # Construct URL based on region
+        # Construct URL based on region (new Limitless URL format)
         if region == "jp":
-            endpoint = f"/tournaments/pokemon/japan?format={game_format}&page={page}"
+            endpoint = (
+                f"/tournaments?game=POKEMON&region=JP&format={game_format}&page={page}"
+            )
         else:
-            endpoint = f"/tournaments/pokemon?format={game_format}&page={page}"
+            endpoint = f"/tournaments?game=POKEMON&format={game_format}&page={page}"
 
         html = await self._get(endpoint)
         soup = BeautifulSoup(html, "lxml")
 
         tournaments: list[LimitlessTournament] = []
 
-        # Find tournament rows
-        rows = soup.select("table.striped tbody tr")
+        # Find tournament rows - Limitless tables may or may not have tbody
+        # Try multiple selectors in order of specificity
+        rows = soup.select("table tbody tr")
         if not rows:
-            # Alternative selector
+            rows = soup.select("table tr")
+        if not rows:
             rows = soup.select(".tournament-list .tournament-row")
+
+        logger.debug(f"Found {len(rows)} tournament rows on page {page}")
 
         for row in rows:
             try:
@@ -424,6 +459,10 @@ class LimitlessClient:
     ) -> LimitlessTournament | None:
         """Parse a tournament row from the listings page.
 
+        Handles multiple Limitless table formats:
+        - Upcoming: Date | Name | Organizer | Registration
+        - Completed: Name | Organizer | Players | Winner
+
         Args:
             row: BeautifulSoup Tag for the table row.
             region: Region code.
@@ -432,24 +471,83 @@ class LimitlessClient:
         Returns:
             LimitlessTournament or None if parsing fails.
         """
-        # Extract tournament link
-        link = row.select_one("a[href*='/tournament/']")
-        if not link:
+        # Skip header rows or empty rows
+        cells = row.select("td")
+        if not cells:
             return None
 
-        name = link.get_text(strip=True)
-        href = str(link.get("href", ""))
+        # Find all tournament links (multiple may exist - icon link, name link, etc.)
+        links = row.select("a[href*='/tournament/']")
+        if not links:
+            return None
+
+        # Find the link with actual text (the tournament name)
+        # First link might be an icon/image for upcoming tournaments
+        name = ""
+        href = ""
+        for link in links:
+            link_text = link.get_text(strip=True)
+            if link_text:
+                name = link_text
+                href = str(link.get("href", ""))
+                break
+
+        if not name:
+            return None
+
+        if not href or "/tournament/" not in href:
+            # Use first link's href if we found a name but not a valid href
+            href = str(links[0].get("href", ""))
+            if not href or "/tournament/" not in href:
+                return None
+
         url = f"{self.BASE_URL}{href}" if href.startswith("/") else href
 
-        # Extract date
-        date_cell = row.select_one("td:nth-child(2)")
-        date_str = date_cell.get_text(strip=True) if date_cell else ""
+        # Extract date from multiple possible sources
+        date_str = ""
 
-        # Extract participant count
-        players_cell = row.select_one("td:nth-child(3)")
-        players_text = players_cell.get_text(strip=True) if players_cell else "0"
-        match = re.search(r"\d+", players_text)
-        participant_count = int(match.group()) if match else 0
+        # Try a.date or a.time elements (Limitless uses these for localization)
+        date_elem = row.select_one("a.date, a.time")
+        if date_elem:
+            date_text = date_elem.get_text(strip=True)
+            # Try parsing the text first
+            if date_text:
+                date_str = date_text
+
+        # If no date element found, check data attributes on the row
+        if not date_str:
+            data_date = row.get("data-date")
+            if data_date:
+                date_str = str(data_date)
+
+        # Fallback: use today's date for completed tournaments
+        if not date_str:
+            date_str = date.today().isoformat()
+            logger.debug(f"No date found for tournament '{name}', using today's date")
+
+        # Extract participant count - look for standalone numbers in cells
+        participant_count = 0
+        for cell in cells:
+            cell_text = cell.get_text(strip=True)
+            # Skip if it contains links (not a player count cell)
+            if cell.select_one("a"):
+                continue
+            # Look for standalone numeric content
+            if cell_text.isdigit():
+                participant_count = int(cell_text)
+                break
+
+        # If not found, try to find any number in the row
+        if participant_count == 0:
+            for cell in cells:
+                cell_text = cell.get_text(strip=True)
+                # Skip cells with links or date patterns
+                if cell.select_one("a") or re.match(r"\d{4}-\d{2}-\d{2}", cell_text):
+                    continue
+                match = re.search(r"(\d+)", cell_text)
+                if match:
+                    participant_count = int(match.group(1))
+                    break
 
         # Determine best_of based on region
         best_of = 1 if region == "jp" else 3

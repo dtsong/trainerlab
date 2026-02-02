@@ -17,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
+from src.schemas.meta import DivergentArchetype
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,12 @@ class MetaService:
     async def save_snapshot(self, snapshot: MetaSnapshot) -> MetaSnapshot:
         """Save a meta snapshot to the database.
 
-        If a snapshot with the same dimensions already exists, it will be updated.
+        If a snapshot with the same dimensions already exists, only core fields
+        are updated: archetype_shares, card_usage, sample_size, tournaments_included.
+        Enhanced fields (diversity_index, tier_assignments, jp_signals, trends)
+        are NOT updated on existing records - use compute_enhanced_meta_snapshot
+        to recompute the full snapshot.
+
         Dimensions are: snapshot_date, region, format, and best_of.
 
         Args:
@@ -480,7 +486,7 @@ class MetaService:
 
         rising: list[str] = []  # Higher in JP
         falling: list[str] = []  # Lower in JP
-        divergent: list[dict] = []
+        divergent: list[DivergentArchetype] = []
 
         for archetype in all_archetypes:
             jp_share = jp_shares.get(archetype, 0.0)
@@ -489,12 +495,12 @@ class MetaService:
 
             if abs(diff) > JP_SIGNAL_THRESHOLD:
                 divergent.append(
-                    {
-                        "archetype": archetype,
-                        "jp_share": round(jp_share, 4),
-                        "en_share": round(en_share, 4),
-                        "diff": round(diff, 4),
-                    }
+                    DivergentArchetype(
+                        archetype=archetype,
+                        jp_share=round(jp_share, 4),
+                        en_share=round(en_share, 4),
+                        diff=round(diff, 4),
+                    )
                 )
 
                 if diff > 0:
@@ -508,7 +514,7 @@ class MetaService:
         return {
             "rising": rising,
             "falling": falling,
-            "divergent": sorted(divergent, key=lambda x: abs(x["diff"]), reverse=True),
+            "divergent": sorted(divergent, key=lambda x: abs(x.diff), reverse=True),
         }
 
     async def compute_trends(

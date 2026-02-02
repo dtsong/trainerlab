@@ -10,6 +10,7 @@ import logging
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
+from google.auth import exceptions as google_auth_exceptions
 from google.auth.transport import requests
 from google.oauth2 import id_token
 
@@ -53,14 +54,11 @@ def _verify_oidc_token(
         if expected_email:
             token_email = claims.get("email", "")
             if token_email != expected_email:
-                raise SchedulerAuthError(
-                    f"Token email mismatch: expected {expected_email}, "
-                    f"got {token_email}"
-                )
+                raise SchedulerAuthError(f"Token email mismatch: got {token_email}")
 
         return claims
 
-    except ValueError as e:
+    except (ValueError, google_auth_exceptions.GoogleAuthError) as e:
         raise SchedulerAuthError(f"Token verification failed: {e}") from e
 
 

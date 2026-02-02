@@ -5,7 +5,6 @@ pipelines like scraping tournaments and computing meta snapshots.
 """
 
 import logging
-from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
@@ -67,7 +66,6 @@ def _convert_meta_result(internal: ComputeMetaResultInternal) -> ComputeMetaResu
 @router.post("/scrape-en", response_model=ScrapeResult)
 async def scrape_en_endpoint(
     request: ScrapeRequest,
-    _auth: Annotated[dict | None, Depends(verify_scheduler_auth)],
 ) -> ScrapeResult:
     """Scrape English (international) tournaments from Limitless.
 
@@ -102,7 +100,6 @@ async def scrape_en_endpoint(
 @router.post("/scrape-jp", response_model=ScrapeResult)
 async def scrape_jp_endpoint(
     request: ScrapeRequest,
-    _auth: Annotated[dict | None, Depends(verify_scheduler_auth)],
 ) -> ScrapeResult:
     """Scrape Japanese tournaments from Limitless.
 
@@ -137,7 +134,6 @@ async def scrape_jp_endpoint(
 @router.post("/compute-meta", response_model=ComputeMetaResult)
 async def compute_meta_endpoint(
     request: ComputeMetaRequest,
-    _auth: Annotated[dict | None, Depends(verify_scheduler_auth)],
 ) -> ComputeMetaResult:
     """Compute daily meta snapshots.
 
@@ -171,7 +167,6 @@ async def compute_meta_endpoint(
 @router.post("/sync-cards", response_model=SyncCardsResult)
 async def sync_cards_endpoint(
     request: SyncCardsRequest,
-    _auth: Annotated[dict | None, Depends(verify_scheduler_auth)],
 ) -> SyncCardsResult:
     """Sync card data from TCGdex.
 

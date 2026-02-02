@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.db.database import async_session_factory
 from src.services.meta_service import MetaService
 
@@ -124,7 +126,7 @@ async def compute_daily_snapshots(
                         else:
                             logger.info("DRY RUN - would save snapshot: %s", combo)
 
-                    except Exception as e:
+                    except (SQLAlchemyError, ValueError, TypeError) as e:
                         error_msg = f"Error computing {combo}: {e}"
                         logger.error(error_msg, exc_info=True)
                         result.errors.append(error_msg)
@@ -199,7 +201,7 @@ async def compute_single_snapshot(
             else:
                 logger.info("DRY RUN - would save: %s", combo)
 
-        except Exception as e:
+        except (SQLAlchemyError, ValueError, TypeError) as e:
             error_msg = f"Error computing {combo}: {e}"
             logger.error(error_msg, exc_info=True)
             result.errors.append(error_msg)

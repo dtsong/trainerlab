@@ -7,7 +7,6 @@ Scrapes tournament data from play.limitlesstcg.com including:
 """
 
 import asyncio
-import contextlib
 import logging
 import re
 from dataclasses import dataclass, field
@@ -97,7 +96,17 @@ class LimitlessTournament:
 
     @staticmethod
     def _parse_date(date_str: str) -> date:
-        """Parse date from various Limitless formats."""
+        """Parse date from various Limitless formats.
+
+        Args:
+            date_str: Date string in various possible formats.
+
+        Returns:
+            Parsed date.
+
+        Raises:
+            ValueError: If date cannot be parsed in any known format.
+        """
         formats = [
             "%Y-%m-%d",
             "%B %d, %Y",
@@ -112,9 +121,7 @@ class LimitlessTournament:
             except ValueError:
                 continue
 
-        # Fallback to today if parsing fails
-        logger.warning(f"Could not parse date: {date_str}, using today")
-        return date.today()
+        raise ValueError(f"Could not parse date '{date_str}' in any known format")
 
 
 # Limitless set code to TCGdex set ID mapping
@@ -284,7 +291,7 @@ class LimitlessClient:
     async def _wait_for_rate_limit(self) -> None:
         """Wait if necessary to respect rate limit."""
         async with self._lock:
-            now = asyncio.get_event_loop().time()
+            now = asyncio.get_running_loop().time()
 
             # Remove timestamps older than 1 minute
             self._request_times = [t for t in self._request_times if now - t < 60]
@@ -402,8 +409,12 @@ class LimitlessClient:
                 tournament = self._parse_tournament_row(row, region, game_format)
                 if tournament:
                     tournaments.append(tournament)
-            except Exception as e:
-                logger.warning(f"Error parsing tournament row: {e}")
+            except (ValueError, KeyError, AttributeError) as e:
+                logger.warning(
+                    "Error parsing tournament row: %s",
+                    e,
+                    exc_info=True,
+                )
                 continue
 
         return tournaments
@@ -503,8 +514,12 @@ class LimitlessClient:
                 placement = self._parse_placement_row(row)
                 if placement:
                     placements.append(placement)
-            except Exception as e:
-                logger.warning(f"Error parsing placement row: {e}")
+            except (ValueError, KeyError, AttributeError) as e:
+                logger.warning(
+                    "Error parsing placement row: %s",
+                    e,
+                    exc_info=True,
+                )
                 continue
 
         return placements
@@ -620,8 +635,14 @@ class LimitlessClient:
                 qty_elem = entry.select_one(".quantity, .card-qty")
                 quantity = 1
                 if qty_elem:
-                    with contextlib.suppress(ValueError):
-                        quantity = int(qty_elem.get_text(strip=True))
+                    qty_text = qty_elem.get_text(strip=True)
+                    try:
+                        quantity = int(qty_text)
+                    except ValueError:
+                        logger.debug(
+                            "Could not parse quantity '%s', defaulting to 1",
+                            qty_text,
+                        )
 
                 # Extract card name and set
                 name_elem = entry.select_one(".card-name, .name")

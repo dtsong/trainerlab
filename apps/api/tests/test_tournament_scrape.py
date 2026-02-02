@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.clients.limitless import (
     LimitlessClient,
     LimitlessDecklist,
+    LimitlessError,
     LimitlessPlacement,
     LimitlessTournament,
 )
@@ -320,7 +321,9 @@ class TestScrapeNewTournaments:
         mock_client: AsyncMock,
     ) -> None:
         """Should record error and stop on page fetch failure."""
-        mock_client.fetch_tournament_listings.side_effect = Exception("Network error")
+        mock_client.fetch_tournament_listings.side_effect = LimitlessError(
+            "Network error"
+        )
 
         result = await service.scrape_new_tournaments(max_pages=3)
 
@@ -353,7 +356,9 @@ class TestScrapeNewTournaments:
     ) -> None:
         """Should continue on tournament processing error."""
         mock_client.fetch_tournament_listings.return_value = [sample_tournament]
-        mock_client.fetch_tournament_placements.side_effect = Exception("Parse error")
+        mock_client.fetch_tournament_placements.side_effect = LimitlessError(
+            "Parse error"
+        )
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None

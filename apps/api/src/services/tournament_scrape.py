@@ -9,12 +9,14 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from uuid import uuid4
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.limitless import (
     LimitlessClient,
+    LimitlessError,
     LimitlessPlacement,
     LimitlessTournament,
 )
@@ -126,9 +128,9 @@ class TournamentScrapeService:
 
                 logger.info(f"Fetched page {page}: {len(tournaments)} tournaments")
 
-            except Exception as e:
+            except (LimitlessError, httpx.RequestError) as e:
                 error_msg = f"Error fetching page {page}: {e}"
-                logger.error(error_msg)
+                logger.error(error_msg, exc_info=True)
                 result.errors.append(error_msg)
                 break
 
@@ -176,7 +178,7 @@ class TournamentScrapeService:
                     f"({len(placements)} placements)"
                 )
 
-            except Exception as e:
+            except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:
                 error_msg = f"Error processing tournament {tournament.name}: {e}"
                 logger.error(error_msg, exc_info=True)
                 result.errors.append(error_msg)

@@ -57,13 +57,26 @@ class TrendInfo(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    change: float = Field(description="Week-over-week change in share (-1.0 to 1.0)")
+    change: float = Field(
+        ge=-1.0, le=1.0, description="Week-over-week change in share (-1.0 to 1.0)"
+    )
     direction: Literal["up", "down", "stable"] = Field(
         description="Trend direction based on change"
     )
     previous_share: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Previous week's share"
     )
+
+
+class DivergentArchetype(BaseModel):
+    """Detailed divergence info for a single archetype between JP and EN meta."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    archetype: str = Field(description="Archetype name")
+    jp_share: float = Field(ge=0.0, le=1.0, description="Meta share in JP")
+    en_share: float = Field(ge=0.0, le=1.0, description="Meta share in EN")
+    diff: float = Field(ge=-1.0, le=1.0, description="Difference (jp_share - en_share)")
 
 
 class JPSignals(BaseModel):
@@ -79,9 +92,9 @@ class JPSignals(BaseModel):
         default_factory=list,
         description="Archetypes with lower share in JP than EN (>5% diff)",
     )
-    divergent: list[dict] = Field(
+    divergent: list[DivergentArchetype] = Field(
         default_factory=list,
-        description="Detailed divergence info: [{archetype, jp_share, en_share, diff}]",
+        description="Detailed divergence info for each divergent archetype",
     )
 
 

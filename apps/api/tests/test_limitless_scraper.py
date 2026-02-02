@@ -4,11 +4,13 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from src.clients.limitless import (
     LimitlessClient,
     LimitlessDecklist,
+    LimitlessError,
     LimitlessPlacement,
     LimitlessTournament,
     map_set_code,
@@ -284,15 +286,127 @@ class TestLimitlessClientRateLimiting:
     """Tests for rate limiting behavior."""
 
     @pytest.mark.asyncio
-    async def test_respects_request_limit(self) -> None:
-        """Should respect requests per minute limit."""
+    async def test_tracks_request_times(self) -> None:
+        """Should track request times for rate limiting."""
         client = LimitlessClient(
-            requests_per_minute=2,  # Very low for testing
-            max_concurrent=1,
+            requests_per_minute=60,
+            max_concurrent=5,
         )
 
-        # Test that rate limiter tracks requests
-        # Full test would need time mocking
+        # Verify client is initialized with empty request times
+        assert client._request_times == []
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_rate_limiter_enforces_delay_when_limit_reached(self) -> None:
+        """Should delay requests when rate limit is reached."""
+        client = LimitlessClient(
+            requests_per_minute=2,
+            max_concurrent=1,
+            max_retries=1,
+        )
+
+        with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.text = "<html></html>"
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            # Make requests up to the limit
+            await client._get("/test1")
+            await client._get("/test2")
+
+            # Both should have completed and tracked
+            assert len(client._request_times) == 2
+
+        await client.close()
+
+
+class TestLimitlessClientRetries:
+    """Tests for retry behavior on errors."""
+
+    @pytest.mark.asyncio
+    async def test_raises_after_exhausting_retries_on_503(self) -> None:
+        """Should raise LimitlessError after max retries on 503."""
+        client = LimitlessClient(
+            max_retries=3,
+            retry_delay=0.01,  # Very short for testing
+        )
+
+        call_count = 0
+
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            response = MagicMock()
+            response.status_code = 503
+            return response
+
+        with (
+            patch.object(client._client, "get", side_effect=mock_get),
+            pytest.raises(LimitlessError, match="Max retries exceeded"),
+        ):
+            await client._get("/test")
+
+        # Should have retried max_retries times
+        assert call_count == 3
+
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_raises_immediately_on_404(self) -> None:
+        """Should raise LimitlessError immediately on 404 without retry."""
+        client = LimitlessClient(max_retries=3)
+
+        mock_request = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+
+        with patch.object(client._client, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = httpx.HTTPStatusError(
+                "Not Found",
+                request=mock_request,
+                response=mock_response,
+            )
+
+            with pytest.raises(LimitlessError, match="Not found"):
+                await client._get("/nonexistent")
+
+            # Should only be called once (no retry on 404)
+            assert mock_get.call_count == 1
+
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_retries_on_429_rate_limit(self) -> None:
+        """Should retry on 429 rate limit with exponential backoff."""
+        client = LimitlessClient(
+            max_retries=3,
+            retry_delay=0.01,
+        )
+
+        call_count = 0
+
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            response = MagicMock()
+            if call_count < 3:
+                response.status_code = 429
+            else:
+                response.status_code = 200
+                response.text = "<html></html>"
+                response.raise_for_status = MagicMock()
+            return response
+
+        with patch.object(client._client, "get", side_effect=mock_get):
+            result = await client._get("/test")
+            assert result == "<html></html>"
+
+        # Should have retried twice before success
+        assert call_count == 3
+
         await client.close()
 
 

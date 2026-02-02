@@ -13,7 +13,8 @@ class ArchetypeDetector:
     """Detects deck archetypes from decklists.
 
     Uses signature card matching to identify the primary archetype of a deck.
-    When multiple signature cards are present, uses the one with highest quantity.
+    When multiple archetypes have signature cards present, selects the archetype
+    with the highest combined quantity of its signature cards.
     """
 
     def __init__(self, signature_cards: dict[str, str] | None = None) -> None:

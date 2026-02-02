@@ -4,7 +4,7 @@ from datetime import date as date_type
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Date, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,11 +16,17 @@ class MetaSnapshot(Base, TimestampMixin):
 
     __tablename__ = "meta_snapshots"
 
-    # Unique constraint on snapshot dimensions
+    # Unique constraint on snapshot dimensions + check constraints
     __table_args__ = (
         UniqueConstraint(
             "snapshot_date", "region", "format", "best_of", name="uq_meta_snapshot"
         ),
+        CheckConstraint(
+            "diversity_index >= 0 AND diversity_index <= 1",
+            name="ck_diversity_index_range",
+        ),
+        CheckConstraint("best_of IN (1, 3)", name="ck_best_of_valid"),
+        CheckConstraint("format IN ('standard', 'expanded')", name="ck_format_valid"),
     )
 
     # Primary key

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { useDeckStore } from "@/stores/deckStore";
 import { DeckListItem } from "./DeckListItem";
 import { cn } from "@/lib/utils";
@@ -12,34 +13,42 @@ interface DeckListProps {
 
 export function DeckList({ className }: DeckListProps) {
   const cards = useDeckStore((state) => state.cards);
+  // Get getter functions from store
   const cardsByType = useDeckStore((state) => state.cardsByType);
   const supertypeCounts = useDeckStore((state) => state.supertypeCounts);
   const addCard = useDeckStore((state) => state.addCard);
   const removeCard = useDeckStore((state) => state.removeCard);
 
+  // Call getters to compute values
   const grouped = cardsByType();
   const counts = supertypeCounts();
 
-  const handleQuantityChange = (cardId: string, delta: number) => {
-    const deckCard = cards.find((c) => c.card.id === cardId);
-    if (!deckCard) return;
+  const handleQuantityChange = useCallback(
+    (cardId: string, delta: number) => {
+      const deckCard = cards.find((c) => c.card.id === cardId);
+      if (!deckCard) return;
 
-    if (delta > 0) {
-      addCard(deckCard.card);
-    } else {
-      removeCard(cardId);
-    }
-  };
+      if (delta > 0) {
+        addCard(deckCard.card);
+      } else {
+        removeCard(cardId);
+      }
+    },
+    [cards, addCard, removeCard],
+  );
 
-  const handleRemove = (cardId: string) => {
-    const deckCard = cards.find((c) => c.card.id === cardId);
-    if (!deckCard) return;
+  const handleRemove = useCallback(
+    (cardId: string) => {
+      const deckCard = cards.find((c) => c.card.id === cardId);
+      if (!deckCard) return;
 
-    // Remove all copies by calling removeCard for each quantity
-    for (let i = 0; i < deckCard.quantity; i++) {
-      removeCard(cardId);
-    }
-  };
+      // Remove all copies by calling removeCard for each quantity
+      for (let i = 0; i < deckCard.quantity; i++) {
+        removeCard(cardId);
+      }
+    },
+    [cards, removeCard],
+  );
 
   if (cards.length === 0) {
     return (

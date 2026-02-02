@@ -10,10 +10,12 @@ interface DeckStatsProps {
 const TARGET_DECK_SIZE = 60;
 
 export function DeckStats({ className }: DeckStatsProps) {
+  // Get getter functions from store
   const totalCards = useDeckStore((state) => state.totalCards);
   const supertypeCounts = useDeckStore((state) => state.supertypeCounts);
   const isValid = useDeckStore((state) => state.isValid);
 
+  // Call getters to compute values
   const total = totalCards();
   const counts = supertypeCounts();
   const valid = isValid();

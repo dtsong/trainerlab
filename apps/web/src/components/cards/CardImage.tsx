@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +28,7 @@ function Placeholder({ size }: { size: "small" | "large" }) {
   );
 }
 
-export function CardImage({
+export const CardImage = memo(function CardImage({
   src,
   alt,
   size = "small",
@@ -66,4 +66,4 @@ export function CardImage({
       )}
     </div>
   );
-}
+});

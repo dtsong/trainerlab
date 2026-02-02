@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { SavedDeck, DeckCard, DeckFormat } from "@/types/deck";
 
 const STORAGE_KEY = "trainerlab-saved-decks";
@@ -129,16 +129,13 @@ export function useDecks() {
 
 /**
  * Hook for a single deck by ID.
+ * Uses useMemo instead of useState + useEffect to avoid derived state anti-pattern.
  */
 export function useDeck(id: string) {
-  const { getDeck, isLoading, loadError, updateDeck, deleteDeck } = useDecks();
-  const [deck, setDeck] = useState<SavedDeck | undefined>(undefined);
+  const { decks, isLoading, loadError, updateDeck, deleteDeck } = useDecks();
 
-  useEffect(() => {
-    if (!isLoading) {
-      setDeck(getDeck(id));
-    }
-  }, [id, isLoading, getDeck]);
+  // Derive deck from decks array - no need for separate state
+  const deck = useMemo(() => decks.find((d) => d.id === id), [decks, id]);
 
   return {
     deck,

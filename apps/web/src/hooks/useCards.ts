@@ -19,3 +19,16 @@ export function useCard(id: string) {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+/**
+ * Hook for card search in deck builder.
+ * Uses React Query for caching - repeated searches hit cache instead of API.
+ */
+export function useCardSearch(query: string, limit = 20) {
+  return useQuery({
+    queryKey: ["cards", "search", query, limit],
+    queryFn: () => cardsApi.search({ q: query, limit }),
+    enabled: query.trim().length > 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}

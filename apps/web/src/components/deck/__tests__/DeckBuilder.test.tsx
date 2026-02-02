@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DeckBuilder } from "../DeckBuilder";
 import { useDeckStore } from "@/stores/deckStore";
 import * as api from "@/lib/api";
@@ -14,6 +15,25 @@ vi.mock("@/lib/api", () => ({
 }));
 
 const mockCardsApi = vi.mocked(api.cardsApi);
+
+// Wrapper component that provides React Query context
+function TestWrapper({ children }: { children: React.ReactNode }) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
+// Custom render function that wraps with QueryClientProvider
+function renderWithProviders(ui: React.ReactElement) {
+  return render(ui, { wrapper: TestWrapper });
+}
 
 describe("DeckBuilder", () => {
   beforeEach(() => {
@@ -28,36 +48,36 @@ describe("DeckBuilder", () => {
   });
 
   it("should render deck name input", () => {
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
     expect(screen.getByPlaceholderText("Deck name...")).toBeInTheDocument();
   });
 
   it("should render save button when onSave is provided", () => {
-    render(<DeckBuilder onSave={() => {}} />);
+    renderWithProviders(<DeckBuilder onSave={() => {}} />);
     expect(screen.getByRole("button", { name: /save/i })).toBeInTheDocument();
   });
 
   it("should render search input", () => {
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
     // Both mobile and desktop versions have search inputs
     const inputs = screen.getAllByPlaceholderText("Search cards to add...");
     expect(inputs.length).toBeGreaterThan(0);
   });
 
   it("should disable save button when deck is not modified", () => {
-    render(<DeckBuilder onSave={() => {}} />);
+    renderWithProviders(<DeckBuilder onSave={() => {}} />);
     expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
   });
 
   it("should enable save button when deck is modified", () => {
     useDeckStore.getState().setName("My Deck");
-    render(<DeckBuilder onSave={() => {}} />);
+    renderWithProviders(<DeckBuilder onSave={() => {}} />);
     expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled();
   });
 
   it("should update deck name when typing", async () => {
     const user = userEvent.setup();
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
 
     const input = screen.getByPlaceholderText("Deck name...");
     await user.type(input, "Test Deck");
@@ -66,7 +86,7 @@ describe("DeckBuilder", () => {
   });
 
   it("should show empty state message when no search", () => {
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
     // Both mobile and desktop versions show this message
     const messages = screen.getAllByText(
       "Search for cards to add to your deck",
@@ -80,7 +100,7 @@ describe("DeckBuilder", () => {
     );
 
     const user = userEvent.setup();
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
 
     // Use first input (desktop version)
     const inputs = screen.getAllByPlaceholderText("Search cards to add...");
@@ -114,7 +134,7 @@ describe("DeckBuilder", () => {
     });
 
     const user = userEvent.setup();
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
 
     const inputs = screen.getAllByPlaceholderText("Search cards to add...");
     await user.type(inputs[0], "Pikachu");
@@ -148,7 +168,7 @@ describe("DeckBuilder", () => {
     });
 
     const user = userEvent.setup();
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
 
     const inputs = screen.getAllByPlaceholderText("Search cards to add...");
     await user.type(inputs[0], "Pikachu");
@@ -171,7 +191,7 @@ describe("DeckBuilder", () => {
     mockCardsApi.search.mockRejectedValue(new Error("Network error"));
 
     const user = userEvent.setup();
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
 
     const inputs = screen.getAllByPlaceholderText("Search cards to add...");
     await user.type(inputs[0], "Pikachu");
@@ -197,7 +217,7 @@ describe("DeckBuilder", () => {
     });
 
     const user = userEvent.setup();
-    render(<DeckBuilder />);
+    renderWithProviders(<DeckBuilder />);
 
     const inputs = screen.getAllByPlaceholderText("Search cards to add...");
     await user.type(inputs[0], "NonexistentCard");

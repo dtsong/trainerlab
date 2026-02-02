@@ -140,9 +140,13 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
             return { cards: newCards, isModified: true };
           }
 
-          const newCards = state.cards
-            .filter((_, i) => i !== existingIndex)
-            .map((c, i) => ({ ...c, position: i }));
+          // Combine filter + map into single reduce pass for better performance
+          const newCards = state.cards.reduce<DeckCard[]>((acc, card, i) => {
+            if (i !== existingIndex) {
+              acc.push({ ...card, position: acc.length });
+            }
+            return acc;
+          }, []);
 
           return { cards: newCards, isModified: true };
         });
@@ -159,9 +163,13 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
           }
 
           if (quantity <= 0) {
-            const newCards = state.cards
-              .filter((_, i) => i !== existingIndex)
-              .map((c, i) => ({ ...c, position: i }));
+            // Combine filter + map into single reduce pass for better performance
+            const newCards = state.cards.reduce<DeckCard[]>((acc, card, i) => {
+              if (i !== existingIndex) {
+                acc.push({ ...card, position: acc.length });
+              }
+              return acc;
+            }, []);
             return { cards: newCards, isModified: true };
           }
 
@@ -273,6 +281,9 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
       },
       storage: {
         getItem: (name) => {
+          if (typeof window === "undefined") {
+            return null;
+          }
           try {
             const value = localStorage.getItem(name);
             return value ? JSON.parse(value) : null;
@@ -282,6 +293,9 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
           }
         },
         setItem: (name, value) => {
+          if (typeof window === "undefined") {
+            return;
+          }
           try {
             localStorage.setItem(name, JSON.stringify(value));
           } catch (error) {
@@ -289,6 +303,9 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
           }
         },
         removeItem: (name) => {
+          if (typeof window === "undefined") {
+            return;
+          }
           try {
             localStorage.removeItem(name);
           } catch (error) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { subDays, endOfDay, startOfDay } from "date-fns";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -73,41 +73,47 @@ function MetaPageContent() {
     updateUrl(region, newDays);
   };
 
-  // Fetch current meta snapshot
+  // Fetch current meta snapshot and history in parallel
   // Japan uses Best-of-1 format; all other regions use Best-of-3
   const bestOf = region === "JP" ? 1 : 3;
+
+  const [currentMetaQuery, metaHistoryQuery] = useQueries({
+    queries: [
+      {
+        queryKey: ["meta", "current", region],
+        queryFn: () =>
+          metaApi.getCurrent({
+            region: region === "global" ? undefined : region,
+            format: "standard",
+            best_of: bestOf,
+          }),
+      },
+      {
+        queryKey: ["meta", "history", region, days],
+        queryFn: () =>
+          metaApi.getHistory({
+            region: region === "global" ? undefined : region,
+            format: "standard",
+            best_of: bestOf,
+            days,
+          }),
+      },
+    ],
+  });
 
   const {
     data: currentMeta,
     isLoading: isLoadingCurrent,
     error: currentError,
     refetch: refetchCurrent,
-  } = useQuery({
-    queryKey: ["meta", "current", region],
-    queryFn: () =>
-      metaApi.getCurrent({
-        region: region === "global" ? undefined : region,
-        format: "standard",
-        best_of: bestOf,
-      }),
-  });
+  } = currentMetaQuery;
 
-  // Fetch meta history for trends
   const {
     data: metaHistory,
     isLoading: isLoadingHistory,
     error: historyError,
     refetch: refetchHistory,
-  } = useQuery({
-    queryKey: ["meta", "history", region, days],
-    queryFn: () =>
-      metaApi.getHistory({
-        region: region === "global" ? undefined : region,
-        format: "standard",
-        best_of: bestOf,
-        days,
-      }),
-  });
+  } = metaHistoryQuery;
 
   const handleRetry = () => {
     refetchCurrent();

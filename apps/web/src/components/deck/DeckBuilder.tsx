@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import Image from "next/image";
 import { Save, Loader2, ImageOff, Upload, Download } from "lucide-react";
 import { useDeckStore } from "@/stores/deckStore";
-import { cardsApi, type CardSearchParams } from "@/lib/api";
+import { useCardSearch } from "@/hooks/useCards";
 import { DeckList } from "./DeckList";
 import { DeckStats } from "./DeckStats";
 import { DeckValidation } from "./DeckValidation";
@@ -73,11 +73,20 @@ export function DeckBuilder({
   isSaving = false,
 }: DeckBuilderProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<ApiCardSummary[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+
+  // Use React Query for card search - enables caching and deduplication
+  const {
+    data: searchResponse,
+    isLoading: isSearching,
+    error: searchQueryError,
+  } = useCardSearch(searchQuery, 20);
+
+  const searchResults = searchResponse?.items ?? [];
+  const searchError = searchQueryError
+    ? "Failed to search cards. Please try again."
+    : null;
 
   const name = useDeckStore((state) => state.name);
   const cards = useDeckStore((state) => state.cards);
@@ -87,33 +96,8 @@ export function DeckBuilder({
   const addCard = useDeckStore((state) => state.addCard);
   const setName = useDeckStore((state) => state.setName);
 
-  const handleSearch = useCallback(async (query: string) => {
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
-
-    if (!query.trim()) {
-      setSearchResults([]);
-      setSearchError(null);
-      return;
-    }
-
-    setIsSearching(true);
-    setSearchError(null);
-
-    try {
-      const params: CardSearchParams = {
-        q: query,
-        limit: 20,
-      };
-
-      const response = await cardsApi.search(params);
-      setSearchResults(response.items);
-    } catch (error) {
-      console.error("Search failed:", error);
-      setSearchError("Failed to search cards. Please try again.");
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
   }, []);
 
   const handleAddCard = useCallback(

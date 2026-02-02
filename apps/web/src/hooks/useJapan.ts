@@ -10,6 +10,9 @@ import {
   JapanPredictionParams,
 } from "@/lib/api";
 
+// Japan meta data changes infrequently - use 15 minute stale time
+const JAPAN_STALE_TIME = 1000 * 60 * 15;
+
 /**
  * Hook to fetch JP card innovations.
  */
@@ -24,6 +27,7 @@ export function useJPCardInnovations(params: JapanInnovationParams = {}) {
       params.limit,
     ],
     queryFn: () => japanApi.listInnovations(params),
+    staleTime: JAPAN_STALE_TIME,
   });
 }
 
@@ -35,6 +39,7 @@ export function useJPCardInnovationDetail(cardId: string | null) {
     queryKey: ["japan", "innovation", cardId],
     queryFn: () => japanApi.getInnovationDetail(cardId!),
     enabled: !!cardId,
+    staleTime: JAPAN_STALE_TIME,
   });
 }
 
@@ -45,6 +50,7 @@ export function useJPNewArchetypes(params: JapanArchetypeParams = {}) {
   return useQuery({
     queryKey: ["japan", "archetypes", params.set_code, params.limit],
     queryFn: () => japanApi.listNewArchetypes(params),
+    staleTime: JAPAN_STALE_TIME,
   });
 }
 
@@ -55,6 +61,7 @@ export function useJPSetImpacts(params: JapanSetImpactParams = {}) {
   return useQuery({
     queryKey: ["japan", "set-impacts", params.set_code, params.limit],
     queryFn: () => japanApi.listSetImpacts(params),
+    staleTime: JAPAN_STALE_TIME,
   });
 }
 
@@ -71,5 +78,6 @@ export function usePredictions(params: JapanPredictionParams = {}) {
       params.limit,
     ],
     queryFn: () => japanApi.listPredictions(params),
+    staleTime: JAPAN_STALE_TIME,
   });
 }

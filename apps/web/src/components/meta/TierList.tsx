@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import { TierBadge } from "@/components/ui/tier-badge";
 import { TrendArrow } from "@/components/ui/trend-arrow";
 import { JPSignalBadge } from "@/components/ui/jp-signal-badge";
@@ -27,7 +27,7 @@ interface ArchetypeRowProps {
   onKeyDown: (e: React.KeyboardEvent, index: number) => void;
 }
 
-function ArchetypeRow({
+const ArchetypeRow = memo(function ArchetypeRow({
   archetype,
   onClick,
   isSelected,
@@ -45,7 +45,8 @@ function ArchetypeRow({
         isSelected && "bg-teal-50",
         index % 2 === 0 ? "bg-white" : "bg-slate-50/50",
       )}
-      aria-selected={isSelected}
+      aria-pressed={isSelected}
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 56px" }}
     >
       {/* Signature card placeholder */}
       <div className="h-12 w-8 flex-shrink-0 rounded bg-gradient-to-br from-slate-200 to-slate-300" />
@@ -80,7 +81,7 @@ function ArchetypeRow({
         )}
     </button>
   );
-}
+});
 
 interface TierSectionProps {
   tier: Tier;
@@ -91,7 +92,7 @@ interface TierSectionProps {
   onKeyDown: (e: React.KeyboardEvent, index: number) => void;
 }
 
-function TierSection({
+const TierSection = memo(function TierSection({
   tier,
   archetypes,
   onArchetypeClick,
@@ -124,7 +125,7 @@ function TierSection({
       ))}
     </div>
   );
-}
+});
 
 export interface TierListProps {
   archetypes: ArchetypeData[];
@@ -141,27 +142,50 @@ export function TierList({
 }: TierListProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Group archetypes by tier
-  const tierGroups: Record<Tier, ArchetypeData[]> = {
-    S: [],
-    A: [],
-    B: [],
-    C: [],
-    Rogue: [],
-  };
+  // Memoize tier grouping to avoid recalculation
+  const { tierGroups, flatList, tierStartIndices } = useMemo(() => {
+    const groups: Record<Tier, ArchetypeData[]> = {
+      S: [],
+      A: [],
+      B: [],
+      C: [],
+      Rogue: [],
+    };
 
-  archetypes.forEach((archetype) => {
-    tierGroups[archetype.tier].push(archetype);
-  });
+    archetypes.forEach((archetype) => {
+      groups[archetype.tier].push(archetype);
+    });
 
-  // Flatten for keyboard navigation
-  const flatList = [
-    ...tierGroups.S,
-    ...tierGroups.A,
-    ...tierGroups.B,
-    ...tierGroups.C,
-    ...tierGroups.Rogue,
-  ];
+    // Flatten for keyboard navigation
+    const flat = [
+      ...groups.S,
+      ...groups.A,
+      ...groups.B,
+      ...groups.C,
+      ...groups.Rogue,
+    ];
+
+    // Calculate start indices for each tier
+    let idx = 0;
+    const startIndices: Record<Tier, number> = {
+      S: 0,
+      A: 0,
+      B: 0,
+      C: 0,
+      Rogue: 0,
+    };
+
+    (["S", "A", "B", "C", "Rogue"] as Tier[]).forEach((tier) => {
+      startIndices[tier] = idx;
+      idx += groups[tier].length;
+    });
+
+    return {
+      tierGroups: groups,
+      flatList: flat,
+      tierStartIndices: startIndices,
+    };
+  }, [archetypes]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent, currentIndex: number) => {
@@ -182,21 +206,6 @@ export function TierList({
     },
     [flatList, onArchetypeSelect],
   );
-
-  // Calculate start indices for each tier
-  let currentIndex = 0;
-  const tierStartIndices: Record<Tier, number> = {
-    S: 0,
-    A: 0,
-    B: 0,
-    C: 0,
-    Rogue: 0,
-  };
-
-  (["S", "A", "B", "C", "Rogue"] as Tier[]).forEach((tier) => {
-    tierStartIndices[tier] = currentIndex;
-    currentIndex += tierGroups[tier].length;
-  });
 
   return (
     <div

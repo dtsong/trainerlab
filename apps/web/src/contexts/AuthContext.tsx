@@ -16,6 +16,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   ReactNode,
 } from "react";
 import {
@@ -85,7 +86,8 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  // Use ref for firebaseUser since it's only needed for getIdToken, not for rendering
+  const firebaseUserRef = useRef<FirebaseUser | null>(null);
   const [authError, setAuthError] = useState<Error | null>(null);
 
   const clearAuthError = useCallback(() => {
@@ -100,12 +102,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      firebaseUserRef.current = fbUser;
       if (fbUser) {
         setUser(mapFirebaseUser(fbUser));
-        setFirebaseUser(fbUser);
       } else {
         setUser(null);
-        setFirebaseUser(null);
       }
       setLoading(false);
     });
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Only clear state after successful sign out
       // onAuthStateChanged will also fire, but we clear eagerly for immediate UI update
       setUser(null);
-      setFirebaseUser(null);
+      firebaseUserRef.current = null;
     } catch (error) {
       // Don't clear local state - session may still be valid server-side
       // Re-throw so callers can show an error to the user
@@ -133,6 +134,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const getIdToken = useCallback(async (): Promise<string | null> => {
+    const firebaseUser = firebaseUserRef.current;
     if (!firebaseUser) {
       return null;
     }
@@ -154,7 +156,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       );
       throw authErr;
     }
-  }, [firebaseUser]);
+  }, []);
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<UserCredential> => {

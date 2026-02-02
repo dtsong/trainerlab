@@ -7,7 +7,8 @@ export function useSets() {
   return useQuery({
     queryKey: ["sets"],
     queryFn: () => setsApi.list(),
-    staleTime: 1000 * 60 * 30, // 30 minutes (sets don't change often)
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours (sets change very rarely)
+    gcTime: 1000 * 60 * 60 * 24, // Keep in cache for 24 hours
   });
 }
 

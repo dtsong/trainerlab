@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Minus, Plus, Trash2, ImageOff } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { DeckCard } from "@/types/deck";
@@ -16,7 +16,7 @@ interface DeckListItemProps {
 
 const THUMBNAIL_SIZE = { width: 48, height: 67 };
 
-export function DeckListItem({
+export const DeckListItem = memo(function DeckListItem({
   deckCard,
   onQuantityChange,
   onRemove,
@@ -106,4 +106,4 @@ export function DeckListItem({
       </Button>
     </div>
   );
-}
+});

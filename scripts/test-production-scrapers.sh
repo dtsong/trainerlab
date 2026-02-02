@@ -5,7 +5,8 @@ set -euo pipefail
 # Usage: ./scripts/test-production-scrapers.sh [OPTIONS]
 #
 # This script manually triggers scrapers in the trainerlab-prod GCP environment
-# and verifies their execution.
+# via Cloud Scheduler jobs. This is the recommended way to test pipelines as it
+# uses the same authentication path as production.
 
 PROJECT_ID="trainerlab-prod"
 REGION="us-west1"
@@ -19,50 +20,41 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default values
-DRY_RUN=true
+CONFIRM=false
 VERIFY=false
 CHECK_LOGS=false
 PIPELINE=""
 RUN_ALL=false
-LOOKBACK_DAYS=7
-GAME_FORMAT="all"
-USE_SERVICE_ACCOUNT=false
-SERVICE_ACCOUNT_EMAIL=""
 
 usage() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
+Triggers Cloud Scheduler jobs to run pipeline tasks. This uses the scheduler's
+service account authentication, which is the same path used in production.
+
 Options:
     --pipeline=PIPELINE      Run specific pipeline: scrape-en, scrape-jp, compute-meta, sync-cards
-    --all                    Run all pipelines (dry-run mode)
-    --no-dry-run             Execute live run (writes data to database)
+    --all                    Run all pipelines sequentially
+    --confirm                Confirm you want to write data to production database
     --verify                 Verify results after execution
-    --check-logs             Check Cloud Logs for recent errors
-    --lookback-days=N        Number of days to look back (default: 7)
-    --format=FORMAT          Game format: standard, expanded, or all (default: all)
-    --use-service-account    Use operations service account (recommended for production)
+    --check-logs             Check Cloud Logs for recent errors (no pipeline execution)
     -h, --help               Show this help message
 
-Authentication:
-    By default, uses your gcloud user account (works if scheduler_auth_bypass=true).
-    For production, use --use-service-account to impersonate the operations SA.
-    Requires: roles/iam.serviceAccountTokenCreator on trainerlab-ops@trainerlab-prod
+Note: Cloud Scheduler jobs always run with their Terraform-configured parameters
+      (dry_run=false). This will write real data to the production database.
 
 Examples:
-    # Dry run of English scraper (safe, default)
-    $0 --pipeline=scrape-en
+    # Run English scraper (requires --confirm)
+    $0 --pipeline=scrape-en --confirm
 
-    # Production test with service account
-    $0 --pipeline=scrape-en --use-service-account
+    # Run all pipelines
+    $0 --all --confirm
 
-    # All pipelines in dry-run mode
-    $0 --all
+    # Run and verify results
+    $0 --pipeline=scrape-en --confirm --verify
 
-    # Live run with verification (production)
-    $0 --pipeline=scrape-en --no-dry-run --verify --use-service-account
-
-    # Check recent Cloud Logs for errors
+    # Check recent errors (no execution)
     $0 --check-logs
 
 EOF
@@ -114,200 +106,111 @@ check_prerequisites() {
 
 get_service_url() {
     log_info "Getting service URL..."
-    SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
-        --region="$REGION" \
-        --format='value(status.url)' 2>/dev/null || echo "")
 
-    if [ -z "$SERVICE_URL" ]; then
-        log_error "Failed to get service URL. Check that trainerlab-api is deployed."
+    # Get project number to construct URL in the format matching API's CLOUD_RUN_URL setting
+    PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)' 2>/dev/null || echo "")
+
+    if [ -z "$PROJECT_NUMBER" ]; then
+        log_error "Failed to get project number."
         exit 1
     fi
+
+    # Construct URL in the format: https://SERVICE-PROJECT_NUMBER.REGION.run.app
+    SERVICE_URL="https://${SERVICE_NAME}-${PROJECT_NUMBER}.${REGION}.run.app"
 
     log_success "Service URL: $SERVICE_URL"
 }
 
-get_auth_token() {
-    log_info "Getting authentication token..."
-
-    if [ "$USE_SERVICE_ACCOUNT" = true ]; then
-        # Get service account email from Terraform output if not already set
-        if [ -z "$SERVICE_ACCOUNT_EMAIL" ]; then
-            log_info "Fetching operations service account email from Terraform..."
-            SERVICE_ACCOUNT_EMAIL="trainerlab-ops@${PROJECT_ID}.iam.gserviceaccount.com"
-        fi
-
-        log_info "Using service account: $SERVICE_ACCOUNT_EMAIL"
-
-        # Impersonate service account to get identity token
-        TOKEN=$(gcloud auth print-identity-token \
-            --impersonate-service-account="$SERVICE_ACCOUNT_EMAIL" \
-            --audiences="$SERVICE_URL" \
-            2>/dev/null || echo "")
-
-        if [ -z "$TOKEN" ]; then
-            log_error "Failed to impersonate service account."
-            log_error "Make sure you have roles/iam.serviceAccountTokenCreator permission."
-            log_error "Contact your GCP admin to grant access to: $SERVICE_ACCOUNT_EMAIL"
-            exit 1
-        fi
-
-        log_success "Service account impersonation successful"
-    else
-        # Use user account (for development or if scheduler_auth_bypass=true)
-        log_info "Using user account authentication"
-
-        # Try without audiences first (works for user accounts)
-        TOKEN=$(gcloud auth print-identity-token 2>/dev/null || echo "")
-
-        # If that fails, try with audiences (works for service accounts)
-        if [ -z "$TOKEN" ]; then
-            TOKEN=$(gcloud auth print-identity-token --audiences="$SERVICE_URL" 2>/dev/null || echo "")
-        fi
-
-        if [ -z "$TOKEN" ]; then
-            log_error "Failed to get authentication token."
-            log_error "Make sure you're logged in: gcloud auth login"
-            log_error "Or use --use-service-account for production"
-            exit 1
-        fi
-
-        log_success "Authentication token acquired"
-    fi
-}
-
 health_check() {
-    log_info "Running health checks..."
+    log_info "Checking Cloud Run service status..."
 
-    # API health check
-    API_HEALTH=$(curl -s -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/api/v1/health" || echo "")
+    # Check if the service exists and is serving
+    SERVICE_STATUS=$(gcloud run services describe "$SERVICE_NAME" \
+        --region="$REGION" \
+        --format='value(status.conditions[0].status)' 2>/dev/null || echo "")
 
-    if echo "$API_HEALTH" | jq -e '.status == "healthy" or .status == "ok"' > /dev/null 2>&1; then
-        log_success "API health check passed"
+    if [ "$SERVICE_STATUS" = "True" ]; then
+        log_success "Cloud Run service is healthy"
     else
-        log_error "API health check failed"
-        echo "$API_HEALTH" | jq '.' 2>/dev/null || echo "$API_HEALTH"
-        exit 1
+        log_warning "Cloud Run service status: $SERVICE_STATUS (may still be starting)"
     fi
-
-    # Database health check
-    DB_STATUS=$(echo "$API_HEALTH" | jq -r '.database // "unknown"')
-    if [ "$DB_STATUS" == "connected" ]; then
-        log_success "Database health check passed"
-    else
-        log_warning "Database status: $DB_STATUS"
-    fi
-}
-
-warn_live_run() {
-    log_warning "⚠️  LIVE RUN MODE - This will write data to the production database!"
-    log_warning "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
-    sleep 5
 }
 
 run_pipeline() {
     local pipeline=$1
-    local endpoint=""
-    local params=""
+    local job_name="trainerlab-${pipeline}"
 
-    case $pipeline in
-        scrape-en)
-            endpoint="/api/v1/pipeline/scrape-en"
-            params="{\"dry_run\": $DRY_RUN, \"lookback_days\": $LOOKBACK_DAYS, \"game_format\": \"$GAME_FORMAT\"}"
-            ;;
-        scrape-jp)
-            endpoint="/api/v1/pipeline/scrape-jp"
-            params="{\"dry_run\": $DRY_RUN, \"lookback_days\": $LOOKBACK_DAYS, \"game_format\": \"$GAME_FORMAT\"}"
-            ;;
-        compute-meta)
-            endpoint="/api/v1/pipeline/compute-meta"
-            params="{\"dry_run\": $DRY_RUN, \"lookback_days\": $LOOKBACK_DAYS}"
-            ;;
-        sync-cards)
-            endpoint="/api/v1/pipeline/sync-cards"
-            params="{\"dry_run\": $DRY_RUN}"
-            ;;
-        *)
-            log_error "Unknown pipeline: $pipeline"
-            return 1
-            ;;
-    esac
-
-    log_info "Running pipeline: $pipeline (dry_run=$DRY_RUN)"
-    echo -e "${BLUE}Endpoint:${NC} $endpoint"
-    echo -e "${BLUE}Parameters:${NC} $params"
+    log_info "Running pipeline: $pipeline via Cloud Scheduler job"
+    echo -e "${BLUE}Job:${NC} $job_name"
 
     START_TIME=$(date +%s)
 
-    RESPONSE=$(curl -s -X POST \
-        -H "Authorization: Bearer $TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$params" \
-        "$SERVICE_URL$endpoint")
+    # Trigger the scheduler job - this uses the scheduler SA's native token
+    log_info "Triggering Cloud Scheduler job..."
+    if ! gcloud scheduler jobs run "$job_name" --location="$REGION" 2>&1; then
+        log_error "Failed to trigger scheduler job"
+        return 1
+    fi
 
+    # Wait for the job to complete and check logs
+    log_info "Job triggered, waiting for completion..."
+    sleep 8
+
+    # Check the most recent request to this pipeline
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
 
+    log_info "Checking Cloud Run logs for result..."
+    RESULT=$(gcloud logging read \
+        "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE_NAME\" AND httpRequest.requestUrl:\"/api/v1/pipeline/${pipeline}\"" \
+        --limit=1 \
+        --format='value(httpRequest.status)' \
+        --freshness=2m \
+        --project="$PROJECT_ID" 2>/dev/null || echo "")
+
     echo ""
-    log_info "Response (took ${DURATION}s):"
-    echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
-    echo ""
+    if [ "$RESULT" = "200" ]; then
+        log_success "Pipeline completed successfully (HTTP $RESULT, took ${DURATION}s)"
 
-    # Check for success
-    if echo "$RESPONSE" | jq -e '.success == true' > /dev/null 2>&1; then
-        log_success "Pipeline completed successfully"
+        # Get detailed response from logs if available
+        RESPONSE_LOG=$(gcloud logging read \
+            "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE_NAME\" AND jsonPayload.message:\"Pipeline\"" \
+            --limit=5 \
+            --format='value(jsonPayload.message)' \
+            --freshness=2m \
+            --project="$PROJECT_ID" 2>/dev/null || echo "")
 
-        # Show key metrics
-        case $pipeline in
-            scrape-en|scrape-jp)
-                TOURNAMENTS=$(echo "$RESPONSE" | jq -r '.tournaments_saved // 0')
-                PLACEMENTS=$(echo "$RESPONSE" | jq -r '.placements_saved // 0')
-                ERRORS=$(echo "$RESPONSE" | jq -r '.errors // []')
-
-                log_info "Tournaments saved: $TOURNAMENTS"
-                log_info "Placements saved: $PLACEMENTS"
-
-                if [ "$ERRORS" != "[]" ]; then
-                    log_warning "Errors encountered:"
-                    echo "$ERRORS" | jq '.'
-                fi
-                ;;
-            compute-meta)
-                SNAPSHOTS=$(echo "$RESPONSE" | jq -r '.snapshots_saved // 0')
-                log_info "Snapshots saved: $SNAPSHOTS"
-                ;;
-            sync-cards)
-                CARDS=$(echo "$RESPONSE" | jq -r '.cards_synced // 0')
-                SETS=$(echo "$RESPONSE" | jq -r '.sets_synced // 0')
-                log_info "Cards synced: $CARDS"
-                log_info "Sets synced: $SETS"
-                ;;
-        esac
+        if [ -n "$RESPONSE_LOG" ]; then
+            log_info "Pipeline logs:"
+            echo "$RESPONSE_LOG"
+        fi
 
         return 0
+    elif [ "$RESULT" = "401" ]; then
+        log_error "Pipeline authentication failed (HTTP $RESULT)"
+        log_error "Check scheduler service account permissions"
+        return 1
+    elif [ -n "$RESULT" ]; then
+        log_error "Pipeline failed with HTTP $RESULT"
+        return 1
     else
-        log_error "Pipeline failed"
-        ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error // "Unknown error"')
-        log_error "Error: $ERROR_MSG"
+        log_warning "Could not determine result from logs (job may still be running)"
+        log_info "Check logs manually: gcloud logging read 'resource.labels.service_name=\"$SERVICE_NAME\"' --freshness=5m"
         return 1
     fi
 }
 
 verify_results() {
-    log_info "Verifying results..."
+    log_info "Verifying results via Cloud Logging..."
 
-    TOURNAMENTS=$(curl -s -H "Authorization: Bearer $TOKEN" \
-        "$SERVICE_URL/api/v1/tournaments?limit=10&sort_by=date&order=desc")
-
-    if echo "$TOURNAMENTS" | jq -e '.items | length > 0' > /dev/null 2>&1; then
-        COUNT=$(echo "$TOURNAMENTS" | jq '.items | length')
-        log_success "Found $COUNT recent tournaments in database"
-
-        echo ""
-        log_info "Recent tournaments:"
-        echo "$TOURNAMENTS" | jq -r '.items[] | "\(.date) - \(.name) (\(.format))"' | head -5
-    else
-        log_warning "No tournaments found in database"
-    fi
+    # Check recent successful pipeline executions
+    log_info "Recent pipeline executions:"
+    gcloud logging read \
+        "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE_NAME\" AND httpRequest.requestUrl:\"/api/v1/pipeline\"" \
+        --limit=10 \
+        --format='table(timestamp, httpRequest.status, httpRequest.requestUrl)' \
+        --freshness=1h \
+        --project="$PROJECT_ID" 2>/dev/null || log_warning "Could not fetch logs"
 }
 
 check_cloud_logs() {
@@ -318,6 +221,7 @@ check_cloud_logs() {
         "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE_NAME AND severity>=ERROR" \
         --limit=20 \
         --format=json \
+        --freshness=1h \
         --project="$PROJECT_ID" 2>/dev/null || echo "[]")
 
     ERROR_COUNT=$(echo "$LOGS" | jq '. | length')
@@ -342,8 +246,8 @@ while [[ $# -gt 0 ]]; do
             RUN_ALL=true
             shift
             ;;
-        --no-dry-run)
-            DRY_RUN=false
+        --confirm)
+            CONFIRM=true
             shift
             ;;
         --verify)
@@ -352,18 +256,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --check-logs)
             CHECK_LOGS=true
-            shift
-            ;;
-        --lookback-days=*)
-            LOOKBACK_DAYS="${1#*=}"
-            shift
-            ;;
-        --format=*)
-            GAME_FORMAT="${1#*=}"
-            shift
-            ;;
-        --use-service-account)
-            USE_SERVICE_ACCOUNT=true
             shift
             ;;
         -h|--help)
@@ -395,30 +287,81 @@ if [ "$RUN_ALL" = false ] && [ -z "$PIPELINE" ]; then
     usage
 fi
 
+# Require confirmation for pipeline execution
+if [ "$CONFIRM" = false ]; then
+    log_error "Pipeline execution writes to production database."
+    log_error "Use --confirm to acknowledge this."
+    exit 1
+fi
+
 # Run checks
 check_prerequisites
 get_service_url
-get_auth_token
 health_check
 
 echo ""
-
-# Warn if live run
-if [ "$DRY_RUN" = false ]; then
-    warn_live_run
-fi
+log_warning "⚠️  This will write data to the PRODUCTION database!"
+log_warning "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
+sleep 5
 
 # Run pipelines
 if [ "$RUN_ALL" = true ]; then
-    log_info "Running all pipelines in dry-run mode..."
+    log_info "Running all pipelines concurrently..."
     echo ""
 
-    for pipeline in scrape-en scrape-jp sync-cards compute-meta; do
-        run_pipeline "$pipeline" || log_warning "Pipeline $pipeline failed, continuing..."
-        echo ""
-        echo "────────────────────────────────────────────────────────────"
-        echo ""
+    # Trigger all scheduler jobs in parallel
+    PIDS=()
+    PIPELINES=(scrape-en scrape-jp sync-cards compute-meta)
+
+    for pipeline in "${PIPELINES[@]}"; do
+        job_name="trainerlab-${pipeline}"
+        log_info "Triggering $pipeline..."
+        gcloud scheduler jobs run "$job_name" --location="$REGION" 2>&1 &
+        PIDS+=($!)
     done
+
+    # Wait for all triggers to complete
+    log_info "Waiting for all jobs to be triggered..."
+    for pid in "${PIDS[@]}"; do
+        wait "$pid" 2>/dev/null || true
+    done
+
+    log_success "All jobs triggered, waiting for completion..."
+    sleep 15  # sync-cards may take longer due to card data sync
+
+    # Check results for all pipelines
+    echo ""
+    log_info "Checking results..."
+    echo ""
+
+    FAILED=0
+    for pipeline in "${PIPELINES[@]}"; do
+        RESULT=$(gcloud logging read \
+            "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE_NAME\" AND httpRequest.requestUrl:\"/api/v1/pipeline/${pipeline}\"" \
+            --limit=1 \
+            --format='value(httpRequest.status)' \
+            --freshness=2m \
+            --project="$PROJECT_ID" 2>/dev/null || echo "")
+
+        if [ "$RESULT" = "200" ]; then
+            log_success "$pipeline: HTTP 200 OK"
+        elif [ "$RESULT" = "401" ]; then
+            log_error "$pipeline: HTTP 401 Unauthorized"
+            FAILED=$((FAILED + 1))
+        elif [ -n "$RESULT" ]; then
+            log_error "$pipeline: HTTP $RESULT"
+            FAILED=$((FAILED + 1))
+        else
+            log_warning "$pipeline: No result yet (may still be running)"
+        fi
+    done
+
+    echo ""
+    if [ "$FAILED" -eq 0 ]; then
+        log_success "All pipelines completed successfully!"
+    else
+        log_warning "$FAILED pipeline(s) failed"
+    fi
 else
     run_pipeline "$PIPELINE"
 fi

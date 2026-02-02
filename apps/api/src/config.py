@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     # CORS (comma-separated list of origins)
     cors_origins: str = "http://localhost:3000"
 
+    # Cloud Scheduler (for pipeline auth)
+    # The Cloud Run service URL (audience for OIDC tokens)
+    cloud_run_url: str | None = None
+    # Service account email for Cloud Scheduler
+    scheduler_service_account: str | None = None
+    # Bypass scheduler auth in development
+    scheduler_auth_bypass: bool = False
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

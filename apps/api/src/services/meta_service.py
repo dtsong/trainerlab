@@ -7,7 +7,8 @@ card inclusion rates, and other meta statistics.
 import logging
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
+from decimal import Decimal
 from typing import Literal
 from uuid import uuid4
 
@@ -16,8 +17,19 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
+from src.schemas.meta import DivergentArchetype
 
 logger = logging.getLogger(__name__)
+
+# Tier thresholds based on meta share
+TIER_S_THRESHOLD = 0.15  # >15%
+TIER_A_THRESHOLD = 0.08  # 8-15%
+TIER_B_THRESHOLD = 0.03  # 3-8%
+TIER_C_THRESHOLD = 0.01  # 1-3%
+# Below 1% = Rogue
+
+# JP signal threshold
+JP_SIGNAL_THRESHOLD = 0.05  # 5% divergence
 
 
 class MetaService:
@@ -134,7 +146,12 @@ class MetaService:
     async def save_snapshot(self, snapshot: MetaSnapshot) -> MetaSnapshot:
         """Save a meta snapshot to the database.
 
-        If a snapshot with the same dimensions already exists, it will be updated.
+        If a snapshot with the same dimensions already exists, only core fields
+        are updated: archetype_shares, card_usage, sample_size, tournaments_included.
+        Enhanced fields (diversity_index, tier_assignments, jp_signals, trends)
+        are NOT updated on existing records - use compute_enhanced_meta_snapshot
+        to recompute the full snapshot.
+
         Dimensions are: snapshot_date, region, format, and best_of.
 
         Args:
@@ -368,4 +385,255 @@ class MetaService:
             card_usage=None,
             sample_size=0,
             tournaments_included=[],
+            diversity_index=None,
+            tier_assignments=None,
+            jp_signals=None,
+            trends=None,
         )
+
+    def compute_diversity_index(self, shares: dict[str, float]) -> Decimal | None:
+        """Compute Simpson's diversity index from archetype shares.
+
+        Simpson's diversity index: 1 - sum(share^2)
+        Range 0-1, where higher values indicate more diverse meta.
+
+        Args:
+            shares: Dict mapping archetype names to their shares (0.0-1.0).
+
+        Returns:
+            Diversity index as Decimal, or None if no shares.
+        """
+        if not shares:
+            return None
+
+        sum_squared = sum(share**2 for share in shares.values())
+        return Decimal(str(round(1 - sum_squared, 4)))
+
+    def compute_tier_assignments(self, shares: dict[str, float]) -> dict[str, str]:
+        """Assign tiers to archetypes based on meta share.
+
+        Tier thresholds:
+        - S: >15%
+        - A: 8-15%
+        - B: 3-8%
+        - C: 1-3%
+        - Rogue: <1%
+
+        Args:
+            shares: Dict mapping archetype names to their shares (0.0-1.0).
+
+        Returns:
+            Dict mapping archetype names to tier strings.
+        """
+        tiers: dict[str, str] = {}
+
+        for archetype, share in shares.items():
+            if share > TIER_S_THRESHOLD:
+                tiers[archetype] = "S"
+            elif share > TIER_A_THRESHOLD:
+                tiers[archetype] = "A"
+            elif share > TIER_B_THRESHOLD:
+                tiers[archetype] = "B"
+            elif share > TIER_C_THRESHOLD:
+                tiers[archetype] = "C"
+            else:
+                tiers[archetype] = "Rogue"
+
+        return tiers
+
+    async def compute_jp_signals(
+        self,
+        snapshot_date: date,
+        game_format: Literal["standard", "expanded"] = "standard",
+        lookback_days: int = 90,
+    ) -> dict | None:
+        """Compute JP vs EN meta divergence signals.
+
+        Compares JP (BO1) meta shares against EN (BO3) meta shares
+        and identifies archetypes with significant divergence (>5%).
+
+        Args:
+            snapshot_date: Reference date for comparison.
+            game_format: Game format to compare.
+            lookback_days: Days to look back for data.
+
+        Returns:
+            Dict with rising/falling/divergent lists, or None if insufficient data.
+        """
+        # Get JP snapshot (BO1)
+        jp_snapshot = await self.get_snapshot(
+            snapshot_date=snapshot_date,
+            region="JP",
+            game_format=game_format,
+            best_of=1,
+        )
+
+        # Get global/EN snapshot (BO3)
+        en_snapshot = await self.get_snapshot(
+            snapshot_date=snapshot_date,
+            region=None,  # Global includes EN data
+            game_format=game_format,
+            best_of=3,
+        )
+
+        if not jp_snapshot or not en_snapshot:
+            return None
+
+        jp_shares = jp_snapshot.archetype_shares or {}
+        en_shares = en_snapshot.archetype_shares or {}
+
+        all_archetypes = set(jp_shares.keys()) | set(en_shares.keys())
+
+        rising: list[str] = []  # Higher in JP
+        falling: list[str] = []  # Lower in JP
+        divergent: list[DivergentArchetype] = []
+
+        for archetype in all_archetypes:
+            jp_share = jp_shares.get(archetype, 0.0)
+            en_share = en_shares.get(archetype, 0.0)
+            diff = jp_share - en_share
+
+            if abs(diff) > JP_SIGNAL_THRESHOLD:
+                divergent.append(
+                    DivergentArchetype(
+                        archetype=archetype,
+                        jp_share=round(jp_share, 4),
+                        en_share=round(en_share, 4),
+                        diff=round(diff, 4),
+                    )
+                )
+
+                if diff > 0:
+                    rising.append(archetype)
+                else:
+                    falling.append(archetype)
+
+        if not divergent:
+            return None
+
+        return {
+            "rising": rising,
+            "falling": falling,
+            "divergent": sorted(divergent, key=lambda x: abs(x.diff), reverse=True),
+        }
+
+    async def compute_trends(
+        self,
+        current_shares: dict[str, float],
+        snapshot_date: date,
+        region: str | None,
+        game_format: Literal["standard", "expanded"],
+        best_of: Literal[1, 3],
+    ) -> dict | None:
+        """Compute week-over-week trends for archetypes.
+
+        Args:
+            current_shares: Current archetype shares.
+            snapshot_date: Current snapshot date.
+            region: Region filter.
+            game_format: Game format.
+            best_of: Match format.
+
+        Returns:
+            Dict mapping archetypes to trend info, or None if no previous data.
+        """
+        previous_date = snapshot_date - timedelta(days=7)
+
+        previous_snapshot = await self.get_snapshot(
+            snapshot_date=previous_date,
+            region=region,
+            game_format=game_format,
+            best_of=best_of,
+        )
+
+        if not previous_snapshot:
+            return None
+
+        previous_shares = previous_snapshot.archetype_shares or {}
+        all_archetypes = set(current_shares.keys()) | set(previous_shares.keys())
+
+        trends: dict[str, dict] = {}
+
+        for archetype in all_archetypes:
+            current = current_shares.get(archetype, 0.0)
+            previous = previous_shares.get(archetype, 0.0)
+            change = current - previous
+
+            if abs(change) < 0.005:  # Less than 0.5% change
+                direction = "stable"
+            elif change > 0:
+                direction = "up"
+            else:
+                direction = "down"
+
+            trends[archetype] = {
+                "change": round(change, 4),
+                "direction": direction,
+                "previous_share": round(previous, 4) if previous > 0 else None,
+            }
+
+        return trends
+
+    async def compute_enhanced_meta_snapshot(
+        self,
+        *,
+        snapshot_date: date,
+        region: str | None = None,
+        game_format: Literal["standard", "expanded"] = "standard",
+        best_of: Literal[1, 3] = 3,
+        lookback_days: int = 90,
+    ) -> MetaSnapshot:
+        """Compute an enhanced meta snapshot with diversity, tiers, and trends.
+
+        This is an enhanced version of compute_meta_snapshot that also computes:
+        - diversity_index: Simpson's diversity index
+        - tier_assignments: S/A/B/C/Rogue tiers
+        - jp_signals: JP vs EN divergence (for non-JP snapshots)
+        - trends: Week-over-week changes
+
+        Args:
+            snapshot_date: Reference date for the snapshot.
+            region: Region filter or None for global.
+            game_format: Game format.
+            best_of: Match format.
+            lookback_days: Days to look back for tournament data.
+
+        Returns:
+            MetaSnapshot with all enhanced fields populated.
+        """
+        # First compute the base snapshot
+        snapshot = await self.compute_meta_snapshot(
+            snapshot_date=snapshot_date,
+            region=region,
+            game_format=game_format,
+            best_of=best_of,
+            lookback_days=lookback_days,
+        )
+
+        if snapshot.sample_size == 0:
+            return snapshot
+
+        shares = snapshot.archetype_shares
+
+        # Compute enhanced fields
+        snapshot.diversity_index = self.compute_diversity_index(shares)
+        snapshot.tier_assignments = self.compute_tier_assignments(shares)
+
+        # Compute JP signals (only for non-JP, BO3 snapshots)
+        if region != "JP" and best_of == 3:
+            snapshot.jp_signals = await self.compute_jp_signals(
+                snapshot_date=snapshot_date,
+                game_format=game_format,
+                lookback_days=lookback_days,
+            )
+
+        # Compute trends
+        snapshot.trends = await self.compute_trends(
+            current_shares=shares,
+            snapshot_date=snapshot_date,
+            region=region,
+            game_format=game_format,
+            best_of=best_of,
+        )
+
+        return snapshot

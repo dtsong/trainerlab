@@ -1,6 +1,7 @@
 """Tests for meta snapshot service."""
 
 from datetime import date
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -742,3 +743,403 @@ class TestGetSnapshotAsync:
                 game_format="standard",
                 best_of=3,
             )
+
+
+class TestComputeDiversityIndex:
+    """Tests for diversity index computation."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    def test_computes_diversity_for_even_shares(self, service: MetaService) -> None:
+        """Should compute high diversity for evenly distributed shares."""
+        shares = {"A": 0.25, "B": 0.25, "C": 0.25, "D": 0.25}
+        diversity = service.compute_diversity_index(shares)
+
+        # 1 - (0.25^2 * 4) = 1 - 0.25 = 0.75
+        assert diversity == Decimal("0.75")
+
+    def test_computes_low_diversity_for_dominant_share(
+        self, service: MetaService
+    ) -> None:
+        """Should compute low diversity when one archetype dominates."""
+        shares = {"A": 0.9, "B": 0.05, "C": 0.05}
+        diversity = service.compute_diversity_index(shares)
+
+        # 1 - (0.9^2 + 0.05^2 + 0.05^2) = 1 - 0.815 = 0.185
+        assert diversity == Decimal("0.185")
+
+    def test_computes_zero_diversity_for_single_archetype(
+        self, service: MetaService
+    ) -> None:
+        """Should compute zero diversity when only one archetype."""
+        shares = {"A": 1.0}
+        diversity = service.compute_diversity_index(shares)
+
+        # 1 - 1^2 = 0
+        assert diversity == Decimal("0.0")
+
+    def test_returns_none_for_empty_shares(self, service: MetaService) -> None:
+        """Should return None for empty shares."""
+        assert service.compute_diversity_index({}) is None
+
+
+class TestComputeTierAssignments:
+    """Tests for tier assignment computation."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    def test_assigns_s_tier_above_15_percent(self, service: MetaService) -> None:
+        """Should assign S tier for shares >15%."""
+        shares = {"A": 0.20}
+        tiers = service.compute_tier_assignments(shares)
+        assert tiers["A"] == "S"
+
+    def test_assigns_a_tier_between_8_and_15_percent(
+        self, service: MetaService
+    ) -> None:
+        """Should assign A tier for shares 8-15%."""
+        shares = {"A": 0.12}
+        tiers = service.compute_tier_assignments(shares)
+        assert tiers["A"] == "A"
+
+    def test_assigns_b_tier_between_3_and_8_percent(self, service: MetaService) -> None:
+        """Should assign B tier for shares 3-8%."""
+        shares = {"A": 0.05}
+        tiers = service.compute_tier_assignments(shares)
+        assert tiers["A"] == "B"
+
+    def test_assigns_c_tier_between_1_and_3_percent(self, service: MetaService) -> None:
+        """Should assign C tier for shares 1-3%."""
+        shares = {"A": 0.02}
+        tiers = service.compute_tier_assignments(shares)
+        assert tiers["A"] == "C"
+
+    def test_assigns_rogue_below_1_percent(self, service: MetaService) -> None:
+        """Should assign Rogue tier for shares <1%."""
+        shares = {"A": 0.005}
+        tiers = service.compute_tier_assignments(shares)
+        assert tiers["A"] == "Rogue"
+
+    def test_assigns_all_tiers_correctly(self, service: MetaService) -> None:
+        """Should assign correct tiers for full meta."""
+        shares = {
+            "S-tier": 0.20,
+            "A-tier": 0.10,
+            "B-tier": 0.05,
+            "C-tier": 0.015,
+            "Rogue-tier": 0.005,
+        }
+        tiers = service.compute_tier_assignments(shares)
+
+        assert tiers["S-tier"] == "S"
+        assert tiers["A-tier"] == "A"
+        assert tiers["B-tier"] == "B"
+        assert tiers["C-tier"] == "C"
+        assert tiers["Rogue-tier"] == "Rogue"
+
+    def test_handles_boundary_values(self, service: MetaService) -> None:
+        """Should handle boundary values correctly (exclusive thresholds)."""
+        shares = {
+            "exactly_15": 0.15,  # Not > 0.15, so A tier
+            "exactly_8": 0.08,  # Not > 0.08, so B tier
+            "exactly_3": 0.03,  # Not > 0.03, so C tier
+            "exactly_1": 0.01,  # Not > 0.01, so Rogue tier
+        }
+        tiers = service.compute_tier_assignments(shares)
+
+        assert tiers["exactly_15"] == "A"
+        assert tiers["exactly_8"] == "B"
+        assert tiers["exactly_3"] == "C"
+        assert tiers["exactly_1"] == "Rogue"
+
+
+class TestComputeJPSignals:
+    """Tests for JP signal computation."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_jp_snapshot(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return None when JP snapshot not found."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        signals = await service.compute_jp_signals(
+            snapshot_date=date(2024, 6, 15),
+            game_format="standard",
+        )
+
+        assert signals is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_en_snapshot(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return None when EN snapshot not found."""
+        jp_snapshot = MagicMock(spec=MetaSnapshot)
+        jp_snapshot.archetype_shares = {"A": 0.20}
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.side_effect = [jp_snapshot, None]
+        mock_session.execute.return_value = mock_result
+
+        signals = await service.compute_jp_signals(
+            snapshot_date=date(2024, 6, 15),
+            game_format="standard",
+        )
+
+        assert signals is None
+
+    @pytest.mark.asyncio
+    async def test_detects_rising_archetype(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should detect archetype rising in JP vs EN."""
+        jp_snapshot = MagicMock(spec=MetaSnapshot)
+        jp_snapshot.archetype_shares = {"Rising": 0.20, "Normal": 0.10}
+
+        en_snapshot = MagicMock(spec=MetaSnapshot)
+        en_snapshot.archetype_shares = {"Rising": 0.10, "Normal": 0.10}
+
+        # Mock execute to return different snapshots
+        jp_result = MagicMock()
+        jp_result.scalar_one_or_none.return_value = jp_snapshot
+
+        en_result = MagicMock()
+        en_result.scalar_one_or_none.return_value = en_snapshot
+
+        mock_session.execute.side_effect = [jp_result, en_result]
+
+        signals = await service.compute_jp_signals(
+            snapshot_date=date(2024, 6, 15),
+            game_format="standard",
+        )
+
+        assert signals is not None
+        assert "Rising" in signals["rising"]
+        assert "Rising" not in signals["falling"]
+
+    @pytest.mark.asyncio
+    async def test_detects_falling_archetype(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should detect archetype falling in JP vs EN."""
+        jp_snapshot = MagicMock(spec=MetaSnapshot)
+        jp_snapshot.archetype_shares = {"Falling": 0.05, "Normal": 0.10}
+
+        en_snapshot = MagicMock(spec=MetaSnapshot)
+        en_snapshot.archetype_shares = {"Falling": 0.15, "Normal": 0.10}
+
+        jp_result = MagicMock()
+        jp_result.scalar_one_or_none.return_value = jp_snapshot
+
+        en_result = MagicMock()
+        en_result.scalar_one_or_none.return_value = en_snapshot
+
+        mock_session.execute.side_effect = [jp_result, en_result]
+
+        signals = await service.compute_jp_signals(
+            snapshot_date=date(2024, 6, 15),
+            game_format="standard",
+        )
+
+        assert signals is not None
+        assert "Falling" in signals["falling"]
+        assert "Falling" not in signals["rising"]
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_significant_divergence(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return None when no significant divergence."""
+        jp_snapshot = MagicMock(spec=MetaSnapshot)
+        jp_snapshot.archetype_shares = {"A": 0.12, "B": 0.10}
+
+        en_snapshot = MagicMock(spec=MetaSnapshot)
+        en_snapshot.archetype_shares = {"A": 0.11, "B": 0.09}  # <5% diff
+
+        jp_result = MagicMock()
+        jp_result.scalar_one_or_none.return_value = jp_snapshot
+
+        en_result = MagicMock()
+        en_result.scalar_one_or_none.return_value = en_snapshot
+
+        mock_session.execute.side_effect = [jp_result, en_result]
+
+        signals = await service.compute_jp_signals(
+            snapshot_date=date(2024, 6, 15),
+            game_format="standard",
+        )
+
+        assert signals is None
+
+
+class TestComputeTrends:
+    """Tests for trend computation."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_previous_snapshot(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should return None when no previous snapshot."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        trends = await service.compute_trends(
+            current_shares={"A": 0.20},
+            snapshot_date=date(2024, 6, 15),
+            region=None,
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert trends is None
+
+    @pytest.mark.asyncio
+    async def test_computes_upward_trend(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should compute upward trend when share increased."""
+        previous = MagicMock(spec=MetaSnapshot)
+        previous.archetype_shares = {"A": 0.10}
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = previous
+        mock_session.execute.return_value = mock_result
+
+        trends = await service.compute_trends(
+            current_shares={"A": 0.15},
+            snapshot_date=date(2024, 6, 15),
+            region=None,
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert trends is not None
+        assert trends["A"]["direction"] == "up"
+        assert trends["A"]["change"] == 0.05
+
+    @pytest.mark.asyncio
+    async def test_computes_downward_trend(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should compute downward trend when share decreased."""
+        previous = MagicMock(spec=MetaSnapshot)
+        previous.archetype_shares = {"A": 0.20}
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = previous
+        mock_session.execute.return_value = mock_result
+
+        trends = await service.compute_trends(
+            current_shares={"A": 0.10},
+            snapshot_date=date(2024, 6, 15),
+            region=None,
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert trends is not None
+        assert trends["A"]["direction"] == "down"
+        assert trends["A"]["change"] == -0.10
+
+    @pytest.mark.asyncio
+    async def test_computes_stable_trend(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should compute stable trend when change <0.5%."""
+        previous = MagicMock(spec=MetaSnapshot)
+        previous.archetype_shares = {"A": 0.10}
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = previous
+        mock_session.execute.return_value = mock_result
+
+        trends = await service.compute_trends(
+            current_shares={"A": 0.103},  # 0.3% change
+            snapshot_date=date(2024, 6, 15),
+            region=None,
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert trends is not None
+        assert trends["A"]["direction"] == "stable"
+
+    @pytest.mark.asyncio
+    async def test_handles_new_archetype(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should handle archetype that didn't exist before."""
+        previous = MagicMock(spec=MetaSnapshot)
+        previous.archetype_shares = {"A": 0.20}
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = previous
+        mock_session.execute.return_value = mock_result
+
+        trends = await service.compute_trends(
+            current_shares={"A": 0.20, "B": 0.10},  # B is new
+            snapshot_date=date(2024, 6, 15),
+            region=None,
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert trends is not None
+        assert trends["B"]["direction"] == "up"
+        assert trends["B"]["previous_share"] is None
+
+    @pytest.mark.asyncio
+    async def test_handles_disappeared_archetype(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should handle archetype that disappeared from current."""
+        previous = MagicMock(spec=MetaSnapshot)
+        previous.archetype_shares = {"A": 0.20, "B": 0.10}
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = previous
+        mock_session.execute.return_value = mock_result
+
+        trends = await service.compute_trends(
+            current_shares={"A": 0.20},  # B disappeared
+            snapshot_date=date(2024, 6, 15),
+            region=None,
+            game_format="standard",
+            best_of=3,
+        )
+
+        assert trends is not None
+        assert trends["B"]["direction"] == "down"
+        assert trends["B"]["change"] == -0.10

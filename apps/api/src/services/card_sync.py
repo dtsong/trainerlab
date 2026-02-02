@@ -3,9 +3,10 @@
 import logging
 from dataclasses import dataclass, field
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.clients.tcgdex import TCGdexCard, TCGdexClient, TCGdexSet
+from src.clients.tcgdex import TCGdexCard, TCGdexClient, TCGdexError, TCGdexSet
 from src.models.card import Card
 from src.models.set import Set
 
@@ -174,7 +175,7 @@ class CardSyncService:
                 f"(inserted: {self.result.cards_inserted}, "
                 f"updated: {self.result.cards_updated})"
             )
-        except Exception as e:
+        except (TCGdexError, httpx.RequestError, httpx.HTTPStatusError) as e:
             error_msg = f"Error syncing set {set_id}: {e}"
             logger.error(error_msg)
             self.result.errors.append(error_msg)

@@ -1,0 +1,93 @@
+"""Pipeline API schemas."""
+
+from datetime import date
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class PipelineRequest(BaseModel):
+    """Base request for pipeline endpoints."""
+
+    dry_run: bool = Field(
+        default=False,
+        description="If true, run pipeline without saving changes",
+    )
+
+
+class ScrapeRequest(PipelineRequest):
+    """Request for scrape pipelines."""
+
+    lookback_days: int = Field(
+        default=7,
+        ge=1,
+        le=30,
+        description="Number of days to look back for tournaments",
+    )
+    game_format: Literal["standard", "expanded"] = Field(
+        default="standard",
+        description="Game format to scrape",
+    )
+    max_placements: int = Field(
+        default=32,
+        ge=8,
+        le=128,
+        description="Maximum placements to scrape per tournament",
+    )
+    fetch_decklists: bool = Field(
+        default=True,
+        description="Whether to fetch full decklists",
+    )
+
+
+class ComputeMetaRequest(PipelineRequest):
+    """Request for compute meta pipeline."""
+
+    snapshot_date: date | None = Field(
+        default=None,
+        description="Date for snapshot (defaults to today)",
+    )
+    lookback_days: int = Field(
+        default=90,
+        ge=7,
+        le=365,
+        description="Days to look back for tournament data",
+    )
+
+
+class SyncCardsRequest(PipelineRequest):
+    """Request for card sync pipeline."""
+
+    pass
+
+
+class ScrapeResult(BaseModel):
+    """Result from scrape pipeline."""
+
+    tournaments_scraped: int = Field(ge=0, description="Total tournaments found")
+    tournaments_saved: int = Field(ge=0, description="Tournaments saved to database")
+    tournaments_skipped: int = Field(ge=0, description="Tournaments already in DB")
+    placements_saved: int = Field(ge=0, description="Placements saved")
+    decklists_saved: int = Field(ge=0, description="Decklists saved")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class ComputeMetaResult(BaseModel):
+    """Result from compute meta pipeline."""
+
+    snapshots_computed: int = Field(ge=0, description="Snapshots computed")
+    snapshots_saved: int = Field(ge=0, description="Snapshots saved to database")
+    snapshots_skipped: int = Field(ge=0, description="Snapshots skipped (no data)")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class SyncCardsResult(BaseModel):
+    """Result from card sync pipeline."""
+
+    sets_synced: int = Field(ge=0, description="Number of sets synced")
+    cards_synced: int = Field(ge=0, description="Number of cards synced")
+    cards_updated: int = Field(ge=0, description="Number of cards updated")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether sync completed without errors")

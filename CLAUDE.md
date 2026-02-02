@@ -4,6 +4,11 @@
 
 Competitive intelligence platform for Pokemon TCG. See full docs in Obsidian vault.
 
+## Model Preferences
+
+- Use **Opus 4.5** when accept edits mode is enabled for higher quality code generation
+- Use **Sonnet 4.5** for general development tasks
+
 ## Key Docs (Read These First)
 
 - `/docs/CODEMAP.md` — Codebase structure and quick reference (use for navigation)

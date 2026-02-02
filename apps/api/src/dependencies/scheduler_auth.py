@@ -1,9 +1,9 @@
-"""Cloud Scheduler authentication dependency.
+"""Pipeline authentication dependency.
 
-Verifies OIDC tokens sent by Cloud Scheduler to protect pipeline endpoints.
-Cloud Scheduler sends tokens with:
+Verifies OIDC tokens sent by Cloud Scheduler or Operations SA to protect
+pipeline endpoints. Tokens must have:
 - Audience: Cloud Run service URL
-- Email: Scheduler service account
+- Email: Either scheduler_service_account or operations_service_account
 """
 
 import logging
@@ -28,14 +28,14 @@ class SchedulerAuthError(Exception):
 def _verify_oidc_token(
     token: str,
     expected_audience: str,
-    expected_email: str | None = None,
+    allowed_emails: list[str] | None = None,
 ) -> dict:
-    """Verify an OIDC token from Cloud Scheduler.
+    """Verify an OIDC token from Cloud Scheduler or Operations SA.
 
     Args:
         token: The Bearer token (without "Bearer " prefix).
         expected_audience: Expected audience claim (Cloud Run URL).
-        expected_email: Expected email claim (scheduler service account).
+        allowed_emails: List of allowed email claims (scheduler + operations SAs).
 
     Returns:
         Decoded token claims.
@@ -51,10 +51,13 @@ def _verify_oidc_token(
         )
 
         # Verify email if required
-        if expected_email:
+        if allowed_emails:
             token_email = claims.get("email", "")
-            if token_email != expected_email:
-                raise SchedulerAuthError(f"Token email mismatch: got {token_email}")
+            if token_email not in allowed_emails:
+                raise SchedulerAuthError(
+                    f"Token email not allowed: got {token_email}, "
+                    f"expected one of {allowed_emails}"
+                )
 
         return claims
 
@@ -66,10 +69,10 @@ async def verify_scheduler_auth(
     authorization: Annotated[str | None, Header()] = None,
     settings: Annotated[Settings | None, Depends(get_settings)] = None,
 ) -> dict | None:
-    """FastAPI dependency to verify Cloud Scheduler authentication.
+    """FastAPI dependency to verify pipeline authentication.
 
-    This dependency can be added to pipeline endpoints to restrict
-    access to Cloud Scheduler only.
+    This dependency protects pipeline endpoints by verifying OIDC tokens
+    from authorized service accounts (scheduler or operations).
 
     In development (scheduler_auth_bypass=True), this returns None
     and allows requests through.
@@ -121,19 +124,32 @@ async def verify_scheduler_auth(
         )
 
     try:
+        # Build list of allowed service accounts
+        allowed_emails = []
+        if settings.scheduler_service_account:
+            allowed_emails.append(settings.scheduler_service_account)
+        if settings.operations_service_account:
+            allowed_emails.append(settings.operations_service_account)
+
         claims = _verify_oidc_token(
             token=token,
             expected_audience=settings.cloud_run_url,
-            expected_email=settings.scheduler_service_account,
+            allowed_emails=allowed_emails if allowed_emails else None,
         )
-        logger.info(
-            "Scheduler auth successful: email=%s",
-            claims.get("email", "unknown"),
-        )
+
+        token_email = claims.get("email", "unknown")
+        logger.info("Pipeline auth successful: email=%s", token_email)
+
+        # Log whether this is scheduler or manual operation
+        if token_email == settings.operations_service_account:
+            logger.info("Manual operation via operations service account")
+        elif token_email == settings.scheduler_service_account:
+            logger.info("Automated operation via scheduler service account")
+
         return claims
 
     except SchedulerAuthError as e:
-        logger.warning("Scheduler auth failed: %s", e)
+        logger.warning("Pipeline auth failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",

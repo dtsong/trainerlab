@@ -26,30 +26,41 @@ PIPELINE=""
 RUN_ALL=false
 LOOKBACK_DAYS=7
 GAME_FORMAT="all"
+USE_SERVICE_ACCOUNT=false
+SERVICE_ACCOUNT_EMAIL=""
 
 usage() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
 Options:
-    --pipeline=PIPELINE    Run specific pipeline: scrape-en, scrape-jp, compute-meta, sync-cards
-    --all                  Run all pipelines (dry-run mode)
-    --no-dry-run           Execute live run (writes data to database)
-    --verify               Verify results after execution
-    --check-logs           Check Cloud Logs for recent errors
-    --lookback-days=N      Number of days to look back (default: 7)
-    --format=FORMAT        Game format: standard, expanded, or all (default: all)
-    -h, --help             Show this help message
+    --pipeline=PIPELINE      Run specific pipeline: scrape-en, scrape-jp, compute-meta, sync-cards
+    --all                    Run all pipelines (dry-run mode)
+    --no-dry-run             Execute live run (writes data to database)
+    --verify                 Verify results after execution
+    --check-logs             Check Cloud Logs for recent errors
+    --lookback-days=N        Number of days to look back (default: 7)
+    --format=FORMAT          Game format: standard, expanded, or all (default: all)
+    --use-service-account    Use operations service account (recommended for production)
+    -h, --help               Show this help message
+
+Authentication:
+    By default, uses your gcloud user account (works if scheduler_auth_bypass=true).
+    For production, use --use-service-account to impersonate the operations SA.
+    Requires: roles/iam.serviceAccountTokenCreator on trainerlab-ops@trainerlab-prod
 
 Examples:
     # Dry run of English scraper (safe, default)
     $0 --pipeline=scrape-en
 
+    # Production test with service account
+    $0 --pipeline=scrape-en --use-service-account
+
     # All pipelines in dry-run mode
     $0 --all
 
-    # Live run with verification
-    $0 --pipeline=scrape-en --no-dry-run --verify
+    # Live run with verification (production)
+    $0 --pipeline=scrape-en --no-dry-run --verify --use-service-account
 
     # Check recent Cloud Logs for errors
     $0 --check-logs
@@ -117,14 +128,51 @@ get_service_url() {
 
 get_auth_token() {
     log_info "Getting authentication token..."
-    TOKEN=$(gcloud auth print-identity-token --audiences="$SERVICE_URL" 2>/dev/null || echo "")
 
-    if [ -z "$TOKEN" ]; then
-        log_error "Failed to get authentication token."
-        exit 1
+    if [ "$USE_SERVICE_ACCOUNT" = true ]; then
+        # Get service account email from Terraform output if not already set
+        if [ -z "$SERVICE_ACCOUNT_EMAIL" ]; then
+            log_info "Fetching operations service account email from Terraform..."
+            SERVICE_ACCOUNT_EMAIL="trainerlab-ops@${PROJECT_ID}.iam.gserviceaccount.com"
+        fi
+
+        log_info "Using service account: $SERVICE_ACCOUNT_EMAIL"
+
+        # Impersonate service account to get identity token
+        TOKEN=$(gcloud auth print-identity-token \
+            --impersonate-service-account="$SERVICE_ACCOUNT_EMAIL" \
+            --audiences="$SERVICE_URL" \
+            2>/dev/null || echo "")
+
+        if [ -z "$TOKEN" ]; then
+            log_error "Failed to impersonate service account."
+            log_error "Make sure you have roles/iam.serviceAccountTokenCreator permission."
+            log_error "Contact your GCP admin to grant access to: $SERVICE_ACCOUNT_EMAIL"
+            exit 1
+        fi
+
+        log_success "Service account impersonation successful"
+    else
+        # Use user account (for development or if scheduler_auth_bypass=true)
+        log_info "Using user account authentication"
+
+        # Try without audiences first (works for user accounts)
+        TOKEN=$(gcloud auth print-identity-token 2>/dev/null || echo "")
+
+        # If that fails, try with audiences (works for service accounts)
+        if [ -z "$TOKEN" ]; then
+            TOKEN=$(gcloud auth print-identity-token --audiences="$SERVICE_URL" 2>/dev/null || echo "")
+        fi
+
+        if [ -z "$TOKEN" ]; then
+            log_error "Failed to get authentication token."
+            log_error "Make sure you're logged in: gcloud auth login"
+            log_error "Or use --use-service-account for production"
+            exit 1
+        fi
+
+        log_success "Authentication token acquired"
     fi
-
-    log_success "Authentication token acquired"
 }
 
 health_check() {
@@ -133,7 +181,7 @@ health_check() {
     # API health check
     API_HEALTH=$(curl -s -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/api/v1/health" || echo "")
 
-    if echo "$API_HEALTH" | jq -e '.status == "healthy"' > /dev/null 2>&1; then
+    if echo "$API_HEALTH" | jq -e '.status == "healthy" or .status == "ok"' > /dev/null 2>&1; then
         log_success "API health check passed"
     else
         log_error "API health check failed"
@@ -312,6 +360,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --format=*)
             GAME_FORMAT="${1#*=}"
+            shift
+            ;;
+        --use-service-account)
+            USE_SERVICE_ACCOUNT=true
             shift
             ;;
         -h|--help)

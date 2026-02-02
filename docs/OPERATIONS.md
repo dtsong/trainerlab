@@ -50,9 +50,37 @@ gcloud config set project trainerlab-prod
 
 ### Required IAM Roles
 
-- `roles/run.invoker` - Invoke Cloud Run services
+**For Production Operations** (Recommended):
+
+- `roles/iam.serviceAccountTokenCreator` on `trainerlab-ops@trainerlab-prod.iam.gserviceaccount.com`
 - `roles/logging.viewer` - View logs
 - `roles/cloudscheduler.viewer` - View scheduled jobs
+
+**For Development** (when `scheduler_auth_bypass=true`):
+
+- `roles/run.invoker` - Invoke Cloud Run services (direct access)
+- `roles/logging.viewer` - View logs
+
+### Service Account Setup
+
+The `trainerlab-ops` service account is used for manual operations. To get access:
+
+1. Ask your GCP admin to grant you impersonation rights:
+
+```bash
+# Admin runs this to grant you access
+gcloud iam service-accounts add-iam-policy-binding \
+  trainerlab-ops@trainerlab-prod.iam.gserviceaccount.com \
+  --member="user:YOUR_EMAIL@example.com" \
+  --role="roles/iam.serviceAccountTokenCreator"
+```
+
+2. Or add your email to `operations_admins` in Terraform:
+
+```hcl
+# In terraform.tfvars
+operations_admins = ["your.email@example.com"]
+```
 
 ### Test Script Setup
 
@@ -83,24 +111,27 @@ chmod +x scripts/test-production-scrapers.sh
 #### Safe Dry-Run (Recommended First Step)
 
 ```bash
-# Test English scraper without writing data
-./scripts/test-production-scrapers.sh --pipeline=scrape-en
+# Test English scraper without writing data (production)
+./scripts/test-production-scrapers.sh --pipeline=scrape-en --use-service-account
 
 # Test all scrapers in dry-run mode
-./scripts/test-production-scrapers.sh --all
+./scripts/test-production-scrapers.sh --all --use-service-account
 
 # Test with custom lookback period
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --lookback-days=14
+./scripts/test-production-scrapers.sh --pipeline=scrape-en --lookback-days=14 --use-service-account
 
 # Test specific format
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --format=standard
+./scripts/test-production-scrapers.sh --pipeline=scrape-en --format=standard --use-service-account
+
+# Development mode (if scheduler_auth_bypass=true)
+./scripts/test-production-scrapers.sh --pipeline=scrape-en
 ```
 
 #### Live Runs (Writes to Database)
 
 ```bash
-# Live run with verification
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --no-dry-run --verify
+# Live run with verification (production)
+./scripts/test-production-scrapers.sh --pipeline=scrape-en --no-dry-run --verify --use-service-account
 
 # Live run with custom parameters
 ./scripts/test-production-scrapers.sh \
@@ -108,7 +139,8 @@ chmod +x scripts/test-production-scrapers.sh
   --no-dry-run \
   --lookback-days=3 \
   --format=standard \
-  --verify
+  --verify \
+  --use-service-account
 ```
 
 **⚠️ Live Run Warning:** The script will show a 5-second warning before executing live runs. Press Ctrl+C to cancel.

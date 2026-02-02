@@ -124,6 +124,29 @@ resource "google_service_account" "scheduler" {
   description  = "Service account for Cloud Scheduler to invoke pipeline endpoints"
 }
 
+# Operations service account (for manual testing)
+resource "google_service_account" "operations" {
+  account_id   = "trainerlab-ops"
+  display_name = "TrainerLab Operations"
+  description  = "Service account for manual operations and testing in production"
+}
+
+# Allow specific users to impersonate the operations service account
+resource "google_service_account_iam_member" "operations_impersonation" {
+  for_each = toset(var.operations_admins)
+
+  service_account_id = google_service_account.operations.id
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "user:${each.value}"
+}
+
+# Grant operations SA ability to view logs (for debugging)
+resource "google_project_iam_member" "operations_log_viewer" {
+  project = var.project_id
+  role    = "roles/logging.viewer"
+  member  = "serviceAccount:${google_service_account.operations.email}"
+}
+
 # =============================================================================
 # Secrets
 # =============================================================================
@@ -204,13 +227,14 @@ module "api" {
   subnet_id             = local.cloudrun_subnet_id
 
   env_vars = {
-    ENVIRONMENT               = var.environment
-    DATABASE_URL              = "postgresql+asyncpg://trainerlab_app@${module.database.private_ip_address}:5432/trainerlab"
-    REDIS_URL                 = var.redis_url
-    TCGDEX_URL                = var.tcgdex_url
-    CORS_ORIGINS              = var.cors_origins
-    CLOUD_RUN_URL             = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
-    SCHEDULER_SERVICE_ACCOUNT = google_service_account.scheduler.email
+    ENVIRONMENT                 = var.environment
+    DATABASE_URL                = "postgresql+asyncpg://trainerlab_app@${module.database.private_ip_address}:5432/trainerlab"
+    REDIS_URL                   = var.redis_url
+    TCGDEX_URL                  = var.tcgdex_url
+    CORS_ORIGINS                = var.cors_origins
+    CLOUD_RUN_URL               = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
+    SCHEDULER_SERVICE_ACCOUNT   = google_service_account.scheduler.email
+    OPERATIONS_SERVICE_ACCOUNT  = google_service_account.operations.email
   }
 
   secret_env_vars = {
@@ -233,6 +257,15 @@ resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   name     = module.api.service_name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.scheduler.email}"
+}
+
+# Grant operations SA permission to invoke Cloud Run
+resource "google_cloud_run_v2_service_iam_member" "operations_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = module.api.service_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.operations.email}"
 }
 
 # =============================================================================

@@ -1,0 +1,38 @@
+# TrainerLab Terraform Variables Example
+# Copy this file to terraform.tfvars and customize for your environment
+
+project_id  = "trainerlab-prod"
+region      = "us-west1"
+environment = "prod"
+
+# Docker image for the API
+# Format: <region>-docker.pkg.dev/<project>/<repo>/<image>:<tag>
+api_image = "us-west1-docker.pkg.dev/trainerlab-prod/trainerlab-api/api:latest"
+
+# Custom domain (optional)
+custom_domain = ""
+
+# CORS origins (comma-separated)
+cors_origins = "https://trainerlab.app,https://www.trainerlab.app"
+
+# Cloud SQL database tier
+db_tier      = "db-f1-micro"
+db_disk_size = 10
+
+# External services
+redis_url  = ""
+tcgdex_url = "https://api.tcgdex.net/v2"
+
+# Cloud Scheduler settings
+timezone         = "America/New_York"
+scheduler_paused = false
+
+# GitHub repository for OIDC
+github_repo = "danielsongdev/trainerlab"
+
+# Operations admins (list of email addresses)
+# These users can impersonate the operations service account for manual testing
+operations_admins = [
+  "your.email@example.com",
+  # "team.member@example.com",
+]

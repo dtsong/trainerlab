@@ -30,6 +30,11 @@ output "scheduler_service_account_email" {
   value       = google_service_account.scheduler.email
 }
 
+output "operations_service_account_email" {
+  description = "Email of the operations service account (for manual testing)"
+  value       = google_service_account.operations.email
+}
+
 output "scheduler_jobs" {
   description = "Created Cloud Scheduler jobs"
   value       = module.scheduler.job_names

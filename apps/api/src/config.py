@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     cloud_run_url: str | None = None
     # Service account email for Cloud Scheduler
     scheduler_service_account: str | None = None
+    # Service account email for Operations (manual testing)
+    operations_service_account: str | None = None
     # Bypass scheduler auth in development
     scheduler_auth_bypass: bool = False
 

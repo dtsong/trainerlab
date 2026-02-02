@@ -100,3 +100,16 @@ variable "github_repo" {
   type        = string
   default     = "danielsongdev/trainerlab"
 }
+
+# =============================================================================
+# Operations
+# =============================================================================
+
+variable "operations_admins" {
+  description = "List of user emails allowed to impersonate the operations service account for manual testing"
+  type        = list(string)
+  default     = []
+
+  # Usage: Set in terraform.tfvars or via -var flag
+  # Example: operations_admins = ["user@example.com", "admin@example.com"]
+}

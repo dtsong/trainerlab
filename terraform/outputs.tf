@@ -10,6 +10,11 @@ output "api_service_name" {
   value       = module.api.service_name
 }
 
+output "api_image" {
+  description = "Docker image used for the API"
+  value       = local.api_image_uri
+}
+
 output "database_instance_name" {
   description = "Cloud SQL instance name"
   value       = module.database.instance_name

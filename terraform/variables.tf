@@ -27,8 +27,9 @@ variable "environment" {
 # =============================================================================
 
 variable "api_image" {
-  description = "Docker image for the API (e.g., us-central1-docker.pkg.dev/project/repo/image:tag)"
+  description = "Docker image for the API. Defaults to 'latest' tag. CI/CD overrides this with commit SHA or digest."
   type        = string
+  default     = "" # Will be computed from project_id and region if not provided
 }
 
 variable "custom_domain" {

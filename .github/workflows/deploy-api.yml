@@ -154,6 +154,9 @@ jobs:
   # =============================================================================
   # Deploy to Cloud Run
   # =============================================================================
+  # Note: This workflow deploys directly via gcloud, not Terraform.
+  # Terraform manages infrastructure (service accounts, IAM, networking).
+  # CI/CD manages application deployments (image updates only).
   deploy:
     runs-on: ubuntu-latest
     needs: [build, migrate]
@@ -172,6 +175,7 @@ jobs:
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
+          # Use digest for immutable deployment (not tag)
           image: ${{ env.ARTIFACT_REGISTRY }}/api@${{ needs.build.outputs.image_digest }}
 
       - name: Verify deployment

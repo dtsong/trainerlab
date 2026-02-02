@@ -49,6 +49,9 @@ locals {
   network_self_link  = data.terraform_remote_state.foundation.outputs.network_self_link
   network_name       = data.terraform_remote_state.foundation.outputs.network_name
   cloudrun_subnet_id = data.terraform_remote_state.foundation.outputs.cloudrun_subnet_id
+
+  # Compute API image URI with fallback to latest tag
+  api_image_uri = var.api_image != "" ? var.api_image : "${var.region}-docker.pkg.dev/${var.project_id}/trainerlab-api/api:latest"
 }
 
 # =============================================================================
@@ -216,7 +219,7 @@ module "api" {
   region       = var.region
   service_name = "trainerlab-api"
 
-  image = var.api_image
+  image = local.api_image_uri
 
   min_instances = var.environment == "prod" ? 1 : 0
   max_instances = var.environment == "prod" ? 10 : 3

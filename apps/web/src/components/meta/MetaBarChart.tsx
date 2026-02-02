@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { useRouter } from "next/navigation";
 import type { CardUsageSummary } from "@trainerlab/shared-types";
+import { getChartColor } from "@/lib/chart-colors";
 
 interface MetaBarChartProps {
   data: CardUsageSummary[];
@@ -101,7 +102,7 @@ export function MetaBarChart({
           <Tooltip content={<CustomTooltip />} />
           <Bar
             dataKey="value"
-            fill="#8884d8"
+            fill={getChartColor(0)}
             radius={[0, 4, 4, 0]}
             cursor="pointer"
             onClick={(_, index) => {
@@ -112,10 +113,7 @@ export function MetaBarChart({
             }}
           >
             {chartData.map((_, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={`hsl(${220 + index * 15}, 70%, ${60 - index * 3}%)`}
-              />
+              <Cell key={`cell-${index}`} fill={getChartColor(index)} />
             ))}
           </Bar>
         </BarChart>

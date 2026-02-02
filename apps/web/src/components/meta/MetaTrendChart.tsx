@@ -13,18 +13,7 @@ import {
 import { format, parseISO } from "date-fns";
 import type { MetaSnapshot } from "@trainerlab/shared-types";
 import { safeFormatDate } from "@/lib/meta-utils";
-
-// Colors for different archetypes
-const COLORS = [
-  "#8884d8",
-  "#82ca9d",
-  "#ffc658",
-  "#ff7300",
-  "#0088fe",
-  "#00c49f",
-  "#ffbb28",
-  "#ff8042",
-];
+import { CHART_COLORS } from "@/lib/chart-colors";
 
 interface MetaTrendChartProps {
   snapshots: MetaSnapshot[];
@@ -151,7 +140,7 @@ export function MetaTrendChart({ snapshots, className }: MetaTrendChartProps) {
               key={name}
               type="monotone"
               dataKey={name}
-              stroke={COLORS[index % COLORS.length]}
+              stroke={CHART_COLORS[index % CHART_COLORS.length]}
               strokeWidth={2}
               dot={false}
               hide={!visibleArchetypes.has(name)}

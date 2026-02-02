@@ -203,3 +203,33 @@ class ArchetypeDetailResponse(BaseModel):
     sample_decks: list[SampleDeckResponse] = Field(
         default_factory=list, description="Sample decklists from tournaments"
     )
+
+
+class MatchupResponse(BaseModel):
+    """Matchup data between two archetypes."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    opponent: str = Field(description="Opponent archetype name")
+    win_rate: float = Field(
+        ge=0.0, le=1.0, description="Win rate against opponent (0.0-1.0)"
+    )
+    sample_size: int = Field(ge=0, description="Number of games in sample")
+    confidence: Literal["high", "medium", "low"] = Field(
+        description="Confidence level based on sample size"
+    )
+
+
+class MatchupSpreadResponse(BaseModel):
+    """Full matchup spread for an archetype."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    archetype: str = Field(description="Subject archetype name")
+    matchups: list[MatchupResponse] = Field(
+        description="List of matchups against other archetypes"
+    )
+    overall_win_rate: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Overall win rate across all matchups"
+    )
+    total_games: int = Field(ge=0, description="Total games in sample")

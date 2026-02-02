@@ -9,20 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { Archetype } from "@trainerlab/shared-types";
-
-// Distinct colors for archetypes
-const COLORS = [
-  "#8884d8", // purple
-  "#82ca9d", // green
-  "#ffc658", // yellow
-  "#ff7300", // orange
-  "#0088fe", // blue
-  "#00c49f", // teal
-  "#ffbb28", // gold
-  "#ff8042", // coral
-  "#a4de6c", // lime
-  "#d0ed57", // chartreuse
-];
+import { CHART_COLORS } from "@/lib/chart-colors";
 
 interface MetaPieChartProps {
   data: Archetype[];
@@ -88,7 +75,7 @@ export function MetaPieChart({ data, className }: MetaPieChartProps) {
             {chartData.map((_, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
+                fill={CHART_COLORS[index % CHART_COLORS.length]}
                 stroke="hsl(var(--background))"
                 strokeWidth={2}
               />

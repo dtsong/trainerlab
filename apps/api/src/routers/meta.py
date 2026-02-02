@@ -21,6 +21,8 @@ from src.schemas import (
     CardUsageSummary,
     FormatNotes,
     KeyCardResponse,
+    MatchupResponse,
+    MatchupSpreadResponse,
     MetaHistoryResponse,
     MetaSnapshotResponse,
     SampleDeckResponse,
@@ -523,3 +525,183 @@ async def _build_sample_decks(
         )
 
     return sample_decks
+
+
+def _compute_matchup_confidence(
+    sample_size: int,
+) -> Literal["high", "medium", "low"]:
+    """Determine confidence level based on sample size."""
+    if sample_size >= 50:
+        return "high"
+    elif sample_size >= 20:
+        return "medium"
+    return "low"
+
+
+def _compute_matchups_from_placements(
+    placements: Sequence[TournamentPlacement],
+    archetype: str,
+) -> tuple[list[MatchupResponse], float | None, int]:
+    """Compute estimated matchup spread from tournament placements.
+
+    Uses relative tournament placement as a proxy for matchup performance.
+    When archetype A finishes ahead of archetype B in the same tournament,
+    we count it as a favorable result for A.
+
+    Note: This is an approximation. Actual matchup data would require
+    head-to-head match results which we don't track.
+    """
+    # Group placements by tournament
+    by_tournament: dict[str, list[TournamentPlacement]] = defaultdict(list)
+    for p in placements:
+        by_tournament[str(p.tournament_id)].append(p)
+
+    # Track wins/losses against each opponent archetype
+    matchup_wins: dict[str, int] = defaultdict(int)
+    matchup_games: dict[str, int] = defaultdict(int)
+
+    for tournament_placements in by_tournament.values():
+        # Get archetype's best placement in this tournament
+        archetype_placements = [
+            p for p in tournament_placements if p.archetype == archetype
+        ]
+        if not archetype_placements:
+            continue
+
+        best_archetype_placement = min(p.placement for p in archetype_placements)
+
+        # Compare against other archetypes
+        other_archetypes: dict[str, int] = {}
+        for p in tournament_placements:
+            if p.archetype != archetype:
+                if p.archetype not in other_archetypes:
+                    other_archetypes[p.archetype] = p.placement
+                else:
+                    other_archetypes[p.archetype] = min(
+                        other_archetypes[p.archetype], p.placement
+                    )
+
+        for opponent, opponent_placement in other_archetypes.items():
+            matchup_games[opponent] += 1
+            if best_archetype_placement < opponent_placement:
+                matchup_wins[opponent] += 1
+            elif best_archetype_placement == opponent_placement:
+                # Tie counts as 0.5 win
+                matchup_wins[opponent] += 0.5
+
+    # Convert to matchup responses
+    matchups: list[MatchupResponse] = []
+    total_wins = 0.0
+    total_games = 0
+
+    sorted_opponents = sorted(
+        matchup_games.keys(), key=lambda x: matchup_games[x], reverse=True
+    )
+    for opponent in sorted_opponents:
+        games = matchup_games[opponent]
+        wins = matchup_wins[opponent]
+        win_rate = wins / games if games > 0 else 0.5
+
+        matchups.append(
+            MatchupResponse(
+                opponent=opponent,
+                win_rate=round(win_rate, 4),
+                sample_size=games,
+                confidence=_compute_matchup_confidence(games),
+            )
+        )
+        total_wins += wins
+        total_games += games
+
+    # Sort by sample size (most data first)
+    matchups.sort(key=lambda m: m.sample_size, reverse=True)
+
+    overall_win_rate = round(total_wins / total_games, 4) if total_games > 0 else None
+
+    return matchups, overall_win_rate, total_games
+
+
+@router.get("/archetypes/{name}/matchups")
+async def get_archetype_matchups(
+    name: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    region: Annotated[
+        str | None,
+        Query(description="Region filter (NA, EU, JP, etc.) or null for global"),
+    ] = None,
+    format: Annotated[
+        Literal["standard", "expanded"],
+        Query(description="Game format"),
+    ] = "standard",
+    best_of: Annotated[
+        BestOf,
+        Query(description="Match format (1 for Japan BO1, 3 for international BO3)"),
+    ] = BestOf.BO3,
+    days: Annotated[
+        int,
+        Query(ge=1, le=365, description="Number of days of history to analyze"),
+    ] = 90,
+) -> MatchupSpreadResponse:
+    """Get matchup spread for a specific archetype.
+
+    Returns estimated win rates against other archetypes based on
+    relative tournament performance. This is an approximation since
+    we don't track individual head-to-head match results.
+
+    Confidence levels:
+    - high: 50+ comparisons
+    - medium: 20-50 comparisons
+    - low: <20 comparisons
+    """
+    start_date = date.today() - timedelta(days=days)
+
+    # Get all placements from relevant tournaments
+    placement_query = (
+        select(TournamentPlacement)
+        .join(Tournament)
+        .where(
+            Tournament.format == format,
+            Tournament.best_of == best_of,
+            Tournament.date >= start_date,
+        )
+    )
+
+    if region is not None:
+        placement_query = placement_query.where(Tournament.region == region)
+
+    try:
+        result = await db.execute(placement_query)
+        all_placements = result.scalars().all()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching placements for matchups: "
+            "archetype=%s, region=%s, format=%s, best_of=%s",
+            name,
+            region,
+            format,
+            best_of,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve matchup data. Please try again later.",
+        ) from None
+
+    # Check if archetype exists in data
+    archetype_exists = any(p.archetype == name for p in all_placements)
+    if not archetype_exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Archetype '{name}' not found in tournament data",
+        )
+
+    matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+        all_placements, name
+    )
+
+    return MatchupSpreadResponse(
+        archetype=name,
+        matchups=matchups[:10],  # Top 10 matchups
+        overall_win_rate=overall_win_rate,
+        total_games=total_games,
+    )

@@ -48,18 +48,18 @@
     --parchment-100: 48 96% 95%;
     --parchment-200: 48 89% 91%;
 
-    /* Archetype colors */
-    --archetype-fire: 17 83% 56%;
-    --archetype-water: 199 89% 48%;
-    --archetype-lightning: 48 96% 53%;
-    --archetype-psychic: 292 84% 61%;
-    --archetype-fighting: 25 75% 47%;
-    --archetype-darkness: 240 4% 31%;
-    --archetype-metal: 220 13% 69%;
+    /* Archetype colors (from SPEC.md) */
+    --archetype-fire: 0 84% 60%;
+    --archetype-water: 217 91% 60%;
+    --archetype-lightning: 45 93% 47%;
+    --archetype-psychic: 271 91% 65%;
+    --archetype-fighting: 25 95% 53%;
+    --archetype-darkness: 239 84% 67%;
+    --archetype-metal: 220 9% 46%;
     --archetype-grass: 142 71% 45%;
-    --archetype-dragon: 44 87% 63%;
-    --archetype-colorless: 220 13% 91%;
-    --archetype-fairy: 330 81% 78%;
+    --archetype-dragon: 258 90% 66%;
+    --archetype-colorless: 240 5% 65%;
+    --archetype-fairy: 330 81% 60%;
 
     /* Tier colors */
     --tier-s: 45 93% 56%;
@@ -132,18 +132,18 @@
     --parchment-100: 48 96% 95%;
     --parchment-200: 48 89% 91%;
 
-    /* Archetype colors */
-    --archetype-fire: 17 83% 56%;
-    --archetype-water: 199 89% 48%;
-    --archetype-lightning: 48 96% 53%;
-    --archetype-psychic: 292 84% 61%;
-    --archetype-fighting: 25 75% 47%;
-    --archetype-darkness: 240 4% 31%;
-    --archetype-metal: 220 13% 69%;
+    /* Archetype colors (from SPEC.md) */
+    --archetype-fire: 0 84% 60%;
+    --archetype-water: 217 91% 60%;
+    --archetype-lightning: 45 93% 47%;
+    --archetype-psychic: 271 91% 65%;
+    --archetype-fighting: 25 95% 53%;
+    --archetype-darkness: 239 84% 67%;
+    --archetype-metal: 220 9% 46%;
     --archetype-grass: 142 71% 45%;
-    --archetype-dragon: 44 87% 63%;
-    --archetype-colorless: 220 13% 91%;
-    --archetype-fairy: 330 81% 78%;
+    --archetype-dragon: 258 90% 66%;
+    --archetype-colorless: 240 5% 65%;
+    --archetype-fairy: 330 81% 60%;
 
     /* Tier colors */
     --tier-s: 45 93% 56%;

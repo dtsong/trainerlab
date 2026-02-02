@@ -8,6 +8,11 @@ export interface SectionLabelProps extends React.HTMLAttributes<HTMLDivElement> 
 
 export const SectionLabel = React.forwardRef<HTMLDivElement, SectionLabelProps>(
   ({ className, label, icon, ...props }, ref) => {
+    const displayLabel = label ?? "";
+    if (process.env.NODE_ENV === "development" && !label) {
+      console.warn("[SectionLabel] Missing required label prop");
+    }
+
     return (
       <div
         ref={ref}
@@ -23,7 +28,7 @@ export const SectionLabel = React.forwardRef<HTMLDivElement, SectionLabelProps>(
             {icon}
           </span>
         )}
-        <span className="flex-shrink-0">{label.toUpperCase()}</span>
+        <span className="flex-shrink-0">{displayLabel.toUpperCase()}</span>
         <div
           data-testid="section-label-divider"
           className="flex-grow h-px bg-border"

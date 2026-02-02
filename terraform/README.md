@@ -52,39 +52,52 @@ GitHub Actions automatically deploys on push to `main`:
 
 ### Initial Setup
 
+**Quick Start (all defaults):**
+
+```bash
+cd terraform
+terraform init
+terraform plan  # Works immediately with defaults!
+```
+
+**Custom Configuration:**
+
 1. Copy the example variables file:
 
    ```bash
    cp terraform.tfvars.example terraform.tfvars
    ```
 
-2. Edit `terraform.tfvars` with your values:
-   - `project_id` - Your GCP project
-   - `operations_admins` - Users who can run manual tests
-   - Other optional overrides
+2. Edit `terraform.tfvars` to override defaults:
+   - `operations_admins` - Add your email for manual testing access
+   - Other optional overrides as needed
 
-3. Initialize Terraform:
+3. Apply:
    ```bash
-   terraform init
+   terraform plan
+   terraform apply
    ```
 
-### Required Variables
+### Variables
 
-| Variable      | Description      | Default      |
-| ------------- | ---------------- | ------------ |
-| `project_id`  | GCP project ID   | **Required** |
-| `region`      | GCP region       | `us-west1`   |
-| `environment` | Environment name | `prod`       |
-
-### Optional Variables
+**All variables have defaults** - you only need to override what you need.
 
 | Variable            | Description                          | Default                                |
 | ------------------- | ------------------------------------ | -------------------------------------- |
+| `project_id`        | GCP project ID                       | `trainerlab-prod`                      |
+| `region`            | GCP region                           | `us-west1`                             |
+| `environment`       | Environment name                     | `prod`                                 |
 | `api_image`         | Docker image URI                     | Computed from project (uses `:latest`) |
 | `operations_admins` | Emails allowed to impersonate ops SA | `[]`                                   |
 | `db_tier`           | Cloud SQL machine type               | `db-f1-micro`                          |
-| `cors_origins`      | Allowed CORS origins                 | Production domains                     |
+| `db_disk_size`      | Cloud SQL disk size (GB)             | `10`                                   |
+| `cors_origins`      | Allowed CORS origins                 | `trainerlab.app` domains               |
+| `redis_url`         | Redis connection URL                 | `""` (none)                            |
+| `tcgdex_url`        | TCGdex API endpoint                  | `https://api.tcgdex.net/v2`            |
+| `timezone`          | Scheduler timezone                   | `America/New_York`                     |
 | `scheduler_paused`  | Pause scheduler jobs                 | `false`                                |
+| `github_repo`       | GitHub repo for OIDC                 | `danielsongdev/trainerlab`             |
+| `custom_domain`     | Custom domain for API                | `""` (none)                            |
 
 ### API Image Handling
 

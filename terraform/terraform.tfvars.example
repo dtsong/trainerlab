@@ -1,40 +1,49 @@
 # TrainerLab Terraform Variables Example
 # Copy this file to terraform.tfvars and customize for your environment
+#
+# Most variables have sensible defaults and don't need to be set.
+# Only override if you need different values.
 
-project_id  = "trainerlab-prod"
-region      = "us-west1"
-environment = "prod"
+# GCP Configuration
+# project_id  = "trainerlab-prod"  # Default, uncomment to override
+# region      = "us-west1"          # Default, uncomment to override
+# environment = "prod"              # Default, uncomment to override
 
-# Docker image for the API (optional)
-# If not specified, defaults to :latest tag from the artifact registry
-# CI/CD will override this with the commit SHA or digest
-# Format: <region>-docker.pkg.dev/<project>/<repo>/<image>:<tag>
-# api_image = "us-west1-docker.pkg.dev/trainerlab-prod/trainerlab-api/api:abc123"
+# =============================================================================
+# Operations Team (Most Common Override)
+# =============================================================================
 
-# Custom domain (optional)
-custom_domain = ""
-
-# CORS origins (comma-separated)
-cors_origins = "https://trainerlab.app,https://www.trainerlab.app"
-
-# Cloud SQL database tier
-db_tier      = "db-f1-micro"
-db_disk_size = 10
-
-# External services
-redis_url  = ""
-tcgdex_url = "https://api.tcgdex.net/v2"
-
-# Cloud Scheduler settings
-timezone         = "America/New_York"
-scheduler_paused = false
-
-# GitHub repository for OIDC
-github_repo = "danielsongdev/trainerlab"
-
-# Operations admins (list of email addresses)
-# These users can impersonate the operations service account for manual testing
+# Users allowed to impersonate the operations service account
+# Add your email here to run manual scraper tests in production
 operations_admins = [
   "your.email@example.com",
   # "team.member@example.com",
 ]
+
+# =============================================================================
+# Optional Overrides (Uncomment if Needed)
+# =============================================================================
+
+# Docker Image
+# api_image = "us-west1-docker.pkg.dev/trainerlab-prod/trainerlab-api/api:abc123"
+
+# Custom Domain
+# custom_domain = "api.trainerlab.app"
+
+# CORS Origins
+# cors_origins = "https://trainerlab.app,https://www.trainerlab.app"
+
+# Database Configuration
+# db_tier      = "db-custom-2-8192"  # 2 vCPU, 8GB RAM
+# db_disk_size = 50                   # 50GB SSD
+
+# External Services
+# redis_url  = "redis://memorystore-ip:6379"
+# tcgdex_url = "https://api.tcgdex.net/v2"
+
+# Scheduler Settings
+# timezone         = "America/Los_Angeles"
+# scheduler_paused = true
+
+# GitHub Repository
+# github_repo = "your-org/trainerlab"

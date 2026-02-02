@@ -52,6 +52,39 @@ class FormatNotes(BaseModel):
     )
 
 
+class TrendInfo(BaseModel):
+    """Trend information for an archetype."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    change: float = Field(description="Week-over-week change in share (-1.0 to 1.0)")
+    direction: Literal["up", "down", "stable"] = Field(
+        description="Trend direction based on change"
+    )
+    previous_share: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Previous week's share"
+    )
+
+
+class JPSignals(BaseModel):
+    """JP vs EN meta divergence signals."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    rising: list[str] = Field(
+        default_factory=list,
+        description="Archetypes with higher share in JP than EN (>5% diff)",
+    )
+    falling: list[str] = Field(
+        default_factory=list,
+        description="Archetypes with lower share in JP than EN (>5% diff)",
+    )
+    divergent: list[dict] = Field(
+        default_factory=list,
+        description="Detailed divergence info: [{archetype, jp_share, en_share, diff}]",
+    )
+
+
 class MetaSnapshotResponse(BaseModel):
     """Full meta snapshot response."""
 
@@ -76,6 +109,23 @@ class MetaSnapshotResponse(BaseModel):
     format_notes: FormatNotes | None = Field(
         default=None,
         description="Format-specific notes (e.g., Japan BO1 tie rules)",
+    )
+    # Enhanced meta fields
+    diversity_index: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Simpson's diversity index (0-1, higher = more diverse meta)",
+    )
+    tier_assignments: dict[str, str] | None = Field(
+        default=None,
+        description="Archetype tier mapping: {archetype: tier} (S/A/B/C/Rogue)",
+    )
+    jp_signals: JPSignals | None = Field(
+        default=None, description="JP vs EN meta divergence signals"
+    )
+    trends: dict[str, TrendInfo] | None = Field(
+        default=None, description="Week-over-week trends per archetype"
     )
 
 

@@ -32,6 +32,15 @@ from src.schemas.meta import (
     SampleDeckResponse,
 )
 from src.schemas.pagination import PaginatedResponse
+from src.schemas.pipeline import (
+    ComputeMetaRequest,
+    ComputeMetaResult,
+    PipelineRequest,
+    ScrapeRequest,
+    ScrapeResult,
+    SyncCardsRequest,
+    SyncCardsResult,
+)
 from src.schemas.set import SetResponse
 from src.schemas.tournament import BestOf, TopPlacement, TournamentSummary
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
@@ -48,6 +57,8 @@ __all__ = [
     "CardSummaryResponse",
     "CardUsageResponse",
     "CardUsageSummary",
+    "ComputeMetaRequest",
+    "ComputeMetaResult",
     "DeckCreate",
     "DeckImportRequest",
     "DeckImportResponse",
@@ -61,9 +72,14 @@ __all__ = [
     "MetaHistoryResponse",
     "MetaSnapshotResponse",
     "PaginatedResponse",
+    "PipelineRequest",
     "SampleDeckResponse",
+    "ScrapeRequest",
+    "ScrapeResult",
     "SetResponse",
     "SetSummaryResponse",
+    "SyncCardsRequest",
+    "SyncCardsResult",
     "TopPlacement",
     "TournamentSummary",
     "TypeBreakdown",

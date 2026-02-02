@@ -14,6 +14,7 @@ from src.routers import (
     decks_router,
     health_router,
     meta_router,
+    pipeline_router,
     sets_router,
     tournaments_router,
     users_router,
@@ -61,6 +62,7 @@ app.include_router(cards_router)
 app.include_router(decks_router)
 app.include_router(health_router)
 app.include_router(meta_router)
+app.include_router(pipeline_router)
 app.include_router(sets_router)
 app.include_router(tournaments_router)
 app.include_router(users_router)

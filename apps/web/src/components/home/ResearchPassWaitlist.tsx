@@ -43,7 +43,10 @@ export function ResearchPassWaitlist() {
   };
 
   return (
-    <section className="bg-gradient-to-r from-teal-600 to-teal-500 py-12 md:py-16">
+    <section
+      id="waitlist"
+      className="bg-gradient-to-r from-teal-600 to-teal-500 py-12 md:py-16"
+    >
       <div className="container">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-display text-3xl font-bold text-white md:text-4xl">

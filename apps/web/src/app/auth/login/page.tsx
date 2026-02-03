@@ -28,15 +28,15 @@ function LoginContent() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome to TrainerLab</CardTitle>
-          <CardDescription>Sign in to access your account</CardDescription>
+          <CardDescription>Sign in to access the closed beta</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {error && (
-            <div className="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
               {error === "OAuthSignin"
                 ? "Error starting Google sign-in. Please try again."
                 : error === "OAuthCallback"
-                  ? "Error during Google sign-in. Please try again."
+                  ? "Could not complete sign-in. Your Google account may not have beta access."
                   : "An error occurred. Please try again."}
             </div>
           )}
@@ -71,6 +71,17 @@ function LoginContent() {
             </svg>
             {loading ? "Redirecting..." : "Continue with Google"}
           </Button>
+
+          <div className="rounded-md border border-border bg-muted/50 p-4 text-sm">
+            <p className="font-medium">Closed Beta</p>
+            <p className="mt-1 text-muted-foreground">
+              Access is currently limited to invited testers. Looking to join?{" "}
+              <a href="/#waitlist" className="underline hover:text-foreground">
+                Sign up for the waitlist
+              </a>
+              .
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import String, Text
+from sqlalchemy import String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +33,11 @@ class User(Base, TimestampMixin):
 
     # Preferences (JSON: theme, default_format, etc.)
     preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default={})
+
+    # Beta access (all users during closed beta; grandfathered when monetizing)
+    is_beta_tester: Mapped[bool] = mapped_column(
+        default=True, server_default=text("true"), nullable=False
+    )
 
     # Relationships
     decks: Mapped[list["Deck"]] = relationship(

@@ -100,6 +100,7 @@ async def get_current_user(
             email=decoded.email,
             display_name=decoded.name,
             avatar_url=decoded.picture,
+            is_beta_tester=True,  # Flip to False post-beta
         )
         try:
             db.add(user)

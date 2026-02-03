@@ -1,25 +1,31 @@
 "use client";
 
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { useState } from "react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import type { Archetype } from "@trainerlab/shared-types";
-import { CHART_COLORS } from "@/lib/chart-colors";
+import { CHART_COLORS, OTHER_COLOR } from "@/lib/chart-colors";
+import { groupArchetypes } from "@/lib/meta-utils";
+import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface MetaPieChartProps {
   data: Archetype[];
+  topN?: number;
   className?: string;
+}
+
+interface SliceData {
+  name: string;
+  share: number;
+  value: number;
+  color: string;
+  isOther?: boolean;
 }
 
 interface TooltipPayload {
   name: string;
   value: number;
-  payload: { name: string; share: number };
+  payload: SliceData;
 }
 
 function CustomTooltip({
@@ -43,55 +49,152 @@ function CustomTooltip({
   return null;
 }
 
-export function MetaPieChart({ data, className }: MetaPieChartProps) {
-  const chartData = data.map((archetype) => ({
+export function MetaPieChart({ data, topN = 8, className }: MetaPieChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [isOtherExpanded, setIsOtherExpanded] = useState(false);
+
+  const { displayed, other } = groupArchetypes(data, { topN });
+
+  const slices: SliceData[] = displayed.map((archetype, i) => ({
     name: archetype.name,
     share: archetype.share,
     value: archetype.share * 100,
+    color: CHART_COLORS[i % CHART_COLORS.length],
   }));
 
+  if (other) {
+    slices.push({
+      name: `Other (${other.count})`,
+      share: other.share,
+      value: other.share * 100,
+      color: OTHER_COLOR,
+      isOther: true,
+    });
+  }
+
+  // Top archetype for center label
+  const topArchetype = displayed[0];
+
   return (
-    <div className={className} data-testid="meta-pie-chart">
-      <ResponsiveContainer width="100%" height={350}>
+    <div
+      className={cn("min-h-[350px]", className)}
+      data-testid="meta-pie-chart"
+    >
+      <ResponsiveContainer width="100%" height={280}>
         <PieChart>
           <Pie
-            data={chartData}
+            data={slices}
             cx="50%"
             cy="50%"
             innerRadius={60}
-            outerRadius={120}
-            paddingAngle={2}
+            outerRadius={110}
+            paddingAngle={1}
             dataKey="value"
             nameKey="name"
-            label={(props) => {
-              const { name, percent } = props;
-              if (percent && percent > 0.05) {
-                return `${name} (${(percent * 100).toFixed(0)}%)`;
-              }
-              return "";
-            }}
-            labelLine={false}
+            onMouseEnter={(_, index) => setActiveIndex(index)}
+            onMouseLeave={() => setActiveIndex(null)}
           >
-            {chartData.map((_, index) => (
+            {slices.map((slice, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={CHART_COLORS[index % CHART_COLORS.length]}
+                fill={slice.color}
                 stroke="hsl(var(--background))"
                 strokeWidth={2}
+                opacity={
+                  activeIndex === null || activeIndex === index ? 1 : 0.4
+                }
+                style={{ transition: "opacity 150ms ease" }}
               />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
-          <Legend
-            layout="vertical"
-            align="right"
-            verticalAlign="middle"
-            formatter={(value: string) => (
-              <span className="text-sm text-foreground">{value}</span>
-            )}
-          />
+          {/* Center label */}
+          {topArchetype && (
+            <>
+              <text
+                x="50%"
+                y="47%"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="fill-foreground text-sm font-medium"
+              >
+                {topArchetype.name}
+              </text>
+              <text
+                x="50%"
+                y="56%"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="fill-muted-foreground text-xs"
+              >
+                {(topArchetype.share * 100).toFixed(1)}%
+              </text>
+            </>
+          )}
         </PieChart>
       </ResponsiveContainer>
+
+      {/* Custom 2-column legend */}
+      <div
+        className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 px-2 text-sm"
+        data-testid="pie-legend"
+      >
+        {slices.map((slice, index) => (
+          <button
+            key={slice.name}
+            type="button"
+            className={cn(
+              "flex items-center gap-2 rounded px-1 py-0.5 text-left transition-opacity",
+              slice.isOther && "cursor-pointer hover:bg-muted/50",
+              activeIndex !== null && activeIndex !== index && "opacity-40"
+            )}
+            onMouseEnter={() => setActiveIndex(index)}
+            onMouseLeave={() => setActiveIndex(null)}
+            onClick={
+              slice.isOther
+                ? () => setIsOtherExpanded((prev) => !prev)
+                : undefined
+            }
+          >
+            <span
+              className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: slice.color }}
+            />
+            <span className="truncate text-foreground">{slice.name}</span>
+            <span className="ml-auto flex-shrink-0 tabular-nums text-muted-foreground">
+              {(slice.share * 100).toFixed(1)}%
+            </span>
+            {slice.isOther &&
+              (isOtherExpanded ? (
+                <ChevronUp className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              ))}
+          </button>
+        ))}
+      </div>
+
+      {/* Expandable "Other" detail list */}
+      {isOtherExpanded && other && (
+        <div
+          className="mt-2 max-h-[200px] overflow-y-auto rounded border bg-muted/30 px-3 py-2 text-xs"
+          data-testid="other-detail"
+        >
+          {other.archetypes
+            .sort((a, b) => b.share - a.share)
+            .map((arch) => (
+              <div
+                key={arch.name}
+                className="flex items-center justify-between py-0.5"
+              >
+                <span className="truncate text-foreground">{arch.name}</span>
+                <span className="ml-2 flex-shrink-0 tabular-nums text-muted-foreground">
+                  {(arch.share * 100).toFixed(1)}%
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 }

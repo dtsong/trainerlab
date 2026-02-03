@@ -1,4 +1,5 @@
 import type {
+  Archetype,
   MetaSnapshot,
   Region,
   ApiMetaSnapshot,
@@ -118,4 +119,36 @@ export function safeFormatDate(
     console.warn("[safeFormatDate] Failed to parse date:", isoString, error);
     return isoString;
   }
+}
+
+/**
+ * Result of grouping archetypes into top N + "Other".
+ */
+export interface GroupedArchetypes {
+  displayed: Archetype[];
+  other: { share: number; count: number; archetypes: Archetype[] } | null;
+}
+
+/**
+ * Group archetypes into the top N by share, with the rest bucketed as "Other".
+ * Returns `other: null` when the total count is <= topN.
+ */
+export function groupArchetypes(
+  archetypes: Archetype[],
+  { topN = 8 }: { topN?: number } = {}
+): GroupedArchetypes {
+  if (archetypes.length <= topN) {
+    return { displayed: archetypes, other: null };
+  }
+
+  const sorted = [...archetypes].sort((a, b) => b.share - a.share);
+  const displayed = sorted.slice(0, topN);
+  const rest = sorted.slice(topN);
+
+  const otherShare = rest.reduce((sum, a) => sum + a.share, 0);
+
+  return {
+    displayed,
+    other: { share: otherShare, count: rest.length, archetypes: rest },
+  };
 }

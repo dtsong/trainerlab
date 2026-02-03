@@ -37,6 +37,9 @@ export const SIGNAL_COLORS = {
   stable: "hsl(var(--signal-stable))",
 } as const;
 
+// Neutral color for aggregated "Other" bucket in charts
+export const OTHER_COLOR = "hsl(var(--muted-foreground) / 0.3)";
+
 // Get color by index with wrapping
 export function getChartColor(index: number): string {
   return CHART_COLORS[index % CHART_COLORS.length];

@@ -197,6 +197,117 @@ class TournamentScrapeService:
 
         return result
 
+    async def scrape_official_tournaments(
+        self,
+        game_format: str = "standard",
+        lookback_days: int = 90,
+        max_placements: int = 64,
+        fetch_decklists: bool = True,
+    ) -> ScrapeResult:
+        """Scrape official tournaments from limitlesstcg.com database.
+
+        This fetches major competitive events (Regionals, ICs, Champions League)
+        from the main Limitless database.
+
+        Args:
+            game_format: Game format ("standard", "expanded").
+            lookback_days: Only scrape tournaments from last N days.
+            max_placements: Maximum placements per tournament.
+            fetch_decklists: Whether to fetch decklists.
+
+        Returns:
+            ScrapeResult with statistics.
+        """
+        result = ScrapeResult()
+        cutoff_date = date.today() - timedelta(days=lookback_days)
+
+        logger.info(
+            "Starting official tournament scrape: format=%s, lookback=%d days",
+            game_format,
+            lookback_days,
+        )
+
+        try:
+            # Fetch all official tournaments
+            all_tournaments = await self.client.fetch_official_tournament_listings(
+                game_format=game_format,
+            )
+        except (LimitlessError, httpx.RequestError) as e:
+            error_msg = f"Error fetching official tournament listings: {e}"
+            logger.error(error_msg, exc_info=True)
+            result.errors.append(error_msg)
+            return result
+
+        # Filter by date
+        tournaments_in_range = [
+            t for t in all_tournaments if t.tournament_date >= cutoff_date
+        ]
+
+        result.tournaments_scraped = len(tournaments_in_range)
+        logger.info(
+            f"Found {len(tournaments_in_range)} official tournaments in lookback period"
+        )
+
+        # Process each tournament
+        for tournament in tournaments_in_range:
+            try:
+                # Check if already exists
+                if await self.tournament_exists(tournament.source_url):
+                    logger.debug(f"Skipping existing tournament: {tournament.name}")
+                    result.tournaments_skipped += 1
+                    continue
+
+                # Fetch placements from official tournament page
+                placements = await self.client.fetch_official_tournament_placements(
+                    tournament.source_url,
+                    max_placements=max_placements,
+                )
+
+                # Optionally fetch decklists
+                if fetch_decklists:
+                    for placement in placements:
+                        if placement.decklist_url:
+                            try:
+                                placement.decklist = await self.client.fetch_decklist(
+                                    placement.decklist_url
+                                )
+                                if placement.decklist and placement.decklist.is_valid:
+                                    result.decklists_saved += 1
+                            except (
+                                LimitlessError,
+                                httpx.RequestError,
+                                httpx.HTTPStatusError,
+                            ) as e:
+                                url = placement.decklist_url
+                                logger.warning(f"Error fetching decklist {url}: {e}")
+
+                tournament.placements = placements
+
+                # Save to database
+                await self.save_tournament(tournament)
+                result.tournaments_saved += 1
+                result.placements_saved += len(placements)
+
+                logger.info(
+                    f"Saved official tournament: {tournament.name} "
+                    f"({len(placements)} placements)"
+                )
+
+            except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:
+                error_msg = f"Error processing official tournament {tournament.name}"
+                logger.error(f"{error_msg}: {e}", exc_info=True)
+                result.errors.append(f"{error_msg}: {e}")
+
+        logger.info(
+            "Official scrape complete: scraped=%d, saved=%d, skipped=%d, errors=%d",
+            result.tournaments_scraped,
+            result.tournaments_saved,
+            result.tournaments_skipped,
+            len(result.errors),
+        )
+
+        return result
+
     async def save_tournament(
         self,
         tournament: LimitlessTournament,

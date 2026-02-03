@@ -41,12 +41,14 @@ from src.schemas.meta import (
     ArchetypeResponse,
     CardUsageSummary,
     FormatNotes,
+    JPSignals,
     KeyCardResponse,
     MatchupResponse,
     MatchupSpreadResponse,
     MetaHistoryResponse,
     MetaSnapshotResponse,
     SampleDeckResponse,
+    TrendInfo,
 )
 from src.schemas.pagination import PaginatedResponse
 from src.schemas.pipeline import (
@@ -94,6 +96,7 @@ __all__ = [
     "EnergyCurvePoint",
     "FormatConfigResponse",
     "FormatNotes",
+    "JPSignals",
     "KeyCardResponse",
     "LabNoteCreate",
     "LabNoteListResponse",
@@ -111,6 +114,7 @@ __all__ = [
     "RotationImpactListResponse",
     "RotationImpactResponse",
     "SampleDeckResponse",
+    "TrendInfo",
     "ScrapeRequest",
     "ScrapeResult",
     "SetResponse",

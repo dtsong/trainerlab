@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
 import { Hero, JPAlertBanner } from "@/components/home";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Dynamic imports for below-the-fold components to reduce initial bundle
 // Use ssr: false to ensure proper code splitting on the client
@@ -46,12 +47,24 @@ const TrainersToolkit = dynamic(
 export default function Home() {
   return (
     <>
-      <JPAlertBanner />
-      <Hero />
-      <MetaSnapshot />
-      <EvolutionPreview />
-      <ContentGrid />
-      <JPPreview />
+      <ErrorBoundary fallback={null}>
+        <JPAlertBanner />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <Hero />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={null}>
+        <MetaSnapshot />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={null}>
+        <EvolutionPreview />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={null}>
+        <ContentGrid />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={null}>
+        <JPPreview />
+      </ErrorBoundary>
       <WhyTrainerLab />
       <ResearchPassWaitlist />
       <TrainersToolkit />

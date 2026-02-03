@@ -20,12 +20,14 @@ from src.schemas import (
     BestOf,
     CardUsageSummary,
     FormatNotes,
+    JPSignals,
     KeyCardResponse,
     MatchupResponse,
     MatchupSpreadResponse,
     MetaHistoryResponse,
     MetaSnapshotResponse,
     SampleDeckResponse,
+    TrendInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,6 +83,18 @@ def _snapshot_to_response(
     if include_format_notes:
         format_notes = _get_format_notes(snapshot.best_of, snapshot.region)
 
+    # Convert enhanced fields from raw DB dicts to typed schemas
+    jp_signals = None
+    if snapshot.jp_signals:
+        jp_signals = JPSignals.model_validate(snapshot.jp_signals)
+
+    trends = None
+    if snapshot.trends:
+        trends = {
+            name: TrendInfo.model_validate(data)
+            for name, data in snapshot.trends.items()
+        }
+
     return MetaSnapshotResponse(
         snapshot_date=snapshot.snapshot_date,
         region=snapshot.region,
@@ -91,6 +105,14 @@ def _snapshot_to_response(
         sample_size=snapshot.sample_size,
         tournaments_included=snapshot.tournaments_included,
         format_notes=format_notes,
+        diversity_index=(
+            float(snapshot.diversity_index)
+            if snapshot.diversity_index is not None
+            else None
+        ),
+        tier_assignments=snapshot.tier_assignments,
+        jp_signals=jp_signals,
+        trends=trends,
     )
 
 

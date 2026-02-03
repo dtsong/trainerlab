@@ -1,18 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, TrendingUp, Users, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShufflingDeck } from "./ShufflingDeck";
+import { useTournaments } from "@/hooks/useTournaments";
+import { useHomeMetaData } from "@/hooks/useMeta";
+import { computeHeroStats } from "@/lib/home-utils";
 
 interface StatItemProps {
   icon: React.ReactNode;
   value: string;
   label: string;
   delay?: string;
+  isLoading?: boolean;
 }
 
-function StatItem({ icon, value, label, delay = "0s" }: StatItemProps) {
+function StatItem({
+  icon,
+  value,
+  label,
+  delay = "0s",
+  isLoading,
+}: StatItemProps) {
   return (
     <div
       className="flex items-center gap-3 rounded-sm bg-notebook-aged/60 px-3 py-2 shadow-sm opacity-0 animate-fade-in-up"
@@ -20,7 +31,9 @@ function StatItem({ icon, value, label, delay = "0s" }: StatItemProps) {
     >
       <div className="text-pencil">{icon}</div>
       <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-lg font-bold text-ink-red">
+        <span
+          className={`font-mono text-lg font-bold text-ink-red ${isLoading ? "animate-pulse" : ""}`}
+        >
           {value}
         </span>
         <span className="font-mono text-xs uppercase tracking-wide text-pencil">
@@ -88,6 +101,22 @@ function FloatingCard({
 }
 
 export function Hero() {
+  const [todayISO] = useState(() => new Date().toISOString().split("T")[0]);
+
+  const { data: recentTournaments, isLoading: tournamentsLoading } =
+    useTournaments({ limit: 1 });
+  const { data: upcomingTournaments, isLoading: upcomingLoading } =
+    useTournaments({ start_date: todayISO, limit: 1 });
+  const { globalMeta, isLoading: metaLoading } = useHomeMetaData();
+
+  const isLoading = tournamentsLoading || upcomingLoading || metaLoading;
+
+  const stats = computeHeroStats(
+    recentTournaments?.total,
+    globalMeta?.sample_size,
+    upcomingTournaments?.total
+  );
+
   return (
     <section className="relative overflow-hidden bg-notebook-cream py-16 md:py-24">
       {/* Dot grid background */}
@@ -191,21 +220,24 @@ export function Hero() {
             <div className="mt-12 flex flex-wrap gap-3 border-t-2 border-dashed border-notebook-grid pt-6">
               <StatItem
                 icon={<TrendingUp className="h-4 w-4" />}
-                value="47"
-                label="tournaments this week"
+                value={stats.tournamentCount}
+                label="tournaments tracked"
                 delay="0.5s"
+                isLoading={isLoading}
               />
               <StatItem
                 icon={<Users className="h-4 w-4" />}
-                value="12k+"
+                value={stats.decklistCount}
                 label="decklists analyzed"
                 delay="0.6s"
+                isLoading={isLoading}
               />
               <StatItem
                 icon={<Calendar className="h-4 w-4" />}
-                value="3"
-                label="major events upcoming"
+                value={stats.upcomingEvents}
+                label="events upcoming"
                 delay="0.7s"
+                isLoading={isLoading}
               />
             </div>
           </div>

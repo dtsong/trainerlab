@@ -51,6 +51,10 @@ class TestMetaEndpoints:
         }
         snapshot.sample_size = 100
         snapshot.tournaments_included = ["tournament-1", "tournament-2"]
+        snapshot.diversity_index = None
+        snapshot.tier_assignments = None
+        snapshot.jp_signals = None
+        snapshot.trends = None
         return snapshot
 
 
@@ -163,6 +167,10 @@ class TestGetMetaHistory(TestMetaEndpoints):
         snapshot2.card_usage = {}
         snapshot2.sample_size = 80
         snapshot2.tournaments_included = ["tournament-3"]
+        snapshot2.diversity_index = None
+        snapshot2.tier_assignments = None
+        snapshot2.jp_signals = None
+        snapshot2.trends = None
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [
@@ -475,6 +483,10 @@ class TestJapanBO1Meta(TestMetaEndpoints):
         snapshot.card_usage = {}
         snapshot.sample_size = 100
         snapshot.tournaments_included = []
+        snapshot.diversity_index = None
+        snapshot.tier_assignments = None
+        snapshot.jp_signals = None
+        snapshot.trends = None
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [snapshot]

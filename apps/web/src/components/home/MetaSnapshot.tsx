@@ -1,21 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ExternalLink, BarChart3 } from "lucide-react";
+import { ArrowRight, ExternalLink, BarChart3, RefreshCw } from "lucide-react";
 import { TrendArrow } from "@/components/ui/trend-arrow";
 import { JPSignalBadge } from "@/components/ui/jp-signal-badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Button } from "@/components/ui/button";
-
-interface ArchetypeSnapshotProps {
-  rank: number;
-  name: string;
-  metaShare: number;
-  trend: "up" | "down" | "stable";
-  trendValue?: number;
-  jpSignal?: number;
-  cardImage?: string;
-}
+import { useHomeMetaData } from "@/hooks/useMeta";
+import { computeTrends, type ArchetypeWithTrend } from "@/lib/home-utils";
+import { SpecimenCardSkeleton } from "./skeletons";
 
 function SpecimenCard({
   rank,
@@ -25,7 +18,7 @@ function SpecimenCard({
   trendValue,
   jpSignal,
   animationDelay = "0s",
-}: ArchetypeSnapshotProps & { animationDelay?: string }) {
+}: ArchetypeWithTrend & { animationDelay?: string }) {
   return (
     <div
       className="group relative flex flex-col items-center rounded-lg border border-notebook-grid bg-notebook-cream p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-1 motion-safe:animate-paper-rustle"
@@ -69,9 +62,8 @@ function SpecimenCard({
       {jpSignal !== undefined && jpSignal > 0 && (
         <div className="mt-2">
           <JPSignalBadge
-            jpShare={metaShare + jpSignal}
-            enShare={metaShare}
-            threshold={5}
+            jpShare={(metaShare + jpSignal) / 100}
+            enShare={metaShare / 100}
           />
         </div>
       )}
@@ -95,50 +87,13 @@ function SpecimenCard({
   );
 }
 
-// Mock data - will be replaced with real API data
-const mockArchetypes: ArchetypeSnapshotProps[] = [
-  {
-    rank: 1,
-    name: "Charizard ex",
-    metaShare: 18.5,
-    trend: "up",
-    trendValue: 2.3,
-    jpSignal: 0,
-  },
-  {
-    rank: 2,
-    name: "Lugia VSTAR",
-    metaShare: 14.2,
-    trend: "down",
-    trendValue: -1.1,
-    jpSignal: 15,
-  },
-  {
-    rank: 3,
-    name: "Gardevoir ex",
-    metaShare: 12.8,
-    trend: "stable",
-    jpSignal: 0,
-  },
-  {
-    rank: 4,
-    name: "Miraidon ex",
-    metaShare: 9.4,
-    trend: "up",
-    trendValue: 0.8,
-    jpSignal: 25,
-  },
-  {
-    rank: 5,
-    name: "Arceus VSTAR",
-    metaShare: 7.6,
-    trend: "down",
-    trendValue: -2.1,
-    jpSignal: 0,
-  },
-];
-
 export function MetaSnapshot() {
+  const { globalMeta, jpMeta, history, isLoading, isError, refetch } =
+    useHomeMetaData();
+
+  const archetypes = computeTrends(globalMeta, history, jpMeta, 5);
+  const sampleSize = globalMeta?.sample_size;
+
   return (
     <section className="relative py-12 md:py-16 bg-notebook-aged">
       {/* Subtle texture */}
@@ -174,30 +129,69 @@ export function MetaSnapshot() {
           </p>
         </div>
 
-        {/* Horizontal scrolling on mobile, grid on desktop */}
-        <div className="flex gap-4 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 lg:pl-8">
-          {mockArchetypes.map((archetype, index) => (
-            <div
-              key={archetype.rank}
-              className="min-w-[160px] flex-shrink-0 md:min-w-0"
-            >
-              <SpecimenCard {...archetype} animationDelay={`${index * 0.8}s`} />
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom annotation - with gentle rustle */}
-        <div className="mt-6 flex justify-end lg:pr-8">
-          <div
-            className="bg-notebook-cream border border-notebook-grid px-3 py-1.5 rounded-sm shadow-sm motion-safe:animate-paper-rustle"
-            style={{ "--rustle-base": "1deg" } as React.CSSProperties}
-          >
-            <span className="font-mono text-xs text-pencil">
-              Data from <span className="text-ink-red font-medium">47</span>{" "}
-              tournaments
-            </span>
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex gap-4 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 lg:pl-8">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="min-w-[160px] flex-shrink-0 md:min-w-0">
+                <SpecimenCardSkeleton />
+              </div>
+            ))}
           </div>
-        </div>
+        )}
+
+        {/* Error state */}
+        {isError && !isLoading && (
+          <div className="lg:pl-8">
+            <div className="rounded-lg border border-notebook-grid bg-notebook-cream p-8 text-center">
+              <p className="font-mono text-sm text-pencil mb-3">
+                Data unavailable &mdash; could not load meta snapshot
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => refetch()}
+                className="font-mono text-xs text-pencil hover:text-ink-red"
+              >
+                <RefreshCw className="mr-1 h-3 w-3" />
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Data state */}
+        {!isLoading && !isError && archetypes.length > 0 && (
+          <div className="flex gap-4 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 lg:pl-8">
+            {archetypes.map((archetype, index) => (
+              <div
+                key={archetype.rank}
+                className="min-w-[160px] flex-shrink-0 md:min-w-0"
+              >
+                <SpecimenCard
+                  {...archetype}
+                  animationDelay={`${index * 0.8}s`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Bottom annotation */}
+        {!isLoading && !isError && sampleSize !== undefined && (
+          <div className="mt-6 flex justify-end lg:pr-8">
+            <div
+              className="bg-notebook-cream border border-notebook-grid px-3 py-1.5 rounded-sm shadow-sm motion-safe:animate-paper-rustle"
+              style={{ "--rustle-base": "1deg" } as React.CSSProperties}
+            >
+              <span className="font-mono text-xs text-pencil">
+                Data from{" "}
+                <span className="text-ink-red font-medium">{sampleSize}</span>{" "}
+                decklists analyzed
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

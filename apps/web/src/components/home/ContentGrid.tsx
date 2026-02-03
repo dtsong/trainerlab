@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -9,6 +10,13 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { SectionLabel } from "@/components/ui/section-label";
+import { useLabNotes } from "@/hooks/useLabNotes";
+import { useTournaments } from "@/hooks/useTournaments";
+import { IndexCardSkeleton } from "./skeletons";
+import type {
+  ApiLabNoteSummary,
+  ApiTournamentSummary,
+} from "@trainerlab/shared-types";
 
 interface ContentItem {
   title: string;
@@ -24,6 +32,52 @@ interface ContentColumnProps {
   viewAllHref: string;
   viewAllLabel: string;
   rotation?: number;
+  isLoading?: boolean;
+  emptyMessage?: string;
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function labNoteToContentItem(note: ApiLabNoteSummary): ContentItem {
+  return {
+    title: note.title,
+    description: note.summary ?? "",
+    date: formatDate(note.published_at ?? note.created_at),
+    href: `/lab-notes/${note.slug}`,
+  };
+}
+
+function tournamentToContentItem(t: ApiTournamentSummary): ContentItem {
+  const parts: string[] = [];
+  if (t.participant_count) parts.push(`${t.participant_count} players`);
+  if (t.top_placements?.[0])
+    parts.push(`${t.top_placements[0].archetype} takes 1st`);
+
+  return {
+    title: t.name,
+    description: parts.join(" | ") || t.region,
+    date: formatDate(t.date),
+    href: `/tournaments/${t.id}`,
+  };
+}
+
+function upcomingToContentItem(t: ApiTournamentSummary): ContentItem {
+  const parts: string[] = [];
+  parts.push(formatDate(t.date));
+  if (t.participant_count)
+    parts.push(`Expected ${t.participant_count}+ players`);
+  if (t.region) parts.push(t.region);
+
+  return {
+    title: t.name,
+    description: parts.join(" | "),
+    date: formatDate(t.date),
+    href: `/tournaments/${t.id}`,
+  };
 }
 
 function IndexCard({
@@ -33,6 +87,8 @@ function IndexCard({
   viewAllHref,
   viewAllLabel,
   rotation = 0,
+  isLoading,
+  emptyMessage = "No items yet",
 }: ContentColumnProps) {
   const rotationClass =
     rotation === 0
@@ -40,6 +96,10 @@ function IndexCard({
       : rotation > 0
         ? "rotate-1 hover:rotate-0"
         : "-rotate-1 hover:rotate-0";
+
+  if (isLoading) {
+    return <IndexCardSkeleton />;
+  }
 
   return (
     <div
@@ -62,22 +122,28 @@ function IndexCard({
           </h3>
         </div>
 
-        <div className="space-y-4">
-          {items.map((item, index) => (
-            <Link key={index} href={item.href} className="block group">
-              {/* Date - typewriter style */}
-              <span className="font-mono text-xs text-pencil/70 uppercase tracking-wider">
-                {item.date}
-              </span>
-              <h4 className="font-display text-base font-medium text-ink-black group-hover:text-ink-red transition-colors leading-snug">
-                {item.title}
-              </h4>
-              <p className="mt-1 text-sm text-pencil line-clamp-2 leading-relaxed">
-                {item.description}
-              </p>
-            </Link>
-          ))}
-        </div>
+        {items.length === 0 ? (
+          <p className="font-mono text-sm text-pencil/60 italic py-4">
+            {emptyMessage}
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {items.map((item, index) => (
+              <Link key={index} href={item.href} className="block group">
+                {/* Date - typewriter style */}
+                <span className="font-mono text-xs text-pencil/70 uppercase tracking-wider">
+                  {item.date}
+                </span>
+                <h4 className="font-display text-base font-medium text-ink-black group-hover:text-ink-red transition-colors leading-snug">
+                  {item.title}
+                </h4>
+                <p className="mt-1 text-sm text-pencil line-clamp-2 leading-relaxed">
+                  {item.description}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* View all link - handwritten note style */}
         <Link
@@ -92,73 +158,34 @@ function IndexCard({
   );
 }
 
-// Mock data - will be replaced with real API data
-const mockLabNotes: ContentItem[] = [
-  {
-    title: "Charizard's Counter Matrix",
-    description:
-      "Deep dive into the best counters for the current king of the meta.",
-    date: "Feb 1",
-    href: "/lab-notes/charizard-counters",
-  },
-  {
-    title: "Budget Builds: Competitive on $50",
-    description: "Viable tournament decks that won't break the bank.",
-    date: "Jan 28",
-    href: "/lab-notes/budget-builds",
-  },
-  {
-    title: "Japan Meta Report: Week 4",
-    description:
-      "This week's JP tournament results and what they mean for you.",
-    date: "Jan 25",
-    href: "/lab-notes/jp-week-4",
-  },
-];
-
-const mockTournaments: ContentItem[] = [
-  {
-    title: "Charlotte Regionals",
-    description: "1,200 players | Charizard ex takes 1st, Gardevoir in Top 8",
-    date: "Jan 28",
-    href: "/tournaments/charlotte-regionals",
-  },
-  {
-    title: "Liverpool Regionals",
-    description: "800 players | Surprise Lugia VSTAR dominance",
-    date: "Jan 27",
-    href: "/tournaments/liverpool-regionals",
-  },
-  {
-    title: "OCIC Day 2 Meta",
-    description: "450 day 2 players | 23% Charizard, 18% Gardevoir",
-    date: "Jan 21",
-    href: "/tournaments/ocic",
-  },
-];
-
-const mockUpcoming: ContentItem[] = [
-  {
-    title: "Knoxville Regionals",
-    description: "Feb 10-11 | Expected 1,500+ players",
-    date: "Feb 10",
-    href: "/tournaments/knoxville-regionals",
-  },
-  {
-    title: "Dortmund Regionals",
-    description: "Feb 17-18 | EU's largest event this season",
-    date: "Feb 17",
-    href: "/tournaments/dortmund-regionals",
-  },
-  {
-    title: "LAIC 2024",
-    description: "Mar 15-17 | Latin America International Championships",
-    date: "Mar 15",
-    href: "/tournaments/laic-2024",
-  },
-];
-
 export function ContentGrid() {
+  const [todayISO] = useState(() => new Date().toISOString().split("T")[0]);
+
+  const {
+    data: labNotesData,
+    isLoading: labNotesLoading,
+    isError: labNotesError,
+  } = useLabNotes({
+    limit: 3,
+  });
+  const {
+    data: tournamentsData,
+    isLoading: tournamentsLoading,
+    isError: tournamentsError,
+  } = useTournaments({ limit: 3 });
+  const {
+    data: upcomingData,
+    isLoading: upcomingLoading,
+    isError: upcomingError,
+  } = useTournaments({
+    start_date: todayISO,
+    limit: 3,
+  });
+
+  const labNotes = labNotesData?.items.map(labNoteToContentItem) ?? [];
+  const tournaments = tournamentsData?.items.map(tournamentToContentItem) ?? [];
+  const upcoming = upcomingData?.items.map(upcomingToContentItem) ?? [];
+
   return (
     <section className="relative py-12 md:py-16 bg-notebook-cream">
       {/* Dot grid background */}
@@ -190,30 +217,44 @@ export function ContentGrid() {
           <IndexCard
             title="Lab Notes"
             icon={<FileText className="h-5 w-5" />}
-            items={mockLabNotes}
+            items={labNotes}
             viewAllHref="/lab-notes"
             viewAllLabel="All articles"
             rotation={-1}
+            isLoading={labNotesLoading}
+            emptyMessage={
+              labNotesError ? "Could not load articles" : "No articles yet"
+            }
           />
           <IndexCard
             title="Recent Tournaments"
             icon={<Trophy className="h-5 w-5" />}
-            items={mockTournaments}
+            items={tournaments}
             viewAllHref="/tournaments"
             viewAllLabel="All tournaments"
             rotation={0}
+            isLoading={tournamentsLoading}
+            emptyMessage={
+              tournamentsError
+                ? "Could not load tournaments"
+                : "No tournaments yet"
+            }
           />
           <IndexCard
             title="Upcoming Events"
             icon={<Calendar className="h-5 w-5" />}
-            items={mockUpcoming}
+            items={upcoming}
             viewAllHref="/tournaments?filter=upcoming"
             viewAllLabel="Full calendar"
             rotation={1}
+            isLoading={upcomingLoading}
+            emptyMessage={
+              upcomingError ? "Could not load events" : "No upcoming events"
+            }
           />
         </div>
 
-        {/* Section divider - torn paper effect simulation */}
+        {/* Section divider - dot separator */}
         <div className="mt-12 flex justify-center">
           <div className="flex gap-1">
             {[...Array(5)].map((_, i) => (

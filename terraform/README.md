@@ -96,7 +96,7 @@ terraform plan  # Works immediately with defaults!
 | `tcgdex_url`        | TCGdex API endpoint                  | `https://api.tcgdex.net/v2`            |
 | `timezone`          | Scheduler timezone                   | `America/New_York`                     |
 | `scheduler_paused`  | Pause scheduler jobs                 | `false`                                |
-| `github_repo`       | GitHub repo for OIDC                 | `danielsongdev/trainerlab`             |
+| `github_repo`       | GitHub repo for OIDC                 | `dtsong/trainerlab`                    |
 | `custom_domain`     | Custom domain for API                | `""` (none)                            |
 
 ### API Image Handling

@@ -23,18 +23,18 @@
 
 ### External Services
 
-- **Firebase Auth:** User authentication
+- **Google OAuth:** User authentication via NextAuth.js
 - **Limitless TCG:** Tournament data source
 - **TCGdex:** Card data source
 
 ### Scheduled Jobs
 
-| Job          | Schedule        | Purpose                  |
-| ------------ | --------------- | ------------------------ |
-| scrape-en    | Daily 6 AM UTC  | English tournament data  |
-| scrape-jp    | Daily 7 AM UTC  | Japanese tournament data |
-| compute-meta | Daily 8 AM UTC  | Meta snapshot generation |
-| sync-cards   | Sunday 3 AM UTC | Card database sync       |
+| Job          | Schedule        | Purpose                       |
+| ------------ | --------------- | ----------------------------- |
+| discover-en  | Daily 6 AM UTC  | Discover English tournaments  |
+| discover-jp  | Daily 7 AM UTC  | Discover Japanese tournaments |
+| compute-meta | Daily 8 AM UTC  | Meta snapshot generation      |
+| sync-cards   | Sunday 3 AM UTC | Card database sync            |
 
 ---
 

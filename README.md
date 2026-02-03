@@ -21,12 +21,13 @@ TrainerLab is a competitive intelligence platform for Pokemon TCG. We help train
 
 ## Documentation
 
-| Document                                               | Description                          |
-| ------------------------------------------------------ | ------------------------------------ |
-| [SPEC.md](./SPEC.md)                                   | Full implementation specification    |
-| [PROJECT_STATUS.md](./PROJECT_STATUS.md)               | Current project status and decisions |
-| [terraform/README.md](./terraform/README.md)           | Infrastructure documentation         |
-| [docs/TRAINERLAB_BRAND.md](./docs/TRAINERLAB_BRAND.md) | Brand guide and messaging            |
+| Document                                               | Description                            |
+| ------------------------------------------------------ | -------------------------------------- |
+| [SPEC.md](./SPEC.md)                                   | Full implementation specification      |
+| [PROJECT_STATUS.md](./PROJECT_STATUS.md)               | Current project status and decisions   |
+| [terraform/README.md](./terraform/README.md)           | Infrastructure documentation           |
+| [docs/TRAINERLAB_BRAND.md](./docs/TRAINERLAB_BRAND.md) | Brand guide and messaging              |
+| [Architecture](./docs/architecture/README.md)          | System architecture diagrams (Mermaid) |
 
 ---
 
@@ -34,7 +35,7 @@ TrainerLab is a competitive intelligence platform for Pokemon TCG. We help train
 
 - **Frontend:** Next.js 14+, TypeScript, Tailwind, shadcn/ui
 - **Backend:** FastAPI, Python 3.11+
-- **Database:** PostgreSQL 15 + pgvector (Cloud SQL)
+- **Database:** PostgreSQL 16 + pgvector (Cloud SQL)
 - **Cache:** Redis (Memorystore)
 - **Card Data:** TCGdex (self-hosted)
 - **Infrastructure:** GCP (Cloud Run, managed via Terraform)
@@ -125,13 +126,18 @@ See [terraform/README.md](./terraform/README.md) for full deployment instruction
 
 ## Project Status
 
-🟢 **Phase: Ready for Development**
+🟢 **Phase: Closed Beta**
 
 - ✅ Brand and naming finalized (TrainerLab)
 - ✅ Domains secured (trainerlab.io, trainerlab.org)
 - ✅ Technical spec complete
-- ✅ Infrastructure as code ready (Terraform)
-- ⏳ Development starting
+- ✅ Infrastructure deployed (Terraform + GCP)
+- ✅ Card database + search
+- ✅ Deck builder MVP
+- ✅ Meta dashboard with JP integration
+- ✅ Data pipeline (Cloud Scheduler + Cloud Tasks)
+- ✅ Authentication (NextAuth.js + Google OAuth)
+- ⏳ Beta recruitment and soft launch
 
 ---
 

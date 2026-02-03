@@ -39,7 +39,7 @@
 
 **In Progress (Phase 5):**
 
-- Firebase authentication
+- NextAuth.js + Google OAuth authentication
 - User preferences
 - Loading states, error handling
 - Mobile responsiveness
@@ -676,7 +676,7 @@ ADD COLUMN tier TEXT;  -- 'regionals', 'internationals', 'special'
 
 ### Phase 5: Polish & Auth (In Progress)
 
-25 open issues - Firebase auth, loading states, mobile responsive, tests
+25 open issues - NextAuth.js + Google OAuth, loading states, mobile responsive, tests
 
 ### Phase 6: Design System
 

@@ -27,7 +27,7 @@ flowchart TB
         subgraph State["State Management"]
             ReactQuery["React Query<br/>Server State"]
             Zustand["Zustand<br/>Deck Builder"]
-            Context["Auth Context<br/>Firebase State"]
+            Context["Auth Context<br/>NextAuth.js"]
         end
     end
 

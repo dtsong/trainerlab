@@ -32,6 +32,10 @@ flowchart TB
             Jobs["4 Pipeline Jobs<br/>Daily/Weekly"]
         end
 
+        subgraph CloudTasks["Cloud Tasks"]
+            Queue["Tournament Queue"]
+        end
+
         subgraph Supporting["Supporting Services"]
             Secrets["Secret Manager"]
             Registry["Artifact Registry"]
@@ -39,7 +43,7 @@ flowchart TB
     end
 
     subgraph External["External Services"]
-        Firebase["Firebase Auth"]
+        Google["Google OAuth"]
         Limitless["Limitless TCG<br/>Tournament Data"]
         TCGdex["TCGdex<br/>Card Data"]
     end
@@ -53,12 +57,13 @@ flowchart TB
     Player --> Web
     Creator --> Web
     Web --> API
-    Web -.->|"Auth"| Firebase
+    Web -.->|"OAuth"| Google
 
     %% API connections
     API --> DB
     API --> Secrets
-    API -.->|"Verify tokens"| Firebase
+    API -->|"Enqueue"| Queue
+    Queue -->|"Process"| API
     API -->|"Scrape"| Limitless
     API -->|"Sync"| TCGdex
 
@@ -76,8 +81,8 @@ flowchart TB
     classDef user fill:#fbbc04,stroke:#f9ab00,color:#000
     classDef frontend fill:#ea4335,stroke:#c5221f,color:#fff
 
-    class API,DB,Jobs,Secrets,Registry gcp
-    class Firebase,Limitless,TCGdex external
+    class API,DB,Jobs,Secrets,Registry,Queue gcp
+    class Google,Limitless,TCGdex external
     class Player,Creator user
     class Web frontend
 ```
@@ -90,7 +95,8 @@ flowchart TB
 | **FastAPI API**           | Python backend handling business logic, deployed to Cloud Run   |
 | **PostgreSQL + pgvector** | Database with vector similarity search for card embeddings      |
 | **Cloud Scheduler**       | Automated pipeline execution on defined schedules               |
-| **Firebase Auth**         | User authentication with ID token verification                  |
+| **Cloud Tasks**           | Tournament processing queue with rate limiting (0.5/sec)        |
+| **Google OAuth**          | User authentication via NextAuth.js with HS256 JWT              |
 | **Artifact Registry**     | Docker image storage with 10-version retention policy           |
 | **Secret Manager**        | Secure storage for database credentials and API keys            |
 | **Terraform**             | Infrastructure as code with GCS state backend                   |
@@ -101,3 +107,4 @@ flowchart TB
 - All Cloud Run services use HTTPS with managed certificates
 - GitHub Actions authenticates to GCP via Workload Identity Federation (keyless)
 - Scheduled jobs use OIDC tokens for authenticated API calls
+- Cloud Tasks rate-limits tournament processing at 0.5 requests/sec with 2 concurrent dispatches

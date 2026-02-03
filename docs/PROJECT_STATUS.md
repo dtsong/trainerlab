@@ -1,6 +1,6 @@
 # TrainerLab - Project Status
 
-> Last updated: January 2026
+> Last updated: February 2026
 
 ---
 
@@ -30,14 +30,14 @@
 
 ## Key Decisions Made
 
-| Decision             | Choice                                  | Rationale                                                          |
-| -------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| **Card Data Source** | TCGdex (self-hosted)                    | Active maintenance, 14 languages including Japanese, self-hostable |
-| **Hosting**          | GCP (Cloud Run, Cloud SQL, Memorystore) | Familiarity, Terraform support, scalable                           |
-| **Frontend**         | Next.js 14+                             | SSR, good DX, App Router                                           |
-| **Backend**          | FastAPI (Python)                        | Type-safe, good for data work                                      |
-| **Database**         | PostgreSQL 15 + pg_trgm                 | Managed via Cloud SQL, full-text + fuzzy search                    |
-| **Auth**             | Firebase Auth or Supabase               | TBD - both integrate well                                          |
+| Decision             | Choice                                  | Rationale                                                           |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------------- |
+| **Card Data Source** | TCGdex (self-hosted)                    | Active maintenance, 14 languages including Japanese, self-hostable  |
+| **Hosting**          | GCP (Cloud Run, Cloud SQL, Memorystore) | Familiarity, Terraform support, scalable                            |
+| **Frontend**         | Next.js 14+                             | SSR, good DX, App Router                                            |
+| **Backend**          | FastAPI (Python)                        | Type-safe, good for data work                                       |
+| **Database**         | PostgreSQL 16 + pgvector                | Managed via Cloud SQL, vector similarity search for card embeddings |
+| **Auth**             | NextAuth.js + Google OAuth              | HS256 JWT shared between frontend and backend                       |
 
 ---
 
@@ -106,28 +106,24 @@
 
 ## Next Steps
 
-### Immediate
+### Completed
 
-1. [ ] Set up GCP project
-2. [ ] Run Terraform bootstrap (state bucket)
-3. [ ] Run Terraform apply (infrastructure)
-4. [ ] Initialize code repository
-5. [ ] Hand SPEC.md to Claude Code to begin development
+1. [x] Set up GCP project
+2. [x] Run Terraform bootstrap (state bucket)
+3. [x] Run Terraform apply (infrastructure)
+4. [x] Initialize code repository
+5. [x] Build card database + search
+6. [x] Build deck builder MVP
+7. [x] Build meta dashboard
+8. [x] Add Japanese data integration
+9. [x] Deploy to Cloud Run
+10. [x] Landing page with email capture
 
-### Short-term
+### In Progress
 
-1. [ ] Build card database + search
-2. [ ] Build deck builder MVP
-3. [ ] Build meta dashboard
-4. [ ] Add Japanese data integration
-5. [ ] Deploy to Cloud Run
-
-### Launch Prep
-
-1. [ ] Landing page with email capture
-2. [ ] Beta user recruitment (Reddit, Discord)
-3. [ ] Content: "Introducing TrainerLab" post
-4. [ ] Soft launch to competitive community
+1. [ ] Beta user recruitment (Reddit, Discord)
+2. [ ] Content: "Introducing TrainerLab" post
+3. [ ] Soft launch to competitive community
 
 ---
 
@@ -135,24 +131,34 @@
 
 ```
 trainerlab/
-├── SPEC.md                      # Implementation spec
 ├── README.md
 ├── docker-compose.yml
-├── cloudbuild.yaml
 │
 ├── apps/
 │   ├── web/                     # Next.js frontend
 │   └── api/                     # FastAPI backend
 │
+├── packages/
+│   └── shared-types/            # Shared TypeScript types
+│
 ├── terraform/                   # GCP infrastructure
 │   ├── main.tf
 │   ├── variables.tf
 │   ├── outputs.tf
-│   ├── bootstrap/
 │   └── environments/
 │
 └── docs/
+    ├── SPEC.md                  # Implementation spec
+    ├── CODEMAP.md               # Codebase structure quick reference
+    ├── PROJECT_STATUS.md
     ├── TRAINERLAB_BRAND.md
+    ├── architecture/            # System architecture diagrams
+    │   ├── README.md
+    │   ├── SYSTEM_OVERVIEW.md
+    │   ├── DATA_PIPELINE.md
+    │   ├── APPLICATION_LAYERS.md
+    │   ├── AUTHENTICATION.md
+    │   └── CI_CD_DEPLOYMENT.md
     └── research/
         ├── JAPANESE_META_RESEARCH.md
         └── CARD_DATA_INFRASTRUCTURE.md

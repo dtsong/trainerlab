@@ -1,7 +1,12 @@
 """SQLAlchemy models."""
 
+from src.models.adaptation import Adaptation
+from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
+from src.models.archetype_prediction import ArchetypePrediction
 from src.models.card import Card
 from src.models.deck import Deck
+from src.models.evolution_article import EvolutionArticle
+from src.models.evolution_article_snapshot import EvolutionArticleSnapshot
 from src.models.format_config import FormatConfig
 from src.models.jp_card_innovation import JPCardInnovation
 from src.models.jp_new_archetype import JPNewArchetype
@@ -18,8 +23,13 @@ from src.models.user import User
 from src.models.waitlist import WaitlistEntry
 
 __all__ = [
+    "Adaptation",
+    "ArchetypeEvolutionSnapshot",
+    "ArchetypePrediction",
     "Card",
     "Deck",
+    "EvolutionArticle",
+    "EvolutionArticleSnapshot",
     "FormatConfig",
     "JPCardInnovation",
     "JPNewArchetype",

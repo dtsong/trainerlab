@@ -106,7 +106,7 @@ class TestScrapeEnEndpoint:
         """Should validate lookback_days range."""
         response = client.post(
             "/api/v1/pipeline/scrape-en",
-            json={"lookback_days": 100},  # Max is 30
+            json={"lookback_days": 500},  # Max is 365
         )
 
         assert response.status_code == 422  # Validation error

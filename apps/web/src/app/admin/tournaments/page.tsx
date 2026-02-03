@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminHeader, DataTable } from "@/components/admin";
-import type { Column } from "@/components/admin";
+import type { Column, SortState } from "@/components/admin";
 import { tournamentsApi } from "@/lib/api";
 import type { ApiTournamentSummary } from "@trainerlab/shared-types";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,14 @@ const columns: Column<ApiTournamentSummary>[] = [
     key: "name",
     header: "Name",
     render: (row) => row.name,
+    sortable: true,
   },
   {
     key: "date",
     header: "Date",
     render: (row) => row.date,
     className: "whitespace-nowrap",
+    sortable: true,
   },
   {
     key: "region",
@@ -31,6 +33,7 @@ const columns: Column<ApiTournamentSummary>[] = [
         {row.country ? ` (${row.country})` : ""}
       </span>
     ),
+    sortable: true,
   },
   {
     key: "format",
@@ -43,16 +46,19 @@ const columns: Column<ApiTournamentSummary>[] = [
         {row.format}
       </Badge>
     ),
+    sortable: true,
   },
   {
     key: "best_of",
     header: "BO",
     render: (row) => `BO${row.best_of}`,
+    sortable: true,
   },
   {
     key: "tier",
     header: "Tier",
     render: (row) => row.tier ?? "-",
+    sortable: true,
   },
   {
     key: "participants",
@@ -62,15 +68,35 @@ const columns: Column<ApiTournamentSummary>[] = [
         ? row.participant_count.toLocaleString()
         : "-",
     className: "text-right",
+    sortable: true,
   },
 ];
 
 export default function AdminTournamentsPage() {
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortState>({
+    key: "date",
+    direction: "desc",
+  });
+
+  function handleSortChange(newSort: SortState) {
+    setSort(newSort);
+    setPage(1);
+  }
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "tournaments", { page, limit: LIMIT }],
-    queryFn: () => tournamentsApi.list({ page, limit: LIMIT }),
+    queryKey: [
+      "admin",
+      "tournaments",
+      { page, limit: LIMIT, sort_by: sort.key, order: sort.direction },
+    ],
+    queryFn: () =>
+      tournamentsApi.list({
+        page,
+        limit: LIMIT,
+        sort_by: sort.key,
+        order: sort.direction,
+      }),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -88,6 +114,8 @@ export default function AdminTournamentsPage() {
           onPageChange={setPage}
           isLoading={isLoading}
           rowKey={(row) => row.id}
+          sort={sort}
+          onSortChange={handleSortChange}
           expandedRow={(row) => (
             <div>
               <div className="mb-2 font-mono text-xs uppercase tracking-wider text-zinc-500">

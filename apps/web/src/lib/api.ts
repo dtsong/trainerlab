@@ -231,6 +231,8 @@ export interface TournamentSearchParams {
   end_date?: string;
   best_of?: 1 | 3;
   tier?: TournamentTier;
+  sort_by?: string;
+  order?: "asc" | "desc";
   page?: number;
   limit?: number;
 }
@@ -245,6 +247,8 @@ export const tournamentsApi = {
     if (params.end_date) searchParams.set("end_date", params.end_date);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
     if (params.tier) searchParams.set("tier", params.tier);
+    if (params.sort_by) searchParams.set("sort_by", params.sort_by);
+    if (params.order) searchParams.set("order", params.order);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
 

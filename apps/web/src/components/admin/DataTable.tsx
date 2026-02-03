@@ -10,12 +10,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 export interface Column<T> {
   key: string;
   header: string;
   render: (row: T) => ReactNode;
   className?: string;
+  sortable?: boolean;
+}
+
+export interface SortState {
+  key: string;
+  direction: "asc" | "desc";
 }
 
 interface DataTableProps<T> {
@@ -27,6 +34,8 @@ interface DataTableProps<T> {
   isLoading?: boolean;
   expandedRow?: (row: T) => ReactNode;
   rowKey: (row: T) => string;
+  sort?: SortState;
+  onSortChange?: (sort: SortState) => void;
 }
 
 export function DataTable<T>({
@@ -38,6 +47,8 @@ export function DataTable<T>({
   isLoading,
   expandedRow,
   rowKey,
+  sort,
+  onSortChange,
 }: DataTableProps<T>) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
@@ -60,14 +71,42 @@ export function DataTable<T>({
           <TableHeader>
             <TableRow className="border-zinc-800 hover:bg-transparent">
               {expandedRow && <TableHead className="w-8 text-zinc-500" />}
-              {columns.map((col) => (
-                <TableHead
-                  key={col.key}
-                  className={`font-mono text-xs uppercase tracking-wider text-zinc-500 ${col.className ?? ""}`}
-                >
-                  {col.header}
-                </TableHead>
-              ))}
+              {columns.map((col) => {
+                const isSortable = col.sortable && onSortChange;
+                const isActive = sort?.key === col.key;
+
+                return (
+                  <TableHead
+                    key={col.key}
+                    className={`font-mono text-xs uppercase tracking-wider text-zinc-500 ${isSortable ? "cursor-pointer select-none hover:text-zinc-300" : ""} ${col.className ?? ""}`}
+                    onClick={
+                      isSortable
+                        ? () => {
+                            const direction: "asc" | "desc" =
+                              isActive && sort.direction === "asc"
+                                ? "desc"
+                                : "asc";
+                            onSortChange({ key: col.key, direction });
+                          }
+                        : undefined
+                    }
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {col.header}
+                      {isSortable &&
+                        (isActive ? (
+                          sort.direction === "asc" ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-3 w-3 opacity-40" />
+                        ))}
+                    </span>
+                  </TableHead>
+                );
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>

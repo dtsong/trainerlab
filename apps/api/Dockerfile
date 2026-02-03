@@ -6,7 +6,7 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /usr/local/bin/uv
 
 # Copy dependency files first for layer caching
 COPY pyproject.toml uv.lock README.md ./
@@ -53,5 +53,5 @@ USER appuser
 
 EXPOSE 8080
 
-# Run with uvicorn - Cloud Run expects the app to listen on $PORT
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port $PORT"]
+# Run with uvicorn in exec form for proper signal handling (SIGTERM from Cloud Run)
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

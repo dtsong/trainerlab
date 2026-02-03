@@ -12,6 +12,7 @@ import * as jose from "jose";
 const secret = process.env.NEXTAUTH_SECRET!;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret,
   providers: [Google],
 
   session: {

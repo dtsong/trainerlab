@@ -199,6 +199,18 @@ resource "google_secret_manager_secret_version" "nextauth_secret" {
   secret_data = random_password.nextauth_secret.result
 }
 
+# Anthropic API key (Claude AI features)
+resource "google_secret_manager_secret" "anthropic_api_key" {
+  project   = var.project_id
+  secret_id = "trainerlab-anthropic-api-key"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 # =============================================================================
 # Cloud SQL PostgreSQL (Private)
 # =============================================================================
@@ -273,6 +285,10 @@ module "api" {
     }
     NEXTAUTH_SECRET = {
       secret_id = google_secret_manager_secret.nextauth_secret.secret_id
+      version   = "latest"
+    }
+    ANTHROPIC_API_KEY = {
+      secret_id = google_secret_manager_secret.anthropic_api_key.secret_id
       version   = "latest"
     }
   }

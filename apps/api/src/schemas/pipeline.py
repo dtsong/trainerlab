@@ -21,7 +21,7 @@ class ScrapeRequest(PipelineRequest):
     lookback_days: int = Field(
         default=7,
         ge=1,
-        le=30,
+        le=365,
         description="Number of days to look back for tournaments",
     )
     game_format: Literal["standard", "expanded"] = Field(

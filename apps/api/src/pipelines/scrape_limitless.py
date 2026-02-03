@@ -110,7 +110,7 @@ async def scrape_en_tournaments(
 
 async def scrape_jp_tournaments(
     dry_run: bool = False,
-    lookback_days: int = 7,
+    lookback_days: int = 90,
     game_format: str = "standard",
     max_placements: int = 32,
     fetch_decklists: bool = True,
@@ -236,7 +236,7 @@ async def _scrape_dry_run(
 
     async with LimitlessClient() as client:
         # Just fetch listings without saving
-        for page in range(1, 4):  # Max 3 pages
+        for page in range(1, 11):  # Max 10 pages
             try:
                 tournaments = await client.fetch_tournament_listings(
                     region=region,

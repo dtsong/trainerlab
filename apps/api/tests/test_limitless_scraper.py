@@ -134,6 +134,34 @@ class TestLimitlessTournament:
 
         assert tournament.best_of == 3
 
+    def test_from_listing_parses_short_date_format(self) -> None:
+        """Should parse DD Mon YY format used by JP City Leagues."""
+        tournament = LimitlessTournament.from_listing(
+            name="JP City League",
+            date_str="01 Feb 26",
+            region="JP",
+            game_format="standard",
+            participant_count=64,
+            url="https://example.com",
+            best_of=1,
+        )
+
+        assert tournament.tournament_date == date(2026, 2, 1)
+
+    def test_from_listing_parses_short_date_various_months(self) -> None:
+        """Should parse DD Mon YY format for various months."""
+        tournament = LimitlessTournament.from_listing(
+            name="JP City League",
+            date_str="25 Jan 26",
+            region="JP",
+            game_format="standard",
+            participant_count=64,
+            url="https://example.com",
+            best_of=1,
+        )
+
+        assert tournament.tournament_date == date(2026, 1, 25)
+
     def test_from_listing_allows_best_of_1(self) -> None:
         """Should allow best_of=1 for JP tournaments."""
         tournament = LimitlessTournament.from_listing(

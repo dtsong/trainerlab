@@ -80,7 +80,7 @@ class TournamentScrapeService:
         region: str = "en",
         game_format: str = "standard",
         lookback_days: int = 7,
-        max_pages: int = 3,
+        max_pages: int = 10,
         max_placements: int = 32,
         fetch_decklists: bool = True,
     ) -> ScrapeResult:

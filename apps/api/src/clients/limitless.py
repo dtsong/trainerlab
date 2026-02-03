@@ -127,6 +127,7 @@ class LimitlessTournament:
             "%Y-%m-%dT%H:%M:%SZ",
             "%B %d, %Y",
             "%b %d, %Y",
+            "%d %b %y",  # 01 Feb 26 (JP City League format)
             "%d/%m/%Y",
             "%m/%d/%Y",
         ]
@@ -1124,38 +1125,60 @@ class LimitlessClient:
 
     async def fetch_jp_city_league_listings(
         self,
-        lookback_days: int = 30,
+        lookback_days: int = 90,
+        max_pages: int = 10,
     ) -> list[LimitlessTournament]:
         """Fetch JP City League listings from limitlesstcg.com.
 
         Japanese City Leagues are listed on a separate page from international
         events, with columns: Date | Prefecture | Shop | Winner.
 
+        Paginates through results using ``?show=100&page=N`` until all pages
+        are exhausted or all rows on a page fall outside the lookback window.
+
         Args:
             lookback_days: Only return tournaments from last N days.
+            max_pages: Maximum number of pages to fetch.
 
         Returns:
             List of JP City League tournament metadata.
         """
-        endpoint = "/tournaments/jp"
-        html = await self._get_official(endpoint)
-        soup = BeautifulSoup(html, "lxml")
-
         tournaments: list[LimitlessTournament] = []
         cutoff_date = date.today() - timedelta(days=lookback_days)
 
-        # Find table rows — JP page uses a simple table with tournament links
-        rows = soup.select("table tr")
-        logger.debug(f"Found {len(rows)} rows on JP City League page")
+        for page in range(1, max_pages + 1):
+            endpoint = f"/tournaments/jp?show=100&page={page}"
+            html = await self._get_official(endpoint)
+            soup = BeautifulSoup(html, "lxml")
 
-        for row in rows:
-            try:
-                tournament = self._parse_jp_city_league_row(row, cutoff_date)
-                if tournament:
-                    tournaments.append(tournament)
-            except (ValueError, KeyError, AttributeError) as e:
-                logger.warning(f"Error parsing JP City League row: {e}")
-                continue
+            # Find table rows — JP page uses a simple table with tournament links
+            rows = soup.select("table tr")
+            logger.debug(f"Page {page}: found {len(rows)} rows on JP City League page")
+
+            if not rows:
+                break
+
+            page_tournaments: list[LimitlessTournament] = []
+            all_past_cutoff = True
+
+            for row in rows:
+                try:
+                    tournament = self._parse_jp_city_league_row(row, cutoff_date)
+                    if tournament:
+                        page_tournaments.append(tournament)
+                        all_past_cutoff = False
+                except (ValueError, KeyError, AttributeError) as e:
+                    logger.warning(f"Error parsing JP City League row: {e}")
+                    continue
+
+            tournaments.extend(page_tournaments)
+
+            # Stop paginating if every row on this page was older than cutoff
+            if all_past_cutoff:
+                logger.debug(
+                    f"Page {page}: all rows older than cutoff, stopping pagination"
+                )
+                break
 
         logger.info(
             f"Found {len(tournaments)} JP City League tournaments "

@@ -30,6 +30,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from src.db.database import async_session_factory
 from src.fixtures.tournaments import TournamentFixture, normalize_archetype
 from src.models import Tournament, TournamentPlacement
+from src.services.tournament_scrape import TournamentScrapeService
 
 app = typer.Typer(
     name="seed-tournaments",
@@ -156,6 +157,9 @@ async def seed_tournament(fixture: TournamentFixture, dry_run: bool = False) -> 
             participant_count=fixture.participant_count,
             source=fixture.source,
             source_url=fixture.source_url,
+            tier=TournamentScrapeService.classify_tier(
+                fixture.participant_count or 0, fixture.name
+            ),
         )
 
         session.add(tournament)

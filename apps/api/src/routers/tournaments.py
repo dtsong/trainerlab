@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import MappedColumn, selectinload
 
 from src.db.database import get_db
 from src.models import Tournament
@@ -25,6 +25,17 @@ from src.schemas.tournament import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/tournaments", tags=["tournaments"])
+
+# Whitelist of sortable columns (prevents SQL injection via dynamic sort)
+SORTABLE_COLUMNS: dict[str, MappedColumn] = {  # type: ignore[type-arg]
+    "name": Tournament.name,
+    "date": Tournament.date,
+    "region": Tournament.region,
+    "format": Tournament.format,
+    "best_of": Tournament.best_of,
+    "tier": Tournament.tier,
+    "participants": Tournament.participant_count,
+}
 
 
 @router.get("")
@@ -53,6 +64,14 @@ async def list_tournaments(
     tier: Annotated[
         TournamentTier | None,
         Query(description="Filter by tier (major, premier, league)"),
+    ] = None,
+    sort_by: Annotated[
+        str | None,
+        Query(description="Column to sort by"),
+    ] = None,
+    order: Annotated[
+        Literal["asc", "desc"] | None,
+        Query(description="Sort direction"),
     ] = None,
     page: Annotated[
         int,
@@ -87,7 +106,12 @@ async def list_tournaments(
     if best_of:
         query = query.where(Tournament.best_of == best_of)
     if tier:
-        query = query.where(Tournament.tier == tier)
+        if tier == "grassroots":
+            query = query.where(
+                (Tournament.tier != "major") | (Tournament.tier.is_(None))
+            )
+        else:
+            query = query.where(Tournament.tier == tier)
 
     # Get total count
     count_query = select(func.count()).select_from(
@@ -114,9 +138,19 @@ async def list_tournaments(
             detail="Unable to retrieve tournaments. Please try again later.",
         ) from None
 
+    # Apply sorting (default: date descending)
+    sort_column = (
+        SORTABLE_COLUMNS.get(sort_by, Tournament.date) if sort_by else Tournament.date
+    )
+    sort_direction = order or "desc"
+    if sort_direction == "asc":
+        query = query.order_by(sort_column.asc())
+    else:
+        query = query.order_by(sort_column.desc())
+
     # Apply pagination
     offset = (page - 1) * limit
-    query = query.order_by(Tournament.date.desc()).offset(offset).limit(limit)
+    query = query.offset(offset).limit(limit)
 
     try:
         result = await db.execute(query)

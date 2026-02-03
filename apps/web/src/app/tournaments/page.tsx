@@ -8,18 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useTournaments } from "@/hooks/useTournaments";
 
-import type { TournamentTier } from "@trainerlab/shared-types";
-
 export default function TournamentsPage() {
   const [region, setRegion] = useState<string>("all");
   const [format, setFormat] = useState<"standard" | "expanded" | "all">("all");
-  const [tier, setTier] = useState<TournamentTier | "all">("all");
+  const [tier, setTier] = useState<"major" | "grassroots">("major");
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, refetch } = useTournaments({
     region: region === "all" ? undefined : region,
     format: format === "all" ? undefined : format,
-    tier: tier === "all" ? undefined : tier,
+    tier,
     page,
     limit: 20,
   });

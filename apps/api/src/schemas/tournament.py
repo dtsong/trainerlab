@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 GameFormat = Literal["standard", "expanded"]
-TournamentTier = Literal["major", "premier", "league"]
+TournamentTier = Literal["major", "premier", "league", "grassroots"]
 
 
 class BestOf(IntEnum):

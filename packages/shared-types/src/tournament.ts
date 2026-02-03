@@ -1,6 +1,6 @@
 // Tournament types (matching backend schemas)
 
-export type TournamentTier = "major" | "premier" | "league";
+export type TournamentTier = "major" | "premier" | "league" | "grassroots";
 export type GameFormat = "standard" | "expanded";
 
 export interface ApiTopPlacement {

@@ -8,15 +8,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { TournamentTier } from "@trainerlab/shared-types";
-
 interface TournamentFiltersProps {
   region: string;
   format: "standard" | "expanded" | "all";
-  tier: TournamentTier | "all";
+  tier: "major" | "grassroots";
   onRegionChange: (region: string) => void;
   onFormatChange: (format: "standard" | "expanded" | "all") => void;
-  onTierChange: (tier: TournamentTier | "all") => void;
+  onTierChange: (tier: "major" | "grassroots") => void;
 }
 
 const regions = [
@@ -34,11 +32,9 @@ const formats = [
   { value: "expanded", label: "Expanded" },
 ];
 
-const tiers = [
-  { value: "all", label: "All Tiers" },
-  { value: "major", label: "Major" },
-  { value: "premier", label: "Premier" },
-  { value: "league", label: "League" },
+const tierOptions = [
+  { value: "major" as const, label: "Major" },
+  { value: "grassroots" as const, label: "Grassroots" },
 ];
 
 export function TournamentFilters({
@@ -82,7 +78,7 @@ export function TournamentFilters({
           <SelectValue placeholder="Tier" />
         </SelectTrigger>
         <SelectContent>
-          {tiers.map((t) => (
+          {tierOptions.map((t) => (
             <SelectItem key={t.value} value={t.value}>
               {t.label}
             </SelectItem>

@@ -308,6 +308,99 @@ class TournamentScrapeService:
 
         return result
 
+    async def scrape_jp_city_leagues(
+        self,
+        lookback_days: int = 30,
+        max_placements: int = 32,
+        fetch_decklists: bool = True,
+    ) -> ScrapeResult:
+        """Scrape JP City League tournaments from limitlesstcg.com/tournaments/jp.
+
+        Args:
+            lookback_days: Only scrape tournaments from last N days.
+            max_placements: Maximum placements per tournament.
+            fetch_decklists: Whether to fetch decklists.
+
+        Returns:
+            ScrapeResult with statistics.
+        """
+        result = ScrapeResult()
+
+        logger.info(
+            "Starting JP City League scrape: lookback=%d days",
+            lookback_days,
+        )
+
+        try:
+            all_tournaments = await self.client.fetch_jp_city_league_listings(
+                lookback_days=lookback_days,
+            )
+        except (LimitlessError, httpx.RequestError) as e:
+            error_msg = f"Error fetching JP City League listings: {e}"
+            logger.error(error_msg, exc_info=True)
+            result.errors.append(error_msg)
+            return result
+
+        result.tournaments_scraped = len(all_tournaments)
+        logger.info(f"Found {len(all_tournaments)} JP City League tournaments")
+
+        for tournament in all_tournaments:
+            try:
+                if await self.tournament_exists(tournament.source_url):
+                    logger.debug(f"Skipping existing tournament: {tournament.name}")
+                    result.tournaments_skipped += 1
+                    continue
+
+                # Fetch placements from the tournament detail page
+                placements = await self.client.fetch_jp_city_league_placements(
+                    tournament.source_url,
+                    max_placements=max_placements,
+                )
+
+                # Optionally fetch decklists
+                if fetch_decklists:
+                    for placement in placements:
+                        if placement.decklist_url:
+                            try:
+                                placement.decklist = await self.client.fetch_decklist(
+                                    placement.decklist_url
+                                )
+                                if placement.decklist and placement.decklist.is_valid:
+                                    result.decklists_saved += 1
+                            except (
+                                LimitlessError,
+                                httpx.RequestError,
+                                httpx.HTTPStatusError,
+                            ) as e:
+                                url = placement.decklist_url
+                                logger.warning(f"Error fetching decklist {url}: {e}")
+
+                tournament.placements = placements
+
+                await self.save_tournament(tournament)
+                result.tournaments_saved += 1
+                result.placements_saved += len(placements)
+
+                logger.info(
+                    f"Saved JP City League: {tournament.name} "
+                    f"({len(placements)} placements)"
+                )
+
+            except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:
+                error_msg = f"Error processing JP tournament {tournament.name}: {e}"
+                logger.error(error_msg, exc_info=True)
+                result.errors.append(error_msg)
+
+        logger.info(
+            "JP City League scrape: scraped=%d, saved=%d, skipped=%d, errors=%d",
+            result.tournaments_scraped,
+            result.tournaments_saved,
+            result.tournaments_skipped,
+            len(result.errors),
+        )
+
+        return result
+
     async def save_tournament(
         self,
         tournament: LimitlessTournament,

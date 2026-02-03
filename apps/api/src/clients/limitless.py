@@ -10,7 +10,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Self
 
 import httpx
@@ -417,7 +417,7 @@ class LimitlessClient:
             List of tournament metadata (without placements).
         """
         # Construct URL based on region - use /completed for finished tournaments
-        base = "/tournaments/completed?game=POKEMON"
+        base = "/tournaments/completed?game=PTCG"
         if region == "jp":
             endpoint = f"{base}&region=JP&format={game_format}&page={page}"
         else:
@@ -601,8 +601,12 @@ class LimitlessClient:
 
         placements: list[LimitlessPlacement] = []
 
-        # Find placement rows
-        rows = soup.select("table.striped tbody tr")
+        # Find placement rows — Limitless uses "table.standings"
+        rows = soup.select("table.standings tbody tr")
+        if not rows:
+            rows = soup.select("table.standings tr")
+        if not rows:
+            rows = soup.select("table.striped tbody tr")
         if not rows:
             rows = soup.select(".standings-row")
 
@@ -1112,4 +1116,127 @@ class LimitlessClient:
             country=country,
             archetype=archetype,
             decklist_url=decklist_url,
+        )
+
+    # =========================================================================
+    # Japanese City League (limitlesstcg.com/tournaments/jp)
+    # =========================================================================
+
+    async def fetch_jp_city_league_listings(
+        self,
+        lookback_days: int = 30,
+    ) -> list[LimitlessTournament]:
+        """Fetch JP City League listings from limitlesstcg.com.
+
+        Japanese City Leagues are listed on a separate page from international
+        events, with columns: Date | Prefecture | Shop | Winner.
+
+        Args:
+            lookback_days: Only return tournaments from last N days.
+
+        Returns:
+            List of JP City League tournament metadata.
+        """
+        endpoint = "/tournaments/jp"
+        html = await self._get_official(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        tournaments: list[LimitlessTournament] = []
+        cutoff_date = date.today() - timedelta(days=lookback_days)
+
+        # Find table rows — JP page uses a simple table with tournament links
+        rows = soup.select("table tr")
+        logger.debug(f"Found {len(rows)} rows on JP City League page")
+
+        for row in rows:
+            try:
+                tournament = self._parse_jp_city_league_row(row, cutoff_date)
+                if tournament:
+                    tournaments.append(tournament)
+            except (ValueError, KeyError, AttributeError) as e:
+                logger.warning(f"Error parsing JP City League row: {e}")
+                continue
+
+        logger.info(
+            f"Found {len(tournaments)} JP City League tournaments "
+            f"within {lookback_days} day lookback"
+        )
+        return tournaments
+
+    def _parse_jp_city_league_row(
+        self, row: Tag, cutoff_date: date
+    ) -> LimitlessTournament | None:
+        """Parse a row from the JP City League listings page.
+
+        Columns: Date | Prefecture | Shop | Winner
+
+        Args:
+            row: BeautifulSoup Tag for the table row.
+            cutoff_date: Earliest date to include.
+
+        Returns:
+            LimitlessTournament or None if parsing fails or too old.
+        """
+        cells = row.select("td")
+        if len(cells) < 3:
+            return None
+
+        # Find tournament link — pattern: /tournaments/jp/[ID]
+        link = row.select_one("a[href*='/tournaments/jp/']")
+        if not link:
+            return None
+        href = str(link.get("href", ""))
+        if not href:
+            return None
+
+        url = f"{self.OFFICIAL_BASE_URL}{href}" if href.startswith("/") else href
+
+        # Extract date from first cell link text (format: "01 Feb 26")
+        date_link = cells[0].select_one("a")
+        if not date_link:
+            return None
+        date_text = date_link.get_text(strip=True)
+        if not date_text:
+            return None
+
+        tournament_date = LimitlessTournament._parse_date(date_text)
+        if tournament_date < cutoff_date:
+            return None
+
+        # Extract prefecture from second cell
+        prefecture = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+
+        # Build tournament name: "City League {Prefecture}"
+        name = f"City League {prefecture}" if prefecture else "City League"
+
+        return LimitlessTournament.from_listing(
+            name=name,
+            date_str=date_text,
+            region="JP",
+            game_format="standard",
+            participant_count=0,  # JP listings don't show player count
+            url=url,
+            best_of=1,  # JP uses BO1
+        )
+
+    async def fetch_jp_city_league_placements(
+        self,
+        tournament_url: str,
+        max_placements: int = 32,
+    ) -> list[LimitlessPlacement]:
+        """Fetch placements for a JP City League tournament.
+
+        Uses the same parsing as official tournaments since the detail
+        page structure is similar (rank | player | deck).
+
+        Args:
+            tournament_url: Full URL (e.g. limitlesstcg.com/tournaments/jp/3954).
+            max_placements: Maximum placements to fetch.
+
+        Returns:
+            List of placements.
+        """
+        # Reuse the official tournament placement parser — same page structure
+        return await self.fetch_official_tournament_placements(
+            tournament_url, max_placements
         )

@@ -154,28 +154,20 @@ async def scrape_jp_tournaments(
     async with LimitlessClient() as client, async_session_factory() as session:
         service = TournamentScrapeService(session, client)
 
-        # Scrape grassroots JP tournaments from play.limitlesstcg.com
-        logger.info("Scraping JP grassroots tournaments...")
-        grassroots_result = await service.scrape_new_tournaments(
-            region="jp",
-            game_format=game_format,
+        # Scrape JP City League tournaments from limitlesstcg.com/tournaments/jp
+        logger.info("Scraping JP City League tournaments...")
+        city_league_result = await service.scrape_jp_city_leagues(
             lookback_days=lookback_days,
             max_placements=max_placements,
             fetch_decklists=fetch_decklists,
         )
 
-    # Note: Official JP tournaments (Champions League, etc.) are already
-    # included in the official tournament scrape via scrape_en_tournaments
-    # since limitlesstcg.com lists all regions including JP.
-    # The official scraper filters by format="standard-jp" for JP events.
-
-    # Combine results (just grassroots for JP-specific pipeline)
-    combined_result.tournaments_scraped = grassroots_result.tournaments_scraped
-    combined_result.tournaments_saved = grassroots_result.tournaments_saved
-    combined_result.tournaments_skipped = grassroots_result.tournaments_skipped
-    combined_result.placements_saved = grassroots_result.placements_saved
-    combined_result.decklists_saved = grassroots_result.decklists_saved
-    combined_result.errors = grassroots_result.errors
+    combined_result.tournaments_scraped = city_league_result.tournaments_scraped
+    combined_result.tournaments_saved = city_league_result.tournaments_saved
+    combined_result.tournaments_skipped = city_league_result.tournaments_skipped
+    combined_result.placements_saved = city_league_result.placements_saved
+    combined_result.decklists_saved = city_league_result.decklists_saved
+    combined_result.errors = city_league_result.errors
 
     logger.info(
         "JP scrape complete: saved=%d, skipped=%d, errors=%d",

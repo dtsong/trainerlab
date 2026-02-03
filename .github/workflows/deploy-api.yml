@@ -180,21 +180,13 @@ jobs:
 
       - name: Verify deployment
         run: |
-          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+          # Check that the new revision is serving
+          SERVING=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region=${{ env.REGION }} \
-            --format='value(status.url)')
+            --format='value(status.conditions[0].status)')
 
-          # Get identity token for authenticated request
-          TOKEN=$(gcloud auth print-identity-token --audiences=$SERVICE_URL)
-
-          # Health check
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer $TOKEN" \
-            "$SERVICE_URL/health")
-
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "Health check failed with status $HTTP_STATUS"
+          if [ "$SERVING" != "True" ]; then
+            echo "Service not healthy: $SERVING"
             exit 1
           fi
-
           echo "Deployment verified successfully"

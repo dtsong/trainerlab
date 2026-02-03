@@ -169,8 +169,8 @@ class TestScrapeJpTournaments:
     """Tests for scrape_jp_tournaments function."""
 
     @pytest.mark.asyncio
-    async def test_uses_jp_region(self):
-        """Verify JP scrape uses jp region parameter."""
+    async def test_uses_jp_city_league_scraper(self):
+        """Verify JP scrape uses City League scraper from limitlesstcg.com."""
         mock_client = AsyncMock(spec=LimitlessClient)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -180,7 +180,10 @@ class TestScrapeJpTournaments:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         mock_service = AsyncMock()
-        mock_service.scrape_new_tournaments.return_value = ScrapeResult()
+        mock_service.scrape_jp_city_leagues.return_value = ScrapeResult(
+            tournaments_scraped=5,
+            tournaments_saved=3,
+        )
 
         with (
             patch(
@@ -196,11 +199,10 @@ class TestScrapeJpTournaments:
                 return_value=mock_service,
             ),
         ):
-            await scrape_jp_tournaments(dry_run=False)
+            result = await scrape_jp_tournaments(dry_run=False)
 
-        mock_service.scrape_new_tournaments.assert_called_once()
-        call_kwargs = mock_service.scrape_new_tournaments.call_args.kwargs
-        assert call_kwargs["region"] == "jp"
+        mock_service.scrape_jp_city_leagues.assert_called_once()
+        assert result.tournaments_saved == 3
 
     @pytest.mark.asyncio
     async def test_dry_run_mode(self, sample_tournaments):

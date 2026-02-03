@@ -177,6 +177,28 @@ resource "google_secret_manager_secret_version" "db_password" {
   secret_data = random_password.db_password.result
 }
 
+# NextAuth.js shared secret (JWT signing key shared with frontend)
+resource "random_password" "nextauth_secret" {
+  length  = 32
+  special = false
+}
+
+resource "google_secret_manager_secret" "nextauth_secret" {
+  project   = var.project_id
+  secret_id = "trainerlab-nextauth-secret"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "nextauth_secret" {
+  secret      = google_secret_manager_secret.nextauth_secret.id
+  secret_data = random_password.nextauth_secret.result
+}
+
 # =============================================================================
 # Cloud SQL PostgreSQL (Private)
 # =============================================================================
@@ -247,6 +269,10 @@ module "api" {
   secret_env_vars = {
     DATABASE_PASSWORD = {
       secret_id = google_secret_manager_secret.db_password.secret_id
+      version   = "latest"
+    }
+    NEXTAUTH_SECRET = {
+      secret_id = google_secret_manager_secret.nextauth_secret.secret_id
       version   = "latest"
     }
   }

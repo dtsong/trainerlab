@@ -18,3 +18,16 @@ export function useTournament(id: string) {
     staleTime: 1000 * 60 * 30, // 30 minutes
   });
 }
+
+export function usePlacementDecklist(
+  tournamentId: string | null,
+  placementId: string | null
+) {
+  return useQuery({
+    queryKey: ["decklist", tournamentId, placementId],
+    queryFn: () =>
+      tournamentsApi.getPlacementDecklist(tournamentId!, placementId!),
+    enabled: !!tournamentId && !!placementId,
+    staleTime: 1000 * 60 * 30, // 30 minutes
+  });
+}

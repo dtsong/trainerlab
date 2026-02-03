@@ -133,3 +133,33 @@ export interface ApiPredictionList {
   incorrect: number;
   accuracy_rate?: number | null;
 }
+
+/**
+ * Card count data point for a specific snapshot date.
+ */
+export interface ApiCardCountDataPoint {
+  snapshot_date: string;
+  avg_copies: number;
+  inclusion_rate: number;
+  sample_size: number;
+}
+
+/**
+ * Card count evolution for a single card within an archetype.
+ */
+export interface ApiCardCountEvolution {
+  card_id: string;
+  card_name: string;
+  data_points: ApiCardCountDataPoint[];
+  total_change: number;
+  current_avg: number;
+}
+
+/**
+ * Card count evolution response for an archetype.
+ */
+export interface ApiCardCountEvolutionResponse {
+  archetype: string;
+  cards: ApiCardCountEvolution[];
+  tournaments_analyzed: number;
+}

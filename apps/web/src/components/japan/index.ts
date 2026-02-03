@@ -2,3 +2,8 @@ export { CardInnovationTracker } from "./CardInnovationTracker";
 export { NewArchetypeWatch } from "./NewArchetypeWatch";
 export { SetImpactTimeline } from "./SetImpactTimeline";
 export { PredictionAccuracyTracker } from "./PredictionAccuracyTracker";
+export { DecklistViewer } from "./DecklistViewer";
+export { CityLeagueResultsFeed } from "./CityLeagueResultsFeed";
+export { MetaDivergenceComparison } from "./MetaDivergenceComparison";
+export { CardCountEvolutionChart } from "./CardCountEvolutionChart";
+export { CardCountEvolutionSection } from "./CardCountEvolutionSection";

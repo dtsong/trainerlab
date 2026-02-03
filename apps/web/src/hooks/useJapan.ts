@@ -8,6 +8,7 @@ import {
   JapanArchetypeParams,
   JapanSetImpactParams,
   JapanPredictionParams,
+  CardCountEvolutionParams,
 } from "@/lib/api";
 
 // Japan meta data changes infrequently - use 15 minute stale time
@@ -78,6 +79,24 @@ export function usePredictions(params: JapanPredictionParams = {}) {
       params.limit,
     ],
     queryFn: () => japanApi.listPredictions(params),
+    staleTime: JAPAN_STALE_TIME,
+  });
+}
+
+/**
+ * Hook to fetch card count evolution for an archetype.
+ */
+export function useCardCountEvolution(params: CardCountEvolutionParams | null) {
+  return useQuery({
+    queryKey: [
+      "japan",
+      "card-count-evolution",
+      params?.archetype,
+      params?.days,
+      params?.top_cards,
+    ],
+    queryFn: () => japanApi.getCardCountEvolution(params!),
+    enabled: !!params?.archetype,
     staleTime: JAPAN_STALE_TIME,
   });
 }

@@ -16,6 +16,7 @@ import type {
   ApiRotationImpact,
   ApiTournamentListResponse,
   ApiTournamentDetail,
+  ApiDecklistResponse,
   TournamentTier,
   ApiLabNoteListResponse,
   ApiLabNote,
@@ -25,6 +26,7 @@ import type {
   ApiJPNewArchetypeList,
   ApiJPSetImpactList,
   ApiPredictionList,
+  ApiCardCountEvolutionResponse,
 } from "@trainerlab/shared-types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -263,6 +265,12 @@ export const tournamentsApi = {
       `/api/v1/tournaments/${encodeURIComponent(id)}`
     );
   },
+
+  getPlacementDecklist: (tournamentId: string, placementId: string) => {
+    return fetchApi<ApiDecklistResponse>(
+      `/api/v1/tournaments/${encodeURIComponent(tournamentId)}/placements/${encodeURIComponent(placementId)}/decklist`
+    );
+  },
 };
 
 // Lab Notes search parameters
@@ -348,6 +356,12 @@ export interface JapanPredictionParams {
   limit?: number;
 }
 
+export interface CardCountEvolutionParams {
+  archetype: string;
+  days?: number;
+  top_cards?: number;
+}
+
 // Japan API
 export const japanApi = {
   listInnovations: (params: JapanInnovationParams = {}) => {
@@ -403,6 +417,18 @@ export const japanApi = {
     const query = searchParams.toString();
     return fetchApi<ApiPredictionList>(
       `/api/v1/japan/predictions${query ? `?${query}` : ""}`
+    );
+  },
+
+  getCardCountEvolution: (params: CardCountEvolutionParams) => {
+    const searchParams = new URLSearchParams();
+    searchParams.set("archetype", params.archetype);
+    if (params.days) searchParams.set("days", String(params.days));
+    if (params.top_cards)
+      searchParams.set("top_cards", String(params.top_cards));
+
+    return fetchApi<ApiCardCountEvolutionResponse>(
+      `/api/v1/japan/card-count-evolution?${searchParams.toString()}`
     );
   },
 };

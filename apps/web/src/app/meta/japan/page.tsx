@@ -2,13 +2,12 @@
 
 import { Suspense, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { subDays, endOfDay, startOfDay } from "date-fns";
+import { subDays, endOfDay, startOfDay, format } from "date-fns";
 import { useSearchParams, useRouter } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   MetaPieChart,
-  MetaBarChart,
   MetaTrendChart,
   DateRangePicker,
   BO1ContextBanner,
@@ -17,10 +16,10 @@ import {
 import {
   CardInnovationTracker,
   NewArchetypeWatch,
-  SetImpactTimeline,
-  PredictionAccuracyTracker,
+  CityLeagueResultsFeed,
+  MetaDivergenceComparison,
+  CardCountEvolutionSection,
 } from "@/components/japan";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { metaApi } from "@/lib/api";
 import {
   transformSnapshot,
@@ -28,18 +27,13 @@ import {
   getErrorMessage,
 } from "@/lib/meta-utils";
 import { Button } from "@/components/ui/button";
-import type {
-  MetaSnapshot,
-  Archetype,
-  CardUsageSummary,
-} from "@trainerlab/shared-types";
+import type { MetaSnapshot, Archetype } from "@trainerlab/shared-types";
 
 function JapanMetaPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const initialDays = parseDays(searchParams.get("days"));
-  const initialTab = searchParams.get("tab") || "innovation";
 
   const [dateRange, setDateRange] = useState({
     start: startOfDay(subDays(new Date(), initialDays)),
@@ -51,10 +45,9 @@ function JapanMetaPageContent() {
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   }, [dateRange]);
 
-  const updateUrl = (newDays: number, tab?: string) => {
+  const updateUrl = (newDays: number) => {
     const params = new URLSearchParams();
     if (newDays !== 30) params.set("days", String(newDays));
-    if (tab && tab !== "innovation") params.set("tab", tab);
     const query = params.toString();
     router.push(`/meta/japan${query ? `?${query}` : ""}`);
   };
@@ -66,10 +59,6 @@ function JapanMetaPageContent() {
         (1000 * 60 * 60 * 24)
     );
     updateUrl(newDays);
-  };
-
-  const handleTabChange = (tab: string) => {
-    updateUrl(days, tab);
   };
 
   // Fetch current Japan meta snapshot (BO1)
@@ -118,185 +107,187 @@ function JapanMetaPageContent() {
       keyCards: a.key_cards ?? undefined,
     })) ?? [];
 
-  const cardUsage: CardUsageSummary[] =
-    currentMeta?.card_usage.map((c) => ({
-      cardId: c.card_id,
-      inclusionRate: c.inclusion_rate,
-      avgCopies: c.avg_copies,
-    })) ?? [];
-
   const snapshots: MetaSnapshot[] =
     metaHistory?.snapshots.map(transformSnapshot) ?? [];
 
   const isLoadingMeta = isLoadingCurrent || isLoadingHistory;
   const metaError = currentError || historyError;
 
+  // Card count evolution: archetype list and selection
+  const archetypeNames = archetypes.map((a) => a.name);
+  const [selectedArchetype, setSelectedArchetype] = useState<string>("");
+
+  // Default to top archetype when data loads
+  const effectiveArchetype = selectedArchetype || archetypeNames[0] || "";
+
+  // Format dates for feed filtering
+  const startDateStr = format(dateRange.start, "yyyy-MM-dd");
+  const endDateStr = format(dateRange.end, "yyyy-MM-dd");
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">From Japan</h1>
           <p className="text-muted-foreground">
-            Card innovation intelligence &amp; JP meta insights
+            JP metagame intelligence — competitive prep &amp; innovation
+            scouting
           </p>
         </div>
-        <div className="flex gap-3">
-          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
-        </div>
+        <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
       </div>
 
       {/* BO1 Context Banner */}
       <BO1ContextBanner />
 
-      {/* Main Tabs */}
-      <Tabs defaultValue={initialTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="innovation">Card Innovation</TabsTrigger>
-          <TabsTrigger value="archetypes">New Archetypes</TabsTrigger>
-          <TabsTrigger value="set-impact">Set Impact</TabsTrigger>
-          <TabsTrigger value="meta">Meta Charts</TabsTrigger>
-        </TabsList>
+      {/* Section 1: JP Meta Overview */}
+      <section>
+        <h2 className="text-xl font-semibold mb-4">JP Meta Overview</h2>
+        {metaError && (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="font-medium text-destructive">
+                Failed to load Japan meta data
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {getErrorMessage(metaError, "Japan meta")}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={handleRetry}
+              >
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Card Innovation Tab - Headline Feature */}
-        <TabsContent value="innovation" className="space-y-6 mt-6">
-          <CardInnovationTracker limit={20} />
-          <PredictionAccuracyTracker limit={5} />
-        </TabsContent>
-
-        {/* New Archetypes Tab */}
-        <TabsContent value="archetypes" className="mt-6">
-          <NewArchetypeWatch limit={9} />
-        </TabsContent>
-
-        {/* Set Impact Tab */}
-        <TabsContent value="set-impact" className="mt-6">
-          <SetImpactTimeline limit={10} />
-        </TabsContent>
-
-        {/* Meta Charts Tab - Original Content */}
-        <TabsContent value="meta" className="space-y-6 mt-6">
-          {/* Error state */}
-          {metaError && (
-            <Card className="border-destructive">
-              <CardContent className="pt-6">
-                <p className="font-medium text-destructive">
-                  Failed to load Japan meta data
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {getErrorMessage(metaError, "Japan meta")}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={handleRetry}
-                >
-                  Try Again
-                </Button>
+        {isLoadingMeta && !metaError && (
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Archetype Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[350px] animate-pulse rounded bg-muted" />
               </CardContent>
             </Card>
-          )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Meta Trends</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[350px] animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-          {/* Loading state */}
-          {isLoadingMeta && !metaError && (
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Archetype Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[350px] animate-pulse rounded bg-muted" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top Cards</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[350px] animate-pulse rounded bg-muted" />
-                </CardContent>
-              </Card>
-            </div>
-          )}
+        {!isLoadingMeta && !metaError && (
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Archetype Breakdown (BO1)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {archetypes.length > 0 ? (
+                  <ChartErrorBoundary chartName="MetaPieChart">
+                    <MetaPieChart data={archetypes} />
+                  </ChartErrorBoundary>
+                ) : (
+                  <p className="py-12 text-center text-muted-foreground">
+                    No archetype data available
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Meta Trends (BO1)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {snapshots.length > 1 ? (
+                  <ChartErrorBoundary chartName="MetaTrendChart">
+                    <MetaTrendChart snapshots={snapshots} />
+                  </ChartErrorBoundary>
+                ) : (
+                  <p className="py-12 text-center text-muted-foreground">
+                    Not enough historical data for trends
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </section>
 
-          {/* Charts section */}
-          {!isLoadingMeta && !metaError && (
-            <>
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Archetype Breakdown (BO1)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {archetypes.length > 0 ? (
-                      <ChartErrorBoundary chartName="MetaPieChart">
-                        <MetaPieChart data={archetypes} />
-                      </ChartErrorBoundary>
-                    ) : (
-                      <p className="py-12 text-center text-muted-foreground">
-                        No archetype data available
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top Cards by Inclusion Rate</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {cardUsage.length > 0 ? (
-                      <ChartErrorBoundary chartName="MetaBarChart">
-                        <MetaBarChart data={cardUsage} limit={10} />
-                      </ChartErrorBoundary>
-                    ) : (
-                      <p className="py-12 text-center text-muted-foreground">
-                        No card usage data available
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+      {/* Section 2: City League Results */}
+      <section>
+        <CityLeagueResultsFeed startDate={startDateStr} endDate={endDateStr} />
+      </section>
 
-              {/* Trend chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Japan Meta Trends (BO1)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {snapshots.length > 1 ? (
-                    <ChartErrorBoundary chartName="MetaTrendChart">
-                      <MetaTrendChart snapshots={snapshots} />
-                    </ChartErrorBoundary>
-                  ) : (
-                    <p className="py-12 text-center text-muted-foreground">
-                      Not enough historical data for trends
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Section 3: JP vs EN Divergence */}
+      <section>
+        <MetaDivergenceComparison />
+      </section>
+
+      {/* Section 4: Card Count Evolution */}
+      <section>
+        <CardCountEvolutionSection
+          archetypes={archetypeNames}
+          selectedArchetype={effectiveArchetype}
+          onArchetypeChange={setSelectedArchetype}
+        />
+      </section>
+
+      {/* Section 5: Card Innovation Tracker */}
+      <section>
+        <CardInnovationTracker limit={20} />
+      </section>
+
+      {/* Section 6: New Archetype Watch */}
+      <section>
+        <NewArchetypeWatch limit={9} />
+      </section>
+
+      {/* Footer Attribution */}
+      <footer className="border-t pt-4 pb-8">
+        <p className="text-center text-xs text-muted-foreground">
+          Data sourced from{" "}
+          <a
+            href="https://limitlesstcg.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            Limitless TCG
+          </a>
+        </p>
+      </footer>
     </div>
   );
 }
 
 function JapanMetaPageLoading() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="h-9 w-48 animate-pulse rounded bg-muted" />
-          <div className="mt-2 h-5 w-64 animate-pulse rounded bg-muted" />
+          <div className="mt-2 h-5 w-80 animate-pulse rounded bg-muted" />
         </div>
-        <div className="flex gap-3">
-          <div className="h-10 w-[200px] animate-pulse rounded bg-muted" />
-        </div>
+        <div className="h-10 w-[240px] animate-pulse rounded bg-muted" />
       </div>
       <div className="h-20 animate-pulse rounded bg-muted" />
-      <div className="h-10 animate-pulse rounded bg-muted" />
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="h-[400px] animate-pulse rounded bg-muted" />
+        <div className="h-[400px] animate-pulse rounded bg-muted" />
+      </div>
+      <div className="h-64 animate-pulse rounded bg-muted" />
+      <div className="h-64 animate-pulse rounded bg-muted" />
       <div className="h-96 animate-pulse rounded bg-muted" />
     </div>
   );

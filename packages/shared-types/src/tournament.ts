@@ -61,6 +61,24 @@ export interface ApiTournamentListResponse {
   has_prev: boolean;
 }
 
+export interface ApiDecklistCard {
+  card_id: string;
+  card_name: string;
+  quantity: number;
+  supertype?: string | null;
+}
+
+export interface ApiDecklistResponse {
+  placement_id: string;
+  player_name?: string | null;
+  archetype: string;
+  tournament_name: string;
+  tournament_date: string;
+  source_url?: string | null;
+  cards: ApiDecklistCard[];
+  total_cards: number;
+}
+
 // Frontend types (camelCase)
 
 export interface TopPlacement {

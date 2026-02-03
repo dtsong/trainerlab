@@ -277,7 +277,7 @@ module "api" {
     }
   }
 
-  allow_unauthenticated = false # Org policy blocks allUsers
+  allow_unauthenticated = true
   custom_domain         = var.custom_domain
 
   depends_on_resources = [module.database]

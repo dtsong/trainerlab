@@ -1,5 +1,7 @@
 import { labNotesApi } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://trainerlab.gg";
 
 export async function GET() {

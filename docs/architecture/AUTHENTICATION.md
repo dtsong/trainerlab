@@ -133,8 +133,8 @@ async def verify_scheduler_token(
 
 - `NEXTAUTH_SECRET` — shared secret for JWT signing (must match backend)
 - `NEXTAUTH_URL` — canonical URL (auto-set on Vercel)
-- `GOOGLE_CLIENT_ID` — Google OAuth client ID
-- `GOOGLE_CLIENT_SECRET` — Google OAuth client secret
+- `AUTH_GOOGLE_ID` — Google OAuth client ID (NextAuth v5 auto-detected name)
+- `AUTH_GOOGLE_SECRET` — Google OAuth client secret (NextAuth v5 auto-detected name)
 
 ### Backend (`apps/api/.env`)
 

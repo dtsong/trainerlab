@@ -42,7 +42,7 @@ variable "custom_domain" {
 variable "cors_origins" {
   description = "Comma-separated list of allowed CORS origins"
   type        = string
-  default     = "https://trainerlab.app,https://www.trainerlab.app"
+  default     = "https://trainerlab-web.vercel.app,https://trainerlab.io,https://www.trainerlab.io"
 }
 
 # =============================================================================

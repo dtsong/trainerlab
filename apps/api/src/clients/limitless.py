@@ -268,6 +268,7 @@ class LimitlessClient:
     """
 
     BASE_URL = "https://play.limitlesstcg.com"
+    OFFICIAL_BASE_URL = "https://limitlesstcg.com"
 
     def __init__(
         self,
@@ -297,13 +298,22 @@ class LimitlessClient:
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._lock = asyncio.Lock()
 
+        _headers = {
+            "User-Agent": "TrainerLab/1.0 (Pokemon TCG Meta Analysis)",
+            "Accept": "text/html,application/xhtml+xml",
+        }
+
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             timeout=timeout,
-            headers={
-                "User-Agent": "TrainerLab/1.0 (Pokemon TCG Meta Analysis)",
-                "Accept": "text/html,application/xhtml+xml",
-            },
+            headers=_headers,
+            follow_redirects=True,
+        )
+
+        self._official_client = httpx.AsyncClient(
+            base_url=self.OFFICIAL_BASE_URL,
+            timeout=timeout,
+            headers=_headers,
             follow_redirects=True,
         )
 
@@ -316,8 +326,9 @@ class LimitlessClient:
         await self.close()
 
     async def close(self) -> None:
-        """Close the HTTP client."""
+        """Close HTTP clients."""
         await self._client.aclose()
+        await self._official_client.aclose()
 
     async def _wait_for_rate_limit(self) -> None:
         """Wait if necessary to respect rate limit."""
@@ -721,6 +732,14 @@ class LimitlessClient:
 
             soup = BeautifulSoup(html, "lxml")
 
+            has_card_links = bool(soup.select("a[href*='/cards/']"))
+            logger.info(
+                "fetch_decklist %s: html_length=%d, has_card_links=%s",
+                decklist_url,
+                len(html),
+                has_card_links,
+            )
+
             # Try official site format first: <a href="/cards/SET/NUM">
             # with quantity encoded in image src (decklist/N.png)
             result = self._parse_official_decklist(soup, decklist_url)
@@ -734,7 +753,20 @@ class LimitlessClient:
 
             # Fallback: text-based decklist
             text_content = soup.get_text("\n", strip=True)
-            return self._parse_text_decklist(text_content, decklist_url)
+            result = self._parse_text_decklist(text_content, decklist_url)
+            if result:
+                return result
+
+            # All parsers failed — log diagnostic info
+            page_title = soup.title.string if soup.title else "(no title)"
+            logger.warning(
+                "All decklist parsers failed for %s — title=%r, "
+                "first 500 chars: %.500s",
+                decklist_url,
+                page_title,
+                html,
+            )
+            return None
 
         except LimitlessError:
             logger.warning("Could not fetch decklist: %s", decklist_url)
@@ -763,6 +795,15 @@ class LimitlessClient:
         # Find all card links matching /cards/SET/NUMBER
         card_links = soup.select("a[href^='/cards/']")
         if not card_links:
+            # Fallback: handles absolute hrefs (e.g. https://limitlesstcg.com/cards/...)
+            card_links = soup.select("a[href*='/cards/']")
+        if not card_links:
+            page_title = soup.title.string if soup.title else "(no title)"
+            logger.warning(
+                "No card links found in official decklist — title=%r, url=%s",
+                page_title,
+                source_url,
+            )
             return None
 
         for link in card_links:
@@ -901,10 +942,13 @@ class LimitlessClient:
     # Official Tournament Database (limitlesstcg.com)
     # =========================================================================
 
-    OFFICIAL_BASE_URL = "https://limitlesstcg.com"
-
     async def _get_official(self, endpoint: str) -> str:
         """Make GET request to official Limitless database.
+
+        Uses a dedicated httpx client with base_url pointed at the official
+        site so that cookies, connection pooling, and redirect handling all
+        work correctly (as opposed to passing absolute URLs through the
+        play-site client).
 
         Args:
             endpoint: URL path (e.g., "/tournaments").
@@ -919,9 +963,7 @@ class LimitlessClient:
                 await self._wait_for_rate_limit()
 
                 try:
-                    # Use absolute URL for official site
-                    url = f"{self.OFFICIAL_BASE_URL}{endpoint}"
-                    response = await self._client.get(url)
+                    response = await self._official_client.get(endpoint)
 
                     if response.status_code == 429:
                         delay = self._retry_delay * (2**attempt)
@@ -1131,7 +1173,26 @@ class LimitlessClient:
         # Find standings table - official site uses class "standings"
         table = soup.select_one("table.standings, table.striped")
         if not table:
-            logger.warning(f"Could not find standings table for {tournament_url}")
+            # Fallback: first <table> with 3+ rows containing <td> cells
+            for candidate in soup.select("table"):
+                data_rows = [tr for tr in candidate.select("tr") if tr.select("td")]
+                if len(data_rows) >= 3:
+                    table = candidate
+                    logger.info(
+                        "Using fallback table (%d data rows) for %s",
+                        len(data_rows),
+                        tournament_url,
+                    )
+                    break
+        if not table:
+            page_title = soup.title.string if soup.title else "(no title)"
+            table_count = len(soup.select("table"))
+            logger.warning(
+                "No standings table found for %s — title=%r, tables_on_page=%d",
+                tournament_url,
+                page_title,
+                table_count,
+            )
             return placements
 
         rows = table.select("tbody tr")
@@ -1190,6 +1251,9 @@ class LimitlessClient:
             deck_link = cell.select_one("a[href*='/decks/']")
             if deck_link:
                 archetype = deck_link.get_text(strip=True)
+                # JP pages use Pokemon images instead of text
+                if not archetype:
+                    archetype = self._extract_archetype_from_images(deck_link)
                 href = str(deck_link.get("href", ""))
                 if href:
                     decklist_url = (
@@ -1212,6 +1276,39 @@ class LimitlessClient:
             archetype=archetype,
             decklist_url=decklist_url,
         )
+
+    @staticmethod
+    def _extract_archetype_from_images(link_tag: Tag) -> str:
+        """Extract archetype name from Pokemon images inside a link.
+
+        JP tournament pages show Pokemon card images instead of text labels.
+        This extracts names from ``<img alt="PokemonName">`` or from the
+        image filename (e.g. ``.../grimmsnarl.png``).
+
+        Args:
+            link_tag: An ``<a>`` tag that may contain ``<img>`` children.
+
+        Returns:
+            Archetype string like ``"Grimmsnarl / Froslass"`` or
+            ``"Unknown"`` if no names could be extracted.
+        """
+        names: list[str] = []
+        for img in link_tag.select("img"):
+            alt = img.get("alt")
+            if isinstance(alt, str) and alt.strip():
+                names.append(alt.strip())
+                continue
+            # Fallback: extract from filename
+            src = str(img.get("src", ""))
+            filename_match = re.search(r"/([a-zA-Z_-]+)\.png", src)
+            if filename_match:
+                raw = filename_match.group(1)
+                # Convert filenames like "grimmsnarl" → "Grimmsnarl"
+                name = raw.replace("-", " ").replace("_", " ").title()
+                names.append(name)
+        if names:
+            return " / ".join(names)
+        return "Unknown"
 
     # =========================================================================
     # Japanese City League (limitlesstcg.com/tournaments/jp)

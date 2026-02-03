@@ -27,7 +27,7 @@ TOKEN=""
 
 # Poll settings
 POLL_INTERVAL=10
-POLL_TIMEOUT=300  # 5 minutes
+POLL_TIMEOUT=600  # 10 minutes
 
 usage() {
     cat << EOF

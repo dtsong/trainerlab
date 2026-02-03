@@ -1,5 +1,6 @@
 """Tests for Limitless TCG scraper."""
 
+import logging
 from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -470,3 +471,159 @@ class TestLimitlessPlacement:
 
         assert placement.decklist is None
         assert placement.decklist_url is None
+
+
+class TestOfficialDecklistParsing:
+    """Tests for parsing decklists from the official Limitless site."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    @pytest.mark.asyncio
+    async def test_parses_official_decklist_with_card_links(
+        self, client: LimitlessClient
+    ) -> None:
+        """Should parse card links and quantities from official site format."""
+        html = load_fixture("limitless_official_decklist.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            decklist = await client.fetch_decklist(
+                "https://limitlesstcg.com/decks/some-deck-id"
+            )
+
+            assert decklist is not None
+            assert decklist.is_valid
+            assert len(decklist.cards) == 5
+
+            # Check specific card mappings
+            cards_by_id = {c["card_id"]: c for c in decklist.cards}
+            assert "sv3-125" in cards_by_id  # Charizard ex (OBF)
+            assert cards_by_id["sv3-125"]["quantity"] == 3
+            assert cards_by_id["sv3-125"]["name"] == "Charizard ex"
+
+            assert "sv3-26" in cards_by_id  # Charmander (OBF)
+            assert cards_by_id["sv3-26"]["quantity"] == 4
+
+            assert "sv1-196" in cards_by_id  # Ultra Ball (SVI)
+            assert "sv2-172" in cards_by_id  # Boss's Orders (PAL)
+            assert "swsh9-151" in cards_by_id  # Double Turbo Energy (BRS)
+
+        await client.close()
+
+
+class TestJPStandingsParsing:
+    """Tests for parsing JP standings with image-only archetypes."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    @pytest.mark.asyncio
+    async def test_extracts_archetype_from_img_alt(
+        self, client: LimitlessClient
+    ) -> None:
+        """Should extract archetype from img alt text in JP standings."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_official_tournament_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            assert len(placements) == 4
+
+            # 1st place: two Pokemon images with alt text
+            assert placements[0].archetype == "Grimmsnarl / Froslass"
+            assert placements[0].decklist_url is not None
+
+            # 2nd place: single Pokemon image with alt text
+            assert placements[1].archetype == "Charizard"
+
+    @pytest.mark.asyncio
+    async def test_extracts_archetype_from_img_filename(
+        self, client: LimitlessClient
+    ) -> None:
+        """Should fall back to img filename when alt text is missing."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_official_tournament_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            # 3rd place: images without alt text, names from filenames
+            assert placements[2].archetype == "Dragapult / Pidgeot"
+
+    @pytest.mark.asyncio
+    async def test_preserves_text_archetype(self, client: LimitlessClient) -> None:
+        """Should preserve text-based archetype for EN-style rows."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_official_tournament_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            # 4th place: plain text archetype "Rogue"
+            assert placements[3].archetype == "Rogue"
+            assert placements[3].decklist_url is None
+
+    @pytest.mark.asyncio
+    async def test_text_archetype_preserved_for_en_tournaments(
+        self, client: LimitlessClient
+    ) -> None:
+        """Should still work for EN tournaments with text archetypes."""
+        html = load_fixture("limitless_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_official_tournament_placements(
+                "https://limitlesstcg.com/tournaments/en/1234"
+            )
+
+            assert placements[0].archetype == "Charizard ex"
+            assert placements[0].decklist_url is not None
+
+
+class TestDecklistParserFailureLogging:
+    """Tests for diagnostic logging when all parsers fail."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    @pytest.mark.asyncio
+    async def test_logs_warning_when_all_parsers_fail(
+        self, client: LimitlessClient, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should log a warning with diagnostic info when no parser succeeds."""
+        empty_html = (
+            "<html><head><title>Error Page</title></head><body>Oops</body></html>"
+        )
+
+        with patch.object(client, "_get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = empty_html
+
+            with caplog.at_level(logging.WARNING, logger="src.clients.limitless"):
+                decklist = await client.fetch_decklist(
+                    "https://play.limitlesstcg.com/decks/broken"
+                )
+
+            assert decklist is None
+            assert any(
+                "All decklist parsers failed" in record.message
+                for record in caplog.records
+            )
+            assert any("Error Page" in record.message for record in caplog.records)
+
+        await client.close()

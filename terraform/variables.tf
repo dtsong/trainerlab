@@ -100,7 +100,7 @@ variable "scheduler_paused" {
 variable "github_repo" {
   description = "GitHub repository in format owner/repo for OIDC authentication"
   type        = string
-  default     = "danielsongdev/trainerlab"
+  default     = "dtsong/trainerlab"
 }
 
 # =============================================================================

@@ -19,4 +19,4 @@ timezone         = "America/New_York"
 scheduler_paused = false
 
 # GitHub Actions
-github_repo = "danielsongdev/trainerlab"
+github_repo = "dtsong/trainerlab"

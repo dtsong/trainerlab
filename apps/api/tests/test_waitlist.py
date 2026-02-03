@@ -1,76 +1,89 @@
 """Tests for waitlist endpoints."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from src.models.waitlist import WaitlistEntry
 
 
 @pytest.mark.asyncio
-async def test_join_waitlist_success(client: AsyncClient, db_session):
+async def test_join_waitlist_success(client: AsyncClient):
     """Test successful waitlist signup."""
-    response = await client.post(
-        "/api/v1/waitlist",
-        json={"email": "test@example.com"},
-    )
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
+    with patch(
+        "src.routers.waitlist.async_session_factory",
+        return_value=mock_session,
+    ):
+        response = await client.post(
+            "/api/v1/waitlist",
+            json={"email": "test@example.com"},
+        )
 
     assert response.status_code == 201
     data = response.json()
     assert data["success"] is True
     assert "on the list" in data["message"]
 
-    # Verify email was saved
-    result = await db_session.execute(
-        select(WaitlistEntry).where(WaitlistEntry.email == "test@example.com")
-    )
-    entry = result.scalar_one_or_none()
-    assert entry is not None
+    # Verify entry was added to session and committed
+    mock_session.add.assert_called_once()
+    added_entry = mock_session.add.call_args[0][0]
+    assert isinstance(added_entry, WaitlistEntry)
+    assert added_entry.email == "test@example.com"
+    mock_session.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_join_waitlist_duplicate_email(client: AsyncClient, db_session):
+async def test_join_waitlist_duplicate_email(client: AsyncClient):
     """Test that duplicate emails return success for privacy."""
-    # First signup
-    await client.post(
-        "/api/v1/waitlist",
-        json={"email": "dupe@example.com"},
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.commit.side_effect = IntegrityError(
+        "duplicate key", params=None, orig=Exception()
     )
 
-    # Second signup with same email
-    response = await client.post(
-        "/api/v1/waitlist",
-        json={"email": "dupe@example.com"},
-    )
+    with patch(
+        "src.routers.waitlist.async_session_factory",
+        return_value=mock_session,
+    ):
+        response = await client.post(
+            "/api/v1/waitlist",
+            json={"email": "dupe@example.com"},
+        )
 
     assert response.status_code == 201
     data = response.json()
     assert data["success"] is True
-
-    # Verify only one entry exists
-    result = await db_session.execute(
-        select(WaitlistEntry).where(WaitlistEntry.email == "dupe@example.com")
-    )
-    entries = result.scalars().all()
-    assert len(entries) == 1
+    mock_session.rollback.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_join_waitlist_email_normalized(client: AsyncClient, db_session):
+async def test_join_waitlist_email_normalized(client: AsyncClient):
     """Test that email is normalized to lowercase."""
-    response = await client.post(
-        "/api/v1/waitlist",
-        json={"email": "Test@Example.COM"},
-    )
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
+    with patch(
+        "src.routers.waitlist.async_session_factory",
+        return_value=mock_session,
+    ):
+        response = await client.post(
+            "/api/v1/waitlist",
+            json={"email": "Test@Example.COM"},
+        )
 
     assert response.status_code == 201
 
-    # Verify email was saved lowercase
-    result = await db_session.execute(
-        select(WaitlistEntry).where(WaitlistEntry.email == "test@example.com")
-    )
-    entry = result.scalar_one_or_none()
-    assert entry is not None
+    # Verify email was normalized before saving
+    added_entry = mock_session.add.call_args[0][0]
+    assert added_entry.email == "test@example.com"
 
 
 @pytest.mark.asyncio

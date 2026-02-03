@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Self
+from urllib.parse import quote
 
 import httpx
 
@@ -307,7 +308,8 @@ class TCGdexClient:
         Returns:
             Full card details.
         """
-        data = await self._get(f"/{language}/cards/{card_id}")
+        encoded_id = quote(card_id, safe="")
+        data = await self._get(f"/{language}/cards/{encoded_id}")
         return TCGdexCard.from_dict(data)
 
     async def fetch_cards_for_set(

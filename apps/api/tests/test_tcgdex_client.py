@@ -335,6 +335,28 @@ class TestTCGdexClient:
             await client._get("/en/sets/invalid")
 
     @pytest.mark.asyncio
+    async def test_fetch_card_encodes_special_characters(self, client: TCGdexClient):
+        """Test that card IDs with special characters are URL-encoded."""
+        mock_response = {
+            "id": "exu-?",
+            "localId": "?",
+            "name": "Promo Card",
+            "category": "Pokemon",
+            "set": {"id": "exu"},
+            "legal": {},
+        }
+
+        async def mock_get(endpoint: str):
+            # Verify the endpoint has the encoded card_id
+            assert endpoint == "/en/cards/exu-%3F"
+            return mock_response
+
+        with patch.object(client, "_get", side_effect=mock_get):
+            card = await client.fetch_card("exu-?")
+            assert card.id == "exu-?"
+            assert card.name == "Promo Card"
+
+    @pytest.mark.asyncio
     async def test_context_manager(self):
         """Test async context manager."""
         async with TCGdexClient(base_url="https://api.tcgdex.net/v2") as client:

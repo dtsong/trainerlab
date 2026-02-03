@@ -130,6 +130,8 @@ async def verify_scheduler_auth(
             allowed_emails.append(settings.scheduler_service_account)
         if settings.operations_service_account:
             allowed_emails.append(settings.operations_service_account)
+        if settings.api_service_account:
+            allowed_emails.append(settings.api_service_account)
 
         claims = _verify_oidc_token(
             token=token,

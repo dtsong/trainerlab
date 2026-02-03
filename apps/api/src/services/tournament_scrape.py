@@ -534,6 +534,238 @@ class TournamentScrapeService:
             decklist_source=decklist_source,
         )
 
+    async def discover_new_tournaments(
+        self,
+        region: str = "en",
+        game_format: str = "standard",
+        lookback_days: int = 7,
+        max_pages: int = 10,
+    ) -> list[LimitlessTournament]:
+        """Discover new tournaments without processing them.
+
+        Returns metadata for tournaments not yet in the database.
+        Used by the two-phase pipeline (discover → enqueue → process).
+
+        Args:
+            region: Region to scrape ("en", "jp", etc.).
+            game_format: Game format ("standard", "expanded").
+            lookback_days: Only include tournaments from last N days.
+            max_pages: Maximum listing pages to fetch.
+
+        Returns:
+            List of new LimitlessTournament metadata (no placements fetched).
+        """
+        cutoff_date = date.today() - timedelta(days=lookback_days)
+        all_tournaments: list[LimitlessTournament] = []
+
+        for page in range(1, max_pages + 1):
+            try:
+                tournaments = await self.client.fetch_tournament_listings(
+                    region=region,
+                    game_format=game_format,
+                    page=page,
+                )
+                if not tournaments:
+                    break
+                for t in tournaments:
+                    if t.tournament_date >= cutoff_date:
+                        all_tournaments.append(t)
+            except (LimitlessError, httpx.RequestError) as e:
+                logger.error("Error fetching page %d: %s", page, e)
+                break
+
+        # Filter out tournaments that already exist
+        new_tournaments = []
+        for t in all_tournaments:
+            if not await self.tournament_exists(t.source_url):
+                new_tournaments.append(t)
+
+        logger.info(
+            "Discovery complete: found=%d, new=%d, region=%s",
+            len(all_tournaments),
+            len(new_tournaments),
+            region,
+        )
+        return new_tournaments
+
+    async def discover_official_tournaments(
+        self,
+        game_format: str = "standard",
+        lookback_days: int = 90,
+    ) -> list[LimitlessTournament]:
+        """Discover new official tournaments without processing them.
+
+        Args:
+            game_format: Game format ("standard", "expanded").
+            lookback_days: Only include tournaments from last N days.
+
+        Returns:
+            List of new LimitlessTournament metadata.
+        """
+        cutoff_date = date.today() - timedelta(days=lookback_days)
+
+        try:
+            all_tournaments = await self.client.fetch_official_tournament_listings(
+                game_format=game_format,
+            )
+        except (LimitlessError, httpx.RequestError) as e:
+            logger.error("Error fetching official tournament listings: %s", e)
+            return []
+
+        tournaments_in_range = [
+            t for t in all_tournaments if t.tournament_date >= cutoff_date
+        ]
+
+        new_tournaments = []
+        for t in tournaments_in_range:
+            if not await self.tournament_exists(t.source_url):
+                new_tournaments.append(t)
+
+        logger.info(
+            "Official discovery complete: found=%d, new=%d",
+            len(tournaments_in_range),
+            len(new_tournaments),
+        )
+        return new_tournaments
+
+    async def discover_jp_city_leagues(
+        self,
+        lookback_days: int = 30,
+    ) -> list[LimitlessTournament]:
+        """Discover new JP City League tournaments without processing them.
+
+        Args:
+            lookback_days: Only include tournaments from last N days.
+
+        Returns:
+            List of new LimitlessTournament metadata.
+        """
+        try:
+            all_tournaments = await self.client.fetch_jp_city_league_listings(
+                lookback_days=lookback_days,
+            )
+        except (LimitlessError, httpx.RequestError) as e:
+            logger.error("Error fetching JP City League listings: %s", e)
+            return []
+
+        new_tournaments = []
+        for t in all_tournaments:
+            if not await self.tournament_exists(t.source_url):
+                new_tournaments.append(t)
+
+        logger.info(
+            "JP discovery complete: found=%d, new=%d",
+            len(all_tournaments),
+            len(new_tournaments),
+        )
+        return new_tournaments
+
+    async def process_tournament_by_url(
+        self,
+        source_url: str,
+        name: str,
+        tournament_date: date,
+        region: str,
+        game_format: str = "standard",
+        best_of: int = 3,
+        participant_count: int = 0,
+        max_placements: int = 32,
+        fetch_decklists: bool = True,
+        is_official: bool = False,
+        is_jp_city_league: bool = False,
+    ) -> ScrapeResult:
+        """Process a single tournament by its source URL.
+
+        Used by the Cloud Tasks worker endpoint. Fetches placements,
+        decklists, and saves to database.
+
+        Args:
+            source_url: Tournament source URL.
+            name: Tournament name.
+            tournament_date: Tournament date.
+            region: Tournament region.
+            game_format: Game format.
+            best_of: Best-of format.
+            participant_count: Number of participants.
+            max_placements: Max placements to fetch.
+            fetch_decklists: Whether to fetch decklists.
+            is_official: Whether this is an official Limitless tournament.
+            is_jp_city_league: Whether this is a JP City League tournament.
+
+        Returns:
+            ScrapeResult with statistics.
+        """
+        result = ScrapeResult()
+        result.tournaments_scraped = 1
+
+        # Defense in depth: check if already processed
+        if await self.tournament_exists(source_url):
+            logger.info("Tournament already exists, skipping: %s", source_url)
+            result.tournaments_skipped = 1
+            return result
+
+        try:
+            # Fetch placements based on tournament type
+            if is_jp_city_league:
+                placements = await self.client.fetch_jp_city_league_placements(
+                    source_url, max_placements=max_placements
+                )
+            elif is_official:
+                placements = await self.client.fetch_official_tournament_placements(
+                    source_url, max_placements=max_placements
+                )
+            else:
+                placements = await self.client.fetch_tournament_placements(
+                    source_url, max_placements=max_placements
+                )
+
+            # Fetch decklists
+            if fetch_decklists:
+                for placement in placements:
+                    if placement.decklist_url:
+                        try:
+                            placement.decklist = await self.client.fetch_decklist(
+                                placement.decklist_url
+                            )
+                            if placement.decklist and placement.decklist.is_valid:
+                                result.decklists_saved += 1
+                        except (
+                            LimitlessError,
+                            httpx.RequestError,
+                            httpx.HTTPStatusError,
+                        ) as e:
+                            logger.warning(
+                                "Error fetching decklist %s: %s",
+                                placement.decklist_url,
+                                e,
+                            )
+
+            # Build tournament object and save
+            tournament = LimitlessTournament(
+                name=name,
+                tournament_date=tournament_date,
+                region=region,
+                game_format=game_format,
+                best_of=best_of,
+                participant_count=participant_count,
+                source_url=source_url,
+                placements=placements,
+            )
+
+            saved = await self.save_tournament(tournament)
+            if saved is None:
+                result.tournaments_skipped = 1
+            else:
+                result.tournaments_saved = 1
+                result.placements_saved = len(placements)
+
+        except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:
+            error_msg = f"Error processing tournament {name}: {e}"
+            logger.error(error_msg, exc_info=True)
+            result.errors.append(error_msg)
+
+        return result
+
     async def get_recent_tournaments(
         self,
         region: str | None = None,

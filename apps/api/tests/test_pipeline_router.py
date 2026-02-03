@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from src.config import Settings
 from src.pipelines.compute_meta import ComputeMetaResult as ComputeMetaResultInternal
+from src.pipelines.scrape_limitless import DiscoverResult as DiscoverResultInternal
 from src.pipelines.sync_cards import SyncResult
 from src.routers.pipeline import router
 from src.services.tournament_scrape import ScrapeResult as ScrapeResultInternal
@@ -43,154 +44,204 @@ def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
 
-class TestScrapeEnEndpoint:
-    """Tests for /scrape-en endpoint."""
+class TestDiscoverEnEndpoint:
+    """Tests for /discover-en endpoint."""
 
-    def test_scrape_en_success(self, client: TestClient) -> None:
-        """Should return scrape result on success."""
-        mock_result = ScrapeResultInternal(
-            tournaments_scraped=10,
-            tournaments_saved=8,
+    def test_discover_en_success(self, client: TestClient) -> None:
+        """Should return discover result on success."""
+        mock_result = DiscoverResultInternal(
+            tournaments_discovered=10,
+            tasks_enqueued=8,
             tournaments_skipped=2,
-            placements_saved=256,
-            decklists_saved=200,
             errors=[],
         )
 
         with patch(
-            "src.routers.pipeline.scrape_en_tournaments", new_callable=AsyncMock
-        ) as mock_scrape:
-            mock_scrape.return_value = mock_result
+            "src.routers.pipeline.discover_en_tournaments", new_callable=AsyncMock
+        ) as mock_discover:
+            mock_discover.return_value = mock_result
 
             response = client.post(
-                "/api/v1/pipeline/scrape-en",
-                json={"dry_run": False, "lookback_days": 7},
+                "/api/v1/pipeline/discover-en",
+                json={"lookback_days": 90},
             )
 
             assert response.status_code == 200
             data = response.json()
-            assert data["tournaments_scraped"] == 10
-            assert data["tournaments_saved"] == 8
+            assert data["tournaments_discovered"] == 10
+            assert data["tasks_enqueued"] == 8
             assert data["tournaments_skipped"] == 2
-            assert data["placements_saved"] == 256
-            assert data["decklists_saved"] == 200
             assert data["success"] is True
 
-    def test_scrape_en_with_errors(self, client: TestClient) -> None:
+    def test_discover_en_with_errors(self, client: TestClient) -> None:
         """Should include errors in response."""
-        mock_result = ScrapeResultInternal(
-            tournaments_scraped=5,
-            tournaments_saved=3,
+        mock_result = DiscoverResultInternal(
+            tournaments_discovered=5,
+            tasks_enqueued=3,
             tournaments_skipped=0,
-            placements_saved=96,
-            decklists_saved=50,
-            errors=["Error fetching tournament X", "Error parsing decklist Y"],
+            errors=["Failed to enqueue tournament X"],
         )
 
         with patch(
-            "src.routers.pipeline.scrape_en_tournaments", new_callable=AsyncMock
-        ) as mock_scrape:
-            mock_scrape.return_value = mock_result
+            "src.routers.pipeline.discover_en_tournaments", new_callable=AsyncMock
+        ) as mock_discover:
+            mock_discover.return_value = mock_result
 
             response = client.post(
-                "/api/v1/pipeline/scrape-en",
-                json={"dry_run": True},
+                "/api/v1/pipeline/discover-en",
+                json={},
             )
 
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is False
-            assert len(data["errors"]) == 2
+            assert len(data["errors"]) == 1
 
-    def test_scrape_en_validates_lookback_days(self, client: TestClient) -> None:
+    def test_discover_en_validates_lookback_days(self, client: TestClient) -> None:
         """Should validate lookback_days range."""
         response = client.post(
-            "/api/v1/pipeline/scrape-en",
+            "/api/v1/pipeline/discover-en",
             json={"lookback_days": 500},  # Max is 365
         )
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
-    def test_scrape_en_validates_game_format(self, client: TestClient) -> None:
-        """Should validate game_format pattern."""
+    def test_discover_en_validates_game_format(self, client: TestClient) -> None:
+        """Should validate game_format values."""
         response = client.post(
-            "/api/v1/pipeline/scrape-en",
+            "/api/v1/pipeline/discover-en",
             json={"game_format": "invalid"},
         )
 
         assert response.status_code == 422
 
-    def test_scrape_en_uses_defaults(self, client: TestClient) -> None:
+    def test_discover_en_uses_defaults(self, client: TestClient) -> None:
         """Should use default values when not provided."""
-        mock_result = ScrapeResultInternal()
+        mock_result = DiscoverResultInternal()
 
         with patch(
-            "src.routers.pipeline.scrape_en_tournaments", new_callable=AsyncMock
-        ) as mock_scrape:
-            mock_scrape.return_value = mock_result
+            "src.routers.pipeline.discover_en_tournaments", new_callable=AsyncMock
+        ) as mock_discover:
+            mock_discover.return_value = mock_result
 
             response = client.post(
-                "/api/v1/pipeline/scrape-en",
+                "/api/v1/pipeline/discover-en",
                 json={},
             )
 
             assert response.status_code == 200
-            mock_scrape.assert_called_once_with(
-                dry_run=False,
-                lookback_days=7,
+            mock_discover.assert_called_once_with(
+                lookback_days=90,
                 game_format="standard",
-                max_placements=32,
-                fetch_decklists=True,
             )
 
 
-class TestScrapeJpEndpoint:
-    """Tests for /scrape-jp endpoint."""
+class TestDiscoverJpEndpoint:
+    """Tests for /discover-jp endpoint."""
 
-    def test_scrape_jp_success(self, client: TestClient) -> None:
-        """Should return scrape result on success."""
-        mock_result = ScrapeResultInternal(
-            tournaments_scraped=5,
-            tournaments_saved=4,
+    def test_discover_jp_success(self, client: TestClient) -> None:
+        """Should return discover result on success."""
+        mock_result = DiscoverResultInternal(
+            tournaments_discovered=5,
+            tasks_enqueued=4,
             tournaments_skipped=1,
-            placements_saved=128,
-            decklists_saved=100,
             errors=[],
         )
 
         with patch(
-            "src.routers.pipeline.scrape_jp_tournaments", new_callable=AsyncMock
-        ) as mock_scrape:
-            mock_scrape.return_value = mock_result
+            "src.routers.pipeline.discover_jp_tournaments", new_callable=AsyncMock
+        ) as mock_discover:
+            mock_discover.return_value = mock_result
 
             response = client.post(
-                "/api/v1/pipeline/scrape-jp",
-                json={"dry_run": False, "lookback_days": 14},
+                "/api/v1/pipeline/discover-jp",
+                json={"lookback_days": 30},
             )
 
             assert response.status_code == 200
             data = response.json()
-            assert data["tournaments_scraped"] == 5
+            assert data["tournaments_discovered"] == 5
             assert data["success"] is True
 
-    def test_scrape_jp_expanded_format(self, client: TestClient) -> None:
+    def test_discover_jp_expanded_format(self, client: TestClient) -> None:
         """Should accept expanded format."""
-        mock_result = ScrapeResultInternal()
+        mock_result = DiscoverResultInternal()
 
         with patch(
-            "src.routers.pipeline.scrape_jp_tournaments", new_callable=AsyncMock
-        ) as mock_scrape:
-            mock_scrape.return_value = mock_result
+            "src.routers.pipeline.discover_jp_tournaments", new_callable=AsyncMock
+        ) as mock_discover:
+            mock_discover.return_value = mock_result
 
             response = client.post(
-                "/api/v1/pipeline/scrape-jp",
+                "/api/v1/pipeline/discover-jp",
                 json={"game_format": "expanded"},
             )
 
             assert response.status_code == 200
-            mock_scrape.assert_called_once()
-            call_kwargs = mock_scrape.call_args.kwargs
-            assert call_kwargs["game_format"] == "expanded"
+            mock_discover.assert_called_once()
+
+
+class TestProcessTournamentEndpoint:
+    """Tests for /process-tournament endpoint."""
+
+    def test_process_tournament_success(self, client: TestClient) -> None:
+        """Should return scrape result on success."""
+        mock_result = ScrapeResultInternal(
+            tournaments_scraped=1,
+            tournaments_saved=1,
+            placements_saved=32,
+            decklists_saved=28,
+            errors=[],
+        )
+
+        with patch(
+            "src.routers.pipeline.process_single_tournament", new_callable=AsyncMock
+        ) as mock_process:
+            mock_process.return_value = mock_result
+
+            response = client.post(
+                "/api/v1/pipeline/process-tournament",
+                json={
+                    "source_url": "https://play.limitlesstcg.com/tournament/12345",
+                    "name": "Regional Championship",
+                    "tournament_date": "2026-02-01",
+                    "region": "NA",
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["tournaments_saved"] == 1
+            assert data["placements_saved"] == 32
+            assert data["success"] is True
+
+    def test_process_tournament_skipped(self, client: TestClient) -> None:
+        """Should handle already-processed tournaments."""
+        mock_result = ScrapeResultInternal(
+            tournaments_scraped=1,
+            tournaments_skipped=1,
+            errors=[],
+        )
+
+        with patch(
+            "src.routers.pipeline.process_single_tournament", new_callable=AsyncMock
+        ) as mock_process:
+            mock_process.return_value = mock_result
+
+            response = client.post(
+                "/api/v1/pipeline/process-tournament",
+                json={
+                    "source_url": "https://play.limitlesstcg.com/tournament/12345",
+                    "name": "Regional Championship",
+                    "tournament_date": "2026-02-01",
+                    "region": "NA",
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["tournaments_skipped"] == 1
+            assert data["tournaments_saved"] == 0
 
 
 class TestComputeMetaEndpoint:
@@ -355,33 +406,33 @@ class TestExceptionHandling:
         """Client that doesn't raise server exceptions."""
         return TestClient(app, raise_server_exceptions=False)
 
-    def test_scrape_en_handles_pipeline_exception(
+    def test_discover_en_handles_pipeline_exception(
         self, error_client: TestClient
     ) -> None:
         """Should return 500 when pipeline raises unhandled exception."""
         with patch(
-            "src.routers.pipeline.scrape_en_tournaments", new_callable=AsyncMock
-        ) as mock_scrape:
-            mock_scrape.side_effect = RuntimeError("Database connection lost")
+            "src.routers.pipeline.discover_en_tournaments", new_callable=AsyncMock
+        ) as mock_discover:
+            mock_discover.side_effect = RuntimeError("Database connection lost")
 
             response = error_client.post(
-                "/api/v1/pipeline/scrape-en",
+                "/api/v1/pipeline/discover-en",
                 json={},
             )
 
             assert response.status_code == 500
 
-    def test_scrape_jp_handles_pipeline_exception(
+    def test_discover_jp_handles_pipeline_exception(
         self, error_client: TestClient
     ) -> None:
         """Should return 500 when JP pipeline raises unhandled exception."""
         with patch(
-            "src.routers.pipeline.scrape_jp_tournaments", new_callable=AsyncMock
-        ) as mock_scrape:
-            mock_scrape.side_effect = RuntimeError("Network timeout")
+            "src.routers.pipeline.discover_jp_tournaments", new_callable=AsyncMock
+        ) as mock_discover:
+            mock_discover.side_effect = RuntimeError("Network timeout")
 
             response = error_client.post(
-                "/api/v1/pipeline/scrape-jp",
+                "/api/v1/pipeline/discover-jp",
                 json={},
             )
 
@@ -452,7 +503,7 @@ class TestAuthenticationIntegration:
     def test_requires_auth_in_production(self, production_client: TestClient) -> None:
         """Should require auth header in production mode."""
         response = production_client.post(
-            "/api/v1/pipeline/scrape-en",
+            "/api/v1/pipeline/discover-en",
             json={},
         )
 
@@ -462,7 +513,7 @@ class TestAuthenticationIntegration:
     def test_rejects_invalid_token_format(self, production_client: TestClient) -> None:
         """Should reject non-Bearer auth."""
         response = production_client.post(
-            "/api/v1/pipeline/scrape-en",
+            "/api/v1/pipeline/discover-en",
             json={},
             headers={"Authorization": "Basic dXNlcjpwYXNz"},
         )

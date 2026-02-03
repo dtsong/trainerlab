@@ -66,6 +66,7 @@ resource "google_project_service" "apis" {
     "sqladmin.googleapis.com",
     "cloudscheduler.googleapis.com",
     "iamcredentials.googleapis.com", # Required for Workload Identity Federation
+    "cloudtasks.googleapis.com",     # Cloud Tasks for tournament scrape pipeline
   ])
 
   project            = var.project_id
@@ -238,6 +239,9 @@ module "api" {
     CLOUD_RUN_URL               = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
     SCHEDULER_SERVICE_ACCOUNT   = google_service_account.scheduler.email
     OPERATIONS_SERVICE_ACCOUNT  = google_service_account.operations.email
+    CLOUD_TASKS_QUEUE_PATH      = module.cloud_tasks.queue_path
+    CLOUD_TASKS_LOCATION        = var.region
+    API_SERVICE_ACCOUNT         = google_service_account.api.email
   }
 
   secret_env_vars = {
@@ -285,4 +289,34 @@ module "scheduler" {
   scheduler_service_account = google_service_account.scheduler.email
   timezone                  = var.timezone
   paused                    = var.scheduler_paused
+}
+
+# =============================================================================
+# Cloud Tasks Queue (tournament scrape pipeline)
+# =============================================================================
+
+module "cloud_tasks" {
+  source = "./modules/cloud_tasks"
+
+  project_id = var.project_id
+  region     = var.region
+
+  depends_on = [google_project_service.apis]
+}
+
+# Grant API SA permission to enqueue Cloud Tasks
+resource "google_project_iam_member" "api_cloud_tasks_enqueuer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.enqueuer"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+# Grant API SA permission to invoke Cloud Run (for Cloud Tasks OIDC auth)
+# Cloud Tasks will use the API SA's OIDC token to call the process endpoint
+resource "google_cloud_run_v2_service_iam_member" "api_self_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = module.api.service_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.api.email}"
 }

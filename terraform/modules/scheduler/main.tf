@@ -1,36 +1,40 @@
 # Cloud Scheduler Jobs for TrainerLab Pipelines
 #
 # Schedule Reference:
-# - scrape-en: 6 AM daily (after tournaments complete)
-# - scrape-jp: 7 AM daily (after JP tournaments)
+# - discover-en: 6 AM daily (discover new EN tournaments, enqueue via Cloud Tasks)
+# - discover-jp: 7 AM daily (discover new JP tournaments, enqueue via Cloud Tasks)
 # - compute-meta: 8 AM daily (after scraping)
 # - sync-cards: 3 AM Sunday weekly (low traffic)
 
 locals {
   jobs = {
-    scrape-en = {
-      description = "Scrape English (international) tournaments from Limitless"
-      schedule    = "0 6 * * *" # Daily at 6 AM
-      uri         = "${var.cloud_run_url}/api/v1/pipeline/scrape-en"
-      body        = jsonencode({ dry_run = false, lookback_days = 90 })
+    discover-en = {
+      description      = "Discover new EN tournaments and enqueue for processing"
+      schedule         = "0 6 * * *" # Daily at 6 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/discover-en"
+      body             = jsonencode({ dry_run = false, lookback_days = 90 })
+      attempt_deadline = "120s" # Discovery is fast (<30s)
     }
-    scrape-jp = {
-      description = "Scrape Japanese tournaments from Limitless"
-      schedule    = "0 7 * * *" # Daily at 7 AM
-      uri         = "${var.cloud_run_url}/api/v1/pipeline/scrape-jp"
-      body        = jsonencode({ dry_run = false, lookback_days = 90 })
+    discover-jp = {
+      description      = "Discover new JP tournaments and enqueue for processing"
+      schedule         = "0 7 * * *" # Daily at 7 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/discover-jp"
+      body             = jsonencode({ dry_run = false, lookback_days = 90 })
+      attempt_deadline = "120s" # Discovery is fast (<30s)
     }
     compute-meta = {
-      description = "Compute daily meta snapshots"
-      schedule    = "0 8 * * *" # Daily at 8 AM
-      uri         = "${var.cloud_run_url}/api/v1/pipeline/compute-meta"
-      body        = jsonencode({ dry_run = false, lookback_days = 90 })
+      description      = "Compute daily meta snapshots"
+      schedule         = "0 8 * * *" # Daily at 8 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/compute-meta"
+      body             = jsonencode({ dry_run = false, lookback_days = 90 })
+      attempt_deadline = "600s"
     }
     sync-cards = {
-      description = "Sync card data from TCGdex"
-      schedule    = "0 3 * * 0" # Weekly on Sunday at 3 AM
-      uri         = "${var.cloud_run_url}/api/v1/pipeline/sync-cards"
-      body        = jsonencode({ dry_run = false })
+      description      = "Sync card data from TCGdex"
+      schedule         = "0 3 * * 0" # Weekly on Sunday at 3 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-cards"
+      body             = jsonencode({ dry_run = false })
+      attempt_deadline = "600s"
     }
   }
 }
@@ -69,6 +73,5 @@ resource "google_cloud_scheduler_job" "pipeline" {
     }
   }
 
-  # Give scrape jobs enough time to complete instead of retrying
-  attempt_deadline = "600s"
+  attempt_deadline = each.value.attempt_deadline
 }

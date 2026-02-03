@@ -16,14 +16,20 @@ from src.pipelines.compute_meta import (
     compute_daily_snapshots,
 )
 from src.pipelines.scrape_limitless import (
-    scrape_en_tournaments,
-    scrape_jp_tournaments,
+    DiscoverResult as DiscoverResultInternal,
+)
+from src.pipelines.scrape_limitless import (
+    discover_en_tournaments,
+    discover_jp_tournaments,
+    process_single_tournament,
 )
 from src.pipelines.sync_cards import sync_english_cards
 from src.schemas.pipeline import (
     ComputeMetaRequest,
     ComputeMetaResult,
-    ScrapeRequest,
+    DiscoverRequest,
+    DiscoverResult,
+    ProcessTournamentRequest,
     ScrapeResult,
     SyncCardsRequest,
     SyncCardsResult,
@@ -63,66 +69,95 @@ def _convert_meta_result(internal: ComputeMetaResultInternal) -> ComputeMetaResu
     )
 
 
-@router.post("/scrape-en", response_model=ScrapeResult)
-async def scrape_en_endpoint(
-    request: ScrapeRequest,
-) -> ScrapeResult:
-    """Scrape English (international) tournaments from Limitless.
+def _convert_discover_result(internal: DiscoverResultInternal) -> DiscoverResult:
+    """Convert internal DiscoverResult to API schema."""
+    return DiscoverResult(
+        tournaments_discovered=internal.tournaments_discovered,
+        tasks_enqueued=internal.tasks_enqueued,
+        tournaments_skipped=internal.tournaments_skipped,
+        errors=internal.errors,
+        success=internal.success,
+    )
 
-    Called by Cloud Scheduler daily to fetch new tournament results
-    from NA, EU, LATAM, and OCE regions.
+
+@router.post("/discover-en", response_model=DiscoverResult)
+async def discover_en_endpoint(
+    request: DiscoverRequest,
+) -> DiscoverResult:
+    """Discover new EN tournaments and enqueue for processing.
+
+    Phase 1 of the two-phase pipeline. Discovers new tournaments from
+    Limitless and enqueues them as Cloud Tasks for individual processing.
+    Designed to complete in <30s.
     """
     logger.info(
-        "Starting EN scrape pipeline: dry_run=%s, lookback=%d, format=%s",
-        request.dry_run,
+        "Starting EN discovery: lookback=%d, format=%s",
         request.lookback_days,
         request.game_format,
     )
 
-    result = await scrape_en_tournaments(
-        dry_run=request.dry_run,
+    result = await discover_en_tournaments(
         lookback_days=request.lookback_days,
         game_format=request.game_format,
-        max_placements=request.max_placements,
-        fetch_decklists=request.fetch_decklists,
     )
 
     logger.info(
-        "EN scrape complete: saved=%d, skipped=%d, errors=%d",
-        result.tournaments_saved,
-        result.tournaments_skipped,
+        "EN discovery complete: discovered=%d, enqueued=%d, errors=%d",
+        result.tournaments_discovered,
+        result.tasks_enqueued,
         len(result.errors),
     )
 
-    return _convert_scrape_result(result)
+    return _convert_discover_result(result)
 
 
-@router.post("/scrape-jp", response_model=ScrapeResult)
-async def scrape_jp_endpoint(
-    request: ScrapeRequest,
-) -> ScrapeResult:
-    """Scrape Japanese tournaments from Limitless.
+@router.post("/discover-jp", response_model=DiscoverResult)
+async def discover_jp_endpoint(
+    request: DiscoverRequest,
+) -> DiscoverResult:
+    """Discover new JP tournaments and enqueue for processing.
 
-    Called by Cloud Scheduler daily to fetch JP tournament results.
-    JP tournaments use BO1 format with different tie rules.
+    Phase 1 of the two-phase pipeline for Japanese tournaments.
     """
     logger.info(
-        "Starting JP scrape pipeline: dry_run=%s, lookback=%d, format=%s",
-        request.dry_run,
+        "Starting JP discovery: lookback=%d",
         request.lookback_days,
-        request.game_format,
     )
 
-    result = await scrape_jp_tournaments(
-        dry_run=request.dry_run,
+    result = await discover_jp_tournaments(
         lookback_days=request.lookback_days,
-        game_format=request.game_format,
-        max_placements=request.max_placements,
-        fetch_decklists=request.fetch_decklists,
     )
 
     logger.info(
-        "JP scrape complete: saved=%d, skipped=%d, errors=%d",
+        "JP discovery complete: discovered=%d, enqueued=%d, errors=%d",
+        result.tournaments_discovered,
+        result.tasks_enqueued,
+        len(result.errors),
+    )
+
+    return _convert_discover_result(result)
+
+
+@router.post("/process-tournament", response_model=ScrapeResult)
+async def process_tournament_endpoint(
+    request: ProcessTournamentRequest,
+) -> ScrapeResult:
+    """Process a single tournament (called by Cloud Tasks).
+
+    Phase 2 of the two-phase pipeline. Receives tournament metadata,
+    fetches placements and decklists, and saves to database.
+    """
+    logger.info(
+        "Processing tournament: %s (%s)",
+        request.name,
+        request.source_url,
+    )
+
+    result = await process_single_tournament(request.model_dump())
+
+    logger.info(
+        "Tournament processed: %s saved=%d, skipped=%d, errors=%d",
+        request.name,
         result.tournaments_saved,
         result.tournaments_skipped,
         len(result.errors),

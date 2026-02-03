@@ -2,17 +2,203 @@
 
 Orchestrates scraping tournament data from Limitless for both
 English (international) and Japanese tournaments.
+
+Supports two modes:
+- Legacy: monolithic scrape (discovery + processing in one request)
+- Pipeline: two-phase (discover → Cloud Tasks → process per tournament)
 """
 
 import logging
+from dataclasses import dataclass, field
+from datetime import date
 
 import httpx
 
-from src.clients.limitless import LimitlessClient, LimitlessError
+from src.clients.limitless import LimitlessClient, LimitlessError, LimitlessTournament
 from src.db.database import async_session_factory
+from src.services.cloud_tasks import CloudTasksService
 from src.services.tournament_scrape import ScrapeResult, TournamentScrapeService
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DiscoverResult:
+    """Result of a tournament discovery operation."""
+
+    tournaments_discovered: int = 0
+    tasks_enqueued: int = 0
+    tournaments_skipped: int = 0
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def success(self) -> bool:
+        return len(self.errors) == 0
+
+
+def _tournament_to_task_payload(t: LimitlessTournament) -> dict:
+    """Convert a LimitlessTournament to a Cloud Tasks payload dict."""
+    return {
+        "source_url": t.source_url,
+        "name": t.name,
+        "tournament_date": t.tournament_date.isoformat(),
+        "region": t.region,
+        "game_format": t.game_format,
+        "best_of": t.best_of,
+        "participant_count": t.participant_count,
+    }
+
+
+async def discover_en_tournaments(
+    lookback_days: int = 90,
+    game_format: str = "standard",
+) -> DiscoverResult:
+    """Discover new EN tournaments and enqueue them for processing.
+
+    Phase 1 of the two-phase pipeline. Completes in <30s.
+
+    Args:
+        lookback_days: Number of days to look back.
+        game_format: Game format to scrape.
+
+    Returns:
+        DiscoverResult with discovery statistics.
+    """
+    result = DiscoverResult()
+    tasks_service = CloudTasksService()
+
+    async with LimitlessClient() as client, async_session_factory() as session:
+        service = TournamentScrapeService(session, client)
+
+        # Discover grassroots tournaments
+        grassroots = await service.discover_new_tournaments(
+            region="en",
+            game_format=game_format,
+            lookback_days=lookback_days,
+        )
+
+        # Discover official tournaments
+        official = await service.discover_official_tournaments(
+            game_format=game_format,
+            lookback_days=lookback_days,
+        )
+
+    all_new = grassroots + official
+    result.tournaments_discovered = len(all_new)
+
+    # Enqueue each new tournament as a Cloud Task
+    for tournament in all_new:
+        payload = _tournament_to_task_payload(tournament)
+        payload["is_official"] = tournament in official
+        try:
+            task_name = await tasks_service.enqueue_tournament(payload)
+            if task_name:
+                result.tasks_enqueued += 1
+            else:
+                # Cloud Tasks not configured (local dev) — skip
+                result.tournaments_skipped += 1
+        except Exception as e:
+            error_msg = f"Failed to enqueue {tournament.name}: {e}"
+            logger.error(error_msg)
+            result.errors.append(error_msg)
+
+    logger.info(
+        "EN discovery complete: discovered=%d, enqueued=%d, skipped=%d, errors=%d",
+        result.tournaments_discovered,
+        result.tasks_enqueued,
+        result.tournaments_skipped,
+        len(result.errors),
+    )
+    return result
+
+
+async def discover_jp_tournaments(
+    lookback_days: int = 90,
+) -> DiscoverResult:
+    """Discover new JP tournaments and enqueue them for processing.
+
+    Phase 1 of the two-phase pipeline. Completes in <30s.
+
+    Args:
+        lookback_days: Number of days to look back.
+
+    Returns:
+        DiscoverResult with discovery statistics.
+    """
+    result = DiscoverResult()
+    tasks_service = CloudTasksService()
+
+    async with LimitlessClient() as client, async_session_factory() as session:
+        service = TournamentScrapeService(session, client)
+
+        jp_tournaments = await service.discover_jp_city_leagues(
+            lookback_days=lookback_days,
+        )
+
+    result.tournaments_discovered = len(jp_tournaments)
+
+    for tournament in jp_tournaments:
+        payload = _tournament_to_task_payload(tournament)
+        payload["is_jp_city_league"] = True
+        try:
+            task_name = await tasks_service.enqueue_tournament(payload)
+            if task_name:
+                result.tasks_enqueued += 1
+            else:
+                result.tournaments_skipped += 1
+        except Exception as e:
+            error_msg = f"Failed to enqueue {tournament.name}: {e}"
+            logger.error(error_msg)
+            result.errors.append(error_msg)
+
+    logger.info(
+        "JP discovery complete: discovered=%d, enqueued=%d, skipped=%d, errors=%d",
+        result.tournaments_discovered,
+        result.tasks_enqueued,
+        result.tournaments_skipped,
+        len(result.errors),
+    )
+    return result
+
+
+async def process_single_tournament(payload: dict) -> ScrapeResult:
+    """Process a single tournament from a Cloud Tasks payload.
+
+    Phase 2 of the two-phase pipeline. Called by the process-tournament endpoint.
+
+    Args:
+        payload: Tournament metadata dict from Cloud Tasks.
+
+    Returns:
+        ScrapeResult with processing statistics.
+    """
+    source_url = payload["source_url"]
+    tournament_date = date.fromisoformat(payload["tournament_date"])
+
+    logger.info("Processing tournament: %s (%s)", payload["name"], source_url)
+
+    async with LimitlessClient() as client, async_session_factory() as session:
+        service = TournamentScrapeService(session, client)
+        result = await service.process_tournament_by_url(
+            source_url=source_url,
+            name=payload["name"],
+            tournament_date=tournament_date,
+            region=payload["region"],
+            game_format=payload.get("game_format", "standard"),
+            best_of=payload.get("best_of", 3),
+            participant_count=payload.get("participant_count", 0),
+            is_official=payload.get("is_official", False),
+            is_jp_city_league=payload.get("is_jp_city_league", False),
+        )
+
+    logger.info(
+        "Processing complete for %s: saved=%d, skipped=%d, errors=%d",
+        payload["name"],
+        result.tournaments_saved,
+        result.tournaments_skipped,
+        len(result.errors),
+    )
+    return result
 
 
 async def scrape_en_tournaments(

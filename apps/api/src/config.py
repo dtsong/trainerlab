@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     # Bypass scheduler auth in development
     scheduler_auth_bypass: bool = False
 
+    # Cloud Tasks (tournament scrape pipeline)
+    cloud_tasks_queue_path: str | None = None
+    cloud_tasks_location: str | None = None
+    # API service account email (used by Cloud Tasks for OIDC auth)
+    api_service_account: str | None = None
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

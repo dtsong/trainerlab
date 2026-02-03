@@ -83,6 +83,49 @@ class ComputeMetaResult(BaseModel):
     success: bool = Field(description="Whether pipeline completed without errors")
 
 
+class DiscoverRequest(PipelineRequest):
+    """Request for discovery pipelines."""
+
+    lookback_days: int = Field(
+        default=90,
+        ge=1,
+        le=365,
+        description="Number of days to look back for tournaments",
+    )
+    game_format: Literal["standard", "expanded"] = Field(
+        default="standard",
+        description="Game format to discover",
+    )
+
+
+class DiscoverResult(BaseModel):
+    """Result from discovery pipeline."""
+
+    tournaments_discovered: int = Field(ge=0, description="New tournaments found")
+    tasks_enqueued: int = Field(ge=0, description="Tasks enqueued to Cloud Tasks")
+    tournaments_skipped: int = Field(
+        ge=0, description="Tournaments skipped (Cloud Tasks not configured)"
+    )
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class ProcessTournamentRequest(BaseModel):
+    """Payload for processing a single tournament (from Cloud Tasks)."""
+
+    source_url: str = Field(description="Tournament source URL")
+    name: str = Field(description="Tournament name")
+    tournament_date: str = Field(description="Tournament date (ISO format)")
+    region: str = Field(description="Tournament region")
+    game_format: str = Field(default="standard", description="Game format")
+    best_of: int = Field(default=3, description="Best-of format")
+    participant_count: int = Field(default=0, description="Number of participants")
+    is_official: bool = Field(default=False, description="Is official Limitless event")
+    is_jp_city_league: bool = Field(
+        default=False, description="Is JP City League event"
+    )
+
+
 class SyncCardsResult(BaseModel):
     """Result from card sync pipeline."""
 

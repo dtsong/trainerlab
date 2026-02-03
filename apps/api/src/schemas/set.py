@@ -25,7 +25,7 @@ class SetResponse(BaseModel):
     symbol_url: str | None = None
 
     # Legalities
-    legalities: dict[str, str] | None = None
+    legalities: dict[str, bool] | None = None
 
     # Timestamps
     created_at: datetime

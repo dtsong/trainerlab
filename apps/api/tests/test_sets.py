@@ -38,7 +38,7 @@ class TestSetService:
         set_obj.card_count = 266
         set_obj.logo_url = "https://example.com/logo.png"
         set_obj.symbol_url = "https://example.com/symbol.png"
-        set_obj.legalities = {"standard": "Legal", "expanded": "Legal"}
+        set_obj.legalities = {"standard": True, "expanded": True}
         set_obj.created_at = datetime(2024, 1, 1)
         set_obj.updated_at = datetime(2024, 1, 1)
         return set_obj

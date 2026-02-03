@@ -234,14 +234,14 @@ class TestSetSchemas:
             card_count=266,
             logo_url="https://example.com/logo.png",
             symbol_url="https://example.com/symbol.png",
-            legalities={"standard": "Legal", "expanded": "Legal"},
+            legalities={"standard": True, "expanded": True},
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
         assert set_data.id == "sv4"
         assert set_data.name == "Paradox Rift"
         assert set_data.card_count == 266
-        assert set_data.legalities["standard"] == "Legal"
+        assert set_data.legalities["standard"] is True
 
     def test_set_response_minimal(self):
         """Test SetResponse with minimal required fields."""

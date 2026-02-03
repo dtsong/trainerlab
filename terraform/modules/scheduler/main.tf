@@ -12,13 +12,13 @@ locals {
       description = "Scrape English (international) tournaments from Limitless"
       schedule    = "0 6 * * *" # Daily at 6 AM
       uri         = "${var.cloud_run_url}/api/v1/pipeline/scrape-en"
-      body        = jsonencode({ dry_run = false, lookback_days = 7 })
+      body        = jsonencode({ dry_run = false, lookback_days = 90 })
     }
     scrape-jp = {
       description = "Scrape Japanese tournaments from Limitless"
       schedule    = "0 7 * * *" # Daily at 7 AM
       uri         = "${var.cloud_run_url}/api/v1/pipeline/scrape-jp"
-      body        = jsonencode({ dry_run = false, lookback_days = 7 })
+      body        = jsonencode({ dry_run = false, lookback_days = 90 })
     }
     compute-meta = {
       description = "Compute daily meta snapshots"

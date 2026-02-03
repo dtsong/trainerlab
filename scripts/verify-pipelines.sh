@@ -262,8 +262,8 @@ run_step_4() {
 
     verify_endpoint \
         "/api/v1/meta/current" \
-        'if .archetypes and (.archetypes | length) > 0 then "pass" else "fail" end' \
-        '"meta response with \(.archetypes | length) archetypes"'
+        'if .archetype_breakdown and (.archetype_breakdown | length) > 0 then "pass" else "fail" end' \
+        '"meta response with \(.archetype_breakdown | length) archetypes"'
 }
 
 # ─── Argument Parsing ────────────────────────────────────────────────────────

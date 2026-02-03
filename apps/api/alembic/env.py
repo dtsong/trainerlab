@@ -13,8 +13,13 @@ from src.db.base import Base
 
 # Import all models to ensure they're registered with Base.metadata
 from src.models import (  # noqa: F401
+    Adaptation,
+    ArchetypeEvolutionSnapshot,
+    ArchetypePrediction,
     Card,
     Deck,
+    EvolutionArticle,
+    EvolutionArticleSnapshot,
     MetaSnapshot,
     Set,
     Tournament,

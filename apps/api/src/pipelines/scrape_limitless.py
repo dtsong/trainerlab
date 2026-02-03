@@ -11,6 +11,7 @@ Supports two modes:
 import logging
 from dataclasses import dataclass, field
 from datetime import date
+from uuid import UUID
 
 import httpx
 
@@ -198,6 +199,24 @@ async def process_single_tournament(payload: dict) -> ScrapeResult:
         result.tournaments_skipped,
         len(result.errors),
     )
+
+    # Trigger evolution snapshot computation for qualifying tournaments
+    if result.tournaments_saved > 0:
+        tier = payload.get("tier")
+        participant_count = payload.get("participant_count", 0)
+        if tier in ("major", "premier") or participant_count >= 64:
+            try:
+                await compute_evolution_for_tournament(
+                    tournament_id=None,
+                    source_url=source_url,
+                )
+            except Exception:
+                logger.error(
+                    "Evolution snapshot computation failed for %s",
+                    payload["name"],
+                    exc_info=True,
+                )
+
     return result
 
 
@@ -449,3 +468,114 @@ async def _scrape_dry_run(
 
     logger.info("DRY RUN complete: found %d tournaments", result.tournaments_scraped)
     return result
+
+
+async def compute_evolution_for_tournament(
+    tournament_id: UUID | None = None,
+    source_url: str | None = None,
+) -> int:
+    """Compute evolution snapshots for all archetypes in a tournament.
+
+    For each archetype with >= 3 decklists, computes a snapshot and
+    adaptations (diff only, no Claude API calls).
+
+    Args:
+        tournament_id: Tournament UUID (if known).
+        source_url: Tournament source URL (used to look up ID if not provided).
+
+    Returns:
+        Number of snapshots created.
+    """
+    from sqlalchemy import func, select
+
+    from src.models.tournament import Tournament
+    from src.models.tournament_placement import TournamentPlacement
+    from src.services.evolution_service import EvolutionService
+
+    snapshots_created = 0
+
+    async with async_session_factory() as session:
+        # Resolve tournament_id from source_url if needed
+        if tournament_id is None and source_url:
+            result = await session.execute(
+                select(Tournament.id).where(Tournament.source_url == source_url)
+            )
+            row = result.one_or_none()
+            if not row:
+                logger.warning(
+                    "Cannot compute evolution: tournament not found for URL %s",
+                    source_url,
+                )
+                return 0
+            tournament_id = row[0]
+
+        if tournament_id is None:
+            logger.warning("Cannot compute evolution: no tournament_id or source_url")
+            return 0
+
+        # Get archetypes with their decklist counts for this tournament
+        archetype_query = (
+            select(
+                TournamentPlacement.archetype,
+                func.count(TournamentPlacement.id).label("total"),
+                func.count(TournamentPlacement.decklist).label("with_decklist"),
+            )
+            .where(TournamentPlacement.tournament_id == tournament_id)
+            .group_by(TournamentPlacement.archetype)
+        )
+
+        result = await session.execute(archetype_query)
+        archetype_rows = result.all()
+
+        service = EvolutionService(session)
+
+        for archetype_name, _total_count, decklist_count in archetype_rows:
+            if decklist_count < 3:
+                logger.debug(
+                    "Skipping %s: only %d decklists (need 3+)",
+                    archetype_name,
+                    decklist_count,
+                )
+                continue
+
+            try:
+                # Compute snapshot
+                snapshot = await service.compute_tournament_snapshot(
+                    archetype_name, tournament_id
+                )
+                await service.save_snapshot(snapshot)
+                snapshots_created += 1
+
+                # Find previous snapshot and compute adaptations
+                previous = await service.get_previous_snapshot(
+                    archetype_name, tournament_id
+                )
+                if previous and previous.consensus_list:
+                    adaptations = await service.compute_adaptations(
+                        previous.id, snapshot.id
+                    )
+                    for adaptation in adaptations:
+                        session.add(adaptation)
+                    await session.commit()
+
+                logger.info(
+                    "Evolution snapshot created: %s (tournament %s, %d decklists)",
+                    archetype_name,
+                    tournament_id,
+                    decklist_count,
+                )
+
+            except Exception:
+                logger.error(
+                    "Failed to compute evolution for %s in tournament %s",
+                    archetype_name,
+                    tournament_id,
+                    exc_info=True,
+                )
+
+    logger.info(
+        "Evolution computation complete: %d snapshots created for tournament %s",
+        snapshots_created,
+        tournament_id,
+    )
+    return snapshots_created

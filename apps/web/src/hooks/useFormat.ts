@@ -29,7 +29,7 @@ export function useRotationImpacts(transition: string) {
 
 export function useArchetypeRotationImpact(
   archetypeId: string,
-  transition?: string,
+  transition?: string
 ) {
   return useQuery({
     queryKey: ["rotation", "archetype", archetypeId, transition],

@@ -49,7 +49,7 @@ export function Header() {
                 "transition-colors hover:text-foreground/80",
                 pathname.startsWith(link.href)
                   ? "text-foreground"
-                  : "text-foreground/60",
+                  : "text-foreground/60"
               )}
             >
               {link.label}
@@ -95,7 +95,7 @@ export function Header() {
                       "text-lg font-medium transition-colors hover:text-foreground/80",
                       pathname.startsWith(link.href)
                         ? "text-foreground"
-                        : "text-foreground/60",
+                        : "text-foreground/60"
                     )}
                   >
                     {link.label}

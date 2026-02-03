@@ -48,7 +48,7 @@ export function PanelOverlay({
       <div
         className={cn(
           "absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity",
-          isOpen ? "opacity-100" : "opacity-0",
+          isOpen ? "opacity-100" : "opacity-0"
         )}
         onClick={onClose}
         aria-hidden="true"

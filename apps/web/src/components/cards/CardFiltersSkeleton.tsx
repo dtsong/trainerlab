@@ -13,7 +13,7 @@ export function CardFiltersSkeleton({ className }: CardFiltersSkeletonProps) {
           key={i}
           className={cn(
             "h-10 rounded-md bg-muted animate-pulse",
-            i === 2 ? "w-[180px]" : "w-[140px]",
+            i === 2 ? "w-[180px]" : "w-[140px]"
           )}
         />
       ))}

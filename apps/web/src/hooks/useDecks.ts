@@ -25,7 +25,7 @@ export function useDecks() {
     } catch (error) {
       console.error("Failed to load decks from localStorage:", error);
       setLoadError(
-        "Could not load your saved decks. Your browser storage may be corrupted or unavailable.",
+        "Could not load your saved decks. Your browser storage may be corrupted or unavailable."
       );
     } finally {
       setIsLoading(false);
@@ -65,7 +65,7 @@ export function useDecks() {
       const saved = saveDecks([...decks, newDeck]);
       return { deck: newDeck, saved };
     },
-    [decks, saveDecks],
+    [decks, saveDecks]
   );
 
   const updateDeck = useCallback(
@@ -76,7 +76,7 @@ export function useDecks() {
         description: string;
         format: DeckFormat;
         cards: DeckCard[];
-      }>,
+      }>
     ): { deck: SavedDeck | null; saved: boolean } => {
       const deckIndex = decks.findIndex((d) => d.id === id);
       if (deckIndex === -1) return { deck: null, saved: false };
@@ -93,7 +93,7 @@ export function useDecks() {
 
       return { deck: updatedDeck, saved };
     },
-    [decks, saveDecks],
+    [decks, saveDecks]
   );
 
   const deleteDeck = useCallback(
@@ -106,14 +106,14 @@ export function useDecks() {
       const saved = saveDecks(newDecks);
       return { found: true, saved };
     },
-    [decks, saveDecks],
+    [decks, saveDecks]
   );
 
   const getDeck = useCallback(
     (id: string): SavedDeck | undefined => {
       return decks.find((d) => d.id === id);
     },
-    [decks],
+    [decks]
   );
 
   return {
@@ -147,7 +147,7 @@ export function useDeck(id: string) {
         description: string;
         format: DeckFormat;
         cards: DeckCard[];
-      }>,
+      }>
     ) => updateDeck(id, updates),
     deleteDeck: () => deleteDeck(id),
   };

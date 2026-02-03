@@ -41,7 +41,7 @@ describe("AdminGuard", () => {
     render(
       <AdminGuard>
         <div>Admin Content</div>
-      </AdminGuard>,
+      </AdminGuard>
     );
 
     expect(screen.getByText("Loading...")).toBeInTheDocument();
@@ -64,7 +64,7 @@ describe("AdminGuard", () => {
     render(
       <AdminGuard>
         <div>Admin Content</div>
-      </AdminGuard>,
+      </AdminGuard>
     );
 
     expect(mockReplace).toHaveBeenCalledWith("/auth/login");
@@ -92,14 +92,14 @@ describe("AdminGuard", () => {
     render(
       <AdminGuard>
         <div>Admin Content</div>
-      </AdminGuard>,
+      </AdminGuard>
     );
 
     expect(screen.getByText("Access Denied")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "notadmin@example.com is not authorized to view this page.",
-      ),
+        "notadmin@example.com is not authorized to view this page."
+      )
     ).toBeInTheDocument();
     expect(screen.queryByText("Admin Content")).not.toBeInTheDocument();
   });
@@ -125,7 +125,7 @@ describe("AdminGuard", () => {
     render(
       <AdminGuard>
         <div>Admin Content</div>
-      </AdminGuard>,
+      </AdminGuard>
     );
 
     expect(screen.getByText("Admin Content")).toBeInTheDocument();

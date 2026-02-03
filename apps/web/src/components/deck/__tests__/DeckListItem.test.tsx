@@ -8,7 +8,7 @@ import type { ApiCardSummary } from "@trainerlab/shared-types";
 
 function createMockDeckCard(
   overrides: Partial<ApiCardSummary> = {},
-  quantity = 1,
+  quantity = 1
 ): DeckCard {
   return {
     card: {
@@ -34,7 +34,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={vi.fn()}
         onRemove={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByText("Pikachu")).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={vi.fn()}
         onRemove={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByText("3")).toBeInTheDocument();
@@ -64,7 +64,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={onQuantityChange}
         onRemove={vi.fn()}
-      />,
+      />
     );
 
     await user.click(screen.getByLabelText("Increase quantity"));
@@ -81,7 +81,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={onQuantityChange}
         onRemove={vi.fn()}
-      />,
+      />
     );
 
     await user.click(screen.getByLabelText("Decrease quantity"));
@@ -95,7 +95,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={vi.fn()}
         onRemove={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByLabelText("Decrease quantity")).toBeDisabled();
@@ -111,7 +111,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={vi.fn()}
         onRemove={onRemove}
-      />,
+      />
     );
 
     await user.click(screen.getByLabelText("Remove card"));
@@ -125,7 +125,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={vi.fn()}
         onRemove={vi.fn()}
-      />,
+      />
     );
 
     const links = screen.getAllByRole("link");
@@ -139,7 +139,7 @@ describe("DeckListItem", () => {
         deckCard={deckCard}
         onQuantityChange={vi.fn()}
         onRemove={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByText("Pokemon")).toBeInTheDocument();

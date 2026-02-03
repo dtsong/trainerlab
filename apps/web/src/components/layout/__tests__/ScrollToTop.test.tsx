@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const mockUsePathname = vi.mocked(
-  (await import("next/navigation")).usePathname,
+  (await import("next/navigation")).usePathname
 );
 
 describe("ScrollToTop", () => {

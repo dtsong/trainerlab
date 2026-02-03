@@ -23,7 +23,7 @@ export const SectionLabel = React.forwardRef<HTMLDivElement, SectionLabelProps>(
         className={cn(
           "flex items-center gap-2 font-mono text-mono-sm uppercase tracking-wide",
           isNotebook ? "text-pencil" : "text-muted-foreground",
-          className,
+          className
         )}
         {...props}
       >
@@ -42,12 +42,12 @@ export const SectionLabel = React.forwardRef<HTMLDivElement, SectionLabelProps>(
             "flex-grow h-px",
             isNotebook
               ? "bg-gradient-to-r from-ink-red/30 via-notebook-grid to-transparent"
-              : "bg-border",
+              : "bg-border"
           )}
         />
       </div>
     );
-  },
+  }
 );
 
 SectionLabel.displayName = "SectionLabel";

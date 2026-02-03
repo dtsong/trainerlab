@@ -51,8 +51,8 @@ describe("DeckImportModal", () => {
       expect(screen.getByText("Import Deck")).toBeInTheDocument();
       expect(
         screen.getByText(
-          "Paste a deck list from Pokemon TCG Online or Pokemon TCG Live.",
-        ),
+          "Paste a deck list from Pokemon TCG Online or Pokemon TCG Live."
+        )
       ).toBeInTheDocument();
     });
 
@@ -60,7 +60,7 @@ describe("DeckImportModal", () => {
       render(<DeckImportModal {...defaultProps} />);
 
       expect(
-        screen.getByPlaceholderText(/Paste your deck list here/),
+        screen.getByPlaceholderText(/Paste your deck list here/)
       ).toBeInTheDocument();
     });
 
@@ -68,7 +68,7 @@ describe("DeckImportModal", () => {
       render(<DeckImportModal {...defaultProps} />);
 
       expect(
-        screen.getByRole("button", { name: /cancel/i }),
+        screen.getByRole("button", { name: /cancel/i })
       ).toBeInTheDocument();
     });
 
@@ -76,7 +76,7 @@ describe("DeckImportModal", () => {
       render(<DeckImportModal {...defaultProps} />);
 
       expect(
-        screen.getByRole("button", { name: /import/i }),
+        screen.getByRole("button", { name: /import/i })
       ).toBeInTheDocument();
     });
 
@@ -131,7 +131,7 @@ describe("DeckImportModal", () => {
       await user.type(textarea, "4 Pikachu SVI 25");
 
       expect(
-        screen.getByRole("button", { name: /import/i }),
+        screen.getByRole("button", { name: /import/i })
       ).not.toBeDisabled();
     });
 
@@ -142,7 +142,7 @@ describe("DeckImportModal", () => {
       const textarea = screen.getByPlaceholderText(/Paste your deck list here/);
       const cards = Array.from(
         { length: 12 },
-        (_, i) => `1 Card${i + 1} SET ${i + 1}`,
+        (_, i) => `1 Card${i + 1} SET ${i + 1}`
       ).join("\n");
       await user.type(textarea, cards);
 
@@ -179,7 +179,7 @@ describe("DeckImportModal", () => {
 
     it("should show importing state during import", async () => {
       mockCardsApi.search.mockImplementation(
-        () => new Promise(() => {}), // Never resolves
+        () => new Promise(() => {}) // Never resolves
       );
 
       const user = userEvent.setup();
@@ -196,7 +196,7 @@ describe("DeckImportModal", () => {
 
     it("should disable textarea during import", async () => {
       mockCardsApi.search.mockImplementation(
-        () => new Promise(() => {}), // Never resolves
+        () => new Promise(() => {}) // Never resolves
       );
 
       const user = userEvent.setup();
@@ -338,7 +338,7 @@ describe("DeckImportModal", () => {
       await waitFor(() => {
         expect(screen.getByText(/network error/)).toBeInTheDocument();
         expect(
-          screen.getByText("0 found, 0 not found, 1 failed"),
+          screen.getByText("0 found, 0 not found, 1 failed")
         ).toBeInTheDocument();
       });
     });
@@ -374,7 +374,7 @@ describe("DeckImportModal", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText("1 found, 0 not found, 1 failed"),
+          screen.getByText("1 found, 0 not found, 1 failed")
         ).toBeInTheDocument();
         expect(useDeckStore.getState().cards).toHaveLength(1);
       });
@@ -534,10 +534,10 @@ describe("DeckImportModal", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: /done/i }),
+          screen.getByRole("button", { name: /done/i })
         ).toBeInTheDocument();
         expect(
-          screen.queryByRole("button", { name: /import/i }),
+          screen.queryByRole("button", { name: /import/i })
         ).not.toBeInTheDocument();
       });
     });

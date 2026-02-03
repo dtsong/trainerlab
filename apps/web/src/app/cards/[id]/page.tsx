@@ -15,7 +15,7 @@ export async function generateMetadata({
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/v1/cards/${encodeURIComponent(id)}`,
-      { next: { revalidate: 3600 } }, // Cache for 1 hour
+      { next: { revalidate: 3600 } } // Cache for 1 hour
     );
 
     if (!response.ok) {

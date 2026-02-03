@@ -4,7 +4,7 @@ import type { ApiCardSummary } from "@trainerlab/shared-types";
 
 // Helper to create mock cards
 function createMockCard(
-  overrides: Partial<ApiCardSummary> = {},
+  overrides: Partial<ApiCardSummary> = {}
 ): ApiCardSummary {
   return {
     id: "swsh1-1",

@@ -47,7 +47,7 @@ export default function CardsPage() {
       setFilters((prev) => ({ ...prev, [key]: value }));
       setPage(1); // Reset to first page on filter change
     },
-    [],
+    []
   );
 
   const handleClearFilters = useCallback(() => {

@@ -49,7 +49,7 @@ function MatchupBar({ matchup }: MatchupBarProps) {
           className={cn(
             "absolute top-0.5 bottom-0.5 rounded",
             barColor,
-            confidence === "low" && "opacity-50",
+            confidence === "low" && "opacity-50"
           )}
           style={{
             width: `${barWidth}%`,
@@ -66,7 +66,7 @@ function MatchupBar({ matchup }: MatchupBarProps) {
               ? "text-green-400"
               : winRate <= 0.45
                 ? "text-red-400"
-                : "text-terminal-muted",
+                : "text-terminal-muted"
           )}
         >
           {percentage.toFixed(0)}%

@@ -19,7 +19,7 @@ vi.mock("@/hooks", () => ({
 
 // Get mocked functions
 const mockUsePathname = vi.mocked(
-  (await import("next/navigation")).usePathname,
+  (await import("next/navigation")).usePathname
 );
 const mockUseAuth = vi.mocked((await import("@/hooks")).useAuth);
 

@@ -19,7 +19,7 @@ describe("CardSearchInput", () => {
       render(<CardSearchInput value="" onChange={onChange} />);
 
       expect(
-        screen.getByPlaceholderText("Search cards..."),
+        screen.getByPlaceholderText("Search cards...")
       ).toBeInTheDocument();
     });
 
@@ -30,11 +30,11 @@ describe("CardSearchInput", () => {
           value=""
           onChange={onChange}
           placeholder="Find Pokemon..."
-        />,
+        />
       );
 
       expect(
-        screen.getByPlaceholderText("Find Pokemon..."),
+        screen.getByPlaceholderText("Find Pokemon...")
       ).toBeInTheDocument();
     });
 
@@ -62,7 +62,7 @@ describe("CardSearchInput", () => {
       render(<CardSearchInput value="" onChange={onChange} />);
 
       expect(
-        screen.queryByRole("button", { name: /clear/i }),
+        screen.queryByRole("button", { name: /clear/i })
       ).not.toBeInTheDocument();
     });
 
@@ -71,7 +71,7 @@ describe("CardSearchInput", () => {
       render(<CardSearchInput value="test" onChange={onChange} />);
 
       expect(
-        screen.getByRole("button", { name: /clear/i }),
+        screen.getByRole("button", { name: /clear/i })
       ).toBeInTheDocument();
     });
 
@@ -144,7 +144,7 @@ describe("CardSearchInput", () => {
     it("should sync when external value changes", () => {
       const onChange = vi.fn();
       const { rerender } = render(
-        <CardSearchInput value="old" onChange={onChange} />,
+        <CardSearchInput value="old" onChange={onChange} />
       );
 
       expect(screen.getByDisplayValue("old")).toBeInTheDocument();
@@ -157,7 +157,7 @@ describe("CardSearchInput", () => {
     it("should not call onChange when value is synced from external", () => {
       const onChange = vi.fn();
       const { rerender } = render(
-        <CardSearchInput value="initial" onChange={onChange} />,
+        <CardSearchInput value="initial" onChange={onChange} />
       );
 
       rerender(<CardSearchInput value="initial" onChange={onChange} />);
@@ -175,7 +175,7 @@ describe("CardSearchInput", () => {
           value=""
           onChange={onChange}
           className="custom-class"
-        />,
+        />
       );
 
       const input = screen.getByPlaceholderText("Search cards...");

@@ -89,14 +89,14 @@ describe("DeckBuilder", () => {
     renderWithProviders(<DeckBuilder />);
     // Both mobile and desktop versions show this message
     const messages = screen.getAllByText(
-      "Search for cards to add to your deck",
+      "Search for cards to add to your deck"
     );
     expect(messages.length).toBeGreaterThan(0);
   });
 
   it("should show loading state during search", async () => {
     mockCardsApi.search.mockImplementation(
-      () => new Promise(() => {}), // Never resolves
+      () => new Promise(() => {}) // Never resolves
     );
 
     const user = userEvent.setup();
@@ -199,7 +199,7 @@ describe("DeckBuilder", () => {
     await waitFor(() => {
       // Both mobile and desktop show error
       const errors = screen.getAllByText(
-        "Failed to search cards. Please try again.",
+        "Failed to search cards. Please try again."
       );
       expect(errors.length).toBeGreaterThan(0);
     });

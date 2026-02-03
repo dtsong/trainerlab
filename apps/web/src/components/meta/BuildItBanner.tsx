@@ -25,7 +25,7 @@ export function BuildItBanner({
     <div
       className={cn(
         "rounded-lg bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-4",
-        className,
+        className
       )}
     >
       <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">

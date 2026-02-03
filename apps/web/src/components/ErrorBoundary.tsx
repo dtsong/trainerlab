@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
     const errorMessage = this.state.error?.message || "Unknown error";
     const subject = encodeURIComponent("TrainerLab Error Report");
     const body = encodeURIComponent(
-      `Error: ${errorMessage}\n\nPlease describe what you were doing when this error occurred:\n`,
+      `Error: ${errorMessage}\n\nPlease describe what you were doing when this error occurred:\n`
     );
     window.open(`mailto:support@trainerlab.io?subject=${subject}&body=${body}`);
   };

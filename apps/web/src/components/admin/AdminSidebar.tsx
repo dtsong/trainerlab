@@ -30,7 +30,7 @@ export function AdminSidebar() {
                 "rounded px-2 py-1.5 font-mono text-sm transition-colors",
                 isActive
                   ? "bg-zinc-800 text-zinc-100"
-                  : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200",
+                  : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
               )}
             >
               {item.label}

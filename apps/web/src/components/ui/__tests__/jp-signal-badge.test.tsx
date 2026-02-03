@@ -75,11 +75,7 @@ describe("JPSignalBadge", () => {
   describe("className handling", () => {
     it("should accept custom className", () => {
       render(
-        <JPSignalBadge
-          jpShare={0.15}
-          enShare={0.05}
-          className="custom-class"
-        />,
+        <JPSignalBadge jpShare={0.15} enShare={0.05} className="custom-class" />
       );
       const badge = screen.getByTestId("jp-signal-badge");
       expect(badge).toHaveClass("custom-class");

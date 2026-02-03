@@ -78,7 +78,7 @@ export function ArchetypePanel({
         className={cn(
           "fixed right-0 top-0 h-full w-full max-w-[480px] transform overflow-y-auto",
           "bg-terminal-bg text-terminal-text shadow-2xl transition-transform duration-300",
-          isOpen ? "translate-x-0" : "translate-x-full",
+          isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         {/* Header */}

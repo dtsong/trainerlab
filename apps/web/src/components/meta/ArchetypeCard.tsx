@@ -25,7 +25,7 @@ export function ArchetypeCard({
       <Card
         className={cn(
           "cursor-pointer transition-all hover:shadow-lg hover:border-primary/50",
-          className,
+          className
         )}
         data-testid="archetype-card"
       >

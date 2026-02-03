@@ -21,7 +21,7 @@ const pillButtonVariants = cva(
       selected: false,
       size: "sm",
     },
-  },
+  }
 );
 
 export interface PillToggleOption {
@@ -65,7 +65,7 @@ export const PillToggle = React.forwardRef<HTMLDivElement, PillToggleProps>(
         data-testid="pill-toggle"
         className={cn(
           "inline-flex items-center gap-1 rounded-full bg-muted p-1",
-          className,
+          className
         )}
         {...props}
       >
@@ -87,7 +87,7 @@ export const PillToggle = React.forwardRef<HTMLDivElement, PillToggleProps>(
         })}
       </div>
     );
-  },
+  }
 );
 
 PillToggle.displayName = "PillToggle";

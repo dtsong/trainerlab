@@ -23,7 +23,7 @@ const survivalBadgeVariants = cva(
     defaultVariants: {
       rating: "unknown",
     },
-  },
+  }
 );
 
 export interface SurvivalBadgeProps

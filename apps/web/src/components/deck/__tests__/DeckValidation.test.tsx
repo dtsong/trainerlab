@@ -6,7 +6,7 @@ import { useDeckStore } from "@/stores/deckStore";
 import type { ApiCardSummary } from "@trainerlab/shared-types";
 
 function createMockCard(
-  overrides: Partial<ApiCardSummary> = {},
+  overrides: Partial<ApiCardSummary> = {}
 ): ApiCardSummary {
   return {
     id: "swsh1-1",
@@ -67,7 +67,7 @@ describe("DeckValidation", () => {
     render(<DeckValidation />);
 
     expect(
-      screen.getByText("Deck is valid and ready to play!"),
+      screen.getByText("Deck is valid and ready to play!")
     ).toBeInTheDocument();
   });
 

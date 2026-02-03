@@ -42,7 +42,7 @@ describe("DateRangePicker", () => {
         value={defaultDateRange}
         onChange={onChange}
         className="custom-class"
-      />,
+      />
     );
 
     expect(screen.getByTestId("date-range-picker")).toHaveClass("custom-class");
@@ -122,7 +122,7 @@ describe("DateRangePicker", () => {
     await user.click(screen.getByText("Apply"));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Start date must be before end date",
+      "Start date must be before end date"
     );
     expect(onChange).not.toHaveBeenCalled();
   });

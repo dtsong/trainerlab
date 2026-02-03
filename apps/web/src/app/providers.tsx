@@ -21,7 +21,7 @@ export function Providers({ children }: ProvidersProps) {
             retry: 1, // Only retry once on failure
           },
         },
-      }),
+      })
   );
 
   return (

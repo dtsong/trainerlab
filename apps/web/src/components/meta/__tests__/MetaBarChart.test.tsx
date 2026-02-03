@@ -52,7 +52,7 @@ describe("MetaBarChart", () => {
     expect(
       screen
         .getByTestId("meta-bar-chart")
-        .querySelector(".recharts-responsive-container"),
+        .querySelector(".recharts-responsive-container")
     ).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe("MetaBarChart", () => {
         cardId: `card-${i}`,
         inclusionRate: 0.9 - i * 0.04,
         avgCopies: 3,
-      }),
+      })
     );
 
     render(<MetaBarChart data={manyCards} limit={5} />);

@@ -42,7 +42,7 @@ export function getDoubleHoloLink(deckName: string, deckId?: string): string {
 
   // Placeholder URL structure - need actual DoubleHolo API docs
   const deckPath = encodeURIComponent(
-    deckName.toLowerCase().replace(/\s+/g, "-"),
+    deckName.toLowerCase().replace(/\s+/g, "-")
   );
   return `${DOUBLE_HOLO_BASE_URL}/search?ref=${AFFILIATE_CODES.doubleHolo}&${utm}`;
 }
@@ -67,7 +67,7 @@ export function getTCGPlayerLink(deckName: string, deckId?: string): string {
  */
 export function getCardLinks(
   cardId: string,
-  cardName: string,
+  cardName: string
 ): {
   doubleHolo: string;
   tcgPlayer: string;

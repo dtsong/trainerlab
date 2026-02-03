@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     if (!email || !email.includes("@")) {
       return NextResponse.json(
         { success: false, message: "Invalid email address" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json(
         { success: false, message: "Failed to join waitlist" },
-        { status: response.status },
+        { status: response.status }
       );
     }
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     console.error("Waitlist error:", error);
     return NextResponse.json(
       { success: false, message: "Something went wrong" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

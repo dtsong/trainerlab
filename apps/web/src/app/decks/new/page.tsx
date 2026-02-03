@@ -38,7 +38,7 @@ export default function NewDeckPage() {
 
       if (!result.saved) {
         alert(
-          "Could not save deck. Your browser storage may be full or unavailable.",
+          "Could not save deck. Your browser storage may be full or unavailable."
         );
         setIsSaving(false);
         return;
@@ -47,13 +47,13 @@ export default function NewDeckPage() {
       resetModified();
       router.push(`/decks/${result.deck.id}`);
     },
-    [createDeck, resetModified, router],
+    [createDeck, resetModified, router]
   );
 
   const handleBack = useCallback(() => {
     if (isModified) {
       const confirmed = window.confirm(
-        "You have unsaved changes. Are you sure you want to leave?",
+        "You have unsaved changes. Are you sure you want to leave?"
       );
       if (!confirmed) return;
     }

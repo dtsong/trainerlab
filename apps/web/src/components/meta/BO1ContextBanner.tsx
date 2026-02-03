@@ -19,7 +19,7 @@ export function BO1ContextBanner({ className }: BO1ContextBannerProps) {
     <div
       className={cn(
         "relative rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950",
-        className,
+        className
       )}
       data-testid="bo1-context-banner"
       role="alert"

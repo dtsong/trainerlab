@@ -18,7 +18,7 @@ import type { SurvivalRating } from "@trainerlab/shared-types";
 export default function RotationPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [ratingFilter, setRatingFilter] = useState<SurvivalRating | "all">(
-    "all",
+    "all"
   );
 
   const { data: currentFormat } = useCurrentFormat();

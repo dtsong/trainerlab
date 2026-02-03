@@ -66,7 +66,7 @@ export function CardRotationList({ impacts }: CardRotationListProps) {
     }
 
     return Array.from(cardMap.values()).sort(
-      (a, b) => b.archetypes.length - a.archetypes.length,
+      (a, b) => b.archetypes.length - a.archetypes.length
     );
   }, [impacts]);
 
@@ -78,7 +78,7 @@ export function CardRotationList({ impacts }: CardRotationListProps) {
     return allCards.filter(
       (item) =>
         item.card.card_name.toLowerCase().includes(query) ||
-        item.archetypes.some((a) => a.name.toLowerCase().includes(query)),
+        item.archetypes.some((a) => a.name.toLowerCase().includes(query))
     );
   }, [allCards, searchQuery]);
 

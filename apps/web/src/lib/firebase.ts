@@ -23,7 +23,7 @@ function getFirebaseApp(): FirebaseApp | null {
   if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     if (typeof window !== "undefined") {
       console.warn(
-        "Firebase not configured. Set NEXT_PUBLIC_FIREBASE_* environment variables.",
+        "Firebase not configured. Set NEXT_PUBLIC_FIREBASE_* environment variables."
       );
     }
     return null;

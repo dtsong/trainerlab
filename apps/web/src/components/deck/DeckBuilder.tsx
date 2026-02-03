@@ -104,7 +104,7 @@ export function DeckBuilder({
     (card: ApiCardSummary) => {
       addCard(card);
     },
-    [addCard],
+    [addCard]
   );
 
   const handleSave = useCallback(() => {

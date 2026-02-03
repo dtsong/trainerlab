@@ -36,7 +36,7 @@ export const JPSignalBadge = React.forwardRef<
       data-testid="jp-signal-badge"
       className={cn(
         "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-signal-jp text-white",
-        className,
+        className
       )}
       {...props}
     >

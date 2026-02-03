@@ -35,7 +35,7 @@ export interface TrendArrowProps
 
 function formatValue(
   value: number,
-  direction: "up" | "down" | "stable",
+  direction: "up" | "down" | "stable"
 ): string {
   if (!Number.isFinite(value)) {
     return "";
@@ -100,7 +100,7 @@ export const TrendArrow = React.forwardRef<HTMLSpanElement, TrendArrowProps>(
         {value !== undefined && <span>{formatValue(value, direction)}</span>}
       </span>
     );
-  },
+  }
 );
 
 TrendArrow.displayName = "TrendArrow";

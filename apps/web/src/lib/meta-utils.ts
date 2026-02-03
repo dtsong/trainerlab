@@ -19,14 +19,14 @@ export function isValidRegion(value: string | null): value is Region {
  */
 export function parseRegion(
   value: string | null | undefined,
-  defaultRegion: Region = "global",
+  defaultRegion: Region = "global"
 ): Region {
   if (value && isValidRegion(value)) {
     return value;
   }
   if (value) {
     console.warn(
-      `[parseRegion] Invalid region "${value}", using default "${defaultRegion}"`,
+      `[parseRegion] Invalid region "${value}", using default "${defaultRegion}"`
     );
   }
   return defaultRegion;
@@ -38,13 +38,13 @@ export function parseRegion(
  */
 export function parseDays(
   value: string | null | undefined,
-  defaultDays: number = 30,
+  defaultDays: number = 30
 ): number {
   if (!value) return defaultDays;
   const parsed = parseInt(value, 10);
   if (isNaN(parsed) || parsed < 1 || parsed > 365) {
     console.warn(
-      `[parseDays] Invalid days value "${value}", using default ${defaultDays}`,
+      `[parseDays] Invalid days value "${value}", using default ${defaultDays}`
     );
     return defaultDays;
   }
@@ -105,7 +105,7 @@ export function safeFormatDate(
   isoString: string,
   formatString: string,
   formatFn: (date: Date, format: string) => string,
-  parseISOFn: (dateString: string) => Date,
+  parseISOFn: (dateString: string) => Date
 ): string {
   try {
     const parsed = parseISOFn(isoString);

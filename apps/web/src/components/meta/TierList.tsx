@@ -43,7 +43,7 @@ const ArchetypeRow = memo(function ArchetypeRow({
         "flex w-full items-center gap-4 px-4 py-3 text-left transition-colors",
         "hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500",
         isSelected && "bg-teal-50",
-        index % 2 === 0 ? "bg-white" : "bg-slate-50/50",
+        index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
       )}
       aria-pressed={isSelected}
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 56px" }}
@@ -204,7 +204,7 @@ export function TierList({
         onArchetypeSelect(flatList[currentIndex]);
       }
     },
-    [flatList, onArchetypeSelect],
+    [flatList, onArchetypeSelect]
   );
 
   return (
@@ -212,7 +212,7 @@ export function TierList({
       ref={listRef}
       className={cn(
         "overflow-hidden rounded-lg border border-slate-200",
-        className,
+        className
       )}
       role="listbox"
       aria-label="Meta tier list"

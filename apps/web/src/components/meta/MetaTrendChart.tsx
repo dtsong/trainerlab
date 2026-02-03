@@ -71,7 +71,7 @@ export function MetaTrendChart({ snapshots, className }: MetaTrendChartProps) {
 
   // Track which archetypes are visible
   const [visibleArchetypes, setVisibleArchetypes] = useState<Set<string>>(
-    () => new Set(archetypeNames.slice(0, 5)), // Show top 5 by default
+    () => new Set(archetypeNames.slice(0, 5)) // Show top 5 by default
   );
 
   // Transform data for the chart

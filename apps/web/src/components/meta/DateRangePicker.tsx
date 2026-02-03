@@ -81,7 +81,7 @@ export function DateRangePicker({
           variant="outline"
           className={cn(
             "w-[240px] justify-start text-left font-normal",
-            className,
+            className
           )}
           data-testid="date-range-picker"
         >

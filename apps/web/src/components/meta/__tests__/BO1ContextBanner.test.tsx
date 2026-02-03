@@ -11,7 +11,7 @@ describe("BO1ContextBanner", () => {
     expect(screen.getByTestId("bo1-context-banner")).toBeInTheDocument();
     expect(screen.getByText("Japan Best-of-1 Format")).toBeInTheDocument();
     expect(
-      screen.getByText(/tie counts as a loss for both players/i),
+      screen.getByText(/tie counts as a loss for both players/i)
     ).toBeInTheDocument();
   });
 
@@ -36,7 +36,7 @@ describe("BO1ContextBanner", () => {
     render(<BO1ContextBanner />);
 
     expect(
-      screen.getByText(/tie counts as a loss for both players/i),
+      screen.getByText(/tie counts as a loss for both players/i)
     ).toBeInTheDocument();
   });
 
@@ -44,7 +44,7 @@ describe("BO1ContextBanner", () => {
     render(<BO1ContextBanner />);
 
     expect(
-      screen.getByText(/faster, more aggressive decks are favored/i),
+      screen.getByText(/faster, more aggressive decks are favored/i)
     ).toBeInTheDocument();
   });
 });

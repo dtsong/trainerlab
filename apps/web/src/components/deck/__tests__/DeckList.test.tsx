@@ -7,7 +7,7 @@ import { useDeckStore } from "@/stores/deckStore";
 import type { ApiCardSummary } from "@trainerlab/shared-types";
 
 function createMockCard(
-  overrides: Partial<ApiCardSummary> = {},
+  overrides: Partial<ApiCardSummary> = {}
 ): ApiCardSummary {
   return {
     id: "swsh1-1",
@@ -44,19 +44,19 @@ describe("DeckList", () => {
     useDeckStore
       .getState()
       .addCard(
-        createMockCard({ id: "p1", name: "Pikachu", supertype: "Pokemon" }),
+        createMockCard({ id: "p1", name: "Pikachu", supertype: "Pokemon" })
       );
     useDeckStore
       .getState()
       .addCard(
-        createMockCard({ id: "t1", name: "Pokeball", supertype: "Trainer" }),
+        createMockCard({ id: "t1", name: "Pokeball", supertype: "Trainer" })
       );
     useDeckStore.getState().addCard(
       createMockCard({
         id: "e1",
         name: "Lightning Energy",
         supertype: "Energy",
-      }),
+      })
     );
 
     render(<DeckList />);

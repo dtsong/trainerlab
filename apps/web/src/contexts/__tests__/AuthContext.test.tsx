@@ -122,7 +122,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     expect(screen.getByTestId("loading")).toHaveTextContent("true");
@@ -147,7 +147,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -166,7 +166,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -188,7 +188,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -221,7 +221,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -246,7 +246,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -278,7 +278,7 @@ describe("AuthContext", () => {
     const { unmount } = render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     unmount();
@@ -333,7 +333,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumerWithErrorHandling />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -379,7 +379,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -422,7 +422,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -437,7 +437,7 @@ describe("AuthContext", () => {
     // authError should be set
     await waitFor(() => {
       expect(screen.getByTestId("auth-error")).toHaveTextContent(
-        "Token refresh failed",
+        "Token refresh failed"
       );
     });
 
@@ -474,7 +474,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -486,7 +486,7 @@ describe("AuthContext", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("auth-error")).toHaveTextContent(
-        "Token refresh failed",
+        "Token refresh failed"
       );
     });
 
@@ -526,7 +526,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -538,7 +538,7 @@ describe("AuthContext", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("auth-error")).toHaveTextContent(
-        "Token refresh failed",
+        "Token refresh failed"
       );
     });
 
@@ -567,7 +567,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -583,7 +583,7 @@ describe("AuthContext", () => {
     expect(mockSignInWithEmailAndPassword).toHaveBeenCalledWith(
       { name: "mock-auth" },
       "test@example.com",
-      "password",
+      "password"
     );
   });
 
@@ -602,7 +602,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {
@@ -618,7 +618,7 @@ describe("AuthContext", () => {
     expect(mockCreateUserWithEmailAndPassword).toHaveBeenCalledWith(
       { name: "mock-auth" },
       "new@example.com",
-      "password",
+      "password"
     );
     expect(mockUpdateProfile).toHaveBeenCalledWith(mockUser, {
       displayName: "New User",
@@ -640,7 +640,7 @@ describe("AuthContext", () => {
     render(
       <AuthProvider>
         <TestConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await waitFor(() => {

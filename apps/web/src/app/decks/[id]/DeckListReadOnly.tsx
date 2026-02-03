@@ -143,7 +143,7 @@ function ReadOnlyCardRow({ deckCard }: ReadOnlyCardRowProps) {
       <div
         className={cn(
           "text-lg font-semibold w-8 text-center",
-          quantity >= 4 && "text-amber-600",
+          quantity >= 4 && "text-amber-600"
         )}
       >
         {quantity}

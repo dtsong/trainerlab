@@ -26,7 +26,7 @@ describe("ChartErrorBoundary", () => {
     render(
       <ChartErrorBoundary>
         <ThrowingComponent shouldThrow={false} />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     expect(screen.getByTestId("child-content")).toBeInTheDocument();
@@ -36,12 +36,12 @@ describe("ChartErrorBoundary", () => {
     render(
       <ChartErrorBoundary chartName="TestChart">
         <ThrowingComponent shouldThrow={true} />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     expect(screen.getByText("TestChart failed to load")).toBeInTheDocument();
     expect(
-      screen.getByText("Please try refreshing the page"),
+      screen.getByText("Please try refreshing the page")
     ).toBeInTheDocument();
     expect(screen.getByText("Try again")).toBeInTheDocument();
   });
@@ -50,7 +50,7 @@ describe("ChartErrorBoundary", () => {
     render(
       <ChartErrorBoundary>
         <ThrowingComponent shouldThrow={true} />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     expect(screen.getByText("Chart failed to load")).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("ChartErrorBoundary", () => {
     render(
       <ChartErrorBoundary fallback={customFallback}>
         <ThrowingComponent shouldThrow={true} />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     expect(screen.getByTestId("custom-fallback")).toBeInTheDocument();
@@ -85,7 +85,7 @@ describe("ChartErrorBoundary", () => {
     const { rerender } = render(
       <ChartErrorBoundary chartName="TestChart">
         <ControlledComponent />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     // Verify error state
@@ -99,7 +99,7 @@ describe("ChartErrorBoundary", () => {
     rerender(
       <ChartErrorBoundary chartName="TestChart">
         <ControlledComponent />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     expect(screen.getByTestId("recovered-content")).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe("ChartErrorBoundary", () => {
     render(
       <ChartErrorBoundary chartName="TestChart">
         <ThrowingComponent shouldThrow={true} />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     expect(console.error).toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe("ChartErrorBoundary", () => {
     ).mock.calls.find(
       (call) =>
         typeof call[0] === "string" &&
-        call[0].includes('[ChartErrorBoundary] Chart "TestChart" crashed:'),
+        call[0].includes('[ChartErrorBoundary] Chart "TestChart" crashed:')
     );
     expect(errorCall).toBeDefined();
   });
@@ -127,7 +127,7 @@ describe("ChartErrorBoundary", () => {
     render(
       <ChartErrorBoundary>
         <ThrowingComponent shouldThrow={true} />
-      </ChartErrorBoundary>,
+      </ChartErrorBoundary>
     );
 
     const container = screen.getByText("Chart failed to load").closest("div");

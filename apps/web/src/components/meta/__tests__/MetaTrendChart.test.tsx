@@ -75,7 +75,7 @@ describe("MetaTrendChart", () => {
 
   it("should apply custom className", () => {
     render(
-      <MetaTrendChart snapshots={mockSnapshots} className="custom-class" />,
+      <MetaTrendChart snapshots={mockSnapshots} className="custom-class" />
     );
 
     expect(screen.getByTestId("meta-trend-chart")).toHaveClass("custom-class");
@@ -87,7 +87,7 @@ describe("MetaTrendChart", () => {
     expect(
       screen
         .getByTestId("meta-trend-chart")
-        .querySelector(".recharts-responsive-container"),
+        .querySelector(".recharts-responsive-container")
     ).toBeInTheDocument();
   });
 
@@ -107,7 +107,7 @@ describe("MetaTrendChart", () => {
     const container = screen.getByTestId("meta-trend-chart");
     // Recharts should render the responsive container
     expect(
-      container.querySelector(".recharts-responsive-container"),
+      container.querySelector(".recharts-responsive-container")
     ).toBeInTheDocument();
 
     console.warn = originalWarn;

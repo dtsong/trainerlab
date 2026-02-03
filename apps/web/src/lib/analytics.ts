@@ -46,7 +46,7 @@ export function trackEvent({
 export function trackAffiliateClick(
   affiliate: "doubleHolo" | "tcgPlayer",
   context: "deck" | "card" | "archetype",
-  itemId?: string,
+  itemId?: string
 ): void {
   trackEvent({
     category: "commerce",
@@ -60,7 +60,7 @@ export function trackAffiliateClick(
  */
 export function trackBuildDeckCTA(
   action: "view" | "click_primary" | "click_secondary",
-  deckName: string,
+  deckName: string
 ): void {
   trackEvent({
     category: "commerce",

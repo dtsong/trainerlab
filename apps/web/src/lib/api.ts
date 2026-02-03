@@ -33,7 +33,7 @@ class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public body?: unknown,
+    public body?: unknown
   ) {
     super(message);
     this.name = "ApiError";
@@ -42,7 +42,7 @@ class ApiError extends Error {
 
 async function fetchApi<T>(
   endpoint: string,
-  options?: RequestInit,
+  options?: RequestInit
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -60,7 +60,7 @@ async function fetchApi<T>(
     throw new ApiError(
       "Network error: Unable to reach the server. Please check your connection.",
       0,
-      { originalError: error },
+      { originalError: error }
     );
   }
 
@@ -70,7 +70,7 @@ async function fetchApi<T>(
     throw new ApiError(
       `API request failed: ${response.status} ${response.statusText}`,
       response.status,
-      body,
+      body
     );
   }
 
@@ -113,7 +113,7 @@ export const cardsApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiPaginatedResponse<ApiCardSummary>>(
-      `/api/v1/cards${query ? `?${query}` : ""}`,
+      `/api/v1/cards${query ? `?${query}` : ""}`
     );
   },
 
@@ -134,7 +134,7 @@ export const setsApi = {
 
   getCards: (id: string, page = 1, limit = 20) => {
     return fetchApi<ApiPaginatedResponse<ApiCardSummary>>(
-      `/api/v1/sets/${encodeURIComponent(id)}/cards?page=${page}&limit=${limit}`,
+      `/api/v1/sets/${encodeURIComponent(id)}/cards?page=${page}&limit=${limit}`
     );
   },
 };
@@ -157,7 +157,7 @@ export const metaApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiMetaSnapshot>(
-      `/api/v1/meta/current${query ? `?${query}` : ""}`,
+      `/api/v1/meta/current${query ? `?${query}` : ""}`
     );
   },
 
@@ -170,7 +170,7 @@ export const metaApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiMetaHistoryResponse>(
-      `/api/v1/meta/history${query ? `?${query}` : ""}`,
+      `/api/v1/meta/history${query ? `?${query}` : ""}`
     );
   },
 
@@ -182,7 +182,7 @@ export const metaApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiArchetype[]>(
-      `/api/v1/meta/archetypes${query ? `?${query}` : ""}`,
+      `/api/v1/meta/archetypes${query ? `?${query}` : ""}`
     );
   },
 };
@@ -214,13 +214,13 @@ export const tournamentsApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiTournamentListResponse>(
-      `/api/v1/tournaments${query ? `?${query}` : ""}`,
+      `/api/v1/tournaments${query ? `?${query}` : ""}`
     );
   },
 
   getById: (id: string) => {
     return fetchApi<ApiTournamentDetail>(
-      `/api/v1/tournaments/${encodeURIComponent(id)}`,
+      `/api/v1/tournaments/${encodeURIComponent(id)}`
     );
   },
 };
@@ -244,13 +244,13 @@ export const labNotesApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiLabNoteListResponse>(
-      `/api/v1/lab-notes${query ? `?${query}` : ""}`,
+      `/api/v1/lab-notes${query ? `?${query}` : ""}`
     );
   },
 
   getBySlug: (slug: string) => {
     return fetchApi<ApiLabNote>(
-      `/api/v1/lab-notes/${encodeURIComponent(slug)}`,
+      `/api/v1/lab-notes/${encodeURIComponent(slug)}`
     );
   },
 };
@@ -270,7 +270,7 @@ export const formatApi = {
 export const rotationApi = {
   getImpacts: (transition: string) => {
     return fetchApi<ApiRotationImpactList>(
-      `/api/v1/rotation/impact?transition=${encodeURIComponent(transition)}`,
+      `/api/v1/rotation/impact?transition=${encodeURIComponent(transition)}`
     );
   },
 
@@ -279,7 +279,7 @@ export const rotationApi = {
       ? `?transition=${encodeURIComponent(transition)}`
       : "";
     return fetchApi<ApiRotationImpact>(
-      `/api/v1/rotation/impact/${encodeURIComponent(archetypeId)}${params}`,
+      `/api/v1/rotation/impact/${encodeURIComponent(archetypeId)}${params}`
     );
   },
 };
@@ -321,13 +321,13 @@ export const japanApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiJPCardInnovationList>(
-      `/api/v1/japan/innovation${query ? `?${query}` : ""}`,
+      `/api/v1/japan/innovation${query ? `?${query}` : ""}`
     );
   },
 
   getInnovationDetail: (cardId: string) => {
     return fetchApi<ApiJPCardInnovationDetail>(
-      `/api/v1/japan/innovation/${encodeURIComponent(cardId)}`,
+      `/api/v1/japan/innovation/${encodeURIComponent(cardId)}`
     );
   },
 
@@ -338,7 +338,7 @@ export const japanApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiJPNewArchetypeList>(
-      `/api/v1/japan/archetypes/new${query ? `?${query}` : ""}`,
+      `/api/v1/japan/archetypes/new${query ? `?${query}` : ""}`
     );
   },
 
@@ -349,7 +349,7 @@ export const japanApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiJPSetImpactList>(
-      `/api/v1/japan/set-impact${query ? `?${query}` : ""}`,
+      `/api/v1/japan/set-impact${query ? `?${query}` : ""}`
     );
   },
 
@@ -362,7 +362,7 @@ export const japanApi = {
 
     const query = searchParams.toString();
     return fetchApi<ApiPredictionList>(
-      `/api/v1/japan/predictions${query ? `?${query}` : ""}`,
+      `/api/v1/japan/predictions${query ? `?${query}` : ""}`
     );
   },
 };

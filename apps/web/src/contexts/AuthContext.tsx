@@ -52,7 +52,7 @@ interface AuthContextValue {
   signUp: (
     email: string,
     password: string,
-    displayName?: string,
+    displayName?: string
   ) => Promise<UserCredential>;
   /** Sign in with Google popup */
   signInWithGoogle: () => Promise<UserCredential>;
@@ -152,7 +152,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthError(authErr);
       console.error(
         "Failed to get ID token (session may need refresh):",
-        error,
+        error
       );
       throw authErr;
     }
@@ -165,14 +165,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       return signInWithEmailAndPassword(auth, email, password);
     },
-    [],
+    []
   );
 
   const signUp = useCallback(
     async (
       email: string,
       password: string,
-      displayName?: string,
+      displayName?: string
     ): Promise<UserCredential> => {
       if (!auth) {
         throw new Error("Firebase not configured");
@@ -180,14 +180,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const credential = await createUserWithEmailAndPassword(
         auth,
         email,
-        password,
+        password
       );
       if (displayName && credential.user) {
         await updateProfile(credential.user, { displayName });
       }
       return credential;
     },
-    [],
+    []
   );
 
   const signInWithGoogleFn = useCallback(async (): Promise<UserCredential> => {

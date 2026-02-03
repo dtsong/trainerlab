@@ -62,7 +62,7 @@ describe("meta-utils", () => {
     it("should return default for invalid strings and log warning", () => {
       expect(parseRegion("invalid")).toBe("global");
       expect(console.warn).toHaveBeenCalledWith(
-        '[parseRegion] Invalid region "invalid", using default "global"',
+        '[parseRegion] Invalid region "invalid", using default "global"'
       );
     });
 
@@ -98,7 +98,7 @@ describe("meta-utils", () => {
     it("should return default and log warning for invalid values", () => {
       expect(parseDays("abc")).toBe(30);
       expect(console.warn).toHaveBeenCalledWith(
-        '[parseDays] Invalid days value "abc", using default 30',
+        '[parseDays] Invalid days value "abc", using default 30'
       );
     });
 
@@ -201,7 +201,7 @@ describe("meta-utils", () => {
         "2025-01-15",
         "MMM d, yyyy",
         mockFormat,
-        mockParseISO,
+        mockParseISO
       );
 
       expect(result).toBe("formatted-MMM d, yyyy");
@@ -214,13 +214,13 @@ describe("meta-utils", () => {
         "not-a-date",
         "MMM d",
         mockFormat,
-        invalidParseISO,
+        invalidParseISO
       );
 
       expect(result).toBe("not-a-date");
       expect(console.warn).toHaveBeenCalledWith(
         "[safeFormatDate] Invalid date value:",
-        "not-a-date",
+        "not-a-date"
       );
     });
 
@@ -233,7 +233,7 @@ describe("meta-utils", () => {
         "2025-01-15",
         "MMM d",
         throwingFormat,
-        mockParseISO,
+        mockParseISO
       );
 
       expect(result).toBe("2025-01-15");
@@ -249,7 +249,7 @@ describe("meta-utils", () => {
         "2025-01-15",
         "MMM d",
         mockFormat,
-        throwingParseISO,
+        throwingParseISO
       );
 
       expect(result).toBe("2025-01-15");
@@ -261,64 +261,64 @@ describe("meta-utils", () => {
     it("should handle network errors (status 0)", () => {
       const error = new ApiError("Network error", 0);
       expect(getErrorMessage(error)).toBe(
-        "Unable to connect to the server. Please check your internet connection.",
+        "Unable to connect to the server. Please check your internet connection."
       );
     });
 
     it("should handle server errors (5xx)", () => {
       const error500 = new ApiError("Internal Server Error", 500);
       expect(getErrorMessage(error500)).toBe(
-        "Server error. Please try again later.",
+        "Server error. Please try again later."
       );
 
       const error503 = new ApiError("Service Unavailable", 503);
       expect(getErrorMessage(error503)).toBe(
-        "Server error. Please try again later.",
+        "Server error. Please try again later."
       );
     });
 
     it("should handle 404 errors with default message", () => {
       const error = new ApiError("Not Found", 404);
       expect(getErrorMessage(error)).toBe(
-        "Meta data not found for the selected filters.",
+        "Meta data not found for the selected filters."
       );
     });
 
     it("should handle 404 errors with custom context", () => {
       const error = new ApiError("Not Found", 404);
       expect(getErrorMessage(error, "Japan meta")).toBe(
-        "Japan meta data not found for the selected filters.",
+        "Japan meta data not found for the selected filters."
       );
     });
 
     it("should handle other client errors", () => {
       const error400 = new ApiError("Bad Request", 400);
       expect(getErrorMessage(error400)).toBe(
-        "Error loading data (400). Please try again.",
+        "Error loading data (400). Please try again."
       );
 
       const error403 = new ApiError("Forbidden", 403);
       expect(getErrorMessage(error403)).toBe(
-        "Error loading data (403). Please try again.",
+        "Error loading data (403). Please try again."
       );
     });
 
     it("should handle non-ApiError errors", () => {
       const error = new Error("Some error");
       expect(getErrorMessage(error)).toBe(
-        "An unexpected error occurred. Please try again.",
+        "An unexpected error occurred. Please try again."
       );
     });
 
     it("should handle non-Error values", () => {
       expect(getErrorMessage("string error")).toBe(
-        "An unexpected error occurred. Please try again.",
+        "An unexpected error occurred. Please try again."
       );
       expect(getErrorMessage(null)).toBe(
-        "An unexpected error occurred. Please try again.",
+        "An unexpected error occurred. Please try again."
       );
       expect(getErrorMessage(undefined)).toBe(
-        "An unexpected error occurred. Please try again.",
+        "An unexpected error occurred. Please try again."
       );
     });
   });

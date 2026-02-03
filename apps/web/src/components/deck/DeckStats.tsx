@@ -32,7 +32,7 @@ export function DeckStats({ className }: DeckStatsProps) {
               "text-sm font-bold",
               total < TARGET_DECK_SIZE && "text-amber-600",
               total === TARGET_DECK_SIZE && "text-green-600",
-              total > TARGET_DECK_SIZE && "text-red-600",
+              total > TARGET_DECK_SIZE && "text-red-600"
             )}
           >
             {total}/{TARGET_DECK_SIZE}
@@ -44,7 +44,7 @@ export function DeckStats({ className }: DeckStatsProps) {
               "h-full transition-all duration-300",
               total < TARGET_DECK_SIZE && "bg-amber-500",
               total === TARGET_DECK_SIZE && "bg-green-500",
-              total > TARGET_DECK_SIZE && "bg-red-500",
+              total > TARGET_DECK_SIZE && "bg-red-500"
             )}
             style={{ width: `${progress}%` }}
             role="progressbar"
@@ -78,7 +78,7 @@ export function DeckStats({ className }: DeckStatsProps) {
             "text-sm text-center py-1 px-2 rounded",
             valid
               ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-              : "bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400",
+              : "bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
           )}
         >
           {valid

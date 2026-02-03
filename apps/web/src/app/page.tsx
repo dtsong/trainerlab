@@ -6,41 +6,41 @@ import { Hero, JPAlertBanner } from "@/components/home";
 const MetaSnapshot = dynamic(
   () =>
     import("@/components/home/MetaSnapshot").then((mod) => mod.MetaSnapshot),
-  { ssr: true },
+  { ssr: true }
 );
 const EvolutionPreview = dynamic(
   () =>
     import("@/components/home/EvolutionPreview").then(
-      (mod) => mod.EvolutionPreview,
+      (mod) => mod.EvolutionPreview
     ),
-  { ssr: true },
+  { ssr: true }
 );
 const ContentGrid = dynamic(
   () => import("@/components/home/ContentGrid").then((mod) => mod.ContentGrid),
-  { ssr: true },
+  { ssr: true }
 );
 const JPPreview = dynamic(
   () => import("@/components/home/JPPreview").then((mod) => mod.JPPreview),
-  { ssr: true },
+  { ssr: true }
 );
 const WhyTrainerLab = dynamic(
   () =>
     import("@/components/home/WhyTrainerLab").then((mod) => mod.WhyTrainerLab),
-  { ssr: true },
+  { ssr: true }
 );
 const ResearchPassWaitlist = dynamic(
   () =>
     import("@/components/home/ResearchPassWaitlist").then(
-      (mod) => mod.ResearchPassWaitlist,
+      (mod) => mod.ResearchPassWaitlist
     ),
-  { ssr: true },
+  { ssr: true }
 );
 const TrainersToolkit = dynamic(
   () =>
     import("@/components/home/TrainersToolkit").then(
-      (mod) => mod.TrainersToolkit,
+      (mod) => mod.TrainersToolkit
     ),
-  { ssr: true },
+  { ssr: true }
 );
 
 export default function Home() {

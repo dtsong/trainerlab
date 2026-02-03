@@ -83,7 +83,7 @@ export function DeckValidation({ className }: DeckValidationProps) {
       <div
         className={cn(
           "flex items-center gap-2 p-3 rounded-md bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400",
-          className,
+          className
         )}
       >
         <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
@@ -107,7 +107,7 @@ export function DeckValidation({ className }: DeckValidationProps) {
             error.type === "error" &&
               "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400",
             error.type === "warning" &&
-              "bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400",
+              "bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
           )}
         >
           {error.type === "error" ? (

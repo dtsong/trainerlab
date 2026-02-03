@@ -59,7 +59,7 @@ export function exportToPTCGL(cards: DeckCard[]): string {
  */
 export function exportDeck(
   cards: DeckCard[],
-  format: DeckExportFormat,
+  format: DeckExportFormat
 ): string {
   switch (format) {
     case "ptcgo":

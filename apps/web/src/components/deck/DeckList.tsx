@@ -34,7 +34,7 @@ export function DeckList({ className }: DeckListProps) {
         removeCard(cardId);
       }
     },
-    [cards, addCard, removeCard],
+    [cards, addCard, removeCard]
   );
 
   const handleRemove = useCallback(
@@ -47,7 +47,7 @@ export function DeckList({ className }: DeckListProps) {
         removeCard(cardId);
       }
     },
-    [cards, removeCard],
+    [cards, removeCard]
   );
 
   if (cards.length === 0) {
@@ -55,7 +55,7 @@ export function DeckList({ className }: DeckListProps) {
       <div
         className={cn(
           "flex flex-col items-center justify-center p-8 text-center border-2 border-dashed rounded-lg",
-          className,
+          className
         )}
       >
         <p className="text-muted-foreground">No cards in deck</p>

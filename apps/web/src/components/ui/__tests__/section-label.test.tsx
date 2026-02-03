@@ -32,7 +32,7 @@ describe("SectionLabel", () => {
     it("should render without icon when not provided", () => {
       render(<SectionLabel label="Test" />);
       expect(
-        screen.queryByTestId("section-label-icon"),
+        screen.queryByTestId("section-label-icon")
       ).not.toBeInTheDocument();
     });
 

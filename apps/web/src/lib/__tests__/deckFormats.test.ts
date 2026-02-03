@@ -11,7 +11,7 @@ import type { ApiCardSummary } from "@trainerlab/shared-types";
 
 // Helper to create a mock DeckCard
 function createDeckCard(
-  overrides: Partial<ApiCardSummary> & { quantity?: number },
+  overrides: Partial<ApiCardSummary> & { quantity?: number }
 ): DeckCard {
   const { quantity = 1, ...cardOverrides } = overrides;
   return {
@@ -129,7 +129,7 @@ describe("parseDeckList", () => {
 
     it("should skip Trainer section header", () => {
       const result = parseDeckList(
-        "Trainer: 30\n4 Professor's Research SVI 189",
+        "Trainer: 30\n4 Professor's Research SVI 189"
       );
 
       expect(result.cards).toHaveLength(1);
@@ -137,7 +137,7 @@ describe("parseDeckList", () => {
 
     it("should skip Energy section header", () => {
       const result = parseDeckList(
-        "Energy: 10\n10 Basic Lightning Energy SVI 257",
+        "Energy: 10\n10 Basic Lightning Energy SVI 257"
       );
 
       expect(result.cards).toHaveLength(1);
@@ -179,7 +179,7 @@ describe("parseDeckList", () => {
 
     it("should handle mixed valid and invalid lines", () => {
       const result = parseDeckList(
-        "4 Pikachu SVI 123\nInvalid\n4 Raichu SVI 124",
+        "4 Pikachu SVI 123\nInvalid\n4 Raichu SVI 124"
       );
 
       expect(result.cards).toHaveLength(2);

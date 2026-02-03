@@ -63,7 +63,7 @@ function JapanMetaPageContent() {
     setDateRange(newRange);
     const newDays = Math.ceil(
       (newRange.end.getTime() - newRange.start.getTime()) /
-        (1000 * 60 * 60 * 24),
+        (1000 * 60 * 60 * 24)
     );
     updateUrl(newDays);
   };

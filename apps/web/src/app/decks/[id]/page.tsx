@@ -72,7 +72,7 @@ export default function DeckDetailPage() {
 
       if (!result.saved) {
         alert(
-          "Could not save deck. Your browser storage may be full or unavailable.",
+          "Could not save deck. Your browser storage may be full or unavailable."
         );
         setIsSaving(false);
         return;
@@ -82,7 +82,7 @@ export default function DeckDetailPage() {
       setIsEditMode(false);
       setIsSaving(false);
     },
-    [deckId, updateDeck, resetModified],
+    [deckId, updateDeck, resetModified]
   );
 
   const handleDelete = useCallback(async () => {
@@ -109,7 +109,7 @@ export default function DeckDetailPage() {
   const handleToggleEdit = useCallback(() => {
     if (isEditMode && isModified) {
       const confirmed = window.confirm(
-        "You have unsaved changes. Discard them?",
+        "You have unsaved changes. Discard them?"
       );
       if (!confirmed) return;
     }
@@ -130,7 +130,7 @@ export default function DeckDetailPage() {
   const handleBack = useCallback(() => {
     if (isEditMode && isModified) {
       const confirmed = window.confirm(
-        "You have unsaved changes. Are you sure you want to leave?",
+        "You have unsaved changes. Are you sure you want to leave?"
       );
       if (!confirmed) return;
     }
@@ -147,7 +147,7 @@ export default function DeckDetailPage() {
     } catch (error) {
       console.error("Failed to copy link:", error);
       alert(
-        "Could not copy link. Please copy the URL from your browser's address bar.",
+        "Could not copy link. Please copy the URL from your browser's address bar."
       );
     }
   }, []);

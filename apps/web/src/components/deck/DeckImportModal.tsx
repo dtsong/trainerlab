@@ -68,7 +68,7 @@ export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
 
         // Try to find an exact match
         const exactMatch = response.items.find(
-          (c) => c.name.toLowerCase() === parsedCard.name.toLowerCase(),
+          (c) => c.name.toLowerCase() === parsedCard.name.toLowerCase()
         );
 
         // If we have set info, try to match that too
@@ -77,7 +77,7 @@ export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
             ? response.items.find(
                 (c) =>
                   c.name.toLowerCase() === parsedCard.name.toLowerCase() &&
-                  c.set_id.toLowerCase() === parsedCard.setCode!.toLowerCase(),
+                  c.set_id.toLowerCase() === parsedCard.setCode!.toLowerCase()
               )
             : null;
 
@@ -93,22 +93,22 @@ export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
 
           setImportStatuses((prev) =>
             prev.map((s, idx) =>
-              idx === i ? { ...s, status: "found" as const } : s,
-            ),
+              idx === i ? { ...s, status: "found" as const } : s
+            )
           );
         } else {
           setImportStatuses((prev) =>
             prev.map((s, idx) =>
-              idx === i ? { ...s, status: "not_found" as const } : s,
-            ),
+              idx === i ? { ...s, status: "not_found" as const } : s
+            )
           );
         }
       } catch (error) {
         console.error(`Failed to find card: ${parsedCard.name}`, error);
         setImportStatuses((prev) =>
           prev.map((s, idx) =>
-            idx === i ? { ...s, status: "error" as const } : s,
-          ),
+            idx === i ? { ...s, status: "error" as const } : s
+          )
         );
       }
     }
@@ -124,7 +124,7 @@ export function DeckImportModal({ open, onOpenChange }: DeckImportModalProps) {
 
   const foundCount = importStatuses.filter((s) => s.status === "found").length;
   const notFoundCount = importStatuses.filter(
-    (s) => s.status === "not_found",
+    (s) => s.status === "not_found"
   ).length;
   const errorCount = importStatuses.filter((s) => s.status === "error").length;
   const importComplete = importStatuses.length > 0 && !isImporting;
@@ -226,7 +226,7 @@ Energy: 10
                       status.status === "found" && "text-green-600",
                       status.status === "not_found" && "text-red-600",
                       status.status === "error" && "text-amber-600",
-                      status.status === "pending" && "text-muted-foreground",
+                      status.status === "pending" && "text-muted-foreground"
                     )}
                   >
                     {status.status === "pending" && (

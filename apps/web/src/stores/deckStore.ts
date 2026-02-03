@@ -88,7 +88,7 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
       addCard: (card: ApiCardSummary) => {
         set((state) => {
           const existingIndex = state.cards.findIndex(
-            (c) => c.card.id === card.id,
+            (c) => c.card.id === card.id
           );
 
           if (existingIndex >= 0) {
@@ -122,7 +122,7 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
       removeCard: (cardId: string) => {
         set((state) => {
           const existingIndex = state.cards.findIndex(
-            (c) => c.card.id === cardId,
+            (c) => c.card.id === cardId
           );
 
           if (existingIndex < 0) {
@@ -155,7 +155,7 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
       setQuantity: (cardId: string, quantity: number) => {
         set((state) => {
           const existingIndex = state.cards.findIndex(
-            (c) => c.card.id === cardId,
+            (c) => c.card.id === cardId
           );
 
           if (existingIndex < 0) {
@@ -313,6 +313,6 @@ export const useDeckStore = create<DeckState & DeckActions & DeckGetters>()(
           }
         },
       },
-    },
-  ),
+    }
+  )
 );

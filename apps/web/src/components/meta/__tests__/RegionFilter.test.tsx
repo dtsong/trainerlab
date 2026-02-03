@@ -69,7 +69,7 @@ describe("RegionFilter", () => {
         value="global"
         onChange={onChange}
         className="custom-class"
-      />,
+      />
     );
 
     expect(screen.getByTestId("region-filter")).toHaveClass("custom-class");
@@ -93,7 +93,7 @@ describe("RegionFilter", () => {
   it("should pass value correctly to Select component", () => {
     const onChange = vi.fn();
     const { rerender } = render(
-      <RegionFilter value="NA" onChange={onChange} />,
+      <RegionFilter value="NA" onChange={onChange} />
     );
 
     // Check initial value is displayed

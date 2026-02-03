@@ -176,11 +176,11 @@ describe("useDecks", () => {
 
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
         STORAGE_KEY,
-        expect.any(String),
+        expect.any(String)
       );
 
       const savedData = JSON.parse(
-        localStorageMock.setItem.mock.calls[0][1] as string,
+        localStorageMock.setItem.mock.calls[0][1] as string
       );
       expect(savedData).toHaveLength(1);
       expect(savedData[0].name).toBe("New Deck");

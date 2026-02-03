@@ -79,7 +79,7 @@ export function MobileNav() {
             href={tab.href}
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors",
-              active ? "text-teal-500" : "text-slate-500",
+              active ? "text-teal-500" : "text-slate-500"
             )}
           >
             <Icon className="h-5 w-5" />
@@ -94,7 +94,7 @@ export function MobileNav() {
           <button
             className={cn(
               "flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors",
-              drawerOpen ? "text-teal-500" : "text-slate-500",
+              drawerOpen ? "text-teal-500" : "text-slate-500"
             )}
             aria-expanded={drawerOpen}
           >

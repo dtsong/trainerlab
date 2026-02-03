@@ -77,7 +77,7 @@ export const DeckListItem = memo(function DeckListItem({
         <span
           className={cn(
             "w-6 text-center text-sm font-medium",
-            quantity >= 4 && "text-amber-600",
+            quantity >= 4 && "text-amber-600"
           )}
         >
           {quantity}

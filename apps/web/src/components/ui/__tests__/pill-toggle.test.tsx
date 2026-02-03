@@ -15,11 +15,7 @@ describe("PillToggle", () => {
     it("should render all options", () => {
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       expect(screen.getByText("Week")).toBeInTheDocument();
@@ -34,7 +30,7 @@ describe("PillToggle", () => {
           options={defaultOptions}
           value="month"
           onChange={onChange}
-        />,
+        />
       );
 
       const selectedButton = screen.getByRole("button", { name: "Month" });
@@ -49,7 +45,7 @@ describe("PillToggle", () => {
           options={defaultOptions}
           value="month"
           onChange={onChange}
-        />,
+        />
       );
 
       const unselectedButton = screen.getByRole("button", { name: "Week" });
@@ -62,11 +58,7 @@ describe("PillToggle", () => {
     it("should call onChange when clicking an option", () => {
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       fireEvent.click(screen.getByText("Month"));
@@ -76,11 +68,7 @@ describe("PillToggle", () => {
     it("should call onChange when clicking already selected option", () => {
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       fireEvent.click(screen.getByText("Week"));
@@ -93,11 +81,7 @@ describe("PillToggle", () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       const container = screen.getByTestId("pill-toggle");
@@ -115,7 +99,7 @@ describe("PillToggle", () => {
           options={defaultOptions}
           value="month"
           onChange={onChange}
-        />,
+        />
       );
 
       await user.click(screen.getByText("Month"));
@@ -128,11 +112,7 @@ describe("PillToggle", () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="year"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="year" onChange={onChange} />
       );
 
       await user.click(screen.getByText("Year"));
@@ -145,11 +125,7 @@ describe("PillToggle", () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       await user.click(screen.getByText("Week"));
@@ -163,11 +139,7 @@ describe("PillToggle", () => {
     it("should render small size by default", () => {
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       const button = screen.getByRole("button", { name: "Week" });
@@ -182,7 +154,7 @@ describe("PillToggle", () => {
           value="week"
           onChange={onChange}
           size="sm"
-        />,
+        />
       );
 
       const button = screen.getByRole("button", { name: "Week" });
@@ -197,7 +169,7 @@ describe("PillToggle", () => {
           value="week"
           onChange={onChange}
           size="md"
-        />,
+        />
       );
 
       const button = screen.getByRole("button", { name: "Week" });
@@ -214,7 +186,7 @@ describe("PillToggle", () => {
           value="week"
           onChange={onChange}
           className="custom-class"
-        />,
+        />
       );
 
       const container = screen.getByTestId("pill-toggle");
@@ -226,11 +198,7 @@ describe("PillToggle", () => {
     it("should have role group", () => {
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       expect(screen.getByRole("group")).toBeInTheDocument();
@@ -239,11 +207,7 @@ describe("PillToggle", () => {
     it("should have aria-pressed on buttons", () => {
       const onChange = vi.fn();
       render(
-        <PillToggle
-          options={defaultOptions}
-          value="week"
-          onChange={onChange}
-        />,
+        <PillToggle options={defaultOptions} value="week" onChange={onChange} />
       );
 
       const buttons = screen.getAllByRole("button");
@@ -257,7 +221,7 @@ describe("PillToggle", () => {
     it("should not render when options array is empty", () => {
       const onChange = vi.fn();
       const { container } = render(
-        <PillToggle options={[]} value="" onChange={onChange} />,
+        <PillToggle options={[]} value="" onChange={onChange} />
       );
       expect(container.firstChild).toBeNull();
     });
@@ -269,7 +233,7 @@ describe("PillToggle", () => {
           options={defaultOptions}
           value="nonexistent"
           onChange={onChange}
-        />,
+        />
       );
 
       const buttons = screen.getAllByRole("button");

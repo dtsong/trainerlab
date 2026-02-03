@@ -66,7 +66,7 @@ export function FilterBar({
         isSticky
           ? "sticky top-16 bg-slate-800 shadow-lg"
           : "bg-slate-800/95 rounded-lg",
-        className,
+        className
       )}
     >
       <div className="flex flex-wrap items-center gap-4">

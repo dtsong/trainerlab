@@ -33,7 +33,7 @@ export const StatBlock = React.forwardRef<HTMLDivElement, StatBlockProps>(
         )}
       </div>
     );
-  },
+  }
 );
 
 StatBlock.displayName = "StatBlock";

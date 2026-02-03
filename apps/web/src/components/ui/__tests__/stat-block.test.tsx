@@ -43,7 +43,7 @@ describe("StatBlock", () => {
     it("should not render subtext when not provided", () => {
       render(<StatBlock value="42%" label="Rate" />);
       expect(
-        screen.queryByTestId("stat-block-subtext"),
+        screen.queryByTestId("stat-block-subtext")
       ).not.toBeInTheDocument();
     });
 

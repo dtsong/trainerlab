@@ -47,7 +47,7 @@ export function TopNav() {
     <header
       className={cn(
         "fixed top-0 left-0 right-0 z-50 hidden h-16 md:flex items-center bg-white transition-shadow duration-200 motion-reduce:transition-none",
-        scrolled && "shadow-md",
+        scrolled && "shadow-md"
       )}
     >
       <div className="container flex items-center justify-between">
@@ -70,7 +70,7 @@ export function TopNav() {
                 "relative py-2 text-[15px] font-medium transition-colors",
                 isActive(link.href)
                   ? "text-slate-900"
-                  : "text-slate-600 hover:text-slate-900",
+                  : "text-slate-600 hover:text-slate-900"
               )}
             >
               {link.label}

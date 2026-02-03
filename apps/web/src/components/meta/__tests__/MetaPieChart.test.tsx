@@ -46,7 +46,7 @@ describe("MetaPieChart", () => {
     expect(
       screen
         .getByTestId("meta-pie-chart")
-        .querySelector(".recharts-responsive-container"),
+        .querySelector(".recharts-responsive-container")
     ).toBeInTheDocument();
   });
 });

@@ -21,7 +21,7 @@ const tierBadgeVariants = cva(
     defaultVariants: {
       size: "sm",
     },
-  },
+  }
 );
 
 export interface TierBadgeProps
@@ -44,7 +44,7 @@ export const TierBadge = React.forwardRef<HTMLSpanElement, TierBadgeProps>(
         {tier}
       </span>
     );
-  },
+  }
 );
 
 TierBadge.displayName = "TierBadge";

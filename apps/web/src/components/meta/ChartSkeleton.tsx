@@ -10,7 +10,7 @@ export function ChartSkeleton({ height = 350, className }: ChartSkeletonProps) {
     <div
       className={cn(
         "w-full rounded-lg bg-muted animate-pulse flex items-center justify-center",
-        className,
+        className
       )}
       style={{ height }}
     >

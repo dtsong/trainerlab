@@ -22,7 +22,7 @@ trainerlab/
 
 ## 1. Backend (apps/api/)
 
-**Tech Stack:** FastAPI, SQLAlchemy, PostgreSQL, pgvector, Firebase Auth
+**Tech Stack:** FastAPI, SQLAlchemy, PostgreSQL, pgvector, NextAuth.js JWT
 
 ### Entry Point
 
@@ -35,12 +35,12 @@ apps/api/src/
 ├── main.py                    # App entry, CORS, rate limiting, security headers
 ├── config.py                  # Settings via pydantic-settings
 ├── core/
-│   └── firebase.py           # Firebase admin SDK initialization
+│   └── jwt.py                # HS256 JWT verification (NextAuth.js)
 ├── db/
 │   ├── database.py           # SQLAlchemy engine, session factory
 │   └── base.py               # Declarative base
 ├── dependencies/
-│   ├── auth.py               # Firebase token verification dependency
+│   ├── auth.py               # JWT token verification dependency
 │   └── scheduler_auth.py     # Cloud Scheduler auth dependency
 ├── models/                   # SQLAlchemy ORM models (14 files)
 ├── schemas/                  # Pydantic request/response schemas (12 files)
@@ -149,11 +149,11 @@ apps/web/src/
 │   ├── tournaments/         # Tournament archive
 │   ├── lab-notes/           # Content articles
 │   ├── rotation/            # Format rotation page
-│   ├── auth/                # Login/register
-│   ├── api/                 # API routes (waitlist)
+│   ├── auth/                # Login (Google OAuth)
+│   ├── api/                 # API routes (auth, waitlist)
 │   └── feed.xml/            # RSS feed route
 ├── components/              # React components (organized by domain)
-│   ├── auth/               # Login/register forms
+│   ├── admin/              # Admin guard and header
 │   ├── cards/              # Card search, filters, grid (7 components)
 │   ├── commerce/           # BuildDeckCTA (1 component)
 │   ├── deck/               # Deck builder, list, stats (9 components)
@@ -165,12 +165,12 @@ apps/web/src/
 │   ├── rotation/           # Rotation components (4 components)
 │   ├── tournaments/        # Tournament components (2 components)
 │   └── ui/                 # shadcn/ui + custom UI primitives (27 components)
-├── contexts/
-│   └── AuthContext.tsx     # Firebase auth context
+├── lib/
+│   └── auth.ts            # NextAuth.js configuration
 ├── hooks/                  # Custom React hooks (8 hooks)
 ├── lib/                    # Utilities
 │   ├── api.ts             # API client wrapper
-│   ├── firebase.ts        # Firebase client config
+│   ├── auth.ts            # NextAuth.js config (Google OAuth, HS256 JWT)
 │   ├── utils.ts           # cn() helper
 │   ├── analytics.ts       # Analytics tracking
 │   ├── affiliate.ts       # Commerce affiliate links
@@ -201,8 +201,7 @@ apps/web/src/
 | `/lab-notes`        | `lab-notes/page.tsx`        | Lab notes list                                 |
 | `/lab-notes/[slug]` | `lab-notes/[slug]/page.tsx` | Lab note article                               |
 | `/rotation`         | `rotation/page.tsx`         | Format rotation & card survival                |
-| `/auth/login`       | `auth/login/page.tsx`       | Login page                                     |
-| `/auth/register`    | `auth/register/page.tsx`    | Register page                                  |
+| `/auth/login`       | `auth/login/page.tsx`       | Login page (Google OAuth)                      |
 | `/feed.xml`         | `feed.xml/route.ts`         | RSS feed generation                            |
 
 ### Component Organization
@@ -265,27 +264,27 @@ apps/web/src/
 
 - BuildDeckCTA
 
-**Auth (`components/auth/`):**
+**Auth:**
 
-- LoginForm, RegisterForm
+- Login page uses `signIn("google")` from next-auth/react directly
 
 ### Custom Hooks (`hooks/`)
 
-| Hook             | Purpose                       |
-| ---------------- | ----------------------------- |
-| `useAuth`        | Firebase authentication state |
-| `useCards`       | Card search queries           |
-| `useSets`        | Card set queries              |
-| `useDecks`       | Deck CRUD operations          |
-| `useTournaments` | Tournament queries            |
-| `useLabNotes`    | Lab notes queries             |
-| `useJapan`       | Japan-specific queries        |
-| `useFormat`      | Format rotation queries       |
+| Hook             | Purpose                   |
+| ---------------- | ------------------------- |
+| `useAuth`        | NextAuth.js session state |
+| `useCards`       | Card search queries       |
+| `useSets`        | Card set queries          |
+| `useDecks`       | Deck CRUD operations      |
+| `useTournaments` | Tournament queries        |
+| `useLabNotes`    | Lab notes queries         |
+| `useJapan`       | Japan-specific queries    |
+| `useFormat`      | Format rotation queries   |
 
 ### State Management
 
 - **Deck Builder:** Zustand store (`stores/deckStore.ts`)
-- **Auth:** React Context (`contexts/AuthContext.tsx`)
+- **Auth:** NextAuth.js SessionProvider + useSession
 - **Server State:** React Query (via hooks)
 
 ### Design System
@@ -388,7 +387,7 @@ External Sources → Pipelines → Database → API → Frontend
 ### Authentication Flow
 
 ```
-User → Firebase Auth (client) → ID Token → API (verify) → Protected endpoint
+User → Google OAuth (NextAuth.js) → HS256 JWT cookie → API (verify with NEXTAUTH_SECRET) → Protected endpoint
 ```
 
 ---
@@ -461,7 +460,7 @@ S: > 15%, A: 8-15%, B: 3-8%, C: 1-3%, Rogue: < 1%
 
 - **Web Framework:** FastAPI, Uvicorn
 - **Database:** SQLAlchemy, Alembic, asyncpg, pgvector
-- **Auth:** firebase-admin
+- **Auth:** python-jose (HS256 JWT verification)
 - **HTTP:** httpx
 - **Rate Limiting:** slowapi
 - **Testing:** pytest, pytest-asyncio, pytest-cov
@@ -472,7 +471,7 @@ S: > 15%, A: 8-15%, B: 3-8%, C: 1-3%, Rogue: < 1%
 - **Styling:** Tailwind CSS, class-variance-authority
 - **UI Components:** Radix UI, Lucide icons
 - **State:** Zustand, React Query
-- **Auth:** Firebase JS SDK
+- **Auth:** NextAuth.js v5 (Auth.js), jose
 - **Charts:** Recharts
 - **Testing:** Vitest, React Testing Library
 - **Forms:** React Hook Form, Zod

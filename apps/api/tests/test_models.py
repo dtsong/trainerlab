@@ -47,7 +47,7 @@ def test_user_model() -> None:
     """Test User model instantiation."""
     user = User(
         id=uuid4(),
-        firebase_uid="firebase-123",
+        auth_provider_id="google-123",
         email="trainer@example.com",
         display_name="Ash Ketchum",
     )

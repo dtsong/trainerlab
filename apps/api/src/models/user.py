@@ -14,15 +14,15 @@ if TYPE_CHECKING:
 
 
 class User(Base, TimestampMixin):
-    """Application user (linked to Firebase Auth)."""
+    """Application user (linked to auth provider via NextAuth.js)."""
 
     __tablename__ = "users"
 
     # Primary key
     id: Mapped[UUID] = mapped_column(primary_key=True)
 
-    # Firebase Auth
-    firebase_uid: Mapped[str] = mapped_column(
+    # Auth provider ID (e.g., Google OAuth providerAccountId)
+    auth_provider_id: Mapped[str] = mapped_column(
         String(128), unique=True, nullable=False, index=True
     )
 

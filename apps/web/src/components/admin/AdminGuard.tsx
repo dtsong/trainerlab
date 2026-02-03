@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks";
 import { isAdminEmail } from "@/lib/admin";
 
 interface AdminGuardProps {

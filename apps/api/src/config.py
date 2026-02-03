@@ -52,8 +52,8 @@ class Settings(BaseSettings):
     # OpenAI (optional)
     openai_api_key: str | None = None
 
-    # Firebase (optional)
-    firebase_project_id: str | None = None
+    # Auth (NextAuth.js shared secret for JWT verification)
+    nextauth_secret: str | None = None
 
     # CORS (comma-separated list of origins)
     cors_origins: str = "http://localhost:3000"

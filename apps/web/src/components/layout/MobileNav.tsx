@@ -155,27 +155,11 @@ export function MobileNav() {
                   Sign Out
                 </Button>
               ) : (
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" asChild>
-                    <Link
-                      href="/auth/login"
-                      onClick={() => setDrawerOpen(false)}
-                    >
-                      Sign In
-                    </Link>
-                  </Button>
-                  <Button
-                    className="flex-1 bg-teal-500 hover:bg-teal-600"
-                    asChild
-                  >
-                    <Link
-                      href="/auth/register"
-                      onClick={() => setDrawerOpen(false)}
-                    >
-                      Sign Up
-                    </Link>
-                  </Button>
-                </div>
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href="/auth/login" onClick={() => setDrawerOpen(false)}>
+                    Sign In
+                  </Link>
+                </Button>
               )}
             </div>
           </div>

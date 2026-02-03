@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
-from src.core.firebase import DecodedToken, TokenVerificationError
+from src.core.jwt import DecodedToken, TokenVerificationError
 from src.dependencies.auth import get_current_user, get_current_user_optional
 from src.models.user import User
 
@@ -67,14 +67,14 @@ class TestGetCurrentUser:
         """Test that existing user is returned from database."""
         mock_db = AsyncMock()
         mock_verify.return_value = DecodedToken(
-            uid="firebase-uid-123",
+            sub="google-uid-123",
             email="test@example.com",
         )
 
         # Mock existing user in database
         mock_user = MagicMock(spec=User)
         mock_user.id = uuid4()
-        mock_user.firebase_uid = "firebase-uid-123"
+        mock_user.auth_provider_id = "google-uid-123"
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_user
@@ -93,7 +93,7 @@ class TestGetCurrentUser:
         # db.add is synchronous, use MagicMock to avoid coroutine warning
         mock_db.add = MagicMock()
         mock_verify.return_value = DecodedToken(
-            uid="firebase-uid-new",
+            sub="google-uid-new",
             email="new@example.com",
             name="New User",
             picture="https://example.com/avatar.jpg",
@@ -113,7 +113,7 @@ class TestGetCurrentUser:
 
         # Verify user attributes
         created_user = mock_db.add.call_args[0][0]
-        assert created_user.firebase_uid == "firebase-uid-new"
+        assert created_user.auth_provider_id == "google-uid-new"
         assert created_user.email == "new@example.com"
         assert created_user.display_name == "New User"
         assert created_user.avatar_url == "https://example.com/avatar.jpg"
@@ -123,9 +123,8 @@ class TestGetCurrentUser:
     async def test_new_user_missing_email_raises(self, mock_verify: MagicMock) -> None:
         """Test that new user creation requires email."""
         mock_db = AsyncMock()
-        # No email in token (e.g., phone auth)
         mock_verify.return_value = DecodedToken(
-            uid="firebase-uid-new",
+            sub="google-uid-new",
             name="New User",
         )
 
@@ -148,7 +147,7 @@ class TestGetCurrentUser:
     ) -> None:
         """Test that infrastructure errors return 503 Service Unavailable."""
         mock_db = AsyncMock()
-        mock_verify.side_effect = TokenVerificationError("Network timeout")
+        mock_verify.side_effect = TokenVerificationError("Secret not configured")
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(mock_db, authorization="Bearer valid-token")
@@ -165,7 +164,7 @@ class TestGetCurrentUser:
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
         mock_verify.return_value = DecodedToken(
-            uid="firebase-uid-race",
+            sub="google-uid-race",
             email="race@example.com",
             name="Race User",
         )
@@ -174,7 +173,7 @@ class TestGetCurrentUser:
         # Second execute (after rollback) returns the user created by concurrent request
         mock_user = MagicMock(spec=User)
         mock_user.id = uuid4()
-        mock_user.firebase_uid = "firebase-uid-race"
+        mock_user.auth_provider_id = "google-uid-race"
 
         first_result = MagicMock()
         first_result.scalar_one_or_none.return_value = None
@@ -207,7 +206,7 @@ class TestGetCurrentUser:
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
         mock_verify.return_value = DecodedToken(
-            uid="firebase-uid-ghost",
+            sub="google-uid-ghost",
             email="ghost@example.com",
         )
 
@@ -261,12 +260,12 @@ class TestGetCurrentUserOptional:
         """Test that valid auth returns user."""
         mock_db = AsyncMock()
         mock_verify.return_value = DecodedToken(
-            uid="firebase-uid-123",
+            sub="google-uid-123",
             email="test@example.com",
         )
 
         mock_user = MagicMock(spec=User)
-        mock_user.firebase_uid = "firebase-uid-123"
+        mock_user.auth_provider_id = "google-uid-123"
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_user

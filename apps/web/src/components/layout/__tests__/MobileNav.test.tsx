@@ -30,13 +30,7 @@ describe("MobileNav", () => {
     mockUseAuth.mockReturnValue({
       user: null,
       loading: false,
-      authError: null,
-      signIn: vi.fn(),
-      signUp: vi.fn(),
-      signInWithGoogle: vi.fn(),
       signOut: vi.fn(),
-      getIdToken: vi.fn(),
-      clearAuthError: vi.fn(),
     });
   });
 
@@ -98,14 +92,13 @@ describe("MobileNav", () => {
       expect(await screen.findByText("Settings")).toBeInTheDocument();
     });
 
-    it("should show auth buttons when not logged in", async () => {
+    it("should show sign in button when not logged in", async () => {
       render(<MobileNav />);
 
       const moreButton = screen.getByText("More").closest("button");
       fireEvent.click(moreButton!);
 
       expect(await screen.findByText("Sign In")).toBeInTheDocument();
-      expect(await screen.findByText("Sign Up")).toBeInTheDocument();
     });
 
     it("should show user info when logged in", async () => {
@@ -113,17 +106,11 @@ describe("MobileNav", () => {
         user: {
           displayName: "Test User",
           email: "test@example.com",
-          uid: "123",
+          id: "123",
           photoURL: null,
         },
         loading: false,
-        authError: null,
-        signIn: vi.fn(),
-        signUp: vi.fn(),
-        signInWithGoogle: vi.fn(),
         signOut: vi.fn(),
-        getIdToken: vi.fn(),
-        clearAuthError: vi.fn(),
       });
 
       render(<MobileNav />);

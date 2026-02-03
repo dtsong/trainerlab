@@ -16,7 +16,7 @@ dependencies = [
     "redis>=5.2.0",
     "python-jose[cryptography]>=3.3.0",
     "typer>=0.15.0",
-    "firebase-admin>=6.5.0",
+    "google-auth[requests]>=2.0.0",
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
     "slowapi>=0.1.9",
@@ -48,7 +48,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "N", "S", "C4", "PT"]
 ignore = ["S101"]  # Allow assert in tests
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S106"]  # Allow hardcoded test tokens
+"tests/*" = ["S105", "S106"]  # Allow hardcoded test tokens/secrets
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

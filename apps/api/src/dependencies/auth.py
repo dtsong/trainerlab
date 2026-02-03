@@ -1,6 +1,7 @@
 """Authentication dependencies for FastAPI endpoints.
 
-This module provides dependency injection functions for Firebase Auth.
+This module provides dependency injection functions for JWT-based auth
+using NextAuth.js HS256-signed tokens.
 """
 
 import logging
@@ -12,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.firebase import TokenVerificationError, verify_token
+from src.core.jwt import TokenVerificationError, verify_token
 from src.db.database import get_db
 from src.models.user import User
 
@@ -23,14 +24,14 @@ async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
-    """Get the current authenticated user from Firebase token.
+    """Get the current authenticated user from JWT token.
 
-    Verifies the Firebase ID token and returns the corresponding user.
+    Verifies the NextAuth.js JWT and returns the corresponding user.
     If the user doesn't exist in the database, creates them automatically.
 
     Args:
         db: Database session
-        authorization: Authorization header (format: "Bearer <firebase_id_token>")
+        authorization: Authorization header (format: "Bearer <jwt>")
 
     Returns:
         User model for the authenticated user
@@ -39,7 +40,7 @@ async def get_current_user(
         HTTPException: 401 Unauthorized if:
             - Authorization header is missing
             - Authorization header format is invalid (not "Bearer <token>")
-            - Firebase token is invalid, expired, or revoked
+            - JWT is invalid or expired
             - Token missing email claim (required for new user creation)
         HTTPException: 503 Service Unavailable if:
             - Token verification fails due to infrastructure issues
@@ -62,9 +63,9 @@ async def get_current_user(
 
     token = parts[1]
 
-    # Verify Firebase token
+    # Verify JWT
     try:
-        decoded = await verify_token(token)
+        decoded = verify_token(token)
     except TokenVerificationError as e:
         logger.error("Token verification infrastructure error: %s", e)
         raise HTTPException(
@@ -79,13 +80,12 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Look up user by Firebase UID (uid is guaranteed present in DecodedToken)
-    query = select(User).where(User.firebase_uid == decoded.uid)
+    # Look up user by auth provider ID (sub claim)
+    query = select(User).where(User.auth_provider_id == decoded.sub)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
 
     # Auto-create user if they don't exist (first login)
-    # Note: Requires email - phone-only or anonymous Firebase users are rejected
     if user is None:
         if not decoded.email:
             raise HTTPException(
@@ -96,7 +96,7 @@ async def get_current_user(
 
         user = User(
             id=uuid4(),
-            firebase_uid=decoded.uid,
+            auth_provider_id=decoded.sub,
             email=decoded.email,
             display_name=decoded.name,
             avatar_url=decoded.picture,
@@ -105,19 +105,19 @@ async def get_current_user(
             db.add(user)
             await db.commit()
             await db.refresh(user)
-            logger.info("Created new user from Firebase: %s", decoded.uid)
+            logger.info("Created new user: %s", decoded.sub)
         except IntegrityError as e:
             # Race condition: user was created by concurrent request
             await db.rollback()
             result = await db.execute(query)
             user = result.scalar_one_or_none()
             if not user:
-                logger.error("User creation failed unexpectedly: %s", decoded.uid)
+                logger.error("User creation failed unexpectedly: %s", decoded.sub)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Account creation failed, please try again",
                 ) from e
-            logger.info("User already created by concurrent request: %s", decoded.uid)
+            logger.info("User already created by concurrent request: %s", decoded.sub)
 
     return user
 

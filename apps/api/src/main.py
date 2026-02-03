@@ -13,7 +13,6 @@ from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.config import get_settings
-from src.core.firebase import init_firebase
 from src.routers import (
     cards_router,
     decks_router,
@@ -69,12 +68,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handle application startup and shutdown."""
     # Startup
-    firebase_app = init_firebase()
-    if firebase_app:
-        logger.info("Firebase authentication enabled")
+    if settings.nextauth_secret:
+        logger.info("NextAuth.js JWT authentication enabled")
     else:
         logger.warning(
-            "Firebase authentication disabled - API endpoints requiring auth will fail"
+            "NEXTAUTH_SECRET not configured - API endpoints requiring auth will fail"
         )
     yield
     # Shutdown

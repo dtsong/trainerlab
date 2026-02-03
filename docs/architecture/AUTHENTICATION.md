@@ -4,7 +4,7 @@
 
 ## Overview
 
-TrainerLab implements two distinct authentication flows: Firebase Authentication for end users and OIDC token verification for Cloud Scheduler pipeline jobs. Both flows validate tokens server-side before granting access to protected resources.
+TrainerLab implements two distinct authentication flows: NextAuth.js (Auth.js v5) with Google OAuth for end users and OIDC token verification for Cloud Scheduler pipeline jobs. Both flows validate tokens server-side before granting access to protected resources.
 
 ## User Authentication Flow
 
@@ -13,23 +13,23 @@ sequenceDiagram
     autonumber
     participant User
     participant Frontend as Next.js Frontend
-    participant Firebase as Firebase Auth
+    participant NextAuth as NextAuth.js
+    participant Google as Google OAuth
     participant API as FastAPI API
     participant DB as PostgreSQL
 
     User->>Frontend: Navigate to /auth/login
-    Frontend->>Firebase: signInWithEmailAndPassword()
-    Firebase-->>Frontend: Firebase User + ID Token
-
-    Frontend->>Frontend: Store token in AuthContext
+    Frontend->>NextAuth: signIn("google")
+    NextAuth->>Google: OAuth redirect
+    Google-->>NextAuth: OAuth callback (code)
+    NextAuth-->>Frontend: HS256-signed JWT (cookie)
 
     User->>Frontend: Access protected feature
-    Frontend->>API: GET /api/v1/users/me<br/>Authorization: Bearer {idToken}
+    Frontend->>Frontend: Fetch JWT from /api/auth/token
+    Frontend->>API: GET /api/v1/users/me<br/>Authorization: Bearer {jwt}
 
-    API->>Firebase: Verify ID token
-    Firebase-->>API: Decoded token (uid, email)
-
-    API->>DB: SELECT * FROM users WHERE firebase_uid = ?
+    API->>API: Verify HS256 JWT with NEXTAUTH_SECRET
+    API->>DB: SELECT * FROM users WHERE auth_provider_id = ?
     DB-->>API: User record
 
     API-->>Frontend: User profile JSON
@@ -69,24 +69,26 @@ sequenceDiagram
 
 ## Key Components
 
-| Component              | Description                                           |
-| ---------------------- | ----------------------------------------------------- |
-| **Firebase Auth SDK**  | Client-side authentication in Next.js                 |
-| **AuthContext**        | React context managing auth state and token           |
-| **Firebase Admin SDK** | Server-side token verification in FastAPI             |
-| **OIDC Token**         | Service-to-service authentication for Cloud Scheduler |
-| **scheduler_auth.py**  | FastAPI dependency for validating scheduler requests  |
+| Component             | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| **NextAuth.js**       | Auth.js v5 with Google OAuth provider, custom HS256 JWT |
+| **useAuth hook**      | React hook wrapping `useSession()` for auth state       |
+| **SessionProvider**   | NextAuth React context provider in `providers.tsx`      |
+| **jwt.py**            | Backend HS256 JWT verification using `python-jose`      |
+| **OIDC Token**        | Service-to-service authentication for Cloud Scheduler   |
+| **scheduler_auth.py** | FastAPI dependency for validating scheduler requests    |
 
 ## Authentication Dependencies
 
 ```python
 # User authentication (dependencies/auth.py)
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    authorization: str | None = Header(default=None),
 ) -> User:
-    # Verify Firebase ID token
-    # Look up user by firebase_uid
+    # Verify HS256 JWT using NEXTAUTH_SECRET
+    # Look up user by auth_provider_id (Google providerAccountId)
+    # Auto-create user on first login
     # Return User model
 
 # Scheduler authentication (dependencies/scheduler_auth.py)
@@ -109,12 +111,13 @@ async def verify_scheduler_token(
 
 ## Token Verification
 
-### User ID Tokens (Firebase)
+### User JWTs (NextAuth.js)
 
-- Issued by: `https://securetoken.google.com/{project_id}`
-- Verified using: Firebase Admin SDK
-- Contains: `uid`, `email`, `email_verified`
-- Expiry: 1 hour (auto-refreshed by client SDK)
+- Signed with: HS256 using shared `NEXTAUTH_SECRET`
+- Verified using: `python-jose` on the backend
+- Key claims: `sub` (Google providerAccountId), `email`, `name`, `picture`
+- Expiry: 30 days
+- Storage: HTTP-only cookie managed by NextAuth.js
 
 ### Service OIDC Tokens (Cloud Scheduler)
 
@@ -124,10 +127,24 @@ async def verify_scheduler_token(
 - Audience: Cloud Run service URL
 - Expiry: 1 hour
 
+## Environment Variables
+
+### Frontend (`apps/web/.env.local`)
+
+- `NEXTAUTH_SECRET` — shared secret for JWT signing (must match backend)
+- `NEXTAUTH_URL` — canonical URL (auto-set on Vercel)
+- `GOOGLE_CLIENT_ID` — Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET` — Google OAuth client secret
+
+### Backend (`apps/api/.env`)
+
+- `NEXTAUTH_SECRET` — shared secret for JWT verification (must match frontend)
+
 ## Notes
 
-- Frontend stores Firebase auth state in React Context, not localStorage
-- ID tokens are automatically refreshed by Firebase SDK before expiry
+- Frontend auth state managed via `SessionProvider` + `useSession()` from next-auth/react
+- JWT is an HS256-signed token (not encrypted JWE) so the Python backend can verify it trivially
+- `auth_provider_id` in the users table stores Google's `providerAccountId`
 - Scheduler OIDC tokens are generated fresh for each job execution
 - Operations service account can also invoke pipelines for manual testing
 - All authentication failures return 401 Unauthorized with minimal error details

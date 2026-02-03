@@ -84,6 +84,42 @@ async function fetchApi<T>(
   }
 }
 
+/**
+ * Fetch the raw JWT from the NextAuth token endpoint.
+ * Returns null if the user is not authenticated.
+ */
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/token");
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Authenticated fetch wrapper. Adds the JWT Bearer token automatically.
+ * Throws ApiError if the user is not authenticated.
+ */
+async function fetchApiAuth<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new ApiError("Not authenticated", 401);
+  }
+  return fetchApi<T>(endpoint, {
+    ...options,
+    headers: {
+      ...options?.headers,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 // Card search parameters
 export interface CardSearchParams {
   q?: string;
@@ -367,4 +403,4 @@ export const japanApi = {
   },
 };
 
-export { ApiError };
+export { ApiError, fetchApiAuth, getAuthToken };

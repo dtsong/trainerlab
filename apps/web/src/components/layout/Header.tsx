@@ -65,14 +65,9 @@ export function Header() {
             ) : user ? (
               <UserMenu />
             ) : (
-              <>
-                <Button variant="ghost" asChild>
-                  <Link href="/auth/login">Sign In</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/auth/register">Sign Up</Link>
-                </Button>
-              </>
+              <Button variant="ghost" asChild>
+                <Link href="/auth/login">Sign In</Link>
+              </Button>
             )}
           </div>
 
@@ -140,24 +135,14 @@ export function Header() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <Button className="w-full" asChild>
-                        <Link
-                          href="/auth/login"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          Sign In
-                        </Link>
-                      </Button>
-                      <Button variant="outline" className="w-full" asChild>
-                        <Link
-                          href="/auth/register"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          Sign Up
-                        </Link>
-                      </Button>
-                    </div>
+                    <Button className="w-full" asChild>
+                      <Link
+                        href="/auth/login"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Sign In
+                      </Link>
+                    </Button>
                   )}
                 </div>
               </nav>

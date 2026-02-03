@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks";
 import { Button } from "@/components/ui/button";
 
 interface AdminHeaderProps {

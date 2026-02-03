@@ -30,7 +30,7 @@ class TestUserService:
         """Create a sample user mock."""
         user = MagicMock(spec=User)
         user.id = uuid4()
-        user.firebase_uid = "firebase-uid-123"
+        user.auth_provider_id = "google-uid-123"
         user.email = "test@example.com"
         user.display_name = "Test User"
         user.avatar_url = "https://example.com/avatar.jpg"
@@ -50,7 +50,7 @@ class TestUserService:
         service.db.execute = AsyncMock(return_value=mock_result)
 
         result = await service.get_or_create_user(
-            firebase_uid="firebase-uid-123",
+            auth_provider_id="google-uid-123",
             email="test@example.com",
         )
 
@@ -69,7 +69,7 @@ class TestUserService:
         service.db.refresh = AsyncMock()
 
         await service.get_or_create_user(
-            firebase_uid="new-uid",
+            auth_provider_id="new-uid",
             email="new@example.com",
             display_name="New User",
         )
@@ -202,7 +202,7 @@ class TestUserServiceDatabaseErrors:
 
         with pytest.raises(DatabaseError, match="Failed to get or create user"):
             await service.get_or_create_user(
-                firebase_uid="test-uid",
+                auth_provider_id="test-uid",
                 email="test@example.com",
             )
 
@@ -220,7 +220,7 @@ class TestUserServiceDatabaseErrors:
 
         with pytest.raises(DatabaseError, match="Failed to get or create user"):
             await service.get_or_create_user(
-                firebase_uid="test-uid",
+                auth_provider_id="test-uid",
                 email="test@example.com",
             )
 

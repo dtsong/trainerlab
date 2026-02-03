@@ -27,25 +27,25 @@ class UserService:
 
     async def get_or_create_user(
         self,
-        firebase_uid: str,
+        auth_provider_id: str,
         email: str,
         display_name: str | None = None,
         avatar_url: str | None = None,
     ) -> User:
-        """Get existing user or create new one from Firebase data.
+        """Get existing user or create new one from auth provider data.
 
         Raises:
             DatabaseError: If the database operation fails.
         """
         try:
-            query = select(User).where(User.firebase_uid == firebase_uid)
+            query = select(User).where(User.auth_provider_id == auth_provider_id)
             result = await self.db.execute(query)
             user = result.scalar_one_or_none()
 
             if user is None:
                 user = User(
                     id=uuid4(),
-                    firebase_uid=firebase_uid,
+                    auth_provider_id=auth_provider_id,
                     email=email,
                     display_name=display_name,
                     avatar_url=avatar_url,

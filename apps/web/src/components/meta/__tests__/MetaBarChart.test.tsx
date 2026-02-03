@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MetaBarChart } from "../MetaBarChart";
 import type { CardUsageSummary } from "@trainerlab/shared-types";

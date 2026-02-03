@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MetaPieChart } from "../MetaPieChart";
 import type { Archetype } from "@trainerlab/shared-types";

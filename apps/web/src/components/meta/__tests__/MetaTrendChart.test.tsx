@@ -1,5 +1,13 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MetaTrendChart } from "../MetaTrendChart";
 import type { MetaSnapshot } from "@trainerlab/shared-types";

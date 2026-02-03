@@ -85,7 +85,12 @@
     /* Font families (with fallbacks for when Next.js font vars aren't loaded) */
     --font-display: var(--font-playfair, Georgia, "Times New Roman", serif);
     --font-sans: var(--font-dm-sans, system-ui, -apple-system, sans-serif);
-    --font-mono: var(--font-jetbrains-mono, ui-monospace, "Cascadia Code", monospace);
+    --font-mono: var(
+      --font-jetbrains-mono,
+      ui-monospace,
+      "Cascadia Code",
+      monospace
+    );
 
     /* Notebook palette (Field Notebook aesthetic) */
     --notebook-cream: 45 30% 97%;
@@ -300,7 +305,8 @@
 
 /* Card shuffle and float animations */
 @keyframes float-gentle {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0) rotate(var(--float-rotate, 0deg));
   }
   50% {
@@ -309,7 +315,8 @@
 }
 
 @keyframes sway-pinned {
-  0%, 100% {
+  0%,
+  100% {
     transform: rotate(var(--sway-base, 0deg));
   }
   25% {
@@ -321,19 +328,24 @@
 }
 
 @keyframes shuffle-peek {
-  0%, 85%, 100% {
+  0%,
+  85%,
+  100% {
     transform: translateX(0) translateY(0) rotate(var(--shuffle-rotate, 0deg));
   }
   90% {
-    transform: translateX(calc(var(--shuffle-x, 5px))) translateY(-12px) rotate(calc(var(--shuffle-rotate, 0deg) + 3deg));
+    transform: translateX(calc(var(--shuffle-x, 5px))) translateY(-12px)
+      rotate(calc(var(--shuffle-rotate, 0deg) + 3deg));
   }
   95% {
-    transform: translateX(calc(var(--shuffle-x, 5px) * -0.5)) translateY(-6px) rotate(calc(var(--shuffle-rotate, 0deg) - 1deg));
+    transform: translateX(calc(var(--shuffle-x, 5px) * -0.5)) translateY(-6px)
+      rotate(calc(var(--shuffle-rotate, 0deg) - 1deg));
   }
 }
 
 @keyframes tape-wiggle {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(-50%) rotate(0deg);
   }
   25% {
@@ -345,7 +357,8 @@
 }
 
 @keyframes paper-rustle {
-  0%, 100% {
+  0%,
+  100% {
     transform: rotate(var(--rustle-base, 0deg)) scale(1);
   }
   50% {
@@ -406,12 +419,28 @@
   }
 
   /* Animation delays for staggering */
-  .animation-delay-100 { animation-delay: 0.1s; }
-  .animation-delay-200 { animation-delay: 0.2s; }
-  .animation-delay-300 { animation-delay: 0.3s; }
-  .animation-delay-500 { animation-delay: 0.5s; }
-  .animation-delay-700 { animation-delay: 0.7s; }
-  .animation-delay-1000 { animation-delay: 1s; }
-  .animation-delay-2000 { animation-delay: 2s; }
-  .animation-delay-3000 { animation-delay: 3s; }
+  .animation-delay-100 {
+    animation-delay: 0.1s;
+  }
+  .animation-delay-200 {
+    animation-delay: 0.2s;
+  }
+  .animation-delay-300 {
+    animation-delay: 0.3s;
+  }
+  .animation-delay-500 {
+    animation-delay: 0.5s;
+  }
+  .animation-delay-700 {
+    animation-delay: 0.7s;
+  }
+  .animation-delay-1000 {
+    animation-delay: 1s;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  .animation-delay-3000 {
+    animation-delay: 3s;
+  }
 }

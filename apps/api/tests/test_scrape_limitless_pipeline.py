@@ -81,9 +81,14 @@ class TestScrapeEnTournaments:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         mock_service = AsyncMock()
+        # Mock both grassroots and official tournament scrapers
         mock_service.scrape_new_tournaments.return_value = ScrapeResult(
             tournaments_scraped=2,
             tournaments_saved=2,
+        )
+        mock_service.scrape_official_tournaments.return_value = ScrapeResult(
+            tournaments_scraped=1,
+            tournaments_saved=1,
         )
 
         with (
@@ -102,7 +107,8 @@ class TestScrapeEnTournaments:
         ):
             result = await scrape_en_tournaments(dry_run=False)
 
-        assert result.tournaments_saved == 2
+        # Combined result: 2 grassroots + 1 official = 3
+        assert result.tournaments_saved == 3
         mock_service.scrape_new_tournaments.assert_called_once_with(
             region="en",
             game_format="standard",
@@ -110,6 +116,7 @@ class TestScrapeEnTournaments:
             max_placements=32,
             fetch_decklists=True,
         )
+        mock_service.scrape_official_tournaments.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_passes_custom_parameters(self):
@@ -124,6 +131,7 @@ class TestScrapeEnTournaments:
 
         mock_service = AsyncMock()
         mock_service.scrape_new_tournaments.return_value = ScrapeResult()
+        mock_service.scrape_official_tournaments.return_value = ScrapeResult()
 
         with (
             patch(
@@ -154,6 +162,7 @@ class TestScrapeEnTournaments:
             max_placements=64,
             fetch_decklists=False,
         )
+        mock_service.scrape_official_tournaments.assert_called_once()
 
 
 class TestScrapeJpTournaments:

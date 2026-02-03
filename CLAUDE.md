@@ -58,9 +58,8 @@ Pre-commit hooks are configured for both Python and TypeScript. Run `pre-commit 
 
 ## Git Workflow
 
-- All changes must be submitted via pull request
-- Direct pushes to main are not allowed
-- PRs require review before merging
+- During closed beta / stealth mode: direct pushes to main are allowed
+- Post-launch: all changes must be submitted via pull request with review
 
 ## Current Focus
 

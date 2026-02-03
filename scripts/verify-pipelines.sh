@@ -43,8 +43,8 @@ Options:
 
 Steps:
     1  sync-cards     — Sync card database from TCGdex
-    2  scrape-en      — Scrape English tournaments
-    3  scrape-jp      — Scrape Japanese tournaments
+    2  discover-en    — Discover & enqueue English tournaments
+    3  discover-jp    — Discover & enqueue Japanese tournaments
     4  compute-meta   — Compute meta archetypes
 
 Examples:
@@ -228,10 +228,10 @@ run_step_1() {
 }
 
 run_step_2() {
-    log_step 2 "scrape-en"
+    log_step 2 "discover-en"
 
     if [ "$VERIFY_ONLY" = false ]; then
-        trigger_and_wait "trainerlab-scrape-en" || true
+        trigger_and_wait "trainerlab-discover-en" || true
     fi
 
     verify_endpoint \
@@ -241,10 +241,10 @@ run_step_2() {
 }
 
 run_step_3() {
-    log_step 3 "scrape-jp"
+    log_step 3 "discover-jp"
 
     if [ "$VERIFY_ONLY" = false ]; then
-        trigger_and_wait "trainerlab-scrape-jp" || true
+        trigger_and_wait "trainerlab-discover-jp" || true
     fi
 
     verify_endpoint \

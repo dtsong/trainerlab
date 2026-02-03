@@ -34,7 +34,7 @@ Triggers Cloud Scheduler jobs to run pipeline tasks. This uses the scheduler's
 service account authentication, which is the same path used in production.
 
 Options:
-    --pipeline=PIPELINE      Run specific pipeline: scrape-en, scrape-jp, compute-meta, sync-cards
+    --pipeline=PIPELINE      Run specific pipeline: discover-en, discover-jp, compute-meta, sync-cards
     --all                    Run all pipelines sequentially
     --confirm                Confirm you want to write data to production database
     --verify                 Verify results after execution
@@ -45,14 +45,14 @@ Note: Cloud Scheduler jobs always run with their Terraform-configured parameters
       (dry_run=false). This will write real data to the production database.
 
 Examples:
-    # Run English scraper (requires --confirm)
-    $0 --pipeline=scrape-en --confirm
+    # Run English discovery (requires --confirm)
+    $0 --pipeline=discover-en --confirm
 
     # Run all pipelines
     $0 --all --confirm
 
     # Run and verify results
-    $0 --pipeline=scrape-en --confirm --verify
+    $0 --pipeline=discover-en --confirm --verify
 
     # Check recent errors (no execution)
     $0 --check-logs
@@ -311,7 +311,7 @@ if [ "$RUN_ALL" = true ]; then
 
     # Trigger all scheduler jobs in parallel
     PIDS=()
-    PIPELINES=(scrape-en scrape-jp sync-cards compute-meta)
+    PIPELINES=(discover-en discover-jp sync-cards compute-meta)
 
     for pipeline in "${PIPELINES[@]}"; do
         job_name="trainerlab-${pipeline}"

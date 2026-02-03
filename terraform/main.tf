@@ -311,6 +311,13 @@ resource "google_project_iam_member" "api_cloud_tasks_enqueuer" {
   member  = "serviceAccount:${google_service_account.api.email}"
 }
 
+# Grant API SA permission to act as itself (required to create Cloud Tasks with its own OIDC token)
+resource "google_service_account_iam_member" "api_act_as_self" {
+  service_account_id = google_service_account.api.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.api.email}"
+}
+
 # Grant API SA permission to invoke Cloud Run (for Cloud Tasks OIDC auth)
 # Cloud Tasks will use the API SA's OIDC token to call the process endpoint
 resource "google_cloud_run_v2_service_iam_member" "api_self_invoker" {

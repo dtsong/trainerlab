@@ -13,10 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import MappedColumn, selectinload
 
 from src.db.database import get_db
-from src.models import Tournament
+from src.models import Card, Tournament, TournamentPlacement
 from src.schemas import BestOf, PaginatedResponse, TopPlacement, TournamentSummary
 from src.schemas.tournament import (
     ArchetypeMeta,
+    DecklistCardResponse,
+    DecklistResponse,
     PlacementDetail,
     TournamentDetailResponse,
     TournamentTier,
@@ -291,4 +293,107 @@ async def get_tournament(
             for p in sorted_placements
         ],
         meta_breakdown=meta_breakdown,
+    )
+
+
+@router.get("/{tournament_id}/placements/{placement_id}/decklist")
+async def get_placement_decklist(
+    tournament_id: UUID,
+    placement_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> DecklistResponse:
+    """Get full decklist for a tournament placement.
+
+    Returns card names resolved from the Card table with supertype grouping.
+    """
+    query = (
+        select(TournamentPlacement)
+        .options(selectinload(TournamentPlacement.tournament))
+        .where(
+            TournamentPlacement.id == placement_id,
+            TournamentPlacement.tournament_id == tournament_id,
+        )
+    )
+
+    try:
+        result = await db.execute(query)
+        placement = result.scalar_one_or_none()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching placement decklist: "
+            "tournament_id=%s, placement_id=%s",
+            tournament_id,
+            placement_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve decklist. Please try again later.",
+        ) from None
+
+    if placement is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Placement not found: {placement_id}",
+        )
+
+    if not placement.decklist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Decklist not available for this placement",
+        )
+
+    # Collect card IDs from decklist JSONB
+    card_ids = [
+        entry["card_id"]
+        for entry in placement.decklist
+        if isinstance(entry, dict) and "card_id" in entry
+    ]
+
+    # Resolve card names and supertypes
+    card_lookup: dict[str, tuple[str, str | None]] = {}
+    if card_ids:
+        try:
+            card_query = select(Card.id, Card.name, Card.supertype).where(
+                Card.id.in_(card_ids)
+            )
+            card_result = await db.execute(card_query)
+            for row in card_result:
+                card_lookup[row.id] = (row.name, row.supertype)
+        except SQLAlchemyError:
+            logger.error(
+                "Database error resolving card names for decklist",
+                exc_info=True,
+            )
+            # Continue with card IDs as fallback names
+
+    # Build response cards
+    cards: list[DecklistCardResponse] = []
+    total_cards = 0
+    for entry in placement.decklist:
+        if not isinstance(entry, dict) or "card_id" not in entry:
+            continue
+        card_id = entry["card_id"]
+        quantity = int(entry.get("quantity", 1))
+        name, supertype = card_lookup.get(card_id, (card_id, None))
+        cards.append(
+            DecklistCardResponse(
+                card_id=card_id,
+                card_name=name,
+                quantity=quantity,
+                supertype=supertype,
+            )
+        )
+        total_cards += quantity
+
+    tournament = placement.tournament
+    return DecklistResponse(
+        placement_id=str(placement.id),
+        player_name=placement.player_name,
+        archetype=placement.archetype,
+        tournament_name=tournament.name,
+        tournament_date=tournament.date,
+        source_url=placement.decklist_source,
+        cards=cards,
+        total_cards=total_cards,
     )

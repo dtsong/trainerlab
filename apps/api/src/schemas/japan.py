@@ -184,3 +184,46 @@ class PredictionListResponse(BaseModel):
     accuracy_rate: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Overall accuracy (correct/resolved)"
     )
+
+
+class CardCountDataPoint(BaseModel):
+    """A single data point in card count evolution."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    snapshot_date: date_type = Field(description="Week bucket date")
+    avg_copies: float = Field(ge=0.0, description="Average copies in decks")
+    inclusion_rate: float = Field(
+        ge=0.0, le=1.0, description="Fraction of decks including this card"
+    )
+    sample_size: int = Field(ge=0, description="Number of decks in sample")
+
+
+class CardCountEvolution(BaseModel):
+    """Card count evolution for a single card."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    card_id: str = Field(description="Card ID")
+    card_name: str = Field(description="Card name")
+    data_points: list[CardCountDataPoint] = Field(
+        default_factory=list, description="Data points over time"
+    )
+    total_change: float = Field(
+        description="Absolute change in avg copies from first to last"
+    )
+    current_avg: float = Field(ge=0.0, description="Most recent avg copies")
+
+
+class CardCountEvolutionResponse(BaseModel):
+    """Card count evolution response for an archetype."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    archetype: str = Field(description="Archetype name")
+    cards: list[CardCountEvolution] = Field(
+        default_factory=list, description="Card evolution data"
+    )
+    tournaments_analyzed: int = Field(
+        ge=0, description="Number of tournaments analyzed"
+    )

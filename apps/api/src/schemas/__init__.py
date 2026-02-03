@@ -64,6 +64,8 @@ from src.schemas.set import SetResponse
 from src.schemas.tournament import (
     ArchetypeMeta,
     BestOf,
+    DecklistCardResponse,
+    DecklistResponse,
     PlacementDetail,
     TopPlacement,
     TournamentDetailResponse,
@@ -122,6 +124,8 @@ __all__ = [
     "SyncCardsRequest",
     "SyncCardsResult",
     "ArchetypeMeta",
+    "DecklistCardResponse",
+    "DecklistResponse",
     "PlacementDetail",
     "TopPlacement",
     "TournamentDetailResponse",

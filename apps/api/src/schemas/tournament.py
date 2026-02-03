@@ -72,6 +72,36 @@ class ArchetypeMeta(BaseModel):
     share: float = Field(ge=0.0, le=1.0, description="Share of meta (0.0-1.0)")
 
 
+class DecklistCardResponse(BaseModel):
+    """A single card entry in a decklist."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    card_id: str = Field(description="Card ID")
+    card_name: str = Field(description="Card name")
+    quantity: int = Field(ge=1, description="Number of copies")
+    supertype: str | None = Field(
+        default=None, description="Pokemon, Trainer, or Energy"
+    )
+
+
+class DecklistResponse(BaseModel):
+    """Full decklist for a tournament placement."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    placement_id: str = Field(description="Placement ID")
+    player_name: str | None = Field(default=None, description="Player name")
+    archetype: str = Field(description="Deck archetype")
+    tournament_name: str = Field(description="Tournament name")
+    tournament_date: date_type = Field(description="Tournament date")
+    source_url: str | None = Field(default=None, description="Limitless decklist URL")
+    cards: list[DecklistCardResponse] = Field(
+        default_factory=list, description="Cards in the decklist"
+    )
+    total_cards: int = Field(description="Total card count")
+
+
 class TournamentDetailResponse(BaseModel):
     """Full tournament detail."""
 

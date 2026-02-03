@@ -1,6 +1,8 @@
 """Japan intelligence endpoints."""
 
 import logging
+from collections import defaultdict
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,8 +11,19 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
-from src.models import JPCardInnovation, JPNewArchetype, JPSetImpact, Prediction
+from src.models import (
+    Card,
+    JPCardInnovation,
+    JPNewArchetype,
+    JPSetImpact,
+    Prediction,
+    Tournament,
+    TournamentPlacement,
+)
 from src.schemas.japan import (
+    CardCountDataPoint,
+    CardCountEvolution,
+    CardCountEvolutionResponse,
     CityLeagueResult,
     JPCardInnovationDetailResponse,
     JPCardInnovationListResponse,
@@ -390,4 +403,167 @@ async def list_predictions(
         partial=partial,
         incorrect=incorrect,
         accuracy_rate=accuracy_rate,
+    )
+
+
+@router.get("/card-count-evolution")
+async def get_card_count_evolution(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    archetype: Annotated[str, Query(description="Archetype name")],
+    days: Annotated[
+        int, Query(ge=7, le=365, description="Lookback window in days")
+    ] = 90,
+    top_cards: Annotated[
+        int, Query(ge=1, le=30, description="Number of cards to track")
+    ] = 10,
+) -> CardCountEvolutionResponse:
+    """Get card count evolution for an archetype over time.
+
+    Computes how average copies of cards change across weekly buckets,
+    based on JP City League tournament placements.
+    """
+    cutoff_date = date.today() - timedelta(days=days)
+
+    # Fetch JP placements for this archetype with their tournament dates
+    query = (
+        select(TournamentPlacement, Tournament.date)
+        .join(Tournament, TournamentPlacement.tournament_id == Tournament.id)
+        .where(
+            TournamentPlacement.archetype == archetype,
+            Tournament.region == "JP",
+            Tournament.best_of == 1,
+            Tournament.date >= cutoff_date,
+            TournamentPlacement.decklist.isnot(None),
+        )
+        .order_by(Tournament.date)
+    )
+
+    try:
+        result = await db.execute(query)
+        rows = result.all()
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching card count evolution: archetype=%s",
+            archetype,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to compute card count evolution. Please try again later.",
+        ) from None
+
+    if not rows:
+        return CardCountEvolutionResponse(
+            archetype=archetype,
+            cards=[],
+            tournaments_analyzed=0,
+        )
+
+    # Group placements into weekly buckets and track card counts
+    # week_key -> card_id -> list of quantities (0 if not included)
+    week_card_counts: dict[date, dict[str, list[int]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    tournament_ids: set[str] = set()
+    all_card_ids: set[str] = set()
+
+    for placement, tournament_date in rows:
+        tournament_ids.add(str(placement.tournament_id))
+        # Bucket by ISO week start (Monday)
+        week_start = tournament_date - timedelta(days=tournament_date.weekday())
+
+        # Build card quantity map for this decklist
+        deck_cards: dict[str, int] = {}
+        for entry in placement.decklist or []:
+            if isinstance(entry, dict) and "card_id" in entry:
+                card_id = entry["card_id"]
+                quantity = int(entry.get("quantity", 1))
+                deck_cards[card_id] = deck_cards.get(card_id, 0) + quantity
+                all_card_ids.add(card_id)
+
+        # Record counts for all cards seen so far
+        for card_id in all_card_ids:
+            week_card_counts[week_start][card_id].append(deck_cards.get(card_id, 0))
+
+    # Resolve card names
+    card_names: dict[str, str] = {}
+    if all_card_ids:
+        try:
+            card_query = select(Card.id, Card.name).where(
+                Card.id.in_(list(all_card_ids))
+            )
+            card_result = await db.execute(card_query)
+            for row in card_result:
+                card_names[row.id] = row.name
+        except SQLAlchemyError:
+            logger.warning("Could not resolve card names", exc_info=True)
+
+    # Compute per-card evolution data
+    sorted_weeks = sorted(week_card_counts.keys())
+    card_evolutions: dict[str, list[CardCountDataPoint]] = defaultdict(list)
+
+    for week in sorted_weeks:
+        for card_id, counts in week_card_counts[week].items():
+            total_decks = len(counts)
+            included = sum(1 for c in counts if c > 0)
+            avg_copies = sum(counts) / total_decks if total_decks > 0 else 0.0
+
+            card_evolutions[card_id].append(
+                CardCountDataPoint(
+                    snapshot_date=week,
+                    avg_copies=round(avg_copies, 2),
+                    inclusion_rate=(
+                        round(included / total_decks, 4) if total_decks > 0 else 0.0
+                    ),
+                    sample_size=total_decks,
+                )
+            )
+
+    # Select top cards by largest absolute change
+    card_changes: list[tuple[str, float, float]] = []
+    for card_id, data_points in card_evolutions.items():
+        if len(data_points) < 2:
+            continue
+        first_avg = data_points[0].avg_copies
+        last_avg = data_points[-1].avg_copies
+        total_change = last_avg - first_avg
+        card_changes.append((card_id, abs(total_change), total_change))
+
+    card_changes.sort(key=lambda x: x[1], reverse=True)
+    top_card_ids = [c[0] for c in card_changes[:top_cards]]
+
+    # If we don't have enough movers, fill with most-included cards
+    if len(top_card_ids) < top_cards:
+        remaining = top_cards - len(top_card_ids)
+        top_set = set(top_card_ids)
+        # Sort by latest avg copies descending
+        other_cards = [
+            (cid, dp[-1].avg_copies)
+            for cid, dp in card_evolutions.items()
+            if cid not in top_set and dp
+        ]
+        other_cards.sort(key=lambda x: x[1], reverse=True)
+        top_card_ids.extend(c[0] for c in other_cards[:remaining])
+
+    # Build response
+    cards: list[CardCountEvolution] = []
+    for card_id in top_card_ids:
+        data_points = card_evolutions.get(card_id, [])
+        first_avg = data_points[0].avg_copies if data_points else 0.0
+        last_avg = data_points[-1].avg_copies if data_points else 0.0
+
+        cards.append(
+            CardCountEvolution(
+                card_id=card_id,
+                card_name=card_names.get(card_id, card_id),
+                data_points=data_points,
+                total_change=round(last_avg - first_avg, 2),
+                current_avg=round(last_avg, 2),
+            )
+        )
+
+    return CardCountEvolutionResponse(
+        archetype=archetype,
+        cards=cards,
+        tournaments_analyzed=len(tournament_ids),
     )

@@ -295,3 +295,223 @@ class TestTournamentSchemas:
         assert tournament.name == "Test Regional"
         assert tournament.region == "NA"
         assert len(tournament.top_placements) == 1
+
+
+class TestGetPlacementDecklist:
+    """Tests for GET /api/v1/tournaments/{id}/placements/{id}/decklist."""
+
+    @pytest.fixture
+    def mock_db(self) -> AsyncMock:
+        """Create mock database session."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def client(self, mock_db: AsyncMock) -> TestClient:
+        """Create test client with mocked database."""
+        from src.db.database import get_db
+
+        async def override_get_db():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = override_get_db
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    @pytest.fixture
+    def sample_placement(self) -> MagicMock:
+        """Create a sample placement with decklist."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.name = "City League Tokyo"
+        tournament.date = date(2024, 3, 10)
+
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.tournament_id = uuid4()
+        placement.player_name = "Taro"
+        placement.archetype = "Charizard ex"
+        placement.decklist = [
+            {"card_id": "sv4-6", "quantity": 3},
+            {"card_id": "sv3-12", "quantity": 4},
+            {"card_id": "sv1-198", "quantity": 2},
+        ]
+        placement.decklist_source = "https://limitlesstcg.com/decks/abc"
+        placement.tournament = tournament
+
+        return placement
+
+    def test_decklist_success(
+        self, client: TestClient, mock_db: AsyncMock, sample_placement: MagicMock
+    ) -> None:
+        """Test fetching a decklist successfully."""
+        # Mock placement query
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalar_one_or_none.return_value = sample_placement
+
+        # Mock card name resolution
+        mock_card_row1 = MagicMock()
+        mock_card_row1.id = "sv4-6"
+        mock_card_row1.name = "Charizard ex"
+        mock_card_row1.supertype = "Pokemon"
+
+        mock_card_row2 = MagicMock()
+        mock_card_row2.id = "sv3-12"
+        mock_card_row2.name = "Rare Candy"
+        mock_card_row2.supertype = "Trainer"
+
+        mock_card_row3 = MagicMock()
+        mock_card_row3.id = "sv1-198"
+        mock_card_row3.name = "Fire Energy"
+        mock_card_row3.supertype = "Energy"
+
+        mock_card_result = MagicMock()
+        mock_card_result.__iter__ = MagicMock(
+            return_value=iter([mock_card_row1, mock_card_row2, mock_card_row3])
+        )
+
+        mock_db.execute.side_effect = [mock_placement_result, mock_card_result]
+
+        tournament_id = sample_placement.tournament_id
+        placement_id = sample_placement.id
+        response = client.get(
+            f"/api/v1/tournaments/{tournament_id}/placements/{placement_id}/decklist"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["archetype"] == "Charizard ex"
+        assert data["player_name"] == "Taro"
+        assert data["tournament_name"] == "City League Tokyo"
+        assert data["source_url"] == "https://limitlesstcg.com/decks/abc"
+        assert data["total_cards"] == 9  # 3 + 4 + 2
+        assert len(data["cards"]) == 3
+        assert data["cards"][0]["card_name"] == "Charizard ex"
+        assert data["cards"][0]["supertype"] == "Pokemon"
+
+    def test_decklist_placement_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test 404 when placement doesn't exist."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        tid = uuid4()
+        pid = uuid4()
+        response = client.get(f"/api/v1/tournaments/{tid}/placements/{pid}/decklist")
+
+        assert response.status_code == 404
+
+    def test_decklist_not_available(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test 404 when placement has no decklist."""
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.decklist = None
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = placement
+        mock_db.execute.return_value = mock_result
+
+        tid = uuid4()
+        response = client.get(
+            f"/api/v1/tournaments/{tid}/placements/{placement.id}/decklist"
+        )
+
+        assert response.status_code == 404
+
+    def test_decklist_empty_list(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Test 404 when placement has empty decklist."""
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.decklist = []
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = placement
+        mock_db.execute.return_value = mock_result
+
+        tid = uuid4()
+        response = client.get(
+            f"/api/v1/tournaments/{tid}/placements/{placement.id}/decklist"
+        )
+
+        assert response.status_code == 404
+
+    def test_decklist_card_name_fallback(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that card IDs are used as fallback names when resolution fails."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.name = "City League"
+        tournament.date = date(2024, 3, 10)
+
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.tournament_id = uuid4()
+        placement.player_name = None
+        placement.archetype = "Unknown"
+        placement.decklist = [{"card_id": "unknown-1", "quantity": 4}]
+        placement.decklist_source = None
+        placement.tournament = tournament
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalar_one_or_none.return_value = placement
+
+        # Card resolution returns empty (card not found)
+        mock_card_result = MagicMock()
+        mock_card_result.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_db.execute.side_effect = [mock_placement_result, mock_card_result]
+
+        response = client.get(
+            f"/api/v1/tournaments/{placement.tournament_id}/placements/{placement.id}/decklist"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cards"][0]["card_name"] == "unknown-1"  # Fallback to card_id
+        assert data["cards"][0]["supertype"] is None
+
+
+class TestDecklistSchemas:
+    """Tests for decklist Pydantic schemas."""
+
+    def test_decklist_card_response(self) -> None:
+        """Test DecklistCardResponse schema."""
+        from src.schemas.tournament import DecklistCardResponse
+
+        card = DecklistCardResponse(
+            card_id="sv4-6",
+            card_name="Charizard ex",
+            quantity=3,
+            supertype="Pokemon",
+        )
+        assert card.card_id == "sv4-6"
+        assert card.card_name == "Charizard ex"
+        assert card.quantity == 3
+        assert card.supertype == "Pokemon"
+
+    def test_decklist_response(self) -> None:
+        """Test DecklistResponse schema."""
+        from src.schemas.tournament import DecklistCardResponse, DecklistResponse
+
+        decklist = DecklistResponse(
+            placement_id="test-id",
+            player_name="Test Player",
+            archetype="Charizard ex",
+            tournament_name="City League",
+            tournament_date=date(2024, 3, 10),
+            source_url="https://limitlesstcg.com/decks/abc",
+            cards=[
+                DecklistCardResponse(
+                    card_id="sv4-6",
+                    card_name="Charizard ex",
+                    quantity=3,
+                    supertype="Pokemon",
+                )
+            ],
+            total_cards=3,
+        )
+        assert decklist.archetype == "Charizard ex"
+        assert decklist.total_cards == 3
+        assert len(decklist.cards) == 1

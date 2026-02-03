@@ -24,8 +24,9 @@ async def scrape_en_tournaments(
 ) -> ScrapeResult:
     """Scrape English (international) tournaments from Limitless.
 
-    Scrapes tournaments from the main Limitless TCG page, which includes
-    NA, EU, LATAM, and OCE events.
+    Scrapes tournaments from both:
+    - play.limitlesstcg.com (grassroots tournaments)
+    - limitlesstcg.com (official major events)
 
     Args:
         dry_run: If True, fetch data but don't save to database.
@@ -35,7 +36,7 @@ async def scrape_en_tournaments(
         fetch_decklists: Whether to fetch decklists.
 
     Returns:
-        ScrapeResult with statistics.
+        ScrapeResult with combined statistics.
     """
     logger.info(
         "Starting EN tournament scrape: dry_run=%s, lookback=%d, format=%s",
@@ -52,9 +53,14 @@ async def scrape_en_tournaments(
             lookback_days=lookback_days,
         )
 
+    combined_result = ScrapeResult()
+
     async with LimitlessClient() as client, async_session_factory() as session:
         service = TournamentScrapeService(session, client)
-        result = await service.scrape_new_tournaments(
+
+        # Scrape grassroots tournaments from play.limitlesstcg.com
+        logger.info("Scraping grassroots tournaments...")
+        grassroots_result = await service.scrape_new_tournaments(
             region="en",
             game_format=game_format,
             lookback_days=lookback_days,
@@ -62,14 +68,44 @@ async def scrape_en_tournaments(
             fetch_decklists=fetch_decklists,
         )
 
+        # Scrape official tournaments from limitlesstcg.com
+        logger.info("Scraping official tournaments...")
+        official_result = await service.scrape_official_tournaments(
+            game_format=game_format,
+            lookback_days=lookback_days,
+            max_placements=64,  # Official events often have more placements
+            fetch_decklists=fetch_decklists,
+        )
+
+    # Combine results
+    combined_result.tournaments_scraped = (
+        grassroots_result.tournaments_scraped + official_result.tournaments_scraped
+    )
+    combined_result.tournaments_saved = (
+        grassroots_result.tournaments_saved + official_result.tournaments_saved
+    )
+    combined_result.tournaments_skipped = (
+        grassroots_result.tournaments_skipped + official_result.tournaments_skipped
+    )
+    combined_result.placements_saved = (
+        grassroots_result.placements_saved + official_result.placements_saved
+    )
+    combined_result.decklists_saved = (
+        grassroots_result.decklists_saved + official_result.decklists_saved
+    )
+    combined_result.errors = grassroots_result.errors + official_result.errors
+
     logger.info(
-        "EN scrape complete: saved=%d, skipped=%d, errors=%d",
-        result.tournaments_saved,
-        result.tournaments_skipped,
-        len(result.errors),
+        "EN scrape complete: saved=%d (grassroots=%d, official=%d), "
+        "skipped=%d, errors=%d",
+        combined_result.tournaments_saved,
+        grassroots_result.tournaments_saved,
+        official_result.tournaments_saved,
+        combined_result.tournaments_skipped,
+        len(combined_result.errors),
     )
 
-    return result
+    return combined_result
 
 
 async def scrape_jp_tournaments(
@@ -84,6 +120,10 @@ async def scrape_jp_tournaments(
     Japanese tournaments use BO1 (best of 1) format, which affects
     meta analysis differently than BO3.
 
+    Scrapes from:
+    - play.limitlesstcg.com (JP grassroots)
+    - limitlesstcg.com (Champions League and other official JP events)
+
     Args:
         dry_run: If True, fetch data but don't save to database.
         lookback_days: Number of days to look back.
@@ -92,7 +132,7 @@ async def scrape_jp_tournaments(
         fetch_decklists: Whether to fetch decklists.
 
     Returns:
-        ScrapeResult with statistics.
+        ScrapeResult with combined statistics.
     """
     logger.info(
         "Starting JP tournament scrape: dry_run=%s, lookback=%d, format=%s",
@@ -109,9 +149,14 @@ async def scrape_jp_tournaments(
             lookback_days=lookback_days,
         )
 
+    combined_result = ScrapeResult()
+
     async with LimitlessClient() as client, async_session_factory() as session:
         service = TournamentScrapeService(session, client)
-        result = await service.scrape_new_tournaments(
+
+        # Scrape grassroots JP tournaments from play.limitlesstcg.com
+        logger.info("Scraping JP grassroots tournaments...")
+        grassroots_result = await service.scrape_new_tournaments(
             region="jp",
             game_format=game_format,
             lookback_days=lookback_days,
@@ -119,14 +164,27 @@ async def scrape_jp_tournaments(
             fetch_decklists=fetch_decklists,
         )
 
+    # Note: Official JP tournaments (Champions League, etc.) are already
+    # included in the official tournament scrape via scrape_en_tournaments
+    # since limitlesstcg.com lists all regions including JP.
+    # The official scraper filters by format="standard-jp" for JP events.
+
+    # Combine results (just grassroots for JP-specific pipeline)
+    combined_result.tournaments_scraped = grassroots_result.tournaments_scraped
+    combined_result.tournaments_saved = grassroots_result.tournaments_saved
+    combined_result.tournaments_skipped = grassroots_result.tournaments_skipped
+    combined_result.placements_saved = grassroots_result.placements_saved
+    combined_result.decklists_saved = grassroots_result.decklists_saved
+    combined_result.errors = grassroots_result.errors
+
     logger.info(
         "JP scrape complete: saved=%d, skipped=%d, errors=%d",
-        result.tournaments_saved,
-        result.tournaments_skipped,
-        len(result.errors),
+        combined_result.tournaments_saved,
+        combined_result.tournaments_skipped,
+        len(combined_result.errors),
     )
 
-    return result
+    return combined_result
 
 
 async def scrape_all_tournaments(

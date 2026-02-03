@@ -416,13 +416,12 @@ class LimitlessClient:
         Returns:
             List of tournament metadata (without placements).
         """
-        # Construct URL based on region (new Limitless URL format)
+        # Construct URL based on region - use /completed for finished tournaments
+        base = "/tournaments/completed?game=POKEMON"
         if region == "jp":
-            endpoint = (
-                f"/tournaments?game=POKEMON&region=JP&format={game_format}&page={page}"
-            )
+            endpoint = f"{base}&region=JP&format={game_format}&page={page}"
         else:
-            endpoint = f"/tournaments?game=POKEMON&format={game_format}&page={page}"
+            endpoint = f"{base}&format={game_format}&page={page}"
 
         html = await self._get(endpoint)
         soup = BeautifulSoup(html, "lxml")
@@ -798,3 +797,319 @@ class LimitlessClient:
         if cards:
             return LimitlessDecklist(cards=cards, source_url=source_url)
         return None
+
+    # =========================================================================
+    # Official Tournament Database (limitlesstcg.com)
+    # =========================================================================
+
+    OFFICIAL_BASE_URL = "https://limitlesstcg.com"
+
+    async def _get_official(self, endpoint: str) -> str:
+        """Make GET request to official Limitless database.
+
+        Args:
+            endpoint: URL path (e.g., "/tournaments").
+
+        Returns:
+            HTML response content.
+        """
+        async with self._semaphore:
+            last_error: Exception | None = None
+
+            for attempt in range(self._max_retries):
+                await self._wait_for_rate_limit()
+
+                try:
+                    # Use absolute URL for official site
+                    url = f"{self.OFFICIAL_BASE_URL}{endpoint}"
+                    response = await self._client.get(url)
+
+                    if response.status_code == 429:
+                        delay = self._retry_delay * (2**attempt)
+                        logger.warning(
+                            f"Rate limited (429) on official {endpoint}, "
+                            f"retrying in {delay}s"
+                        )
+                        await asyncio.sleep(delay)
+                        last_error = LimitlessRateLimitError("Rate limited")
+                        continue
+
+                    response.raise_for_status()
+                    return response.text
+
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 404:
+                        raise LimitlessError(f"Not found: {endpoint}") from e
+                    last_error = e
+                    delay = self._retry_delay * (2**attempt)
+                    await asyncio.sleep(delay)
+
+                except httpx.RequestError as e:
+                    last_error = e
+                    delay = self._retry_delay * (2**attempt)
+                    await asyncio.sleep(delay)
+
+            raise LimitlessError(
+                f"Max retries exceeded for official {endpoint}"
+            ) from last_error
+
+    async def fetch_official_tournament_listings(
+        self,
+        game_format: str = "standard",
+    ) -> list[LimitlessTournament]:
+        """Fetch official tournament listings from limitlesstcg.com.
+
+        This fetches major competitive events (Regionals, ICs, Champions League)
+        from the main Limitless database, which is separate from the grassroots
+        tournament platform.
+
+        Args:
+            game_format: Game format ("standard", "expanded").
+
+        Returns:
+            List of official tournament metadata.
+        """
+        endpoint = "/tournaments"
+        html = await self._get_official(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        tournaments: list[LimitlessTournament] = []
+
+        # Find completed tournaments table
+        table = soup.select_one("table.completed-tournaments")
+        if not table:
+            logger.warning("Could not find completed-tournaments table")
+            return tournaments
+
+        rows = table.select("tr[data-date]")
+        logger.debug(f"Found {len(rows)} official tournament rows")
+
+        for row in rows:
+            try:
+                tournament = self._parse_official_tournament_row(row, game_format)
+                if tournament:
+                    tournaments.append(tournament)
+            except (ValueError, KeyError, AttributeError) as e:
+                logger.warning(f"Error parsing official tournament row: {e}")
+                continue
+
+        return tournaments
+
+    def _parse_official_tournament_row(
+        self, row: Tag, target_format: str
+    ) -> LimitlessTournament | None:
+        """Parse an official tournament row from limitlesstcg.com.
+
+        Args:
+            row: BeautifulSoup Tag for the table row.
+            target_format: Target game format to filter by.
+
+        Returns:
+            LimitlessTournament or None if parsing fails or format doesn't match.
+        """
+        # Extract data attributes
+        date_str = row.get("data-date")
+        country = row.get("data-country")
+        name = row.get("data-name")
+        row_format = row.get("data-format")
+        players_str = row.get("data-players")
+
+        if not all([date_str, name, row_format]):
+            return None
+
+        # Filter by format (standard, expanded, standard-jp)
+        format_lower = str(row_format).lower()
+        standard_formats = ("standard", "standard-jp")
+        if target_format == "standard" and format_lower not in standard_formats:
+            return None
+        if target_format == "expanded" and format_lower != "expanded":
+            return None
+
+        # Extract tournament URL
+        link = row.select_one("td a[href^='/tournaments/']")
+        if not link:
+            return None
+        href = str(link.get("href", ""))
+        url = f"{self.OFFICIAL_BASE_URL}{href}"
+
+        # Parse values
+        participant_count = int(str(players_str)) if players_str else 0
+
+        # Determine region from country code
+        region = self._country_to_region(str(country) if country else "")
+
+        # Determine best_of (JP uses BO1)
+        best_of = 1 if format_lower == "standard-jp" or country == "JP" else 3
+
+        return LimitlessTournament.from_listing(
+            name=str(name),
+            date_str=str(date_str),
+            region=region,
+            game_format="standard" if "standard" in format_lower else format_lower,
+            participant_count=participant_count,
+            url=url,
+            best_of=best_of,
+        )
+
+    def _country_to_region(self, country: str) -> str:
+        """Map country code to region.
+
+        Args:
+            country: ISO country code (e.g., "US", "JP", "GB").
+
+        Returns:
+            Region code (NA, EU, JP, LATAM, OCE).
+        """
+        na_countries = {"US", "CA"}
+        eu_countries = {
+            "GB",
+            "DE",
+            "FR",
+            "IT",
+            "ES",
+            "NL",
+            "BE",
+            "AT",
+            "CH",
+            "PL",
+            "SE",
+            "NO",
+            "DK",
+            "FI",
+            "PT",
+            "IE",
+            "CZ",
+            "HU",
+            "RO",
+            "GR",
+        }
+        latam_countries = {"MX", "BR", "AR", "CL", "CO", "PE", "EC", "VE"}
+        oce_countries = {"AU", "NZ"}
+        jp_countries = {"JP"}
+        asia_countries = {"KR", "TW", "SG", "MY", "TH", "PH", "ID"}
+
+        if country in jp_countries:
+            return "JP"
+        if country in na_countries:
+            return "NA"
+        if country in eu_countries:
+            return "EU"
+        if country in latam_countries:
+            return "LATAM"
+        if country in oce_countries:
+            return "OCE"
+        if country in asia_countries:
+            return "APAC"
+
+        # Default to NA for unknown
+        return "NA"
+
+    async def fetch_official_tournament_placements(
+        self,
+        tournament_url: str,
+        max_placements: int = 64,
+    ) -> list[LimitlessPlacement]:
+        """Fetch placements for an official tournament.
+
+        Args:
+            tournament_url: Full URL to the tournament page on limitlesstcg.com.
+            max_placements: Maximum number of placements to fetch.
+
+        Returns:
+            List of placements with archetypes.
+        """
+        # Extract path from URL
+        if tournament_url.startswith(self.OFFICIAL_BASE_URL):
+            endpoint = tournament_url[len(self.OFFICIAL_BASE_URL) :]
+        else:
+            endpoint = tournament_url
+
+        html = await self._get_official(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        placements: list[LimitlessPlacement] = []
+
+        # Find standings table - official site uses class "standings"
+        table = soup.select_one("table.standings, table.striped")
+        if not table:
+            logger.warning(f"Could not find standings table for {tournament_url}")
+            return placements
+
+        rows = table.select("tbody tr")
+        if not rows:
+            rows = table.select("tr")[1:]  # Skip header row
+
+        for row in rows[:max_placements]:
+            try:
+                placement = self._parse_official_placement_row(row)
+                if placement:
+                    placements.append(placement)
+            except (ValueError, KeyError, AttributeError) as e:
+                logger.warning(f"Error parsing official placement row: {e}")
+                continue
+
+        return placements
+
+    def _parse_official_placement_row(self, row: Tag) -> LimitlessPlacement | None:
+        """Parse a placement row from an official tournament page.
+
+        Args:
+            row: BeautifulSoup Tag for the table row.
+
+        Returns:
+            LimitlessPlacement or None if parsing fails.
+        """
+        cells = row.select("td")
+        if len(cells) < 3:
+            return None
+
+        # Extract placement (first cell)
+        placement_text = cells[0].get_text(strip=True)
+        placement_match = re.search(r"\d+", placement_text)
+        if not placement_match:
+            return None
+        placement = int(placement_match.group())
+
+        # Extract player name (second cell usually)
+        player_cell = cells[1]
+        player_link = player_cell.select_one("a")
+        player_name = (
+            player_link.get_text(strip=True)
+            if player_link
+            else player_cell.get_text(strip=True)
+        )
+
+        # Extract country from flag image
+        flag = player_cell.select_one("img.flag")
+        country = str(flag.get("alt", "")) if flag else None
+
+        # Extract archetype (usually 3rd or later cell with deck link)
+        archetype = "Unknown"
+        decklist_url: str | None = None
+
+        for cell in cells[2:]:
+            deck_link = cell.select_one("a[href*='/decks/']")
+            if deck_link:
+                archetype = deck_link.get_text(strip=True)
+                href = str(deck_link.get("href", ""))
+                if href:
+                    decklist_url = (
+                        f"{self.OFFICIAL_BASE_URL}{href}"
+                        if href.startswith("/")
+                        else href
+                    )
+                break
+
+        # If no deck link, try to get archetype from cell text
+        if archetype == "Unknown" and len(cells) > 2:
+            archetype_text = cells[2].get_text(strip=True)
+            if archetype_text:
+                archetype = archetype_text
+
+        return LimitlessPlacement(
+            placement=placement,
+            player_name=player_name if player_name else None,
+            country=country,
+            archetype=archetype,
+            decklist_url=decklist_url,
+        )

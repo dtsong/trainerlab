@@ -84,17 +84,11 @@ class TestClaudeError:
 
 
 class TestClaudeClientInit:
-    def test_default_model(self):
+    def test_creates_client(self):
         with patch("src.clients.claude.get_settings") as mock_settings:
             mock_settings.return_value.anthropic_api_key = "sk-ant-test"
             client = ClaudeClient()
-            assert client._default_model == MODEL_SONNET
-
-    def test_custom_model(self):
-        with patch("src.clients.claude.get_settings") as mock_settings:
-            mock_settings.return_value.anthropic_api_key = "sk-ant-test"
-            client = ClaudeClient(default_model=MODEL_HAIKU)
-            assert client._default_model == MODEL_HAIKU
+            assert client._client is not None
 
     def test_raises_without_api_key(self):
         with patch("src.clients.claude.get_settings") as mock_settings:
@@ -456,5 +450,19 @@ class TestClaudeClientTranslate:
                 return_value=("bad json", mock_usage),
             ),
             pytest.raises(ClaudeError, match="Failed to parse translation"),
+        ):
+            await client.translate(text="\u30c6\u30b9\u30c8", context="ctx")
+
+    async def test_translate_missing_key_raises(self, client):
+        json_response = json.dumps({"confidence": "high"})
+        mock_usage = TokenUsage(input_tokens=10, output_tokens=5)
+        with (
+            patch.object(
+                client,
+                "_call",
+                new_callable=AsyncMock,
+                return_value=(json_response, mock_usage),
+            ),
+            pytest.raises(ClaudeError, match="missing 'translated_text'"),
         ):
             await client.translate(text="\u30c6\u30b9\u30c8", context="ctx")

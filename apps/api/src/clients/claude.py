@@ -47,7 +47,6 @@ class ClaudeClient:
 
     def __init__(
         self,
-        default_model: str = MODEL_SONNET,
         max_retries: int = 3,
         retry_delay: float = 1.0,
         timeout: float = 60.0,
@@ -59,7 +58,6 @@ class ClaudeClient:
                 "Set it in environment or .env file."
             )
 
-        self._default_model = default_model
         self._max_retries = max_retries
         self._retry_delay = retry_delay
         self._client = anthropic.AsyncAnthropic(
@@ -149,6 +147,15 @@ class ClaudeClient:
 
         raise ClaudeError("Max retries exceeded for Claude API call") from last_error
 
+    @staticmethod
+    def _strip_code_fences(text: str) -> str:
+        """Strip markdown code fences from text if present."""
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            cleaned = "\n".join(lines[1:-1]).strip()
+        return cleaned
+
     async def classify(
         self,
         system: str,
@@ -170,11 +177,7 @@ class ClaudeClient:
             system=system, user=user, model=model, max_tokens=max_tokens
         )
 
-        # Strip markdown code fences if present
-        cleaned = text.strip()
-        if cleaned.startswith("```"):
-            lines = cleaned.split("\n")
-            cleaned = "\n".join(lines[1:-1]).strip()
+        cleaned = self._strip_code_fences(text)
 
         try:
             return json.loads(cleaned)
@@ -241,16 +244,15 @@ class ClaudeClient:
             max_tokens=max_tokens,
         )
 
-        # Strip markdown code fences if present
-        cleaned = raw.strip()
-        if cleaned.startswith("```"):
-            lines = cleaned.split("\n")
-            cleaned = "\n".join(lines[1:-1]).strip()
+        cleaned = self._strip_code_fences(raw)
 
         try:
             data = json.loads(cleaned)
         except json.JSONDecodeError as e:
             raise ClaudeError(f"Failed to parse translation response JSON: {e}") from e
+
+        if "translated_text" not in data:
+            raise ClaudeError("Translation response missing 'translated_text' key")
 
         return TranslationResult(
             translated_text=data["translated_text"],

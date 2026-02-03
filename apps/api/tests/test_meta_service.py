@@ -61,6 +61,70 @@ class TestComputeArchetypeShares:
         shares = service._compute_archetype_shares([])
         assert shares == {}
 
+    def test_excludes_unknown_archetype(self, service: MetaService) -> None:
+        """Should exclude 'Unknown' from shares output."""
+        placements = []
+        for archetype in ["Charizard ex", "Charizard ex", "Unknown", "Unknown"]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = archetype
+            placements.append(p)
+
+        shares = service._compute_archetype_shares(placements)
+
+        assert "Unknown" not in shares
+        # Charizard share computed against total (including Unknown counts)
+        assert shares["Charizard ex"] == 0.5  # 2/4
+
+    def test_excludes_empty_string_archetype_as_unknown(
+        self, service: MetaService
+    ) -> None:
+        """Should map empty/blank archetype names to 'Unknown' and exclude them."""
+        placements = []
+        for archetype in ["Charizard ex", "", "  ", None]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = archetype
+            placements.append(p)
+
+        shares = service._compute_archetype_shares(placements)
+
+        assert "Unknown" not in shares
+        assert "" not in shares
+
+    def test_excludes_low_share_archetypes(self, service: MetaService) -> None:
+        """Should exclude archetypes below MIN_ARCHETYPE_SHARE (0.5%)."""
+        placements = []
+        # 200 placements of Charizard, 1 of Rogue (0.5% = boundary, excluded)
+        for _ in range(200):
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "Charizard ex"
+            placements.append(p)
+        p = MagicMock(spec=TournamentPlacement)
+        p.archetype = "Rogue Deck"
+        placements.append(p)
+
+        shares = service._compute_archetype_shares(placements)
+
+        # 1/201 ≈ 0.00497 < 0.005, so excluded
+        assert "Rogue Deck" not in shares
+        assert "Charizard ex" in shares
+
+    def test_keeps_archetypes_above_min_share(self, service: MetaService) -> None:
+        """Should keep archetypes at or above the minimum share threshold."""
+        placements = []
+        # 99 Charizard + 1 Lugia = 1% share for Lugia (above 0.5%)
+        for _ in range(99):
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "Charizard ex"
+            placements.append(p)
+        p = MagicMock(spec=TournamentPlacement)
+        p.archetype = "Lugia VSTAR"
+        placements.append(p)
+
+        shares = service._compute_archetype_shares(placements)
+
+        assert "Lugia VSTAR" in shares
+        assert shares["Lugia VSTAR"] == 0.01
+
 
 class TestComputeCardUsage:
     """Tests for card usage computation."""
@@ -864,6 +928,14 @@ class TestComputeTierAssignments:
         assert tiers["exactly_3"] == "C"
         assert tiers["exactly_1"] == "Rogue"
 
+    def test_excludes_unknown_from_tiers(self, service: MetaService) -> None:
+        """Should not assign tiers to 'Unknown' archetype."""
+        shares = {"Charizard ex": 0.20, "Unknown": 0.10}
+        tiers = service.compute_tier_assignments(shares)
+
+        assert "Unknown" not in tiers
+        assert tiers["Charizard ex"] == "S"
+
 
 class TestComputeJPSignals:
     """Tests for JP signal computation."""
@@ -992,6 +1064,33 @@ class TestComputeJPSignals:
             game_format="standard",
         )
 
+        assert signals is None
+
+    @pytest.mark.asyncio
+    async def test_excludes_unknown_from_divergence(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Should exclude 'Unknown' from JP signal divergence computation."""
+        jp_snapshot = MagicMock(spec=MetaSnapshot)
+        jp_snapshot.archetype_shares = {"Unknown": 0.30, "Charizard ex": 0.10}
+
+        en_snapshot = MagicMock(spec=MetaSnapshot)
+        en_snapshot.archetype_shares = {"Charizard ex": 0.10}
+
+        jp_result = MagicMock()
+        jp_result.scalar_one_or_none.return_value = jp_snapshot
+
+        en_result = MagicMock()
+        en_result.scalar_one_or_none.return_value = en_snapshot
+
+        mock_session.execute.side_effect = [jp_result, en_result]
+
+        signals = await service.compute_jp_signals(
+            snapshot_date=date(2024, 6, 15),
+            game_format="standard",
+        )
+
+        # Unknown has 30% divergence but should be excluded
         assert signals is None
 
 

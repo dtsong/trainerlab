@@ -47,6 +47,23 @@ const TREND_THRESHOLD_PP = 0.5;
 const JP_SIGNAL_THRESHOLD_PP = 2;
 const JP_DIVERGENCE_THRESHOLD_PP = 5;
 
+const EXCLUDED_ARCHETYPES = new Set(["Unknown", "unknown", ""]);
+const MIN_DIVERGENCE_SHARE = 0.01; // 1% minimum share to surface in banner
+
+/**
+ * Capitalize lowercase archetype names as a cosmetic safety net.
+ * Only capitalizes if the entire name is lowercase (preserves proper names like "Charizard ex").
+ */
+function formatArchetypeName(name: string): string {
+  if (name === name.toLowerCase()) {
+    return name
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+  return name;
+}
+
 // --- Functions ---
 
 /**
@@ -134,18 +151,26 @@ export function computeJPDivergence(
     return defaultResult;
   }
 
-  const globalNames = new Set(
-    globalMeta.archetype_breakdown.slice(0, 10).map((a) => a.name)
+  const filteredGlobal = globalMeta.archetype_breakdown.filter(
+    (a) => !EXCLUDED_ARCHETYPES.has(a.name) && a.name.trim() !== ""
   );
+  const filteredJP = jpMeta.archetype_breakdown.filter(
+    (a) =>
+      !EXCLUDED_ARCHETYPES.has(a.name) &&
+      a.name.trim() !== "" &&
+      a.share >= MIN_DIVERGENCE_SHARE
+  );
+
+  const globalNames = new Set(filteredGlobal.slice(0, 10).map((a) => a.name));
   const globalMap = new Map<string, number>();
-  for (const arch of globalMeta.archetype_breakdown) {
+  for (const arch of filteredGlobal) {
     globalMap.set(arch.name, arch.share * 100);
   }
 
   const divergentArchetypes: string[] = [];
   let maxDivergence = 0;
 
-  for (const jpArch of jpMeta.archetype_breakdown.slice(0, 5)) {
+  for (const jpArch of filteredJP.slice(0, 5)) {
     const jpShare = jpArch.share * 100;
     const globalShare = globalMap.get(jpArch.name);
 
@@ -165,10 +190,11 @@ export function computeJPDivergence(
     return defaultResult;
   }
 
+  const formattedNames = divergentArchetypes.map(formatArchetypeName);
   const archNames =
-    divergentArchetypes.length === 1
-      ? divergentArchetypes[0]
-      : `${divergentArchetypes.slice(0, -1).join(", ")} and ${divergentArchetypes[divergentArchetypes.length - 1]}`;
+    formattedNames.length === 1
+      ? formattedNames[0]
+      : `${formattedNames.slice(0, -1).join(", ")} and ${formattedNames[formattedNames.length - 1]}`;
 
   return {
     hasSignificantDivergence: true,

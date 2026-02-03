@@ -31,6 +31,12 @@ TIER_C_THRESHOLD = 0.01  # 1-3%
 # JP signal threshold
 JP_SIGNAL_THRESHOLD = 0.05  # 5% divergence
 
+# Minimum archetype share to include in snapshots (0.5%)
+MIN_ARCHETYPE_SHARE = 0.005
+
+# Archetype names to exclude from all outputs
+EXCLUDED_ARCHETYPES = frozenset({"Unknown"})
+
 
 class MetaService:
     """Service for computing and storing meta snapshots."""
@@ -280,6 +286,8 @@ class MetaService:
             for archetype, count in sorted(
                 archetype_counts.items(), key=lambda x: x[1], reverse=True
             )
+            if archetype not in EXCLUDED_ARCHETYPES
+            and count / total >= MIN_ARCHETYPE_SHARE
         }
 
         return shares
@@ -432,6 +440,8 @@ class MetaService:
         tiers: dict[str, str] = {}
 
         for archetype, share in shares.items():
+            if archetype in EXCLUDED_ARCHETYPES:
+                continue
             if share > TIER_S_THRESHOLD:
                 tiers[archetype] = "S"
             elif share > TIER_A_THRESHOLD:
@@ -483,8 +493,16 @@ class MetaService:
         if not jp_snapshot or not en_snapshot:
             return None
 
-        jp_shares = jp_snapshot.archetype_shares or {}
-        en_shares = en_snapshot.archetype_shares or {}
+        jp_shares = {
+            k: v
+            for k, v in (jp_snapshot.archetype_shares or {}).items()
+            if k not in EXCLUDED_ARCHETYPES
+        }
+        en_shares = {
+            k: v
+            for k, v in (en_snapshot.archetype_shares or {}).items()
+            if k not in EXCLUDED_ARCHETYPES
+        }
 
         all_archetypes = set(jp_shares.keys()) | set(en_shares.keys())
 

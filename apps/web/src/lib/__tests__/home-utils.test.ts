@@ -262,6 +262,81 @@ describe("computeJPDivergence", () => {
     expect(result.hasSignificantDivergence).toBe(true);
     expect(result.message).toContain("Raging Bolt ex and Terapagos ex");
   });
+
+  it("should exclude 'Unknown' from divergence computation", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const jp = makeSnapshot([
+      { name: "Unknown", share: 0.3 },
+      { name: "Charizard ex", share: 0.17 },
+    ]);
+
+    const result = computeJPDivergence(global, jp);
+
+    expect(result.message).not.toContain("Unknown");
+  });
+
+  it("should exclude empty-string archetypes from divergence", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const jp = makeSnapshot([
+      { name: "", share: 0.25 },
+      { name: "Raging Bolt ex", share: 0.22 },
+    ]);
+
+    const result = computeJPDivergence(global, jp);
+
+    // Empty string should not appear in message (no leading comma)
+    expect(result.message).not.toMatch(/diverging: ,/);
+    if (result.hasSignificantDivergence) {
+      expect(result.message).toContain("Raging Bolt ex");
+    }
+  });
+
+  it("should exclude archetypes below 1% share from JP top 5", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const jp = makeSnapshot([
+      { name: "tiny deck", share: 0.005 },
+      { name: "Raging Bolt ex", share: 0.22 },
+    ]);
+
+    const result = computeJPDivergence(global, jp);
+
+    // "tiny deck" at 0.5% share should not surface in banner
+    expect(result.message).not.toContain("tiny");
+  });
+
+  it("should capitalize lowercase archetype names in message", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const jp = makeSnapshot([{ name: "crustle", share: 0.22 }]);
+
+    const result = computeJPDivergence(global, jp);
+
+    expect(result.hasSignificantDivergence).toBe(true);
+    expect(result.message).toContain("Crustle");
+    expect(result.message).not.toContain("crustle");
+  });
+
+  it("should preserve mixed-case archetype names", () => {
+    const global = makeSnapshot([{ name: "Lugia VSTAR", share: 0.185 }]);
+    const jp = makeSnapshot([{ name: "Charizard ex", share: 0.22 }]);
+
+    const result = computeJPDivergence(global, jp);
+
+    expect(result.hasSignificantDivergence).toBe(true);
+    // "Charizard ex" is not all-lowercase, should be preserved as-is
+    expect(result.message).toContain("Charizard ex");
+  });
+
+  it("should return no divergence when all JP archetypes are filtered out", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const jp = makeSnapshot([
+      { name: "Unknown", share: 0.3 },
+      { name: "", share: 0.2 },
+    ]);
+
+    const result = computeJPDivergence(global, jp);
+
+    expect(result.hasSignificantDivergence).toBe(false);
+  });
 });
 
 describe("buildJPComparisons", () => {

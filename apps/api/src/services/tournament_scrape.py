@@ -347,7 +347,11 @@ class TournamentScrapeService:
         for tournament in all_tournaments:
             try:
                 if await self.tournament_exists(tournament.source_url):
-                    logger.debug(f"Skipping existing tournament: {tournament.name}")
+                    logger.info(
+                        "Skipping existing JP tournament: %s (%s)",
+                        tournament.name,
+                        tournament.source_url,
+                    )
                     result.tournaments_skipped += 1
                     continue
 
@@ -355,6 +359,15 @@ class TournamentScrapeService:
                 placements = await self.client.fetch_jp_city_league_placements(
                     tournament.source_url,
                     max_placements=max_placements,
+                )
+
+                # Count decklist availability for logging
+                placements_with_url = sum(1 for p in placements if p.decklist_url)
+                logger.info(
+                    "JP tournament %s: %d placements, %d with decklist URLs",
+                    tournament.name,
+                    len(placements),
+                    placements_with_url,
                 )
 
                 # Optionally fetch decklists
@@ -367,6 +380,13 @@ class TournamentScrapeService:
                                 )
                                 if placement.decklist and placement.decklist.is_valid:
                                     result.decklists_saved += 1
+                                else:
+                                    logger.info(
+                                        "Decklist empty/invalid for %s place %d: %s",
+                                        tournament.name,
+                                        placement.placement,
+                                        placement.decklist_url,
+                                    )
                             except (
                                 LimitlessError,
                                 httpx.RequestError,
@@ -382,8 +402,10 @@ class TournamentScrapeService:
                 result.placements_saved += len(placements)
 
                 logger.info(
-                    f"Saved JP City League: {tournament.name} "
-                    f"({len(placements)} placements)"
+                    "Saved JP City League: %s (%d placements, %d decklists)",
+                    tournament.name,
+                    len(placements),
+                    sum(1 for p in placements if p.decklist and p.decklist.is_valid),
                 )
 
             except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:

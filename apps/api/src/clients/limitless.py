@@ -1145,6 +1145,9 @@ class LimitlessClient:
         """
         tournaments: list[LimitlessTournament] = []
         cutoff_date = date.today() - timedelta(days=lookback_days)
+        logger.info(
+            "JP City League: cutoff_date=%s, max_pages=%d", cutoff_date, max_pages
+        )
 
         for page in range(1, max_pages + 1):
             endpoint = f"/tournaments/jp?show=100&page={page}"
@@ -1153,13 +1156,19 @@ class LimitlessClient:
 
             # Find table rows — JP page uses a simple table with tournament links
             rows = soup.select("table tr")
-            logger.debug(f"Page {page}: found {len(rows)} rows on JP City League page")
+            logger.info("Page %d: found %d table rows", page, len(rows))
 
             if not rows:
+                logger.info("Page %d: no rows found, stopping pagination", page)
                 break
 
             page_tournaments: list[LimitlessTournament] = []
             all_past_cutoff = True
+            skipped_no_cells = 0
+            skipped_no_link = 0
+            skipped_no_date = 0
+            skipped_past_cutoff = 0
+            parse_errors = 0
 
             for row in rows:
                 try:
@@ -1167,22 +1176,59 @@ class LimitlessClient:
                     if tournament:
                         page_tournaments.append(tournament)
                         all_past_cutoff = False
+                    else:
+                        # Count skip reasons from row structure
+                        cells = row.select("td")
+                        if len(cells) < 3:
+                            skipped_no_cells += 1
+                        elif not row.select_one("a[href*='/tournaments/jp/']"):
+                            skipped_no_link += 1
+                        else:
+                            # Has cells and link — likely date issue
+                            date_link = cells[0].select_one("a")
+                            if date_link:
+                                date_text = date_link.get_text(strip=True)
+                                try:
+                                    parsed = LimitlessTournament._parse_date(date_text)
+                                    if parsed < cutoff_date:
+                                        skipped_past_cutoff += 1
+                                    else:
+                                        skipped_no_date += 1
+                                except ValueError:
+                                    skipped_no_date += 1
+                            else:
+                                skipped_no_date += 1
                 except (ValueError, KeyError, AttributeError) as e:
-                    logger.warning(f"Error parsing JP City League row: {e}")
+                    parse_errors += 1
+                    logger.warning("Error parsing JP City League row: %s", e)
                     continue
 
             tournaments.extend(page_tournaments)
 
+            logger.info(
+                "Page %d: parsed=%d, past_cutoff=%d, no_cells=%d, "
+                "no_link=%d, no_date=%d, errors=%d",
+                page,
+                len(page_tournaments),
+                skipped_past_cutoff,
+                skipped_no_cells,
+                skipped_no_link,
+                skipped_no_date,
+                parse_errors,
+            )
+
             # Stop paginating if every row on this page was older than cutoff
             if all_past_cutoff:
-                logger.debug(
-                    f"Page {page}: all rows older than cutoff, stopping pagination"
+                logger.info(
+                    "Page %d: no tournaments within cutoff, stopping pagination",
+                    page,
                 )
                 break
 
         logger.info(
-            f"Found {len(tournaments)} JP City League tournaments "
-            f"within {lookback_days} day lookback"
+            "JP City League total: %d tournaments within %d day lookback",
+            len(tournaments),
+            lookback_days,
         )
         return tournaments
 
@@ -1217,9 +1263,11 @@ class LimitlessClient:
         # Extract date from first cell link text (format: "01 Feb 26")
         date_link = cells[0].select_one("a")
         if not date_link:
+            logger.debug("JP row: no date link in first cell for %s", url)
             return None
         date_text = date_link.get_text(strip=True)
         if not date_text:
+            logger.debug("JP row: empty date text for %s", url)
             return None
 
         tournament_date = LimitlessTournament._parse_date(date_text)

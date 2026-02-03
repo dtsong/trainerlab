@@ -50,7 +50,7 @@ class TestVerifyOidcToken:
                 )
 
     def test_verifies_email_when_provided(self) -> None:
-        """Should verify email claim matches expected."""
+        """Should verify email claim matches one of allowed emails."""
         claims = {
             "email": "scheduler@project.iam.gserviceaccount.com",
             "aud": "https://api.example.com",
@@ -64,13 +64,13 @@ class TestVerifyOidcToken:
             result = _verify_oidc_token(
                 token="valid-token",
                 expected_audience="https://api.example.com",
-                expected_email="scheduler@project.iam.gserviceaccount.com",
+                allowed_emails=["scheduler@project.iam.gserviceaccount.com"],
             )
 
             assert result == claims
 
     def test_raises_on_email_mismatch(self) -> None:
-        """Should raise SchedulerAuthError when email doesn't match."""
+        """Should raise SchedulerAuthError when email not in allowed list."""
         claims = {
             "email": "wrong@project.iam.gserviceaccount.com",
             "aud": "https://api.example.com",
@@ -81,15 +81,15 @@ class TestVerifyOidcToken:
         ) as mock_verify:
             mock_verify.return_value = claims
 
-            with pytest.raises(SchedulerAuthError, match="Token email mismatch"):
+            with pytest.raises(SchedulerAuthError, match="Token email not allowed"):
                 _verify_oidc_token(
                     token="valid-token",
                     expected_audience="https://api.example.com",
-                    expected_email="scheduler@project.iam.gserviceaccount.com",
+                    allowed_emails=["scheduler@project.iam.gserviceaccount.com"],
                 )
 
     def test_raises_on_missing_email(self) -> None:
-        """Should raise when expected email but token has none."""
+        """Should raise when allowed_emails specified but token has no email."""
         claims = {"aud": "https://api.example.com"}  # No email
 
         with patch(
@@ -97,11 +97,11 @@ class TestVerifyOidcToken:
         ) as mock_verify:
             mock_verify.return_value = claims
 
-            with pytest.raises(SchedulerAuthError, match="Token email mismatch"):
+            with pytest.raises(SchedulerAuthError, match="Token email not allowed"):
                 _verify_oidc_token(
                     token="valid-token",
                     expected_audience="https://api.example.com",
-                    expected_email="scheduler@project.iam.gserviceaccount.com",
+                    allowed_emails=["scheduler@project.iam.gserviceaccount.com"],
                 )
 
 
@@ -233,7 +233,7 @@ class TestVerifySchedulerAuth:
             mock_verify.assert_called_once_with(
                 token="valid-token",
                 expected_audience="https://api.example.com",
-                expected_email="scheduler@project.iam.gserviceaccount.com",
+                allowed_emails=["scheduler@project.iam.gserviceaccount.com"],
             )
 
     @pytest.mark.asyncio

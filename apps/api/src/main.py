@@ -16,6 +16,7 @@ from src.config import get_settings
 from src.routers import (
     cards_router,
     decks_router,
+    evolution_router,
     format_router,
     health_router,
     japan_router,
@@ -106,6 +107,7 @@ app.add_middleware(
 # Include routers
 app.include_router(cards_router)
 app.include_router(decks_router)
+app.include_router(evolution_router)
 app.include_router(format_router)
 app.include_router(health_router)
 app.include_router(japan_router)

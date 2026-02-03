@@ -4,6 +4,7 @@
 # - discover-en: 6 AM daily (discover new EN tournaments, enqueue via Cloud Tasks)
 # - discover-jp: 7 AM daily (discover new JP tournaments, enqueue via Cloud Tasks)
 # - compute-meta: 8 AM daily (after scraping)
+# - compute-evolution: 9 AM daily (after compute-meta, AI classification + predictions)
 # - sync-cards: 3 AM Sunday weekly (low traffic)
 
 locals {
@@ -27,6 +28,13 @@ locals {
       schedule         = "0 8 * * *" # Daily at 8 AM
       uri              = "${var.cloud_run_url}/api/v1/pipeline/compute-meta"
       body             = jsonencode({ dry_run = false, lookback_days = 90 })
+      attempt_deadline = "600s"
+    }
+    compute-evolution = {
+      description      = "Run evolution intelligence (AI classification, predictions, articles)"
+      schedule         = "0 9 * * *" # Daily at 9 AM (after compute-meta at 8 AM)
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/compute-evolution"
+      body             = jsonencode({ dry_run = false })
       attempt_deadline = "600s"
     }
     sync-cards = {

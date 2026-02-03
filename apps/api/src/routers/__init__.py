@@ -2,6 +2,7 @@
 
 from src.routers.cards import router as cards_router
 from src.routers.decks import router as decks_router
+from src.routers.evolution import router as evolution_router
 from src.routers.format import router as format_router
 from src.routers.health import router as health_router
 from src.routers.japan import router as japan_router
@@ -16,6 +17,7 @@ from src.routers.waitlist import router as waitlist_router
 __all__ = [
     "cards_router",
     "decks_router",
+    "evolution_router",
     "format_router",
     "health_router",
     "japan_router",

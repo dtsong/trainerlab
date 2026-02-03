@@ -7,6 +7,7 @@ Scrapes tournament data from play.limitlesstcg.com including:
 """
 
 import asyncio
+import contextlib
 import logging
 import re
 from dataclasses import dataclass, field
@@ -693,6 +694,10 @@ class LimitlessClient:
     async def fetch_decklist(self, decklist_url: str) -> LimitlessDecklist | None:
         """Fetch a decklist from its URL.
 
+        Handles two page formats:
+        - Official site (limitlesstcg.com): card images with quantity PNGs
+        - Play site (play.limitlesstcg.com): text-based or structured HTML
+
         Args:
             decklist_url: Full URL to the decklist page.
 
@@ -703,82 +708,171 @@ class LimitlessClient:
             return None
 
         try:
-            # Extract path
-            if decklist_url.startswith(self.BASE_URL):
+            # Route to the correct fetcher based on domain
+            is_official = self.OFFICIAL_BASE_URL in decklist_url
+            if is_official:
+                endpoint = decklist_url.replace(self.OFFICIAL_BASE_URL, "")
+                html = await self._get_official(endpoint)
+            elif decklist_url.startswith(self.BASE_URL):
                 endpoint = decklist_url[len(self.BASE_URL) :]
+                html = await self._get(endpoint)
             else:
-                endpoint = decklist_url
+                html = await self._get(decklist_url)
 
-            html = await self._get(endpoint)
             soup = BeautifulSoup(html, "lxml")
 
-            # Find decklist content
-            decklist_div = soup.select_one(".decklist-pokemon")
-            if not decklist_div:
-                decklist_div = soup.select_one("pre.decklist")
+            # Try official site format first: <a href="/cards/SET/NUM">
+            # with quantity encoded in image src (decklist/N.png)
+            result = self._parse_official_decklist(soup, decklist_url)
+            if result:
+                return result
 
-            if not decklist_div:
-                # Try to find text-based decklist
-                decklist_text = soup.select_one(".deck-text, .decklist-text")
-                if decklist_text:
-                    return self._parse_text_decklist(
-                        decklist_text.get_text(), decklist_url
-                    )
-                return None
+            # Try play site format: structured divs
+            result = self._parse_play_decklist(soup, decklist_url)
+            if result:
+                return result
 
-            # Parse structured decklist
-            cards: list[dict[str, Any]] = []
-
-            # Find all card entries
-            card_entries = decklist_div.select(".deck-card, .card-entry")
-
-            for entry in card_entries:
-                # Extract quantity
-                qty_elem = entry.select_one(".quantity, .card-qty")
-                quantity = 1
-                if qty_elem:
-                    qty_text = qty_elem.get_text(strip=True)
-                    try:
-                        quantity = int(qty_text)
-                    except ValueError:
-                        logger.debug(
-                            "Could not parse quantity '%s', defaulting to 1",
-                            qty_text,
-                        )
-
-                # Extract card name and set
-                name_elem = entry.select_one(".card-name, .name")
-                set_elem = entry.select_one(".card-set, .set")
-
-                if name_elem:
-                    name = name_elem.get_text(strip=True)
-                    set_code = set_elem.get_text(strip=True) if set_elem else ""
-
-                    # Extract card number from name or separate element
-                    number_match = re.search(r"(\d+)$", name)
-                    card_number = number_match.group(1) if number_match else ""
-
-                    if set_code and card_number:
-                        tcgdex_set = map_set_code(set_code)
-                        card_id = f"{tcgdex_set}-{card_number}"
-                        cards.append(
-                            {
-                                "card_id": card_id,
-                                "quantity": quantity,
-                                "name": name,
-                            }
-                        )
-
-            if cards:
-                return LimitlessDecklist(cards=cards, source_url=decklist_url)
-
-            # Fallback: try parsing as text
-            text_content = decklist_div.get_text("\n", strip=True)
+            # Fallback: text-based decklist
+            text_content = soup.get_text("\n", strip=True)
             return self._parse_text_decklist(text_content, decklist_url)
 
         except LimitlessError:
-            logger.warning(f"Could not fetch decklist: {decklist_url}")
+            logger.warning("Could not fetch decklist: %s", decklist_url)
             return None
+
+    def _parse_official_decklist(
+        self, soup: BeautifulSoup, source_url: str
+    ) -> LimitlessDecklist | None:
+        """Parse a decklist from the official Limitless site.
+
+        Official site uses image-based layout:
+        <a href="/cards/SET/NUMBER">
+            <img alt="CardName" src="...card image...">
+            <img src=".../decklist/QUANTITY.png">
+        </a>
+
+        Args:
+            soup: Parsed HTML.
+            source_url: URL where the decklist was found.
+
+        Returns:
+            LimitlessDecklist or None if format doesn't match.
+        """
+        cards: list[dict[str, Any]] = []
+
+        # Find all card links matching /cards/SET/NUMBER
+        card_links = soup.select("a[href^='/cards/']")
+        if not card_links:
+            return None
+
+        for link in card_links:
+            href = str(link.get("href", ""))
+            # Parse /cards/SET/NUMBER
+            card_match = re.match(r"/cards/([A-Za-z0-9]+)/(\d+)", href)
+            if not card_match:
+                continue
+
+            set_code = card_match.group(1)
+            card_number = card_match.group(2)
+
+            # Extract quantity from the decklist image src
+            quantity = 1
+            imgs = link.select("img")
+            for img in imgs:
+                src = str(img.get("src", ""))
+                qty_match = re.search(r"/decklist/(\d+)\.png", src)
+                if qty_match:
+                    quantity = int(qty_match.group(1))
+                    break
+
+            # Extract card name from alt text of card image
+            name = ""
+            for img in imgs:
+                alt = img.get("alt")
+                if alt and "decklist" not in str(img.get("src", "")):
+                    name = str(alt)
+                    break
+
+            tcgdex_set = map_set_code(set_code)
+            card_id = f"{tcgdex_set}-{card_number}"
+            cards.append(
+                {
+                    "card_id": card_id,
+                    "quantity": quantity,
+                    "name": name,
+                    "set_code": set_code,
+                    "card_number": card_number,
+                }
+            )
+
+        if cards:
+            logger.info(
+                "Parsed official decklist: %d unique cards from %s",
+                len(cards),
+                source_url,
+            )
+            return LimitlessDecklist(cards=cards, source_url=source_url)
+        return None
+
+    def _parse_play_decklist(
+        self, soup: BeautifulSoup, source_url: str
+    ) -> LimitlessDecklist | None:
+        """Parse a decklist from the play.limitlesstcg.com site.
+
+        Play site uses structured HTML with CSS classes for card entries.
+
+        Args:
+            soup: Parsed HTML.
+            source_url: URL where the decklist was found.
+
+        Returns:
+            LimitlessDecklist or None if format doesn't match.
+        """
+        decklist_div = soup.select_one(".decklist-pokemon")
+        if not decklist_div:
+            decklist_div = soup.select_one("pre.decklist")
+        if not decklist_div:
+            decklist_text = soup.select_one(".deck-text, .decklist-text")
+            if decklist_text:
+                return self._parse_text_decklist(decklist_text.get_text(), source_url)
+            return None
+
+        cards: list[dict[str, Any]] = []
+        card_entries = decklist_div.select(".deck-card, .card-entry")
+
+        for entry in card_entries:
+            qty_elem = entry.select_one(".quantity, .card-qty")
+            quantity = 1
+            if qty_elem:
+                qty_text = qty_elem.get_text(strip=True)
+                with contextlib.suppress(ValueError):
+                    quantity = int(qty_text)
+
+            name_elem = entry.select_one(".card-name, .name")
+            set_elem = entry.select_one(".card-set, .set")
+
+            if name_elem:
+                name = name_elem.get_text(strip=True)
+                set_code = set_elem.get_text(strip=True) if set_elem else ""
+                number_match = re.search(r"(\d+)$", name)
+                card_number = number_match.group(1) if number_match else ""
+
+                if set_code and card_number:
+                    tcgdex_set = map_set_code(set_code)
+                    card_id = f"{tcgdex_set}-{card_number}"
+                    cards.append(
+                        {
+                            "card_id": card_id,
+                            "quantity": quantity,
+                            "name": name,
+                        }
+                    )
+
+        if cards:
+            return LimitlessDecklist(cards=cards, source_url=source_url)
+
+        text_content = decklist_div.get_text("\n", strip=True)
+        return self._parse_text_decklist(text_content, source_url)
 
     def _parse_text_decklist(
         self, text: str, source_url: str

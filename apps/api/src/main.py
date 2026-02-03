@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
 
 import logging
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -28,8 +29,22 @@ from src.routers import (
     waitlist_router,
 )
 
-logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Configure logging: INFO in production, DEBUG in development.
+# Cloud Run captures stdout as structured logs.
+logging.basicConfig(
+    level=logging.DEBUG if settings.debug else logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+# Quiet noisy third-party loggers
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("hpack").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
 
 # Rate limiter setup
 limiter = Limiter(key_func=get_remote_address)

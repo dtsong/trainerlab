@@ -71,9 +71,11 @@ class TournamentScrapeService:
         Returns:
             True if tournament exists, False otherwise.
         """
-        query = select(Tournament).where(Tournament.source_url == source_url)
+        query = (
+            select(Tournament.id).where(Tournament.source_url == source_url).limit(1)
+        )
         result = await self.session.execute(query)
-        return result.scalar_one_or_none() is not None
+        return result.first() is not None
 
     async def scrape_new_tournaments(
         self,

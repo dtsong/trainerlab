@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,7 +53,16 @@ class LabNote(Base, TimestampMixin):
         String(255), nullable=True
     )  # Display name override
 
-    # Publishing
+    # Workflow
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="draft", index=True
+    )  # draft, review, published, archived
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    reviewer_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Publishing (kept for backward compat, synced by service layer)
     is_published: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, index=True
     )

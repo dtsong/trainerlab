@@ -8,11 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
-from src.dependencies import CurrentUser
+from src.dependencies import AdminUser
 from src.schemas.lab_note import (
     LabNoteCreate,
     LabNoteListResponse,
     LabNoteResponse,
+    LabNoteRevisionResponse,
+    LabNoteStatus,
+    LabNoteStatusUpdate,
     LabNoteType,
     LabNoteUpdate,
 )
@@ -84,23 +87,27 @@ async def get_lab_note(
         ) from None
 
 
-# Admin endpoints (require authentication)
+# Admin endpoints (require admin authorization)
 
 
 @router.get("/admin/all")
 async def list_all_lab_notes(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
+    admin_user: AdminUser,
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     limit: Annotated[int, Query(ge=1, le=100, description="Page size")] = 20,
     note_type: Annotated[
         LabNoteType | None, Query(description="Filter by note type")
     ] = None,
     tag: Annotated[str | None, Query(description="Filter by tag")] = None,
+    lab_note_status: Annotated[
+        LabNoteStatus | None, Query(alias="status", description="Filter by status")
+    ] = None,
 ) -> LabNoteListResponse:
     """List all lab notes including unpublished (admin only).
 
-    Requires authentication. Returns all notes regardless of publish status.
+    Requires admin authorization. Returns all notes regardless of publish status.
+    Supports filtering by workflow status.
     """
     service = LabNoteService(db)
     try:
@@ -110,6 +117,7 @@ async def list_all_lab_notes(
             note_type=note_type,
             tag=tag,
             published_only=False,
+            status=lab_note_status,
         )
     except LabNoteError:
         raise HTTPException(
@@ -122,11 +130,11 @@ async def list_all_lab_notes(
 async def get_lab_note_by_id(
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
+    admin_user: AdminUser,
 ) -> LabNoteResponse:
     """Get a lab note by ID (admin only).
 
-    Requires authentication. Returns note regardless of publish status.
+    Requires admin authorization. Returns note regardless of publish status.
     """
     service = LabNoteService(db)
     try:
@@ -146,16 +154,17 @@ async def get_lab_note_by_id(
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_lab_note(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
+    admin_user: AdminUser,
     data: LabNoteCreate,
 ) -> LabNoteResponse:
     """Create a new lab note (admin only).
 
-    Requires authentication. Creates a new lab note with the provided data.
+    Requires admin authorization. Creates a new lab note with the provided data.
+    Slug is auto-generated from title if not provided.
     """
     service = LabNoteService(db)
     try:
-        return await service.create(data, author_id=current_user.id)
+        return await service.create(data, author_id=admin_user.id)
     except LabNoteDuplicateSlugError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -172,16 +181,16 @@ async def create_lab_note(
 async def update_lab_note(
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
+    admin_user: AdminUser,
     data: LabNoteUpdate,
 ) -> LabNoteResponse:
     """Update a lab note (admin only).
 
-    Requires authentication. Updates the specified lab note.
+    Requires admin authorization. Updates the specified lab note.
     """
     service = LabNoteService(db)
     try:
-        return await service.update(note_id, data)
+        return await service.update(note_id, data, user_id=admin_user.id)
     except LabNoteNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -194,15 +203,67 @@ async def update_lab_note(
         ) from None
 
 
+@router.patch("/{note_id}/status")
+async def update_lab_note_status(
+    note_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin_user: AdminUser,
+    data: LabNoteStatusUpdate,
+) -> LabNoteResponse:
+    """Update a lab note's workflow status (admin only).
+
+    Requires admin authorization. Transitions the note's workflow status.
+    """
+    service = LabNoteService(db)
+    try:
+        return await service.update_status(note_id, data.status, user_id=admin_user.id)
+    except LabNoteNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lab note not found: {note_id}",
+        ) from None
+    except LabNoteError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to update lab note status. Please try again later.",
+        ) from None
+
+
+@router.get("/{note_id}/revisions")
+async def list_lab_note_revisions(
+    note_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin_user: AdminUser,
+) -> list[LabNoteRevisionResponse]:
+    """List revisions for a lab note (admin only).
+
+    Requires admin authorization. Returns revision history ordered by
+    version descending.
+    """
+    service = LabNoteService(db)
+    try:
+        return await service.list_revisions(note_id)
+    except LabNoteNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lab note not found: {note_id}",
+        ) from None
+    except LabNoteError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve revisions. Please try again later.",
+        ) from None
+
+
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_lab_note(
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: CurrentUser,
+    admin_user: AdminUser,
 ) -> Response:
     """Delete a lab note (admin only).
 
-    Requires authentication. Permanently deletes the specified lab note.
+    Requires admin authorization. Permanently deletes the specified lab note.
     """
     service = LabNoteService(db)
     try:

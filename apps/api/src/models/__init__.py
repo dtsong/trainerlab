@@ -7,6 +7,7 @@ from src.models.jp_card_innovation import JPCardInnovation
 from src.models.jp_new_archetype import JPNewArchetype
 from src.models.jp_set_impact import JPSetImpact
 from src.models.lab_note import LabNote
+from src.models.lab_note_revision import LabNoteRevision
 from src.models.meta_snapshot import MetaSnapshot
 from src.models.prediction import Prediction
 from src.models.rotation_impact import RotationImpact
@@ -24,6 +25,7 @@ __all__ = [
     "JPNewArchetype",
     "JPSetImpact",
     "LabNote",
+    "LabNoteRevision",
     "MetaSnapshot",
     "Prediction",
     "RotationImpact",

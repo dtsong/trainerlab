@@ -9,6 +9,8 @@ export type LabNoteType =
   | "tournament_preview"
   | "archetype_evolution";
 
+export type LabNoteStatus = "draft" | "review" | "published" | "archived";
+
 export interface ApiRelatedContent {
   archetypes: string[];
   cards: string[];
@@ -22,6 +24,7 @@ export interface ApiLabNoteSummary {
   title: string;
   summary?: string | null;
   author_name?: string | null;
+  status: LabNoteStatus;
   is_published: boolean;
   published_at?: string | null;
   featured_image_url?: string | null;
@@ -38,6 +41,8 @@ export interface ApiLabNote {
   summary?: string | null;
   content: string;
   author_name?: string | null;
+  status: LabNoteStatus;
+  version: number;
   is_published: boolean;
   published_at?: string | null;
   meta_description?: string | null;
@@ -58,6 +63,53 @@ export interface ApiLabNoteListResponse {
   has_prev: boolean;
 }
 
+export interface ApiLabNoteRevision {
+  id: string;
+  lab_note_id: string;
+  version: number;
+  title: string;
+  content: string;
+  summary?: string | null;
+  author_id?: string | null;
+  change_description?: string | null;
+  created_at: string;
+}
+
+// Request types for admin operations
+export interface ApiLabNoteCreateRequest {
+  slug?: string;
+  note_type: LabNoteType;
+  title: string;
+  summary?: string | null;
+  content: string;
+  author_name?: string | null;
+  status?: LabNoteStatus;
+  is_published?: boolean;
+  meta_description?: string | null;
+  featured_image_url?: string | null;
+  tags?: string[] | null;
+  related_content?: ApiRelatedContent | null;
+  is_premium?: boolean;
+}
+
+export interface ApiLabNoteUpdateRequest {
+  title?: string;
+  summary?: string | null;
+  content?: string;
+  author_name?: string | null;
+  status?: LabNoteStatus;
+  is_published?: boolean;
+  meta_description?: string | null;
+  featured_image_url?: string | null;
+  tags?: string[] | null;
+  related_content?: ApiRelatedContent | null;
+  is_premium?: boolean;
+}
+
+export interface ApiLabNoteStatusUpdate {
+  status: LabNoteStatus;
+}
+
 // Frontend types (camelCase)
 
 export interface LabNoteSummary {
@@ -67,6 +119,7 @@ export interface LabNoteSummary {
   title: string;
   summary?: string;
   authorName?: string;
+  status: LabNoteStatus;
   isPublished: boolean;
   publishedAt?: string;
   featuredImageUrl?: string;
@@ -83,6 +136,8 @@ export interface LabNote {
   summary?: string;
   content: string;
   authorName?: string;
+  status: LabNoteStatus;
+  version: number;
   isPublished: boolean;
   publishedAt?: string;
   metaDescription?: string;

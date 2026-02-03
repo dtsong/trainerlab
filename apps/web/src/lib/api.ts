@@ -20,7 +20,12 @@ import type {
   TournamentTier,
   ApiLabNoteListResponse,
   ApiLabNote,
+  ApiLabNoteRevision,
+  ApiLabNoteCreateRequest,
+  ApiLabNoteUpdateRequest,
+  ApiLabNoteStatusUpdate,
   LabNoteType,
+  LabNoteStatus,
   ApiJPCardInnovationList,
   ApiJPCardInnovationDetail,
   ApiJPNewArchetypeList,
@@ -429,6 +434,77 @@ export const japanApi = {
 
     return fetchApi<ApiCardCountEvolutionResponse>(
       `/api/v1/japan/card-count-evolution?${searchParams.toString()}`
+    );
+  },
+};
+
+// Admin Lab Notes search parameters
+export interface AdminLabNotesSearchParams {
+  page?: number;
+  limit?: number;
+  note_type?: LabNoteType;
+  tag?: string;
+  status?: LabNoteStatus;
+}
+
+// Admin Lab Notes API
+export const labNotesAdminApi = {
+  list: (params: AdminLabNotesSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.note_type) searchParams.set("note_type", params.note_type);
+    if (params.tag) searchParams.set("tag", params.tag);
+    if (params.status) searchParams.set("status", params.status);
+
+    const query = searchParams.toString();
+    return fetchApiAuth<ApiLabNoteListResponse>(
+      `/api/v1/lab-notes/admin/all${query ? `?${query}` : ""}`
+    );
+  },
+
+  getById: (id: string) => {
+    return fetchApiAuth<ApiLabNote>(
+      `/api/v1/lab-notes/admin/${encodeURIComponent(id)}`
+    );
+  },
+
+  create: (data: ApiLabNoteCreateRequest) => {
+    return fetchApiAuth<ApiLabNote>("/api/v1/lab-notes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: (id: string, data: ApiLabNoteUpdateRequest) => {
+    return fetchApiAuth<ApiLabNote>(
+      `/api/v1/lab-notes/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  updateStatus: (id: string, data: ApiLabNoteStatusUpdate) => {
+    return fetchApiAuth<ApiLabNote>(
+      `/api/v1/lab-notes/${encodeURIComponent(id)}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  delete: (id: string) => {
+    return fetchApiAuth<void>(`/api/v1/lab-notes/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  },
+
+  listRevisions: (id: string) => {
+    return fetchApiAuth<ApiLabNoteRevision[]>(
+      `/api/v1/lab-notes/${encodeURIComponent(id)}/revisions`
     );
   },
 };

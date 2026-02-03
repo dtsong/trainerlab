@@ -16,6 +16,9 @@ LabNoteType = Literal[
     "archetype_evolution",
 ]
 
+# Workflow status
+LabNoteStatus = Literal["draft", "review", "published", "archived"]
+
 
 class RelatedContent(BaseModel):
     """Related content references."""
@@ -32,10 +35,10 @@ class RelatedContent(BaseModel):
 class LabNoteCreate(BaseModel):
     """Request schema for creating a lab note."""
 
-    slug: str = Field(
-        min_length=1,
+    slug: str | None = Field(
+        default=None,
         max_length=255,
-        description="URL slug (must be unique)",
+        description="URL slug (auto-generated from title if omitted)",
         pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     )
     note_type: LabNoteType = Field(description="Type of lab note")
@@ -47,6 +50,7 @@ class LabNoteCreate(BaseModel):
     author_name: str | None = Field(
         default=None, max_length=255, description="Author display name"
     )
+    status: LabNoteStatus = Field(default="draft", description="Workflow status")
     is_published: bool = Field(default=False, description="Publish immediately")
     meta_description: str | None = Field(
         default=None, max_length=300, description="SEO meta description"
@@ -72,12 +76,19 @@ class LabNoteUpdate(BaseModel):
     )
     content: str | None = Field(default=None, min_length=1, description="Content")
     author_name: str | None = Field(default=None, max_length=255, description="Author")
+    status: LabNoteStatus | None = Field(default=None, description="Workflow status")
     is_published: bool | None = Field(default=None, description="Published status")
     meta_description: str | None = Field(default=None, max_length=300)
     featured_image_url: str | None = Field(default=None, max_length=500)
     tags: list[str] | None = Field(default=None, description="Tags")
     related_content: RelatedContent | None = Field(default=None)
     is_premium: bool | None = Field(default=None, description="Premium flag")
+
+
+class LabNoteStatusUpdate(BaseModel):
+    """Request schema for updating lab note status."""
+
+    status: LabNoteStatus = Field(description="New workflow status")
 
 
 class LabNoteSummaryResponse(BaseModel):
@@ -91,6 +102,7 @@ class LabNoteSummaryResponse(BaseModel):
     title: str = Field(description="Title")
     summary: str | None = Field(default=None, description="Short summary")
     author_name: str | None = Field(default=None, description="Author name")
+    status: LabNoteStatus = Field(description="Workflow status")
     is_published: bool = Field(description="Published status")
     published_at: datetime | None = Field(default=None, description="Publish date")
     featured_image_url: str | None = Field(default=None, description="Featured image")
@@ -111,6 +123,8 @@ class LabNoteResponse(BaseModel):
     summary: str | None = Field(default=None, description="Short summary")
     content: str = Field(description="Markdown content")
     author_name: str | None = Field(default=None, description="Author name")
+    status: LabNoteStatus = Field(description="Workflow status")
+    version: int = Field(description="Content version")
     is_published: bool = Field(description="Published status")
     published_at: datetime | None = Field(default=None, description="Publish date")
     meta_description: str | None = Field(default=None, description="SEO description")
@@ -120,6 +134,24 @@ class LabNoteResponse(BaseModel):
     is_premium: bool = Field(description="Premium content flag")
     created_at: datetime = Field(description="Creation date")
     updated_at: datetime = Field(description="Last update date")
+
+
+class LabNoteRevisionResponse(BaseModel):
+    """Response for a lab note revision."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str = Field(description="Revision ID")
+    lab_note_id: str = Field(description="Parent lab note ID")
+    version: int = Field(description="Version number")
+    title: str = Field(description="Title at this revision")
+    content: str = Field(description="Content at this revision")
+    summary: str | None = Field(default=None, description="Summary at this revision")
+    author_id: str | None = Field(default=None, description="Author who made change")
+    change_description: str | None = Field(
+        default=None, description="Description of changes"
+    )
+    created_at: datetime = Field(description="Revision date")
 
 
 class LabNoteListResponse(BaseModel):

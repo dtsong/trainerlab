@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/admin/tournaments", label: "Tournaments" },
   { href: "/admin/meta", label: "Meta" },
   { href: "/admin/cards", label: "Cards" },
+  { href: "/admin/lab-notes", label: "Lab Notes" },
 ] as const;
 
 export function AdminSidebar() {
@@ -21,7 +22,10 @@ export function AdminSidebar() {
       </div>
       <nav className="flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            item.href === "/admin"
+              ? pathname === "/admin"
+              : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

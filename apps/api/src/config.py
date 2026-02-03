@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # Auth (NextAuth.js shared secret for JWT verification)
     nextauth_secret: str | None = None
 
+    # Admin (comma-separated emails)
+    admin_emails: str = ""
+
     # CORS (comma-separated list of origins)
     cors_origins: str = "http://localhost:3000"
 

@@ -463,20 +463,28 @@ verify_format() {
         log_pass "Format config: returned successfully"
     fi
 
-    # 6b — Rotation impact (requires transition param from format config)
-    local transition
-    transition=$(echo "$RESP_BODY" | jq -r '.transition // empty' 2>/dev/null || echo "")
-    if [ -n "$transition" ]; then
+    # 6b — Rotation impact (derive transition from current + upcoming formats)
+    local current_name
+    current_name=$(echo "$RESP_BODY" | jq -r '.name // empty' 2>/dev/null || echo "")
+
+    fetch "/api/v1/format/upcoming"
+    local upcoming_name=""
+    if [ "$RESP_CODE" = "200" ]; then
+        upcoming_name=$(echo "$RESP_BODY" | jq -r '.format.name // empty' 2>/dev/null || echo "")
+    fi
+
+    if [ -n "$current_name" ] && [ -n "$upcoming_name" ]; then
+        local transition="${current_name}-to-${upcoming_name}"
         fetch "/api/v1/rotation/impact?transition=${transition}"
         if [ "$RESP_CODE" = "200" ]; then
             log_pass "Rotation impact: returned successfully (transition=$transition)"
         elif [ "$RESP_CODE" = "404" ]; then
-            log_warn "Rotation impact: 404 (no data for transition=$transition)"
+            log_warn "Rotation impact: no data for transition=$transition (not yet computed)"
         else
             log_fail "Rotation impact: HTTP $RESP_CODE (transition=$transition)"
         fi
     else
-        log_warn "Rotation impact: skipped (no transition in format config)"
+        log_warn "Rotation impact: skipped (no upcoming format configured)"
     fi
 }
 

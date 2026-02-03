@@ -113,9 +113,15 @@ ARCHETYPE_ALIASES: dict[str, str] = {
     "Draga": "Dragapult ex",
 }
 
+# Build a case-insensitive lookup from the aliases
+_ALIASES_LOWER: dict[str, str] = {k.lower(): v for k, v in ARCHETYPE_ALIASES.items()}
+
 
 def normalize_archetype(archetype: str) -> str:
     """Normalize an archetype name to its canonical form.
+
+    Performs case-insensitive alias lookup. Returns "Unknown" for
+    empty or whitespace-only input.
 
     Args:
         archetype: The archetype name to normalize.
@@ -123,4 +129,6 @@ def normalize_archetype(archetype: str) -> str:
     Returns:
         The normalized archetype name.
     """
-    return ARCHETYPE_ALIASES.get(archetype, archetype)
+    if not archetype or not archetype.strip():
+        return "Unknown"
+    return _ALIASES_LOWER.get(archetype.lower(), archetype)

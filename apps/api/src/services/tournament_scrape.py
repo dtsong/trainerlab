@@ -62,6 +62,45 @@ class TournamentScrapeService:
         self.client = client
         self.detector = archetype_detector or ArchetypeDetector()
 
+    # Name patterns that indicate a specific tier regardless of participant count
+    _MAJOR_PATTERNS = ("regional", "international", "worlds", "world championship")
+    _PREMIER_PATTERNS = ("league challenge", "league cup", "special event")
+    _LEAGUE_PATTERNS = ("city league", "league battle")
+
+    @staticmethod
+    def classify_tier(participant_count: int, name: str) -> str | None:
+        """Classify tournament tier from participant count and name.
+
+        Args:
+            participant_count: Number of participants (0 if unknown).
+            name: Tournament name.
+
+        Returns:
+            Tier string ("major", "premier", "league") or None if unclassifiable.
+        """
+        name_lower = name.lower()
+
+        # Name-based classification takes priority (handles JP 0-count case)
+        for pattern in TournamentScrapeService._MAJOR_PATTERNS:
+            if pattern in name_lower:
+                return "major"
+        for pattern in TournamentScrapeService._PREMIER_PATTERNS:
+            if pattern in name_lower:
+                return "premier"
+        for pattern in TournamentScrapeService._LEAGUE_PATTERNS:
+            if pattern in name_lower:
+                return "league"
+
+        # Fall back to participant-count thresholds
+        if participant_count >= 256:
+            return "major"
+        if participant_count >= 64:
+            return "premier"
+        if participant_count > 0:
+            return "league"
+
+        return None
+
     async def tournament_exists(self, source_url: str) -> bool:
         """Check if a tournament already exists in the database.
 
@@ -462,6 +501,7 @@ class TournamentScrapeService:
                 best_of=tournament.best_of,
                 participant_count=tournament.participant_count,
                 source_url=tournament.source_url,
+                tier=self.classify_tier(tournament.participant_count, tournament.name),
             )
 
             self.session.add(db_tournament)

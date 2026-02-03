@@ -683,7 +683,7 @@ class LimitlessClient:
         if archetype_cell:
             archetype_link = archetype_cell.select_one("a")
             if archetype_link:
-                archetype = archetype_link.get_text(strip=True)
+                archetype = archetype_link.get_text(strip=True) or "Unknown"
                 href = str(archetype_link.get("href", ""))
                 if href and "/decks/" in href:
                     decklist_url = (

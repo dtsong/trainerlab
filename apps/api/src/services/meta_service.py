@@ -266,10 +266,14 @@ class MetaService:
             return {}
 
         archetype_counts: dict[str, int] = defaultdict(int)
-        total = len(placements)
 
         for placement in placements:
-            archetype_counts[placement.archetype] += 1
+            name = placement.archetype
+            if not name or not name.strip():
+                name = "Unknown"
+            archetype_counts[name] += 1
+
+        total = sum(archetype_counts.values())
 
         shares = {
             archetype: count / total

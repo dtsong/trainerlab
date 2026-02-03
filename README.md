@@ -86,6 +86,21 @@ pnpm --filter @trainerlab/shared-types test
 cd apps/api && uv run pytest
 ```
 
+### Admin Dashboard
+
+The admin dashboard is available at `/admin` (e.g., `http://localhost:3000/admin` locally).
+
+**Authentication:** You must be logged in via NextAuth.js. Your email must be in the whitelist defined in `apps/web/src/lib/admin.ts`.
+
+**Pages:**
+
+| Route                | Description                                       |
+| -------------------- | ------------------------------------------------- |
+| `/admin`             | Overview — tournament, card, and meta stats       |
+| `/admin/tournaments` | Tournament data with placement details            |
+| `/admin/meta`        | Meta snapshot analysis (region/format/BO filters) |
+| `/admin/cards`       | Card database search                              |
+
 ### Tooling
 
 | Tool   | Purpose                     | Commands                           |

@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # OpenAI (optional)
     openai_api_key: str | None = None
 
+    # Anthropic (Claude API)
+    anthropic_api_key: str | None = None
+
     # Auth (NextAuth.js shared secret for JWT verification)
     nextauth_secret: str | None = None
 

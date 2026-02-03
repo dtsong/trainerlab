@@ -47,11 +47,11 @@ resource "google_cloud_scheduler_job" "pipeline" {
   paused      = var.paused
 
   retry_config {
-    retry_count          = 3
+    retry_count          = 1
     min_backoff_duration = "30s"
     max_backoff_duration = "300s"
     max_retry_duration   = "600s"
-    max_doublings        = 3
+    max_doublings        = 1
   }
 
   http_target {
@@ -69,6 +69,6 @@ resource "google_cloud_scheduler_job" "pipeline" {
     }
   }
 
-  # Attempt delivery even if schedule is missed
-  attempt_deadline = "320s"
+  # Give scrape jobs enough time to complete instead of retrying
+  attempt_deadline = "600s"
 }

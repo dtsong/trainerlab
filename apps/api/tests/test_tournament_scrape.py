@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.limitless import (
@@ -106,7 +106,7 @@ class TestTournamentExists:
         """Should return True when tournament exists in database."""
         # Mock query result
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = Tournament(
+        mock_result.first.return_value = Tournament(
             id=uuid4(),
             name="Existing Tournament",
             date=date.today(),
@@ -128,7 +128,7 @@ class TestTournamentExists:
     ) -> None:
         """Should return False when tournament not in database."""
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.first.return_value = None
         mock_session.execute.return_value = mock_result
 
         exists = await service.tournament_exists("https://example.com/tournament/new")
@@ -155,7 +155,7 @@ class TestScrapeNewTournaments:
 
         # Tournament doesn't exist yet
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.first.return_value = None
         mock_session.execute.return_value = mock_result
 
         result = await service.scrape_new_tournaments(
@@ -185,7 +185,7 @@ class TestScrapeNewTournaments:
 
         # Tournament already exists
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = Tournament(
+        mock_result.first.return_value = Tournament(
             id=uuid4(),
             name="Existing",
             date=date.today(),
@@ -219,7 +219,7 @@ class TestScrapeNewTournaments:
 
         # Tournament doesn't exist
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.first.return_value = None
         mock_session.execute.return_value = mock_result
 
         result = await service.scrape_new_tournaments(max_pages=1, fetch_decklists=True)
@@ -250,7 +250,7 @@ class TestScrapeNewTournaments:
         mock_client.fetch_decklist.side_effect = LimitlessError("Network error")
 
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.first.return_value = None
         mock_session.execute.return_value = mock_result
 
         with patch("src.services.tournament_scrape.logger") as mock_logger:
@@ -304,7 +304,7 @@ class TestScrapeNewTournaments:
         mock_client.fetch_tournament_placements.return_value = []
 
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.first.return_value = None
         mock_session.execute.return_value = mock_result
 
         result = await service.scrape_new_tournaments(
@@ -361,7 +361,7 @@ class TestScrapeNewTournaments:
         )
 
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
+        mock_result.first.return_value = None
         mock_session.execute.return_value = mock_result
 
         result = await service.scrape_new_tournaments(
@@ -423,6 +423,53 @@ class TestSaveTournament:
 
         assert mock_session.add.call_count == 1  # Only tournament
         mock_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_duplicate_source_url(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        sample_tournament: LimitlessTournament,
+    ) -> None:
+        """Should return None and rollback on IntegrityError (duplicate source_url)."""
+        mock_session.commit.side_effect = IntegrityError(
+            "duplicate key", params=None, orig=Exception("unique violation")
+        )
+
+        result = await service.save_tournament(sample_tournament)
+
+        assert result is None
+        mock_session.rollback.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_scrape_counts_duplicate_as_skipped(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_tournament: LimitlessTournament,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Should count IntegrityError duplicates as skipped in scrape results."""
+        mock_client.fetch_tournament_listings.return_value = [sample_tournament]
+        mock_client.fetch_tournament_placements.return_value = [sample_placement]
+
+        # tournament_exists returns False (race condition: another process inserted it)
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        # But commit fails with IntegrityError (duplicate)
+        mock_session.commit.side_effect = IntegrityError(
+            "duplicate key", params=None, orig=Exception("unique violation")
+        )
+
+        result = await service.scrape_new_tournaments(
+            max_pages=1, fetch_decklists=False
+        )
+
+        assert result.tournaments_saved == 0
+        assert result.tournaments_skipped == 1
 
 
 class TestCreatePlacement:

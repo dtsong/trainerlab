@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import httpx
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.limitless import (
@@ -175,14 +175,17 @@ class TournamentScrapeService:
                 tournament.placements = placements
 
                 # Save to database
-                await self.save_tournament(tournament)
-                result.tournaments_saved += 1
-                result.placements_saved += len(placements)
+                saved = await self.save_tournament(tournament)
+                if saved is None:
+                    result.tournaments_skipped += 1
+                else:
+                    result.tournaments_saved += 1
+                    result.placements_saved += len(placements)
 
-                logger.info(
-                    f"Saved tournament: {tournament.name} "
-                    f"({len(placements)} placements)"
-                )
+                    logger.info(
+                        f"Saved tournament: {tournament.name} "
+                        f"({len(placements)} placements)"
+                    )
 
             except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:
                 error_msg = f"Error processing tournament {tournament.name}: {e}"
@@ -286,14 +289,17 @@ class TournamentScrapeService:
                 tournament.placements = placements
 
                 # Save to database
-                await self.save_tournament(tournament)
-                result.tournaments_saved += 1
-                result.placements_saved += len(placements)
+                saved = await self.save_tournament(tournament)
+                if saved is None:
+                    result.tournaments_skipped += 1
+                else:
+                    result.tournaments_saved += 1
+                    result.placements_saved += len(placements)
 
-                logger.info(
-                    f"Saved official tournament: {tournament.name} "
-                    f"({len(placements)} placements)"
-                )
+                    logger.info(
+                        f"Saved official tournament: {tournament.name} "
+                        f"({len(placements)} placements)"
+                    )
 
             except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:
                 error_msg = f"Error processing official tournament {tournament.name}"
@@ -399,16 +405,21 @@ class TournamentScrapeService:
 
                 tournament.placements = placements
 
-                await self.save_tournament(tournament)
-                result.tournaments_saved += 1
-                result.placements_saved += len(placements)
+                saved = await self.save_tournament(tournament)
+                if saved is None:
+                    result.tournaments_skipped += 1
+                else:
+                    result.tournaments_saved += 1
+                    result.placements_saved += len(placements)
 
-                logger.info(
-                    "Saved JP City League: %s (%d placements, %d decklists)",
-                    tournament.name,
-                    len(placements),
-                    sum(1 for p in placements if p.decklist and p.decklist.is_valid),
-                )
+                    logger.info(
+                        "Saved JP City League: %s (%d placements, %d decklists)",
+                        tournament.name,
+                        len(placements),
+                        sum(
+                            1 for p in placements if p.decklist and p.decklist.is_valid
+                        ),
+                    )
 
             except (LimitlessError, SQLAlchemyError, httpx.RequestError) as e:
                 error_msg = f"Error processing JP tournament {tournament.name}: {e}"
@@ -428,17 +439,17 @@ class TournamentScrapeService:
     async def save_tournament(
         self,
         tournament: LimitlessTournament,
-    ) -> Tournament:
+    ) -> Tournament | None:
         """Save a tournament and its placements to the database.
 
         Args:
             tournament: Tournament data from Limitless.
 
         Returns:
-            The saved Tournament model.
+            The saved Tournament model, or None if duplicate (source_url conflict).
 
         Raises:
-            SQLAlchemyError: If database operation fails.
+            SQLAlchemyError: If database operation fails (other than duplicate).
         """
         try:
             # Create tournament record
@@ -462,6 +473,15 @@ class TournamentScrapeService:
 
             await self.session.commit()
             return db_tournament
+
+        except IntegrityError:
+            await self.session.rollback()
+            logger.info(
+                "Skipping duplicate tournament (source_url conflict): %s (%s)",
+                tournament.name,
+                tournament.source_url,
+            )
+            return None
 
         except SQLAlchemyError:
             await self.session.rollback()

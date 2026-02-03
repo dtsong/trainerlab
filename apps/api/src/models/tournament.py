@@ -47,7 +47,7 @@ class Tournament(Base, TimestampMixin):
     source: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # limitless, rk9, etc.
-    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
 
     # Relationships
     placements: Mapped[list["TournamentPlacement"]] = relationship(

@@ -134,3 +134,22 @@ class SyncCardsResult(BaseModel):
     cards_updated: int = Field(ge=0, description="Number of cards updated")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether sync completed without errors")
+
+
+class ComputeEvolutionRequest(PipelineRequest):
+    """Request for compute evolution pipeline."""
+
+    pass
+
+
+class ComputeEvolutionResult(BaseModel):
+    """Result from compute evolution pipeline."""
+
+    adaptations_classified: int = Field(
+        ge=0, description="Adaptations classified by Claude"
+    )
+    contexts_generated: int = Field(ge=0, description="Meta contexts generated")
+    predictions_generated: int = Field(ge=0, description="Predictions generated")
+    articles_generated: int = Field(ge=0, description="Articles generated")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")

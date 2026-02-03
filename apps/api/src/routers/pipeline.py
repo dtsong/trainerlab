@@ -9,6 +9,12 @@ import logging
 from fastapi import APIRouter, Depends
 
 from src.dependencies.scheduler_auth import verify_scheduler_auth
+from src.pipelines.compute_evolution import (
+    ComputeEvolutionResult as ComputeEvolutionResultInternal,
+)
+from src.pipelines.compute_evolution import (
+    compute_evolution_intelligence,
+)
 from src.pipelines.compute_meta import (
     ComputeMetaResult as ComputeMetaResultInternal,
 )
@@ -25,6 +31,8 @@ from src.pipelines.scrape_limitless import (
 )
 from src.pipelines.sync_cards import sync_english_cards
 from src.schemas.pipeline import (
+    ComputeEvolutionRequest,
+    ComputeEvolutionResult,
     ComputeMetaRequest,
     ComputeMetaResult,
     DiscoverRequest,
@@ -226,3 +234,49 @@ async def sync_cards_endpoint(
         errors=result.errors,
         success=len(result.errors) == 0,
     )
+
+
+def _convert_evolution_result(
+    internal: ComputeEvolutionResultInternal,
+) -> ComputeEvolutionResult:
+    """Convert internal ComputeEvolutionResult to API schema."""
+    return ComputeEvolutionResult(
+        adaptations_classified=internal.adaptations_classified,
+        contexts_generated=internal.contexts_generated,
+        predictions_generated=internal.predictions_generated,
+        articles_generated=internal.articles_generated,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post("/compute-evolution", response_model=ComputeEvolutionResult)
+async def compute_evolution_endpoint(
+    request: ComputeEvolutionRequest,
+) -> ComputeEvolutionResult:
+    """Run evolution intelligence pipeline.
+
+    Called by Cloud Scheduler daily after compute-meta to classify
+    adaptations, generate meta context, update predictions, and
+    generate evolution articles.
+    """
+    logger.info(
+        "Starting evolution intelligence pipeline: dry_run=%s",
+        request.dry_run,
+    )
+
+    result = await compute_evolution_intelligence(
+        dry_run=request.dry_run,
+    )
+
+    logger.info(
+        "Evolution pipeline complete: classified=%d, contexts=%d, "
+        "predictions=%d, articles=%d, errors=%d",
+        result.adaptations_classified,
+        result.contexts_generated,
+        result.predictions_generated,
+        result.articles_generated,
+        len(result.errors),
+    )
+
+    return _convert_evolution_result(result)

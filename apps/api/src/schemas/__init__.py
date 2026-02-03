@@ -20,6 +20,15 @@ from src.schemas.deck import (
     UnmatchedCard,
     UserSummary,
 )
+from src.schemas.evolution import (
+    AdaptationResponse,
+    EvolutionArticleListItem,
+    EvolutionArticleResponse,
+    EvolutionSnapshotResponse,
+    EvolutionTimelineResponse,
+    PredictionAccuracyResponse,
+    PredictionResponse,
+)
 from src.schemas.format import (
     FormatConfigResponse,
     RotatingCard,
@@ -52,6 +61,8 @@ from src.schemas.meta import (
 )
 from src.schemas.pagination import PaginatedResponse
 from src.schemas.pipeline import (
+    ComputeEvolutionRequest,
+    ComputeEvolutionResult,
     ComputeMetaRequest,
     ComputeMetaResult,
     PipelineRequest,
@@ -86,8 +97,15 @@ __all__ = [
     "CardSummaryResponse",
     "CardUsageResponse",
     "CardUsageSummary",
+    "AdaptationResponse",
+    "ComputeEvolutionRequest",
+    "ComputeEvolutionResult",
     "ComputeMetaRequest",
     "ComputeMetaResult",
+    "EvolutionArticleListItem",
+    "EvolutionArticleResponse",
+    "EvolutionSnapshotResponse",
+    "EvolutionTimelineResponse",
     "DeckCreate",
     "DeckImportRequest",
     "DeckImportResponse",
@@ -111,6 +129,8 @@ __all__ = [
     "MetaSnapshotResponse",
     "PaginatedResponse",
     "PipelineRequest",
+    "PredictionAccuracyResponse",
+    "PredictionResponse",
     "RotatingCard",
     "RotationDetails",
     "RotationImpactListResponse",

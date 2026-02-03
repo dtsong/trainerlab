@@ -14,13 +14,13 @@ export function EvolutionPreview() {
   const topArchetype = archetypes[0];
   const movers = computeMetaMovers(globalMeta, history, 3);
 
-  // Compute top archetype's current vs previous share
-  const currentShare = topArchetype?.share ?? 0;
+  // Compute top archetype's current vs previous share (convert API decimals to percentages)
+  const currentShare = (topArchetype?.share ?? 0) * 100;
   const oldestSnapshot = history?.snapshots?.[0];
   const previousShare =
-    oldestSnapshot?.archetype_breakdown?.find(
+    (oldestSnapshot?.archetype_breakdown?.find(
       (a) => a.name === topArchetype?.name
-    )?.share ?? 0;
+    )?.share ?? 0) * 100;
   const changePercent = currentShare - previousShare;
 
   // Build sparkline data from history snapshots
@@ -30,7 +30,7 @@ export function EvolutionPreview() {
         const arch = s.archetype_breakdown?.find(
           (a) => a.name === topArchetype?.name
         );
-        return arch?.share ?? 0;
+        return (arch?.share ?? 0) * 100;
       })
       .filter((v) => v > 0) ?? [];
 

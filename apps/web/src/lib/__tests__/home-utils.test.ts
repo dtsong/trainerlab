@@ -11,6 +11,10 @@ import {
   computeMetaMovers,
 } from "../home-utils";
 
+/**
+ * Helper to create snapshots with decimal shares (0.0–1.0) matching the API format.
+ * The utility functions convert these to percentage-scale internally.
+ */
 function makeSnapshot(
   archetypes: { name: string; share: number }[],
   overrides: Partial<ApiMetaSnapshot> = {}
@@ -46,8 +50,8 @@ describe("computeTrends", () => {
 
   it("should return archetypes with stable trend when no history", () => {
     const global = makeSnapshot([
-      { name: "Charizard ex", share: 18.5 },
-      { name: "Lugia VSTAR", share: 14.2 },
+      { name: "Charizard ex", share: 0.185 },
+      { name: "Lugia VSTAR", share: 0.142 },
     ]);
 
     const result = computeTrends(global, undefined, undefined, 5);
@@ -63,9 +67,9 @@ describe("computeTrends", () => {
     });
   });
 
-  it("should detect up trend when share increases >0.5%", () => {
-    const current = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
-    const previous = makeSnapshot([{ name: "Charizard ex", share: 17.0 }]);
+  it("should detect up trend when share increases >0.5pp", () => {
+    const current = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const previous = makeSnapshot([{ name: "Charizard ex", share: 0.17 }]);
     const history = makeHistory([previous, current]);
 
     const result = computeTrends(current, history, undefined, 5);
@@ -74,9 +78,9 @@ describe("computeTrends", () => {
     expect(result[0].trendValue).toBe(1.5);
   });
 
-  it("should detect down trend when share decreases >0.5%", () => {
-    const current = makeSnapshot([{ name: "Charizard ex", share: 15.0 }]);
-    const previous = makeSnapshot([{ name: "Charizard ex", share: 17.0 }]);
+  it("should detect down trend when share decreases >0.5pp", () => {
+    const current = makeSnapshot([{ name: "Charizard ex", share: 0.15 }]);
+    const previous = makeSnapshot([{ name: "Charizard ex", share: 0.17 }]);
     const history = makeHistory([previous, current]);
 
     const result = computeTrends(current, history, undefined, 5);
@@ -85,9 +89,9 @@ describe("computeTrends", () => {
     expect(result[0].trendValue).toBe(-2);
   });
 
-  it("should show stable when change is within 0.5%", () => {
-    const current = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
-    const previous = makeSnapshot([{ name: "Charizard ex", share: 18.3 }]);
+  it("should show stable when change is within 0.5pp", () => {
+    const current = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const previous = makeSnapshot([{ name: "Charizard ex", share: 0.183 }]);
     const history = makeHistory([previous, current]);
 
     const result = computeTrends(current, history, undefined, 5);
@@ -96,9 +100,9 @@ describe("computeTrends", () => {
     expect(result[0].trendValue).toBe(0.2);
   });
 
-  it("should show stable at exactly 0.5% boundary", () => {
-    const current = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
-    const previous = makeSnapshot([{ name: "Charizard ex", share: 18.0 }]);
+  it("should show stable at exactly 0.5pp boundary", () => {
+    const current = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const previous = makeSnapshot([{ name: "Charizard ex", share: 0.18 }]);
     const history = makeHistory([previous, current]);
 
     const result = computeTrends(current, history, undefined, 5);
@@ -107,9 +111,9 @@ describe("computeTrends", () => {
     expect(result[0].trendValue).toBe(0.5);
   });
 
-  it("should show up just above 0.5% boundary", () => {
-    const current = makeSnapshot([{ name: "Charizard ex", share: 18.6 }]);
-    const previous = makeSnapshot([{ name: "Charizard ex", share: 18.0 }]);
+  it("should show up just above 0.5pp boundary", () => {
+    const current = makeSnapshot([{ name: "Charizard ex", share: 0.186 }]);
+    const previous = makeSnapshot([{ name: "Charizard ex", share: 0.18 }]);
     const history = makeHistory([previous, current]);
 
     const result = computeTrends(current, history, undefined, 5);
@@ -117,27 +121,27 @@ describe("computeTrends", () => {
     expect(result[0].trend).toBe("up");
   });
 
-  it("should compute JP signal when divergence >2%", () => {
-    const global = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
-    const jp = makeSnapshot([{ name: "Charizard ex", share: 22.0 }]);
+  it("should compute JP signal when divergence >2pp", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const jp = makeSnapshot([{ name: "Charizard ex", share: 0.22 }]);
 
     const result = computeTrends(global, undefined, jp, 5);
 
     expect(result[0].jpSignal).toBe(3.5);
   });
 
-  it("should not show JP signal when divergence is <=2%", () => {
-    const global = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
-    const jp = makeSnapshot([{ name: "Charizard ex", share: 19.5 }]);
+  it("should not show JP signal when divergence is <=2pp", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const jp = makeSnapshot([{ name: "Charizard ex", share: 0.195 }]);
 
     const result = computeTrends(global, undefined, jp, 5);
 
     expect(result[0].jpSignal).toBeUndefined();
   });
 
-  it("should not show JP signal at exactly 2% boundary", () => {
-    const global = makeSnapshot([{ name: "Charizard ex", share: 18.0 }]);
-    const jp = makeSnapshot([{ name: "Charizard ex", share: 20.0 }]);
+  it("should not show JP signal at exactly 2pp boundary", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.18 }]);
+    const jp = makeSnapshot([{ name: "Charizard ex", share: 0.2 }]);
 
     const result = computeTrends(global, undefined, jp, 5);
 
@@ -146,11 +150,11 @@ describe("computeTrends", () => {
 
   it("should respect the limit parameter", () => {
     const global = makeSnapshot([
-      { name: "A", share: 20 },
-      { name: "B", share: 15 },
-      { name: "C", share: 10 },
-      { name: "D", share: 8 },
-      { name: "E", share: 5 },
+      { name: "A", share: 0.2 },
+      { name: "B", share: 0.15 },
+      { name: "C", share: 0.1 },
+      { name: "D", share: 0.08 },
+      { name: "E", share: 0.05 },
     ]);
 
     const result = computeTrends(global, undefined, undefined, 3);
@@ -160,7 +164,7 @@ describe("computeTrends", () => {
   });
 
   it("should handle single snapshot in history (no previous to compare)", () => {
-    const current = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
+    const current = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
     const history = makeHistory([current]);
 
     const result = computeTrends(current, history, undefined, 5);
@@ -178,19 +182,19 @@ describe("computeJPDivergence", () => {
   });
 
   it("should return no divergence when JP data is empty", () => {
-    const global = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
     const result = computeJPDivergence(global, makeSnapshot([]));
     expect(result.hasSignificantDivergence).toBe(false);
   });
 
   it("should detect divergence when JP has archetypes not in global top 10", () => {
     const global = makeSnapshot([
-      { name: "Charizard ex", share: 18.5 },
-      { name: "Lugia VSTAR", share: 14.2 },
+      { name: "Charizard ex", share: 0.185 },
+      { name: "Lugia VSTAR", share: 0.142 },
     ]);
     const jp = makeSnapshot([
-      { name: "Raging Bolt ex", share: 22.0 },
-      { name: "Charizard ex", share: 15.0 },
+      { name: "Raging Bolt ex", share: 0.22 },
+      { name: "Charizard ex", share: 0.15 },
     ]);
 
     const result = computeJPDivergence(global, jp);
@@ -199,12 +203,12 @@ describe("computeJPDivergence", () => {
     expect(result.message).toContain("Raging Bolt ex");
   });
 
-  it("should detect divergence when share difference >5%", () => {
+  it("should detect divergence when share difference >5pp", () => {
     const global = makeSnapshot([
-      { name: "Charizard ex", share: 10.0 },
-      { name: "Lugia VSTAR", share: 14.2 },
+      { name: "Charizard ex", share: 0.1 },
+      { name: "Lugia VSTAR", share: 0.142 },
     ]);
-    const jp = makeSnapshot([{ name: "Charizard ex", share: 22.0 }]);
+    const jp = makeSnapshot([{ name: "Charizard ex", share: 0.22 }]);
 
     const result = computeJPDivergence(global, jp);
 
@@ -212,18 +216,18 @@ describe("computeJPDivergence", () => {
     expect(result.message).toContain("Charizard ex");
   });
 
-  it("should not detect divergence at exactly 5% share difference", () => {
-    const global = makeSnapshot([{ name: "Charizard ex", share: 10.0 }]);
-    const jp = makeSnapshot([{ name: "Charizard ex", share: 15.0 }]);
+  it("should not detect divergence at exactly 5pp share difference", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.1 }]);
+    const jp = makeSnapshot([{ name: "Charizard ex", share: 0.15 }]);
 
     const result = computeJPDivergence(global, jp);
 
     expect(result.hasSignificantDivergence).toBe(false);
   });
 
-  it("should detect divergence just above 5% share difference", () => {
-    const global = makeSnapshot([{ name: "Charizard ex", share: 10.0 }]);
-    const jp = makeSnapshot([{ name: "Charizard ex", share: 15.1 }]);
+  it("should detect divergence just above 5pp share difference", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.1 }]);
+    const jp = makeSnapshot([{ name: "Charizard ex", share: 0.151 }]);
 
     const result = computeJPDivergence(global, jp);
 
@@ -232,13 +236,13 @@ describe("computeJPDivergence", () => {
 
   it("should show no divergence when metas are similar", () => {
     const global = makeSnapshot([
-      { name: "Charizard ex", share: 18.5 },
-      { name: "Lugia VSTAR", share: 14.2 },
-      { name: "Gardevoir ex", share: 12.0 },
+      { name: "Charizard ex", share: 0.185 },
+      { name: "Lugia VSTAR", share: 0.142 },
+      { name: "Gardevoir ex", share: 0.12 },
     ]);
     const jp = makeSnapshot([
-      { name: "Charizard ex", share: 17.0 },
-      { name: "Lugia VSTAR", share: 13.5 },
+      { name: "Charizard ex", share: 0.17 },
+      { name: "Lugia VSTAR", share: 0.135 },
     ]);
 
     const result = computeJPDivergence(global, jp);
@@ -247,10 +251,10 @@ describe("computeJPDivergence", () => {
   });
 
   it("should list multiple divergent archetypes with 'and'", () => {
-    const global = makeSnapshot([{ name: "Charizard ex", share: 18.5 }]);
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
     const jp = makeSnapshot([
-      { name: "Raging Bolt ex", share: 22.0 },
-      { name: "Terapagos ex", share: 15.0 },
+      { name: "Raging Bolt ex", share: 0.22 },
+      { name: "Terapagos ex", share: 0.15 },
     ]);
 
     const result = computeJPDivergence(global, jp);
@@ -266,23 +270,23 @@ describe("buildJPComparisons", () => {
   });
 
   it("should return empty when global has no archetypes", () => {
-    const jp = makeSnapshot([{ name: "A", share: 20 }]);
+    const jp = makeSnapshot([{ name: "A", share: 0.2 }]);
     expect(buildJPComparisons(makeSnapshot([]), jp)).toEqual([]);
   });
 
   it("should return empty when JP has no archetypes", () => {
-    const global = makeSnapshot([{ name: "A", share: 20 }]);
+    const global = makeSnapshot([{ name: "A", share: 0.2 }]);
     expect(buildJPComparisons(global, makeSnapshot([]))).toEqual([]);
   });
 
   it("should build correct comparisons", () => {
     const global = makeSnapshot([
-      { name: "Charizard ex", share: 18.5 },
-      { name: "Lugia VSTAR", share: 14.2 },
+      { name: "Charizard ex", share: 0.185 },
+      { name: "Lugia VSTAR", share: 0.142 },
     ]);
     const jp = makeSnapshot([
-      { name: "Raging Bolt ex", share: 22.1 },
-      { name: "Charizard ex", share: 15.8 },
+      { name: "Raging Bolt ex", share: 0.221 },
+      { name: "Charizard ex", share: 0.158 },
     ]);
 
     const result = buildJPComparisons(global, jp, 2);
@@ -302,22 +306,22 @@ describe("buildJPComparisons", () => {
 
   it("should respect limit parameter", () => {
     const global = makeSnapshot([
-      { name: "A", share: 20 },
-      { name: "B", share: 15 },
-      { name: "C", share: 10 },
+      { name: "A", share: 0.2 },
+      { name: "B", share: 0.15 },
+      { name: "C", share: 0.1 },
     ]);
     const jp = makeSnapshot([
-      { name: "X", share: 22 },
-      { name: "Y", share: 18 },
-      { name: "Z", share: 12 },
+      { name: "X", share: 0.22 },
+      { name: "Y", share: 0.18 },
+      { name: "Z", share: 0.12 },
     ]);
 
     expect(buildJPComparisons(global, jp, 2)).toHaveLength(2);
   });
 
   it("should handle fewer archetypes than limit", () => {
-    const global = makeSnapshot([{ name: "A", share: 20 }]);
-    const jp = makeSnapshot([{ name: "X", share: 22 }]);
+    const global = makeSnapshot([{ name: "A", share: 0.2 }]);
+    const jp = makeSnapshot([{ name: "X", share: 0.22 }]);
 
     const result = buildJPComparisons(global, jp, 3);
     expect(result).toHaveLength(1);
@@ -362,32 +366,32 @@ describe("computeMetaMovers", () => {
   });
 
   it("should return empty when no history", () => {
-    const current = makeSnapshot([{ name: "A", share: 20 }]);
+    const current = makeSnapshot([{ name: "A", share: 0.2 }]);
     expect(computeMetaMovers(current, undefined)).toEqual([]);
   });
 
   it("should return empty when history has no archetypes", () => {
-    const current = makeSnapshot([{ name: "A", share: 20 }]);
+    const current = makeSnapshot([{ name: "A", share: 0.2 }]);
     const history = makeHistory([makeSnapshot([])]);
     expect(computeMetaMovers(current, history)).toEqual([]);
   });
 
   it("should identify archetypes with significant changes", () => {
     const old = makeSnapshot([
-      { name: "A", share: 10 },
-      { name: "B", share: 15 },
-      { name: "C", share: 12 },
+      { name: "A", share: 0.1 },
+      { name: "B", share: 0.15 },
+      { name: "C", share: 0.12 },
     ]);
     const current = makeSnapshot([
-      { name: "A", share: 15 },
-      { name: "B", share: 11 },
-      { name: "C", share: 12.3 },
+      { name: "A", share: 0.15 },
+      { name: "B", share: 0.11 },
+      { name: "C", share: 0.123 },
     ]);
     const history = makeHistory([old, current]);
 
     const result = computeMetaMovers(current, history, 3);
 
-    expect(result).toHaveLength(2); // C is under 0.5% threshold
+    expect(result).toHaveLength(2); // C is under 0.5pp threshold
     expect(result[0].name).toBe("A");
     expect(result[0].changeDirection).toBe("up");
     expect(result[0].changeValue).toBe(5);
@@ -398,12 +402,12 @@ describe("computeMetaMovers", () => {
 
   it("should sort by magnitude of change", () => {
     const old = makeSnapshot([
-      { name: "A", share: 10 },
-      { name: "B", share: 20 },
+      { name: "A", share: 0.1 },
+      { name: "B", share: 0.2 },
     ]);
     const current = makeSnapshot([
-      { name: "A", share: 12 },
-      { name: "B", share: 12 },
+      { name: "A", share: 0.12 },
+      { name: "B", share: 0.12 },
     ]);
     const history = makeHistory([old, current]);
 
@@ -415,14 +419,14 @@ describe("computeMetaMovers", () => {
 
   it("should respect limit", () => {
     const old = makeSnapshot([
-      { name: "A", share: 10 },
-      { name: "B", share: 15 },
-      { name: "C", share: 12 },
+      { name: "A", share: 0.1 },
+      { name: "B", share: 0.15 },
+      { name: "C", share: 0.12 },
     ]);
     const current = makeSnapshot([
-      { name: "A", share: 15 },
-      { name: "B", share: 10 },
-      { name: "C", share: 8 },
+      { name: "A", share: 0.15 },
+      { name: "B", share: 0.1 },
+      { name: "C", share: 0.08 },
     ]);
     const history = makeHistory([old, current]);
 
@@ -432,10 +436,10 @@ describe("computeMetaMovers", () => {
   });
 
   it("should treat new archetypes as rising from 0", () => {
-    const old = makeSnapshot([{ name: "A", share: 10 }]);
+    const old = makeSnapshot([{ name: "A", share: 0.1 }]);
     const current = makeSnapshot([
-      { name: "A", share: 10 },
-      { name: "B", share: 8 },
+      { name: "A", share: 0.1 },
+      { name: "B", share: 0.08 },
     ]);
     const history = makeHistory([old, current]);
 
@@ -447,9 +451,9 @@ describe("computeMetaMovers", () => {
     expect(result[0].changeValue).toBe(8);
   });
 
-  it("should exclude archetypes at exactly 0.5% change boundary", () => {
-    const old = makeSnapshot([{ name: "A", share: 10.0 }]);
-    const current = makeSnapshot([{ name: "A", share: 10.5 }]);
+  it("should exclude archetypes at exactly 0.5pp change boundary", () => {
+    const old = makeSnapshot([{ name: "A", share: 0.1 }]);
+    const current = makeSnapshot([{ name: "A", share: 0.105 }]);
     const history = makeHistory([old, current]);
 
     const result = computeMetaMovers(current, history, 3);
@@ -458,14 +462,14 @@ describe("computeMetaMovers", () => {
   });
 
   it("should compare against oldest snapshot when history has 3+ entries", () => {
-    const oldest = makeSnapshot([{ name: "A", share: 10 }]);
-    const middle = makeSnapshot([{ name: "A", share: 14 }]);
-    const current = makeSnapshot([{ name: "A", share: 16 }]);
+    const oldest = makeSnapshot([{ name: "A", share: 0.1 }]);
+    const middle = makeSnapshot([{ name: "A", share: 0.14 }]);
+    const current = makeSnapshot([{ name: "A", share: 0.16 }]);
     const history = makeHistory([oldest, middle, current]);
 
     const result = computeMetaMovers(current, history, 3);
 
-    // Should compare current (16) vs oldest (10) = +6, not vs middle (14) = +2
+    // Should compare current (16%) vs oldest (10%) = +6pp, not vs middle (14%) = +2pp
     expect(result[0].changeValue).toBe(6);
   });
 });

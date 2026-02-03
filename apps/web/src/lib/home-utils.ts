@@ -70,24 +70,25 @@ export function computeTrends(
   const previousMap = new Map<string, number>();
   if (previousSnapshot?.archetype_breakdown) {
     for (const arch of previousSnapshot.archetype_breakdown) {
-      previousMap.set(arch.name, arch.share);
+      previousMap.set(arch.name, arch.share * 100);
     }
   }
 
   const jpMap = new Map<string, number>();
   if (jpMeta?.archetype_breakdown) {
     for (const arch of jpMeta.archetype_breakdown) {
-      jpMap.set(arch.name, arch.share);
+      jpMap.set(arch.name, arch.share * 100);
     }
   }
 
   return globalMeta.archetype_breakdown.slice(0, limit).map((arch, index) => {
+    const share = arch.share * 100;
     const previousShare = previousMap.get(arch.name);
     let trend: "up" | "down" | "stable" = "stable";
     let trendValue: number | undefined;
 
     if (previousShare !== undefined) {
-      const diff = arch.share - previousShare;
+      const diff = share - previousShare;
       trendValue = Math.round(diff * 10) / 10;
       if (diff > TREND_THRESHOLD_PP) trend = "up";
       else if (diff < -TREND_THRESHOLD_PP) trend = "down";
@@ -96,7 +97,7 @@ export function computeTrends(
     const jpShare = jpMap.get(arch.name);
     let jpSignal: number | undefined;
     if (jpShare !== undefined) {
-      const divergence = jpShare - arch.share;
+      const divergence = jpShare - share;
       if (Math.abs(divergence) > JP_SIGNAL_THRESHOLD_PP) {
         jpSignal = Math.round(divergence * 10) / 10;
       }
@@ -105,7 +106,7 @@ export function computeTrends(
     return {
       rank: index + 1,
       name: arch.name,
-      metaShare: arch.share,
+      metaShare: share,
       trend,
       trendValue,
       jpSignal,
@@ -138,27 +139,25 @@ export function computeJPDivergence(
   );
   const globalMap = new Map<string, number>();
   for (const arch of globalMeta.archetype_breakdown) {
-    globalMap.set(arch.name, arch.share);
+    globalMap.set(arch.name, arch.share * 100);
   }
 
   const divergentArchetypes: string[] = [];
   let maxDivergence = 0;
 
   for (const jpArch of jpMeta.archetype_breakdown.slice(0, 5)) {
+    const jpShare = jpArch.share * 100;
     const globalShare = globalMap.get(jpArch.name);
 
     if (!globalNames.has(jpArch.name)) {
       divergentArchetypes.push(jpArch.name);
-      maxDivergence = Math.max(maxDivergence, jpArch.share);
+      maxDivergence = Math.max(maxDivergence, jpShare);
     } else if (
       globalShare !== undefined &&
-      Math.abs(jpArch.share - globalShare) > JP_DIVERGENCE_THRESHOLD_PP
+      Math.abs(jpShare - globalShare) > JP_DIVERGENCE_THRESHOLD_PP
     ) {
       divergentArchetypes.push(jpArch.name);
-      maxDivergence = Math.max(
-        maxDivergence,
-        Math.abs(jpArch.share - globalShare)
-      );
+      maxDivergence = Math.max(maxDivergence, Math.abs(jpShare - globalShare));
     }
   }
 
@@ -197,25 +196,26 @@ export function buildJPComparisons(
 
   const globalMap = new Map<string, number>();
   for (const arch of globalMeta.archetype_breakdown) {
-    globalMap.set(arch.name, arch.share);
+    globalMap.set(arch.name, arch.share * 100);
   }
 
   return jpTop.map((jpArch, index) => {
     const globalArch = globalTop[index];
+    const jpShare = jpArch.share * 100;
     const globalShareForJpArch = globalMap.get(jpArch.name) ?? 0;
     const divergence =
       globalShareForJpArch > 0
         ? Math.round(
-            ((jpArch.share - globalShareForJpArch) / globalShareForJpArch) * 100
+            ((jpShare - globalShareForJpArch) / globalShareForJpArch) * 100
           )
         : 100;
 
     return {
       rank: index + 1,
       jpName: jpArch.name,
-      jpShare: jpArch.share,
+      jpShare,
       enName: globalArch?.name ?? "—",
-      enShare: globalArch?.share ?? 0,
+      enShare: (globalArch?.share ?? 0) * 100,
       divergence: Math.abs(divergence),
     };
   });
@@ -257,19 +257,20 @@ export function computeMetaMovers(
 
   const oldMap = new Map<string, number>();
   for (const arch of oldestSnapshot.archetype_breakdown) {
-    oldMap.set(arch.name, arch.share);
+    oldMap.set(arch.name, arch.share * 100);
   }
 
   const movers: MetaMover[] = [];
   for (const arch of currentMeta.archetype_breakdown) {
+    const share = arch.share * 100;
     const oldShare = oldMap.get(arch.name) ?? 0;
-    const change = arch.share - oldShare;
+    const change = share - oldShare;
     if (Math.abs(change) > TREND_THRESHOLD_PP) {
       movers.push({
         name: arch.name,
         changeDirection: change > 0 ? "up" : "down",
         changeValue: Math.round(Math.abs(change) * 10) / 10,
-        currentShare: arch.share,
+        currentShare: share,
       });
     }
   }

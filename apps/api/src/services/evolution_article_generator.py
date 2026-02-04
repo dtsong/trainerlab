@@ -4,6 +4,7 @@ Generates narrative articles about archetype evolution by combining
 snapshot data, adaptations, and predictions into readable content.
 """
 
+import json
 import logging
 import re
 from datetime import UTC, datetime
@@ -252,8 +253,6 @@ class EvolutionArticleGenerator:
                 }
             )
 
-        import json
-
         user_prompt = (
             f"Write an evolution article for {archetype}.\n\n"
             f"Snapshots (most recent first):\n"
@@ -279,11 +278,15 @@ class EvolutionArticleGenerator:
         return result
 
     def _generate_slug(self, archetype: str) -> str:
-        """Generate a URL slug for the article."""
+        """Generate a URL slug for the article.
+
+        Includes timestamp with time component to prevent collisions
+        when generating multiple articles for the same archetype.
+        """
         base = archetype.lower()
         base = re.sub(r"[^a-z0-9\s-]", "", base)
         base = re.sub(r"[\s]+", "-", base).strip("-")
-        timestamp = datetime.now(UTC).strftime("%Y%m%d")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         return f"{base}-evolution-{timestamp}"
 
     def _build_lab_note_content(self, article: EvolutionArticle) -> str:

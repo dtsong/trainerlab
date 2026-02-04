@@ -4,11 +4,13 @@ This module provides dependency injection functions for JWT-based auth
 using NextAuth.js HS256-signed tokens.
 """
 
+import json
 import logging
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,9 +20,30 @@ from src.db.database import get_db
 from src.models.user import User
 
 logger = logging.getLogger(__name__)
+security_logger = logging.getLogger("security.auth")
+
+
+def _log_security_event(
+    event_type: str,
+    request: Request | None = None,
+    user_id: str | None = None,
+    details: dict | None = None,
+) -> None:
+    """Log a structured security event."""
+    event = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "event_type": event_type,
+        "user_id": user_id,
+        "ip_address": request.client.host if request and request.client else None,
+        "user_agent": (request.headers.get("user-agent") if request else None),
+        "path": str(request.url.path) if request else None,
+        "details": details or {},
+    }
+    security_logger.warning(json.dumps(event))
 
 
 async def get_current_user(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
@@ -46,6 +69,11 @@ async def get_current_user(
             - Token verification fails due to infrastructure issues
     """
     if not authorization:
+        _log_security_event(
+            "auth_missing_header",
+            request=request,
+            details={"reason": "No Authorization header provided"},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization header required",
@@ -55,6 +83,11 @@ async def get_current_user(
     # Parse "Bearer <token>" format
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
+        _log_security_event(
+            "auth_invalid_format",
+            request=request,
+            details={"reason": "Invalid Authorization header format"},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authorization header format",
@@ -68,12 +101,22 @@ async def get_current_user(
         decoded = verify_token(token)
     except TokenVerificationError as e:
         logger.error("Token verification infrastructure error: %s", e)
+        _log_security_event(
+            "auth_verification_error",
+            request=request,
+            details={"reason": "Token verification infrastructure error"},
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service temporarily unavailable",
         ) from e
 
     if decoded is None:
+        _log_security_event(
+            "auth_invalid_token",
+            request=request,
+            details={"reason": "Invalid or expired token"},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -88,6 +131,14 @@ async def get_current_user(
     # Auto-create user if they don't exist (first login)
     if user is None:
         if not decoded.email:
+            _log_security_event(
+                "auth_missing_email",
+                request=request,
+                details={
+                    "reason": "Email required for account creation",
+                    "sub": decoded.sub,
+                },
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Email required for account creation",
@@ -124,6 +175,7 @@ async def get_current_user(
 
 
 async def get_current_user_optional(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> User | None:
@@ -137,6 +189,7 @@ async def get_current_user_optional(
     will raise 401 rather than silently falling back to anonymous access.
 
     Args:
+        request: FastAPI request object
         db: Database session
         authorization: Authorization header (optional)
 
@@ -150,7 +203,7 @@ async def get_current_user_optional(
         return None
 
     # If auth is provided, it must be valid - don't silently fall back to anonymous
-    return await get_current_user(db, authorization)
+    return await get_current_user(request, db, authorization)
 
 
 # Type aliases for cleaner dependency injection

@@ -2,7 +2,9 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
@@ -16,10 +18,13 @@ from src.services.card_service import CardService, SortField, SortOrder
 from src.services.usage_service import UsageService
 
 router = APIRouter(prefix="/api/v1/cards", tags=["cards"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("")
+@limiter.limit("100/minute")
 async def list_cards(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     limit: Annotated[
@@ -82,7 +87,9 @@ async def list_cards(
 
 
 @router.get("/search")
+@limiter.limit("60/minute")
 async def search_cards(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     q: Annotated[
         str,
@@ -152,7 +159,9 @@ async def search_cards(
 
 
 @router.get("/{card_id}")
+@limiter.limit("100/minute")
 async def get_card(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     card_id: str,
 ) -> CardResponse:
@@ -168,7 +177,9 @@ async def get_card(
 
 
 @router.get("/{card_id}/usage")
+@limiter.limit("60/minute")
 async def get_card_usage(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     card_id: str,
     format: Annotated[

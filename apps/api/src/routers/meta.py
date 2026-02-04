@@ -6,7 +6,9 @@ from collections.abc import Sequence
 from datetime import date, timedelta
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +35,7 @@ from src.schemas import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/meta", tags=["meta"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 # Format notes for Japan BO1
@@ -117,7 +120,9 @@ def _snapshot_to_response(
 
 
 @router.get("/current")
+@limiter.limit("60/minute")
 async def get_current_meta(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     region: Annotated[
         str | None,
@@ -178,7 +183,9 @@ async def get_current_meta(
 
 
 @router.get("/history")
+@limiter.limit("30/minute")
 async def get_meta_history(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     region: Annotated[
         str | None,
@@ -239,7 +246,9 @@ async def get_meta_history(
 
 
 @router.get("/archetypes")
+@limiter.limit("60/minute")
 async def list_archetypes(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     region: Annotated[
         str | None,
@@ -308,7 +317,9 @@ async def list_archetypes(
 
 
 @router.get("/archetypes/{name}")
+@limiter.limit("30/minute")
 async def get_archetype_detail(
+    request: Request,
     name: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     region: Annotated[
@@ -644,7 +655,9 @@ def _compute_matchups_from_placements(
 
 
 @router.get("/archetypes/{name}/matchups")
+@limiter.limit("30/minute")
 async def get_archetype_matchups(
+    request: Request,
     name: str,
     db: Annotated[AsyncSession, Depends(get_db)],
     region: Annotated[

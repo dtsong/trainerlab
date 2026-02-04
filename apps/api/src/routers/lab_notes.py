@@ -4,7 +4,9 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
@@ -29,10 +31,13 @@ from src.services.lab_note_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/lab-notes", tags=["lab-notes"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("")
+@limiter.limit("60/minute")
 async def list_lab_notes(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     limit: Annotated[int, Query(ge=1, le=100, description="Page size")] = 20,
@@ -63,7 +68,9 @@ async def list_lab_notes(
 
 
 @router.get("/{slug}")
+@limiter.limit("60/minute")
 async def get_lab_note(
+    request: Request,
     slug: str,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> LabNoteResponse:
@@ -91,7 +98,9 @@ async def get_lab_note(
 
 
 @router.get("/admin/all")
+@limiter.limit("30/minute")
 async def list_all_lab_notes(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     admin_user: AdminUser,
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
@@ -127,7 +136,9 @@ async def list_all_lab_notes(
 
 
 @router.get("/admin/{note_id}")
+@limiter.limit("30/minute")
 async def get_lab_note_by_id(
+    request: Request,
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     admin_user: AdminUser,
@@ -152,7 +163,9 @@ async def get_lab_note_by_id(
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def create_lab_note(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     admin_user: AdminUser,
     data: LabNoteCreate,
@@ -178,7 +191,9 @@ async def create_lab_note(
 
 
 @router.patch("/{note_id}")
+@limiter.limit("20/minute")
 async def update_lab_note(
+    request: Request,
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     admin_user: AdminUser,
@@ -204,7 +219,9 @@ async def update_lab_note(
 
 
 @router.patch("/{note_id}/status")
+@limiter.limit("20/minute")
 async def update_lab_note_status(
+    request: Request,
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     admin_user: AdminUser,
@@ -230,7 +247,9 @@ async def update_lab_note_status(
 
 
 @router.get("/{note_id}/revisions")
+@limiter.limit("30/minute")
 async def list_lab_note_revisions(
+    request: Request,
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     admin_user: AdminUser,
@@ -256,7 +275,9 @@ async def list_lab_note_revisions(
 
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
 async def delete_lab_note(
+    request: Request,
     note_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     admin_user: AdminUser,

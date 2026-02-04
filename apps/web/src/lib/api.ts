@@ -38,6 +38,18 @@ import type {
   ApiEvolutionArticle,
   ApiPredictionAccuracy,
 } from "@trainerlab/shared-types";
+import type { z } from "zod/v4";
+
+import {
+  validateApiResponse,
+  PaginatedCardSummarySchema,
+  MetaSnapshotSchema,
+  MetaHistoryResponseSchema,
+  ArchetypeSchema,
+  LabNoteListResponseSchema,
+  LabNoteSchema,
+  TournamentListResponseSchema,
+} from "./api-validation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -94,6 +106,16 @@ async function fetchApi<T>(
       parseError: error,
     });
   }
+}
+
+async function fetchApiValidated<T, S>(
+  endpoint: string,
+  schema: z.ZodSchema<S>,
+  options?: RequestInit
+): Promise<T> {
+  const data = await fetchApi<unknown>(endpoint, options);
+  validateApiResponse(schema, data, endpoint);
+  return data as T;
 }
 
 /**
@@ -161,8 +183,9 @@ export const cardsApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiPaginatedResponse<ApiCardSummary>>(
-      `/api/v1/cards${query ? `?${query}` : ""}`
+    return fetchApiValidated<ApiPaginatedResponse<ApiCardSummary>, unknown>(
+      `/api/v1/cards${query ? `?${query}` : ""}`,
+      PaginatedCardSummarySchema
     );
   },
 
@@ -205,8 +228,9 @@ export const metaApi = {
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
 
     const query = searchParams.toString();
-    return fetchApi<ApiMetaSnapshot>(
-      `/api/v1/meta/current${query ? `?${query}` : ""}`
+    return fetchApiValidated<ApiMetaSnapshot, unknown>(
+      `/api/v1/meta/current${query ? `?${query}` : ""}`,
+      MetaSnapshotSchema
     );
   },
 
@@ -218,8 +242,9 @@ export const metaApi = {
     if (params.days) searchParams.set("days", String(params.days));
 
     const query = searchParams.toString();
-    return fetchApi<ApiMetaHistoryResponse>(
-      `/api/v1/meta/history${query ? `?${query}` : ""}`
+    return fetchApiValidated<ApiMetaHistoryResponse, unknown>(
+      `/api/v1/meta/history${query ? `?${query}` : ""}`,
+      MetaHistoryResponseSchema
     );
   },
 
@@ -230,8 +255,9 @@ export const metaApi = {
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
 
     const query = searchParams.toString();
-    return fetchApi<ApiArchetype[]>(
-      `/api/v1/meta/archetypes${query ? `?${query}` : ""}`
+    return fetchApiValidated<ApiArchetype[], unknown>(
+      `/api/v1/meta/archetypes${query ? `?${query}` : ""}`,
+      ArchetypeSchema.array()
     );
   },
 };
@@ -266,8 +292,9 @@ export const tournamentsApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiTournamentListResponse>(
-      `/api/v1/tournaments${query ? `?${query}` : ""}`
+    return fetchApiValidated<ApiTournamentListResponse, unknown>(
+      `/api/v1/tournaments${query ? `?${query}` : ""}`,
+      TournamentListResponseSchema
     );
   },
 
@@ -302,14 +329,16 @@ export const labNotesApi = {
     if (params.tag) searchParams.set("tag", params.tag);
 
     const query = searchParams.toString();
-    return fetchApi<ApiLabNoteListResponse>(
-      `/api/v1/lab-notes${query ? `?${query}` : ""}`
+    return fetchApiValidated<ApiLabNoteListResponse, unknown>(
+      `/api/v1/lab-notes${query ? `?${query}` : ""}`,
+      LabNoteListResponseSchema
     );
   },
 
   getBySlug: (slug: string) => {
-    return fetchApi<ApiLabNote>(
-      `/api/v1/lab-notes/${encodeURIComponent(slug)}`
+    return fetchApiValidated<ApiLabNote, unknown>(
+      `/api/v1/lab-notes/${encodeURIComponent(slug)}`,
+      LabNoteSchema
     );
   },
 };

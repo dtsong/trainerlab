@@ -3,7 +3,9 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
@@ -14,10 +16,13 @@ from src.services.user_service import DatabaseError, UserService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/me")
+@limiter.limit("30/minute")
 async def get_current_user_info(
+    request: Request,
     current_user: CurrentUser,
 ) -> UserResponse:
     """Get the current authenticated user's profile."""
@@ -25,7 +30,9 @@ async def get_current_user_info(
 
 
 @router.get("/me/preferences")
+@limiter.limit("30/minute")
 async def get_user_preferences(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
 ) -> dict:
@@ -35,7 +42,9 @@ async def get_user_preferences(
 
 
 @router.put("/me/preferences")
+@limiter.limit("10/minute")
 async def update_user_preferences(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
     prefs: UserPreferencesUpdate,

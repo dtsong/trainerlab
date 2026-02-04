@@ -7,3 +7,5 @@ export { CityLeagueResultsFeed } from "./CityLeagueResultsFeed";
 export { MetaDivergenceComparison } from "./MetaDivergenceComparison";
 export { CardCountEvolutionChart } from "./CardCountEvolutionChart";
 export { CardCountEvolutionSection } from "./CardCountEvolutionSection";
+export { CardAdoptionRates } from "./CardAdoptionRates";
+export { UpcomingCards } from "./UpcomingCards";

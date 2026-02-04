@@ -37,6 +37,16 @@ import type {
   ApiEvolutionArticleListItem,
   ApiEvolutionArticle,
   ApiPredictionAccuracy,
+  ApiJPAdoptionRateList,
+  ApiJPUnreleasedCardList,
+  ApiTranslatedContent,
+  ApiTranslatedContentList,
+  ApiSubmitTranslationRequest,
+  ApiUpdateTranslationRequest,
+  ApiGlossaryTermOverride,
+  ApiGlossaryTermOverrideList,
+  ApiGlossaryTermCreateRequest,
+  ContentType,
 } from "@trainerlab/shared-types";
 import type { z } from "zod/v4";
 
@@ -584,6 +594,107 @@ export const evolutionApi = {
   getArchetypePrediction: (archetypeId: string) => {
     return fetchApi<ApiArchetypePrediction>(
       `/api/v1/archetypes/${encodeURIComponent(archetypeId)}/prediction`
+    );
+  },
+};
+
+// Translation public params
+export interface JPAdoptionRatesParams {
+  days?: number;
+  archetype?: string;
+  limit?: number;
+}
+
+export interface JPUpcomingCardsParams {
+  include_released?: boolean;
+  min_impact?: number;
+  limit?: number;
+}
+
+// Translation admin params
+export interface AdminTranslationsParams {
+  status?: string;
+  content_type?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// Translations public API
+export const translationsApi = {
+  getAdoptionRates: (params: JPAdoptionRatesParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.days) searchParams.set("days", String(params.days));
+    if (params.archetype) searchParams.set("archetype", params.archetype);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiJPAdoptionRateList>(
+      `/api/v1/japan/adoption-rates${query ? `?${query}` : ""}`
+    );
+  },
+
+  getUpcomingCards: (params: JPUpcomingCardsParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.include_released !== undefined)
+      searchParams.set("include_released", String(params.include_released));
+    if (params.min_impact)
+      searchParams.set("min_impact", String(params.min_impact));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiJPUnreleasedCardList>(
+      `/api/v1/japan/upcoming-cards${query ? `?${query}` : ""}`
+    );
+  },
+};
+
+// Translations admin API
+export const translationsAdminApi = {
+  list: (params: AdminTranslationsParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.status) searchParams.set("status_filter", params.status);
+    if (params.content_type)
+      searchParams.set("content_type", params.content_type);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+
+    const query = searchParams.toString();
+    return fetchApiAuth<ApiTranslatedContentList>(
+      `/api/v1/admin/translations${query ? `?${query}` : ""}`
+    );
+  },
+
+  submit: (data: ApiSubmitTranslationRequest) => {
+    return fetchApiAuth<ApiTranslatedContent>("/api/v1/admin/translations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: (id: string, data: ApiUpdateTranslationRequest) => {
+    return fetchApiAuth<ApiTranslatedContent>(
+      `/api/v1/admin/translations/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  listGlossary: (activeOnly = true) => {
+    const params = activeOnly ? "?active_only=true" : "";
+    return fetchApiAuth<ApiGlossaryTermOverrideList>(
+      `/api/v1/admin/translations/glossary${params}`
+    );
+  },
+
+  createGlossaryTerm: (data: ApiGlossaryTermCreateRequest) => {
+    return fetchApiAuth<ApiGlossaryTermOverride>(
+      "/api/v1/admin/translations/glossary",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
     );
   },
 };

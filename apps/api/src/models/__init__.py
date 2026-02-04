@@ -1,10 +1,13 @@
 """SQLAlchemy models."""
 
 from src.models.adaptation import Adaptation
+from src.models.api_key import ApiKey
+from src.models.api_request import ApiRequest
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
 from src.models.archetype_prediction import ArchetypePrediction
 from src.models.card import Card
 from src.models.card_id_mapping import CardIdMapping
+from src.models.data_export import DataExport
 from src.models.deck import Deck
 from src.models.evolution_article import EvolutionArticle
 from src.models.evolution_article_snapshot import EvolutionArticleSnapshot
@@ -26,13 +29,18 @@ from src.models.translated_content import TranslatedContent
 from src.models.translation_term_override import TranslationTermOverride
 from src.models.user import User
 from src.models.waitlist import WaitlistEntry
+from src.models.widget import Widget
+from src.models.widget_view import WidgetView
 
 __all__ = [
     "Adaptation",
+    "ApiKey",
+    "ApiRequest",
     "ArchetypeEvolutionSnapshot",
     "ArchetypePrediction",
     "Card",
     "CardIdMapping",
+    "DataExport",
     "Deck",
     "EvolutionArticle",
     "EvolutionArticleSnapshot",
@@ -54,4 +62,6 @@ __all__ = [
     "TranslationTermOverride",
     "User",
     "WaitlistEntry",
+    "Widget",
+    "WidgetView",
 ]

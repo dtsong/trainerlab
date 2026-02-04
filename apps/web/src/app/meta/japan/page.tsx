@@ -19,6 +19,8 @@ import {
   CityLeagueResultsFeed,
   MetaDivergenceComparison,
   CardCountEvolutionSection,
+  CardAdoptionRates,
+  UpcomingCards,
 } from "@/components/japan";
 import { metaApi } from "@/lib/api";
 import {
@@ -224,17 +226,26 @@ function JapanMetaPageContent() {
         )}
       </section>
 
-      {/* Section 2: City League Results */}
+      {/* Section 2: Card Adoption & Upcoming Cards */}
+      <section>
+        <h2 className="text-xl font-semibold mb-4">Card Intelligence</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <CardAdoptionRates days={days} limit={15} />
+          <UpcomingCards limit={8} />
+        </div>
+      </section>
+
+      {/* Section 3: City League Results */}
       <section>
         <CityLeagueResultsFeed startDate={startDateStr} endDate={endDateStr} />
       </section>
 
-      {/* Section 3: JP vs EN Divergence */}
+      {/* Section 4: JP vs EN Divergence */}
       <section>
         <MetaDivergenceComparison />
       </section>
 
-      {/* Section 4: Card Count Evolution */}
+      {/* Section 5: Card Count Evolution */}
       <section>
         <CardCountEvolutionSection
           archetypes={archetypeNames}
@@ -243,12 +254,12 @@ function JapanMetaPageContent() {
         />
       </section>
 
-      {/* Section 5: Card Innovation Tracker */}
+      {/* Section 6: Card Innovation Tracker */}
       <section>
         <CardInnovationTracker limit={20} />
       </section>
 
-      {/* Section 6: New Archetype Watch */}
+      {/* Section 7: New Archetype Watch */}
       <section>
         <NewArchetypeWatch limit={9} />
       </section>

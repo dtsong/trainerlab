@@ -10,7 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from src.models.api_key import ApiKey
     from src.models.deck import Deck
+    from src.models.widget import Widget
 
 
 class User(Base, TimestampMixin):
@@ -42,4 +44,10 @@ class User(Base, TimestampMixin):
     # Relationships
     decks: Mapped[list["Deck"]] = relationship(
         "Deck", back_populates="user", cascade="all, delete-orphan"
+    )
+    widgets: Mapped[list["Widget"]] = relationship(
+        "Widget", back_populates="user", cascade="all, delete-orphan"
+    )
+    api_keys: Mapped[list["ApiKey"]] = relationship(
+        "ApiKey", back_populates="user", cascade="all, delete-orphan"
     )

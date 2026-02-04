@@ -14,9 +14,12 @@ from src.db.base import Base
 # Import all models to ensure they're registered with Base.metadata
 from src.models import (  # noqa: F401
     Adaptation,
+    ApiKey,
+    ApiRequest,
     ArchetypeEvolutionSnapshot,
     ArchetypePrediction,
     Card,
+    DataExport,
     Deck,
     EvolutionArticle,
     EvolutionArticleSnapshot,
@@ -25,6 +28,8 @@ from src.models import (  # noqa: F401
     Tournament,
     TournamentPlacement,
     User,
+    Widget,
+    WidgetView,
 )
 
 # Alembic Config object

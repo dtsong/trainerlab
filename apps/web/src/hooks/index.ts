@@ -11,3 +11,11 @@ export {
   useJPSetImpacts,
   usePredictions,
 } from "./useJapan";
+export { useJPAdoptionRates, useJPUpcomingCards } from "./useTranslations";
+export {
+  useTranslationsAdmin,
+  useSubmitTranslation,
+  useUpdateTranslation,
+  useGlossaryTerms,
+  useCreateGlossaryTerm,
+} from "./useTranslationsAdmin";

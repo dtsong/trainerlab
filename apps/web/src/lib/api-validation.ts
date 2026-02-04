@@ -5,7 +5,7 @@
  * and ensure data integrity before it enters the application.
  */
 
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const PaginationFieldsSchema = z.object({
   total: z.number(),

@@ -48,7 +48,7 @@ import type {
   ApiGlossaryTermCreateRequest,
   ContentType,
 } from "@trainerlab/shared-types";
-import type { z } from "zod/v4";
+import type { z } from "zod";
 
 import {
   validateApiResponse,
@@ -581,7 +581,9 @@ export const evolutionApi = {
 
   getAccuracy: (limit?: number) => {
     const params = limit ? `?limit=${limit}` : "";
-    return fetchApi<ApiPredictionAccuracy>(`/api/v1/evolution/accuracy${params}`);
+    return fetchApi<ApiPredictionAccuracy>(
+      `/api/v1/evolution/accuracy${params}`
+    );
   },
 
   getArchetypeEvolution: (archetypeId: string, limit?: number) => {

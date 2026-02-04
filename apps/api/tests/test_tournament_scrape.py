@@ -96,6 +96,67 @@ def sample_decklist() -> LimitlessDecklist:
     )
 
 
+class TestClassifyTier:
+    """Tests for tier classification logic."""
+
+    def test_classifies_major_by_name_regional(self) -> None:
+        """Should classify as major based on 'regional' in name."""
+        tier = TournamentScrapeService.classify_tier(50, "Portland Regional Championship")
+        assert tier == "major"
+
+    def test_classifies_major_by_name_international(self) -> None:
+        """Should classify as major based on 'international' in name."""
+        tier = TournamentScrapeService.classify_tier(100, "Latin America International")
+        assert tier == "major"
+
+    def test_classifies_major_by_name_worlds(self) -> None:
+        """Should classify as major based on 'worlds' in name."""
+        tier = TournamentScrapeService.classify_tier(200, "Pokemon Worlds 2024")
+        assert tier == "major"
+
+    def test_classifies_premier_by_name_league_cup(self) -> None:
+        """Should classify as premier based on 'league cup' in name."""
+        tier = TournamentScrapeService.classify_tier(20, "January League Cup")
+        assert tier == "premier"
+
+    def test_classifies_premier_by_name_league_challenge(self) -> None:
+        """Should classify as premier based on 'league challenge' in name."""
+        tier = TournamentScrapeService.classify_tier(15, "February League Challenge")
+        assert tier == "premier"
+
+    def test_classifies_league_by_name_city_league(self) -> None:
+        """Should classify as league based on 'city league' in name."""
+        tier = TournamentScrapeService.classify_tier(0, "Tokyo City League")
+        assert tier == "league"
+
+    def test_classifies_major_by_participant_count(self) -> None:
+        """Should classify as major when 256+ participants and no name match."""
+        tier = TournamentScrapeService.classify_tier(300, "Big Event")
+        assert tier == "major"
+
+    def test_classifies_premier_by_participant_count(self) -> None:
+        """Should classify as premier when 64-255 participants."""
+        tier = TournamentScrapeService.classify_tier(100, "Medium Event")
+        assert tier == "premier"
+
+    def test_classifies_league_by_participant_count(self) -> None:
+        """Should classify as league when under 64 participants."""
+        tier = TournamentScrapeService.classify_tier(30, "Small Event")
+        assert tier == "league"
+
+    def test_returns_none_for_zero_participants_and_unknown_name(self) -> None:
+        """Should return None when 0 participants and name doesn't match patterns."""
+        tier = TournamentScrapeService.classify_tier(0, "Unknown Event")
+        assert tier is None
+
+    def test_name_takes_priority_over_participant_count(self) -> None:
+        """Name-based classification should override participant count."""
+        tier = TournamentScrapeService.classify_tier(
+            10, "Regional Championship"
+        )
+        assert tier == "major"
+
+
 class TestTournamentExists:
     """Tests for tournament_exists method."""
 
@@ -622,6 +683,308 @@ class TestGetRecentTournaments:
         await service.get_recent_tournaments(best_of=1)
 
         mock_session.execute.assert_called_once()
+
+
+class TestDiscoverNewTournaments:
+    """Tests for discover_new_tournaments method."""
+
+    @pytest.mark.asyncio
+    async def test_discovers_new_tournaments(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_tournament: LimitlessTournament,
+    ) -> None:
+        """Should return tournaments not in database."""
+        mock_client.fetch_tournament_listings.return_value = [sample_tournament]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.discover_new_tournaments(max_pages=1)
+
+        assert len(result) == 1
+        assert result[0].name == sample_tournament.name
+
+    @pytest.mark.asyncio
+    async def test_filters_existing_tournaments(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_tournament: LimitlessTournament,
+    ) -> None:
+        """Should exclude tournaments already in database."""
+        mock_client.fetch_tournament_listings.return_value = [sample_tournament]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = Tournament(
+            id=uuid4(),
+            name="Existing",
+            date=date.today(),
+            region="NA",
+            format="standard",
+            best_of=3,
+            source_url=sample_tournament.source_url,
+        )
+        mock_session.execute.return_value = mock_result
+
+        result = await service.discover_new_tournaments(max_pages=1)
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    async def test_stops_pagination_on_empty_page(
+        self,
+        service: TournamentScrapeService,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Should stop pagination when page returns empty."""
+        mock_client.fetch_tournament_listings.side_effect = [
+            [LimitlessTournament(
+                name="T1",
+                tournament_date=date.today(),
+                region="NA",
+                game_format="standard",
+                best_of=3,
+                participant_count=100,
+                source_url="url1",
+                placements=[],
+            )],
+            [],
+        ]
+
+        await service.discover_new_tournaments(max_pages=5)
+
+        assert mock_client.fetch_tournament_listings.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_handles_fetch_error(
+        self,
+        service: TournamentScrapeService,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Should handle fetch error and return empty list."""
+        mock_client.fetch_tournament_listings.side_effect = LimitlessError("Error")
+
+        result = await service.discover_new_tournaments(max_pages=1)
+
+        assert len(result) == 0
+
+
+class TestDiscoverOfficialTournaments:
+    """Tests for discover_official_tournaments method."""
+
+    @pytest.mark.asyncio
+    async def test_discovers_official_tournaments(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Should return official tournaments not in database."""
+        tournament = LimitlessTournament(
+            name="Official Event",
+            tournament_date=date.today() - timedelta(days=5),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            participant_count=500,
+            source_url="https://limitlesstcg.com/tournaments/official/1",
+            placements=[],
+        )
+        mock_client.fetch_official_tournament_listings.return_value = [tournament]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.discover_official_tournaments(lookback_days=30)
+
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_filters_old_tournaments(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Should filter tournaments outside lookback period."""
+        old_tournament = LimitlessTournament(
+            name="Old Event",
+            tournament_date=date.today() - timedelta(days=100),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            participant_count=500,
+            source_url="https://limitlesstcg.com/tournaments/official/old",
+            placements=[],
+        )
+        mock_client.fetch_official_tournament_listings.return_value = [old_tournament]
+
+        result = await service.discover_official_tournaments(lookback_days=30)
+
+        assert len(result) == 0
+
+
+class TestDiscoverJPCityLeagues:
+    """Tests for discover_jp_city_leagues method."""
+
+    @pytest.mark.asyncio
+    async def test_discovers_jp_city_leagues(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Should return JP City League tournaments not in database."""
+        tournament = LimitlessTournament(
+            name="Tokyo City League",
+            tournament_date=date.today() - timedelta(days=5),
+            region="JP",
+            game_format="standard",
+            best_of=1,
+            participant_count=64,
+            source_url="https://limitlesstcg.com/tournaments/jp/1",
+            placements=[],
+        )
+        mock_client.fetch_jp_city_league_listings.return_value = [tournament]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.discover_jp_city_leagues(lookback_days=30)
+
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_handles_fetch_error(
+        self,
+        service: TournamentScrapeService,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Should return empty list on fetch error."""
+        mock_client.fetch_jp_city_league_listings.side_effect = LimitlessError("Error")
+
+        result = await service.discover_jp_city_leagues()
+
+        assert len(result) == 0
+
+
+class TestProcessTournamentByUrl:
+    """Tests for process_tournament_by_url method."""
+
+    @pytest.mark.asyncio
+    async def test_processes_standard_tournament(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Should process and save standard tournament."""
+        mock_client.fetch_tournament_placements.return_value = [sample_placement]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.process_tournament_by_url(
+            source_url="https://example.com/tournament",
+            name="Test Tournament",
+            tournament_date=date.today(),
+            region="NA",
+            fetch_decklists=False,
+        )
+
+        assert result.tournaments_saved == 1
+        assert result.placements_saved == 1
+
+    @pytest.mark.asyncio
+    async def test_skips_existing_tournament(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+    ) -> None:
+        """Should skip if tournament already exists."""
+        mock_result = MagicMock()
+        mock_result.first.return_value = Tournament(
+            id=uuid4(),
+            name="Existing",
+            date=date.today(),
+            region="NA",
+            format="standard",
+            best_of=3,
+            source_url="https://example.com/tournament",
+        )
+        mock_session.execute.return_value = mock_result
+
+        result = await service.process_tournament_by_url(
+            source_url="https://example.com/tournament",
+            name="Test Tournament",
+            tournament_date=date.today(),
+            region="NA",
+        )
+
+        assert result.tournaments_skipped == 1
+        assert result.tournaments_saved == 0
+
+    @pytest.mark.asyncio
+    async def test_processes_official_tournament(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Should use official placements fetcher when is_official=True."""
+        mock_client.fetch_official_tournament_placements.return_value = [sample_placement]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        await service.process_tournament_by_url(
+            source_url="https://example.com/official",
+            name="Official Tournament",
+            tournament_date=date.today(),
+            region="NA",
+            is_official=True,
+            fetch_decklists=False,
+        )
+
+        mock_client.fetch_official_tournament_placements.assert_called_once()
+        mock_client.fetch_tournament_placements.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_processes_jp_city_league(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Should use JP placements fetcher when is_jp_city_league=True."""
+        mock_client.fetch_jp_city_league_placements.return_value = [sample_placement]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        await service.process_tournament_by_url(
+            source_url="https://example.com/jp",
+            name="JP City League",
+            tournament_date=date.today(),
+            region="JP",
+            is_jp_city_league=True,
+            fetch_decklists=False,
+        )
+
+        mock_client.fetch_jp_city_league_placements.assert_called_once()
 
 
 class TestScrapeResult:

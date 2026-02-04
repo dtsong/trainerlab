@@ -4,17 +4,28 @@ import Link from "next/link";
 import { ArrowRight, GitBranch, TrendingUp, TrendingDown } from "lucide-react";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useHomeMetaData } from "@/hooks/useMeta";
-import { computeMetaMovers, type MetaMover } from "@/lib/home-utils";
+import {
+  useEvolutionArticles,
+  useArchetypeEvolution,
+} from "@/hooks/useEvolution";
+import { computeMetaMovers } from "@/lib/home-utils";
 
 export function EvolutionPreview() {
   const { globalMeta, history, isLoading, isError } = useHomeMetaData();
+  const { data: articles } = useEvolutionArticles({ limit: 1 });
+  const featuredArticle = articles?.[0];
 
   const archetypes = globalMeta?.archetype_breakdown ?? [];
   const topArchetype = archetypes[0];
   const movers = computeMetaMovers(globalMeta, history, 3);
 
-  // Compute top archetype's current vs previous share (convert API decimals to percentages)
+  const { data: evolutionData } = useArchetypeEvolution(
+    topArchetype?.name ?? null,
+    5
+  );
+
   const currentShare = (topArchetype?.share ?? 0) * 100;
   const oldestSnapshot = history?.snapshots?.[0];
   const previousShare =
@@ -23,8 +34,11 @@ export function EvolutionPreview() {
     )?.share ?? 0) * 100;
   const changePercent = currentShare - previousShare;
 
-  // Build sparkline data from history snapshots
   const sparklineData =
+    evolutionData?.snapshots
+      ?.map((s) => (s.meta_share ?? 0) * 100)
+      .filter((v) => v > 0)
+      .reverse() ??
     history?.snapshots
       ?.map((s) => {
         const arch = s.archetype_breakdown?.find(
@@ -32,9 +46,9 @@ export function EvolutionPreview() {
         );
         return (arch?.share ?? 0) * 100;
       })
-      .filter((v) => v > 0) ?? [];
+      .filter((v) => v > 0) ??
+    [];
 
-  // Determine if we have enough data to show
   const hasData = !isLoading && !isError && topArchetype;
 
   if (!isLoading && !isError && !topArchetype) {
@@ -51,7 +65,6 @@ export function EvolutionPreview() {
         />
 
         <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
-          {/* Left: Mini chart + stats */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
             {isLoading ? (
               <div className="animate-pulse">
@@ -73,7 +86,6 @@ export function EvolutionPreview() {
                   </span>
                 </div>
 
-                {/* Mini sparkline from real data */}
                 <div className="mb-4 h-32 rounded-lg bg-gradient-to-r from-slate-100 to-slate-50">
                   <div className="flex h-full items-end justify-around px-4 pb-2">
                     {(sparklineData.length > 0
@@ -115,7 +127,6 @@ export function EvolutionPreview() {
             )}
           </div>
 
-          {/* Right: Meta Movers */}
           <div>
             <h4 className="mb-4 flex items-center gap-2 font-medium text-slate-700">
               <GitBranch className="h-4 w-4 text-teal-500" />
@@ -174,12 +185,37 @@ export function EvolutionPreview() {
                 Not enough historical data yet
               </p>
             )}
-            {hasData && topArchetype && (
-              <Button variant="ghost" size="sm" className="mt-4" asChild>
-                <Link
-                  href={`/meta/archetypes/${encodeURIComponent(topArchetype.name)}`}
+
+            {featuredArticle && (
+              <div className="mt-6 p-4 rounded-lg bg-slate-100/80 border border-slate-200">
+                <Badge
+                  variant="outline"
+                  className="mb-2 bg-teal-500/10 text-teal-700 border-teal-500/30"
                 >
-                  View archetype details
+                  Featured Evolution
+                </Badge>
+                <h5 className="font-medium text-slate-900 mb-1 line-clamp-1">
+                  {featuredArticle.title}
+                </h5>
+                {featuredArticle.excerpt && (
+                  <p className="text-sm text-slate-500 line-clamp-2 mb-2">
+                    {featuredArticle.excerpt}
+                  </p>
+                )}
+                <Link
+                  href={`/evolution/${featuredArticle.slug}`}
+                  className="text-sm font-medium text-teal-600 hover:text-teal-700 inline-flex items-center gap-1"
+                >
+                  Read Full Evolution Analysis
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
+
+            {hasData && topArchetype && !featuredArticle && (
+              <Button variant="ghost" size="sm" className="mt-4" asChild>
+                <Link href="/evolution">
+                  View all evolution articles
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>

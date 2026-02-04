@@ -6,6 +6,7 @@
 # - compute-meta: 8 AM daily (after scraping)
 # - compute-evolution: 9 AM daily (after compute-meta, AI classification + predictions)
 # - sync-cards: 3 AM Sunday weekly (low traffic)
+# - sync-card-mappings: 4 AM Sunday weekly (after sync-cards, JP-to-EN mappings)
 # - translate-pokecabook: 9 AM MWF (Japanese content translation)
 # - sync-jp-adoption: 10 AM TTS (JP card adoption rates)
 # - translate-tier-lists: 10 AM Sunday (weekly tier list consolidation)
@@ -47,6 +48,13 @@ locals {
       uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-cards"
       body             = jsonencode({ dry_run = false })
       attempt_deadline = "600s"
+    }
+    sync-card-mappings = {
+      description      = "Sync JP-to-EN card ID mappings for archetype detection"
+      schedule         = "0 4 * * 0" # Weekly on Sunday at 4 AM (after sync-cards)
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-card-mappings"
+      body             = jsonencode({ dry_run = false })
+      attempt_deadline = "300s"
     }
     translate-pokecabook = {
       description      = "Translate Japanese content from Pokecabook"

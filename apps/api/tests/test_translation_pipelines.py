@@ -258,30 +258,53 @@ class TestTranslateTierListsPipeline:
     @pytest.mark.asyncio
     async def test_handles_partial_failure(self) -> None:
         """Should continue if one source fails."""
+        from contextlib import asynccontextmanager
+
+        from src.clients.pokekameshi import PokekameshiError
+
         mock_pokecabook_tier = MagicMock()
         mock_pokecabook_tier.entries = [
             MagicMock(archetype_name="リザードン", tier="S", usage_rate=0.18)
         ]
 
-        with (
-            patch("src.pipelines.translate_tier_lists.PokecabookClient") as mock_pc,
-            patch("src.pipelines.translate_tier_lists.PokekameshiClient") as mock_pk,
-            patch("src.pipelines.translate_tier_lists.ClaudeClient"),
-            patch("src.pipelines.translate_tier_lists.async_session_factory"),
-        ):
-            mock_pokecabook = AsyncMock()
-            mock_pokecabook.fetch_tier_list = AsyncMock(return_value=mock_pokecabook_tier)
-            mock_pc.return_value.__aenter__ = AsyncMock(return_value=mock_pokecabook)
-            mock_pc.return_value.__aexit__ = AsyncMock()
+        mock_db_result = MagicMock()
+        mock_db_result.scalars.return_value.all.return_value = []
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = mock_db_result
 
-            from src.clients.pokekameshi import PokekameshiError
-            mock_pokekameshi = AsyncMock()
-            mock_pokekameshi.fetch_tier_tables = AsyncMock(
+        @asynccontextmanager
+        async def mock_session_cm():
+            yield mock_session
+
+        @asynccontextmanager
+        async def mock_pokecabook_cm():
+            mock_client = AsyncMock()
+            mock_client.fetch_tier_list = AsyncMock(return_value=mock_pokecabook_tier)
+            yield mock_client
+
+        @asynccontextmanager
+        async def mock_pokekameshi_cm():
+            mock_client = AsyncMock()
+            mock_client.fetch_tier_tables = AsyncMock(
                 side_effect=PokekameshiError("Test error")
             )
-            mock_pk.return_value.__aenter__ = AsyncMock(return_value=mock_pokekameshi)
-            mock_pk.return_value.__aexit__ = AsyncMock()
+            yield mock_client
 
+        with (
+            patch(
+                "src.pipelines.translate_tier_lists.PokecabookClient",
+                return_value=mock_pokecabook_cm(),
+            ),
+            patch(
+                "src.pipelines.translate_tier_lists.PokekameshiClient",
+                return_value=mock_pokekameshi_cm(),
+            ),
+            patch("src.pipelines.translate_tier_lists.ClaudeClient"),
+            patch(
+                "src.pipelines.translate_tier_lists.async_session_factory",
+                return_value=mock_session_cm(),
+            ),
+        ):
             result = await translate_tier_lists(dry_run=True)
 
             assert isinstance(result, TranslateTierListsResult)

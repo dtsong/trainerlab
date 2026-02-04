@@ -41,6 +41,11 @@ class User(Base, TimestampMixin):
         default=True, server_default=text("true"), nullable=False
     )
 
+    # Creator access (content creators with widget/export/API access)
+    is_creator: Mapped[bool] = mapped_column(
+        default=False, server_default=text("false"), nullable=False, index=True
+    )
+
     # Relationships
     decks: Mapped[list["Deck"]] = relationship(
         "Deck", back_populates="user", cascade="all, delete-orphan"

@@ -62,6 +62,8 @@ from src.pipelines.translate_tier_lists import (
     translate_tier_lists,
 )
 from src.schemas.pipeline import (
+    CleanupExportsRequest,
+    CleanupExportsResult,
     ComputeEvolutionRequest,
     ComputeEvolutionResult,
     ComputeMetaRequest,
@@ -83,6 +85,7 @@ from src.schemas.pipeline import (
     TranslateTierListsRequest,
     TranslateTierListsResult,
 )
+from src.services.storage_service import StorageService
 from src.services.tournament_scrape import ScrapeResult as ScrapeResultInternal
 
 logger = logging.getLogger(__name__)
@@ -531,3 +534,36 @@ async def monitor_card_reveals_endpoint(
     )
 
     return _convert_monitor_card_reveals_result(result)
+
+
+@router.post("/cleanup-exports", response_model=CleanupExportsResult)
+async def cleanup_exports_endpoint(
+    request: CleanupExportsRequest,
+) -> CleanupExportsResult:
+    """Clean up expired export files from Cloud Storage.
+
+    Called by Cloud Scheduler weekly (Sunday 3 AM) to remove
+    export files older than the specified age.
+    """
+    logger.info(
+        "Starting exports cleanup: max_age_hours=%d, dry_run=%s",
+        request.max_age_hours,
+        request.dry_run,
+    )
+
+    storage = StorageService()
+    if request.dry_run:
+        deleted_count = 0
+        logger.info("Dry run - would clean up expired exports")
+    else:
+        deleted_count = await storage.cleanup_expired_exports(
+            max_age_hours=request.max_age_hours
+        )
+
+    logger.info("Exports cleanup complete: deleted=%d", deleted_count)
+
+    return CleanupExportsResult(
+        files_deleted=deleted_count,
+        errors=[],
+        success=True,
+    )

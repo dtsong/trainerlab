@@ -254,3 +254,22 @@ class SyncCardMappingsResult(BaseModel):
     mappings_updated: int = Field(ge=0, description="Existing mappings updated")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class CleanupExportsRequest(PipelineRequest):
+    """Request for export cleanup pipeline."""
+
+    max_age_hours: int = Field(
+        default=24,
+        ge=1,
+        le=168,
+        description="Maximum age in hours for export files",
+    )
+
+
+class CleanupExportsResult(BaseModel):
+    """Result from export cleanup pipeline."""
+
+    files_deleted: int = Field(ge=0, description="Export files deleted")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether cleanup completed without errors")

@@ -84,6 +84,13 @@ locals {
       body             = jsonencode({ dry_run = false })
       attempt_deadline = "300s"
     }
+    cleanup-exports = {
+      description      = "Clean up expired export files from Cloud Storage"
+      schedule         = "0 3 * * 0" # Weekly Sunday 3 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/cleanup-exports"
+      body             = jsonencode({ dry_run = false, max_age_hours = 24 })
+      attempt_deadline = "300s"
+    }
   }
 }
 

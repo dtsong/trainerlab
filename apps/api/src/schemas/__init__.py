@@ -1,5 +1,11 @@
 """Pydantic schemas for API request/response models."""
 
+from src.schemas.api_key import (
+    ApiKeyCreate,
+    ApiKeyCreatedResponse,
+    ApiKeyListResponse,
+    ApiKeyResponse,
+)
 from src.schemas.card import (
     AttackSchema,
     CardResponse,
@@ -19,6 +25,12 @@ from src.schemas.deck import (
     TypeBreakdown,
     UnmatchedCard,
     UserSummary,
+)
+from src.schemas.export import (
+    ExportCreate,
+    ExportDownloadResponse,
+    ExportListResponse,
+    ExportResponse,
 )
 from src.schemas.evolution import (
     AdaptationResponse,
@@ -85,8 +97,20 @@ from src.schemas.tournament import (
 )
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
 from src.schemas.user import UserPreferencesUpdate, UserResponse
+from src.schemas.widget import (
+    WidgetCreate,
+    WidgetDataResponse,
+    WidgetEmbedCodeResponse,
+    WidgetListResponse,
+    WidgetResponse,
+    WidgetUpdate,
+)
 
 __all__ = [
+    "ApiKeyCreate",
+    "ApiKeyCreatedResponse",
+    "ApiKeyListResponse",
+    "ApiKeyResponse",
     "ArchetypeDetailResponse",
     "ArchetypeHistoryPoint",
     "ArchetypeResponse",
@@ -114,6 +138,10 @@ __all__ = [
     "DeckSummaryResponse",
     "DeckUpdate",
     "EnergyCurvePoint",
+    "ExportCreate",
+    "ExportDownloadResponse",
+    "ExportListResponse",
+    "ExportResponse",
     "FormatConfigResponse",
     "FormatNotes",
     "JPSignals",
@@ -158,4 +186,10 @@ __all__ = [
     "UserPreferencesUpdate",
     "UserResponse",
     "UserSummary",
+    "WidgetCreate",
+    "WidgetDataResponse",
+    "WidgetEmbedCodeResponse",
+    "WidgetListResponse",
+    "WidgetResponse",
+    "WidgetUpdate",
 ]

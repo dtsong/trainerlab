@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     # API service account email (used by Cloud Tasks for OIDC auth)
     api_service_account: str | None = None
 
+    # Cloud Storage (creator exports)
+    exports_bucket: str = "trainerlab-exports"
+    og_images_bucket: str = "trainerlab-og-images"
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

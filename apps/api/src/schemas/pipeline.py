@@ -228,3 +228,29 @@ class MonitorCardRevealsResult(BaseModel):
     cards_marked_released: int = Field(ge=0, description="Cards marked as released")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class SyncCardMappingsRequest(PipelineRequest):
+    """Request for JP-to-EN card ID mapping sync pipeline."""
+
+    recent_only: bool = Field(
+        default=True,
+        description="Only sync recent JP sets (faster)",
+    )
+    lookback_sets: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Number of recent JP sets to sync (when recent_only=True)",
+    )
+
+
+class SyncCardMappingsResult(BaseModel):
+    """Result from card ID mapping sync pipeline."""
+
+    sets_processed: int = Field(ge=0, description="JP sets processed")
+    mappings_found: int = Field(ge=0, description="Total mappings found")
+    mappings_inserted: int = Field(ge=0, description="New mappings inserted")
+    mappings_updated: int = Field(ge=0, description="Existing mappings updated")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")

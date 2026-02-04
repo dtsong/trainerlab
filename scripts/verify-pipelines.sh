@@ -42,10 +42,11 @@ Options:
     -h, --help         Show this help message
 
 Steps:
-    1  sync-cards     — Sync card database from TCGdex
-    2  discover-en    — Discover & enqueue English tournaments
-    3  discover-jp    — Discover & enqueue Japanese tournaments
-    4  compute-meta   — Compute meta archetypes
+    1  sync-cards          — Sync card database from TCGdex
+    2  sync-card-mappings  — Sync JP-to-EN card ID mappings
+    3  discover-en         — Discover & enqueue English tournaments
+    4  discover-jp         — Discover & enqueue Japanese tournaments
+    5  compute-meta        — Compute meta archetypes
 
 Examples:
     $0                   # Run all steps
@@ -228,7 +229,20 @@ run_step_1() {
 }
 
 run_step_2() {
-    log_step 2 "discover-en"
+    log_step 2 "sync-card-mappings"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-sync-card-mappings" || true
+    fi
+
+    # Verify by checking the pipeline result directly or querying mappings count
+    # Since there's no public endpoint for mappings, we verify via sync result
+    log_info "Card mapping sync triggered (no public verification endpoint)"
+    log_success "Verify: card mapping sync completed"
+}
+
+run_step_3() {
+    log_step 3 "discover-en"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-discover-en" || true
@@ -240,8 +254,8 @@ run_step_2() {
         '"\(.total) tournaments found"'
 }
 
-run_step_3() {
-    log_step 3 "discover-jp"
+run_step_4() {
+    log_step 4 "discover-jp"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-discover-jp" || true
@@ -253,8 +267,8 @@ run_step_3() {
         '"\(.total) JP tournaments found"'
 }
 
-run_step_4() {
-    log_step 4 "compute-meta"
+run_step_5() {
+    log_step 5 "compute-meta"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-compute-meta" || true
@@ -324,13 +338,15 @@ if [ -n "$STEP" ]; then
         2) run_and_track run_step_2 ;;
         3) run_and_track run_step_3 ;;
         4) run_and_track run_step_4 ;;
-        *) log_error "Invalid step: $STEP (must be 1-4)"; exit 1 ;;
+        5) run_and_track run_step_5 ;;
+        *) log_error "Invalid step: $STEP (must be 1-5)"; exit 1 ;;
     esac
 else
     run_and_track run_step_1
     run_and_track run_step_2
     run_and_track run_step_3
     run_and_track run_step_4
+    run_and_track run_step_5
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

@@ -35,6 +35,13 @@ from src.pipelines.scrape_limitless import (
     discover_jp_tournaments,
     process_single_tournament,
 )
+from src.pipelines.sync_card_mappings import (
+    SyncMappingsResult as SyncMappingsResultInternal,
+)
+from src.pipelines.sync_card_mappings import (
+    sync_all_card_mappings,
+    sync_recent_jp_sets,
+)
 from src.pipelines.sync_cards import sync_english_cards
 from src.pipelines.sync_jp_adoption_rates import (
     SyncAdoptionRatesResult as SyncAdoptionRatesResultInternal,
@@ -65,6 +72,8 @@ from src.schemas.pipeline import (
     MonitorCardRevealsResult,
     ProcessTournamentRequest,
     ScrapeResult,
+    SyncCardMappingsRequest,
+    SyncCardMappingsResult,
     SyncCardsRequest,
     SyncCardsResult,
     SyncJPAdoptionRequest,
@@ -266,6 +275,56 @@ async def sync_cards_endpoint(
         errors=result.errors,
         success=len(result.errors) == 0,
     )
+
+
+def _convert_sync_mappings_result(
+    internal: SyncMappingsResultInternal,
+) -> SyncCardMappingsResult:
+    """Convert internal SyncMappingsResult to API schema."""
+    return SyncCardMappingsResult(
+        sets_processed=internal.sets_processed,
+        mappings_found=internal.mappings_found,
+        mappings_inserted=internal.mappings_inserted,
+        mappings_updated=internal.mappings_updated,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post("/sync-card-mappings", response_model=SyncCardMappingsResult)
+async def sync_card_mappings_endpoint(
+    request: SyncCardMappingsRequest,
+) -> SyncCardMappingsResult:
+    """Sync JP-to-EN card ID mappings from Limitless.
+
+    Called by Cloud Scheduler weekly to update card ID mappings between
+    Japanese and English card IDs. Required for accurate archetype detection
+    in Japanese tournament decklists.
+    """
+    logger.info(
+        "Starting card mapping sync: recent_only=%s, lookback_sets=%d, dry_run=%s",
+        request.recent_only,
+        request.lookback_sets,
+        request.dry_run,
+    )
+
+    if request.recent_only:
+        result = await sync_recent_jp_sets(
+            lookback_sets=request.lookback_sets,
+            dry_run=request.dry_run,
+        )
+    else:
+        result = await sync_all_card_mappings(dry_run=request.dry_run)
+
+    logger.info(
+        "Card mapping sync complete: sets=%d, found=%d, inserted=%d, updated=%d",
+        result.sets_processed,
+        result.mappings_found,
+        result.mappings_inserted,
+        result.mappings_updated,
+    )
+
+    return _convert_sync_mappings_result(result)
 
 
 def _convert_evolution_result(

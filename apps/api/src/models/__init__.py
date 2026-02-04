@@ -8,9 +8,11 @@ from src.models.deck import Deck
 from src.models.evolution_article import EvolutionArticle
 from src.models.evolution_article_snapshot import EvolutionArticleSnapshot
 from src.models.format_config import FormatConfig
+from src.models.jp_card_adoption_rate import JPCardAdoptionRate
 from src.models.jp_card_innovation import JPCardInnovation
 from src.models.jp_new_archetype import JPNewArchetype
 from src.models.jp_set_impact import JPSetImpact
+from src.models.jp_unreleased_card import JPUnreleasedCard
 from src.models.lab_note import LabNote
 from src.models.lab_note_revision import LabNoteRevision
 from src.models.meta_snapshot import MetaSnapshot
@@ -19,6 +21,8 @@ from src.models.rotation_impact import RotationImpact
 from src.models.set import Set
 from src.models.tournament import Tournament
 from src.models.tournament_placement import TournamentPlacement
+from src.models.translated_content import TranslatedContent
+from src.models.translation_term_override import TranslationTermOverride
 from src.models.user import User
 from src.models.waitlist import WaitlistEntry
 
@@ -31,9 +35,11 @@ __all__ = [
     "EvolutionArticle",
     "EvolutionArticleSnapshot",
     "FormatConfig",
+    "JPCardAdoptionRate",
     "JPCardInnovation",
     "JPNewArchetype",
     "JPSetImpact",
+    "JPUnreleasedCard",
     "LabNote",
     "LabNoteRevision",
     "MetaSnapshot",
@@ -42,6 +48,8 @@ __all__ = [
     "Set",
     "Tournament",
     "TournamentPlacement",
+    "TranslatedContent",
+    "TranslationTermOverride",
     "User",
     "WaitlistEntry",
 ]

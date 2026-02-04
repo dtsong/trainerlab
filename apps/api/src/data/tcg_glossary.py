@@ -1,0 +1,654 @@
+"""TCG terminology glossary for Japanese-English translation.
+
+Contains ~80 common Pokemon TCG terms with Japanese, romaji, English translations,
+and contextual usage notes. Used by TranslationService for deterministic Layer 1
+translation and as context for Claude AI translation.
+"""
+
+from dataclasses import dataclass
+from typing import Literal
+
+Category = Literal[
+    "game_term", "card_type", "tournament_term", "meta_term", "strategic_term"
+]
+
+
+@dataclass(frozen=True)
+class GlossaryEntry:
+    """A single glossary term with translation and context."""
+
+    jp: str
+    romaji: str
+    en: str
+    context: str
+    category: Category
+
+
+TCG_GLOSSARY: dict[str, GlossaryEntry] = {
+    # ===== Game Terms =====
+    "たね": GlossaryEntry(
+        jp="たね",
+        romaji="tane",
+        en="Basic",
+        context="Basic Pokemon that can be played directly to bench",
+        category="game_term",
+    ),
+    "たねポケモン": GlossaryEntry(
+        jp="たねポケモン",
+        romaji="tane pokemon",
+        en="Basic Pokemon",
+        context="Basic Pokemon card type",
+        category="game_term",
+    ),
+    "進化": GlossaryEntry(
+        jp="進化",
+        romaji="shinka",
+        en="Evolution",
+        context="Evolving a Pokemon to its next stage",
+        category="game_term",
+    ),
+    "1進化": GlossaryEntry(
+        jp="1進化",
+        romaji="ichi shinka",
+        en="Stage 1",
+        context="First evolution stage",
+        category="game_term",
+    ),
+    "2進化": GlossaryEntry(
+        jp="2進化",
+        romaji="ni shinka",
+        en="Stage 2",
+        context="Second evolution stage",
+        category="game_term",
+    ),
+    "ワザ": GlossaryEntry(
+        jp="ワザ",
+        romaji="waza",
+        en="Attack",
+        context="Pokemon attack/move",
+        category="game_term",
+    ),
+    "特性": GlossaryEntry(
+        jp="特性",
+        romaji="tokusei",
+        en="Ability",
+        context="Pokemon ability that provides passive or triggered effects",
+        category="game_term",
+    ),
+    "にげる": GlossaryEntry(
+        jp="にげる",
+        romaji="nigeru",
+        en="Retreat",
+        context="Retreating the active Pokemon to the bench",
+        category="game_term",
+    ),
+    "バトル場": GlossaryEntry(
+        jp="バトル場",
+        romaji="batoru ba",
+        en="Active Spot",
+        context="The active position where Pokemon battle",
+        category="game_term",
+    ),
+    "ベンチ": GlossaryEntry(
+        jp="ベンチ",
+        romaji="benchi",
+        en="Bench",
+        context="Area holding up to 5 benched Pokemon",
+        category="game_term",
+    ),
+    "手札": GlossaryEntry(
+        jp="手札",
+        romaji="tefuda",
+        en="Hand",
+        context="Cards in player's hand",
+        category="game_term",
+    ),
+    "山札": GlossaryEntry(
+        jp="山札",
+        romaji="yamafuda",
+        en="Deck",
+        context="Player's draw pile",
+        category="game_term",
+    ),
+    "トラッシュ": GlossaryEntry(
+        jp="トラッシュ",
+        romaji="torasshu",
+        en="Discard Pile",
+        context="Where discarded cards go",
+        category="game_term",
+    ),
+    "ロストゾーン": GlossaryEntry(
+        jp="ロストゾーン",
+        romaji="rosuto zoon",
+        en="Lost Zone",
+        context="Cards sent here are removed from play for the game",
+        category="game_term",
+    ),
+    "サイド": GlossaryEntry(
+        jp="サイド",
+        romaji="saido",
+        en="Prize Card",
+        context="Prize cards taken when knocking out opponent's Pokemon",
+        category="game_term",
+    ),
+    "きぜつ": GlossaryEntry(
+        jp="きぜつ",
+        romaji="kizetsu",
+        en="Knocked Out",
+        context="When a Pokemon's HP reaches 0",
+        category="game_term",
+    ),
+    "HP": GlossaryEntry(
+        jp="HP",
+        romaji="HP",
+        en="HP",
+        context="Hit Points - Pokemon's health",
+        category="game_term",
+    ),
+    "ダメージ": GlossaryEntry(
+        jp="ダメージ",
+        romaji="dameeji",
+        en="Damage",
+        context="Damage dealt to Pokemon",
+        category="game_term",
+    ),
+    "ダメカン": GlossaryEntry(
+        jp="ダメカン",
+        romaji="damekan",
+        en="Damage Counter",
+        context="Marker representing 10 damage",
+        category="game_term",
+    ),
+    "弱点": GlossaryEntry(
+        jp="弱点",
+        romaji="jakuten",
+        en="Weakness",
+        context="Type weakness that doubles damage",
+        category="game_term",
+    ),
+    "抵抗力": GlossaryEntry(
+        jp="抵抗力",
+        romaji="teikouryoku",
+        en="Resistance",
+        context="Type resistance that reduces damage",
+        category="game_term",
+    ),
+    # ===== Card Types =====
+    "エネルギー": GlossaryEntry(
+        jp="エネルギー",
+        romaji="enerugii",
+        en="Energy",
+        context="Energy cards attached to Pokemon to use attacks",
+        category="card_type",
+    ),
+    "基本エネルギー": GlossaryEntry(
+        jp="基本エネルギー",
+        romaji="kihon enerugii",
+        en="Basic Energy",
+        context="Basic energy cards (one type each)",
+        category="card_type",
+    ),
+    "特殊エネルギー": GlossaryEntry(
+        jp="特殊エネルギー",
+        romaji="tokushu enerugii",
+        en="Special Energy",
+        context="Special energy cards with unique effects",
+        category="card_type",
+    ),
+    "サポート": GlossaryEntry(
+        jp="サポート",
+        romaji="sapooto",
+        en="Supporter",
+        context="Trainer card type - one per turn",
+        category="card_type",
+    ),
+    "グッズ": GlossaryEntry(
+        jp="グッズ",
+        romaji="guzzu",
+        en="Item",
+        context="Trainer card type - unlimited per turn",
+        category="card_type",
+    ),
+    "スタジアム": GlossaryEntry(
+        jp="スタジアム",
+        romaji="sutajiamu",
+        en="Stadium",
+        context="Trainer card that affects both players",
+        category="card_type",
+    ),
+    "ポケモンのどうぐ": GlossaryEntry(
+        jp="ポケモンのどうぐ",
+        romaji="pokemon no dougu",
+        en="Pokemon Tool",
+        context="Tool cards attached to Pokemon",
+        category="card_type",
+    ),
+    "どうぐ": GlossaryEntry(
+        jp="どうぐ",
+        romaji="dougu",
+        en="Tool",
+        context="Short form for Pokemon Tool",
+        category="card_type",
+    ),
+    "ex": GlossaryEntry(
+        jp="ex",
+        romaji="ex",
+        en="ex",
+        context="Pokemon ex - gives 2 prize cards when KO'd",
+        category="card_type",
+    ),
+    "VSTAR": GlossaryEntry(
+        jp="VSTAR",
+        romaji="VSTAR",
+        en="VSTAR",
+        context="Pokemon VSTAR with VSTAR Power",
+        category="card_type",
+    ),
+    "V": GlossaryEntry(
+        jp="V",
+        romaji="V",
+        en="V",
+        context="Pokemon V - basic form that gives 2 prizes",
+        category="card_type",
+    ),
+    "VMAX": GlossaryEntry(
+        jp="VMAX",
+        romaji="VMAX",
+        en="VMAX",
+        context="Pokemon VMAX - evolved V that gives 3 prizes",
+        category="card_type",
+    ),
+    "ACE SPEC": GlossaryEntry(
+        jp="ACE SPEC",
+        romaji="ACE SPEC",
+        en="ACE SPEC",
+        context="Powerful trainer card - only one allowed per deck",
+        category="card_type",
+    ),
+    "テラスタル": GlossaryEntry(
+        jp="テラスタル",
+        romaji="terasutaru",
+        en="Tera",
+        context="Tera Pokemon with Terastal type",
+        category="card_type",
+    ),
+    # ===== Tournament Terms =====
+    "シティリーグ": GlossaryEntry(
+        jp="シティリーグ",
+        romaji="shiti riigu",
+        en="City League",
+        context="Regional-level Pokemon TCG tournament in Japan",
+        category="tournament_term",
+    ),
+    "チャンピオンズリーグ": GlossaryEntry(
+        jp="チャンピオンズリーグ",
+        romaji="chanpionzu riigu",
+        en="Champions League",
+        context="Major Pokemon TCG tournament in Japan (equivalent to Regionals)",
+        category="tournament_term",
+    ),
+    "ジムバトル": GlossaryEntry(
+        jp="ジムバトル",
+        romaji="jimu batoru",
+        en="Gym Battle",
+        context="Local store-level Pokemon TCG tournament",
+        category="tournament_term",
+    ),
+    "トレーナーズリーグ": GlossaryEntry(
+        jp="トレーナーズリーグ",
+        romaji="toreinaazu riigu",
+        en="Trainers League",
+        context="Entry-level organized play events",
+        category="tournament_term",
+    ),
+    "WCS": GlossaryEntry(
+        jp="WCS",
+        romaji="WCS",
+        en="World Championships",
+        context="Pokemon World Championships",
+        category="tournament_term",
+    ),
+    "世界大会": GlossaryEntry(
+        jp="世界大会",
+        romaji="sekai taikai",
+        en="World Championships",
+        context="Pokemon World Championships (Japanese)",
+        category="tournament_term",
+    ),
+    "予選": GlossaryEntry(
+        jp="予選",
+        romaji="yosen",
+        en="Swiss Rounds",
+        context="Preliminary rounds before top cut",
+        category="tournament_term",
+    ),
+    "決勝": GlossaryEntry(
+        jp="決勝",
+        romaji="kesshou",
+        en="Finals",
+        context="Final match of a tournament",
+        category="tournament_term",
+    ),
+    "準決勝": GlossaryEntry(
+        jp="準決勝",
+        romaji="jun kesshou",
+        en="Semifinals",
+        context="Semifinal matches",
+        category="tournament_term",
+    ),
+    "ベスト8": GlossaryEntry(
+        jp="ベスト8",
+        romaji="besuto 8",
+        en="Top 8",
+        context="Top 8 placement",
+        category="tournament_term",
+    ),
+    "ベスト16": GlossaryEntry(
+        jp="ベスト16",
+        romaji="besuto 16",
+        en="Top 16",
+        context="Top 16 placement",
+        category="tournament_term",
+    ),
+    "優勝": GlossaryEntry(
+        jp="優勝",
+        romaji="yuushou",
+        en="1st Place",
+        context="Tournament winner",
+        category="tournament_term",
+    ),
+    "準優勝": GlossaryEntry(
+        jp="準優勝",
+        romaji="jun yuushou",
+        en="2nd Place",
+        context="Tournament runner-up",
+        category="tournament_term",
+    ),
+    "入賞": GlossaryEntry(
+        jp="入賞",
+        romaji="nyuushou",
+        en="Top Cut",
+        context="Making the top cut / prizing",
+        category="tournament_term",
+    ),
+    "参加者": GlossaryEntry(
+        jp="参加者",
+        romaji="sankasha",
+        en="Participants",
+        context="Tournament participants/entries",
+        category="tournament_term",
+    ),
+    "名": GlossaryEntry(
+        jp="名",
+        romaji="mei",
+        en="players",
+        context="Counter for number of players (e.g., 64名 = 64 players)",
+        category="tournament_term",
+    ),
+    "勝ち": GlossaryEntry(
+        jp="勝ち",
+        romaji="kachi",
+        en="Win",
+        context="Match win",
+        category="tournament_term",
+    ),
+    "負け": GlossaryEntry(
+        jp="負け",
+        romaji="make",
+        en="Loss",
+        context="Match loss",
+        category="tournament_term",
+    ),
+    "引き分け": GlossaryEntry(
+        jp="引き分け",
+        romaji="hikiwake",
+        en="Tie",
+        context="Match tie (counts as double loss in JP BO1)",
+        category="tournament_term",
+    ),
+    # ===== Meta Terms =====
+    "環境": GlossaryEntry(
+        jp="環境",
+        romaji="kankyou",
+        en="Meta",
+        context="The competitive metagame/environment",
+        category="meta_term",
+    ),
+    "ティア": GlossaryEntry(
+        jp="ティア",
+        romaji="tia",
+        en="Tier",
+        context="Tier ranking (Tier 1, Tier 2, etc.)",
+        category="meta_term",
+    ),
+    "Tier1": GlossaryEntry(
+        jp="Tier1",
+        romaji="Tier 1",
+        en="Tier 1",
+        context="Top tier decks in the meta",
+        category="meta_term",
+    ),
+    "Tier2": GlossaryEntry(
+        jp="Tier2",
+        romaji="Tier 2",
+        en="Tier 2",
+        context="Second tier decks",
+        category="meta_term",
+    ),
+    "シェア": GlossaryEntry(
+        jp="シェア",
+        romaji="shea",
+        en="Share",
+        context="Meta share percentage",
+        category="meta_term",
+    ),
+    "使用率": GlossaryEntry(
+        jp="使用率",
+        romaji="shiyouritsu",
+        en="Usage Rate",
+        context="Deck usage/play rate percentage",
+        category="meta_term",
+    ),
+    "採用率": GlossaryEntry(
+        jp="採用率",
+        romaji="saiyouritsu",
+        en="Inclusion Rate",
+        context="Card inclusion rate in decks",
+        category="meta_term",
+    ),
+    "採用枚数": GlossaryEntry(
+        jp="採用枚数",
+        romaji="saiyou maisuu",
+        en="Copy Count",
+        context="Number of copies of a card included",
+        category="meta_term",
+    ),
+    "デッキ": GlossaryEntry(
+        jp="デッキ",
+        romaji="dekki",
+        en="Deck",
+        context="A constructed deck",
+        category="meta_term",
+    ),
+    "デッキタイプ": GlossaryEntry(
+        jp="デッキタイプ",
+        romaji="dekki taipu",
+        en="Archetype",
+        context="Deck archetype/type",
+        category="meta_term",
+    ),
+    "構築": GlossaryEntry(
+        jp="構築",
+        romaji="kouchiku",
+        en="Build",
+        context="Deck build/construction",
+        category="meta_term",
+    ),
+    "レシピ": GlossaryEntry(
+        jp="レシピ",
+        romaji="reshipi",
+        en="Decklist",
+        context="Deck recipe/list",
+        category="meta_term",
+    ),
+    "デッキレシピ": GlossaryEntry(
+        jp="デッキレシピ",
+        romaji="dekki reshipi",
+        en="Decklist",
+        context="Full deck recipe/list",
+        category="meta_term",
+    ),
+    # ===== Strategic Terms =====
+    "先攻": GlossaryEntry(
+        jp="先攻",
+        romaji="senkou",
+        en="Going First",
+        context="Going first in the game",
+        category="strategic_term",
+    ),
+    "後攻": GlossaryEntry(
+        jp="後攻",
+        romaji="koukou",
+        en="Going Second",
+        context="Going second in the game",
+        category="strategic_term",
+    ),
+    "手札干渉": GlossaryEntry(
+        jp="手札干渉",
+        romaji="tefuda kanshou",
+        en="Hand Disruption",
+        context="Cards that disrupt opponent's hand",
+        category="strategic_term",
+    ),
+    "ボスの指令": GlossaryEntry(
+        jp="ボスの指令",
+        romaji="bosu no shirei",
+        en="Boss's Orders",
+        context="Supporter card that switches opponent's active",
+        category="strategic_term",
+    ),
+    "縛り": GlossaryEntry(
+        jp="縛り",
+        romaji="shibari",
+        en="Lock",
+        context="Locking opponent out of actions",
+        category="strategic_term",
+    ),
+    "回収": GlossaryEntry(
+        jp="回収",
+        romaji="kaishuu",
+        en="Recovery",
+        context="Recovering cards from discard",
+        category="strategic_term",
+    ),
+    "加速": GlossaryEntry(
+        jp="加速",
+        romaji="kasoku",
+        en="Acceleration",
+        context="Energy acceleration",
+        category="strategic_term",
+    ),
+    "エネ加速": GlossaryEntry(
+        jp="エネ加速",
+        romaji="ene kasoku",
+        en="Energy Acceleration",
+        context="Attaching extra energy beyond the one per turn",
+        category="strategic_term",
+    ),
+    "サーチ": GlossaryEntry(
+        jp="サーチ",
+        romaji="saachi",
+        en="Search",
+        context="Searching the deck for cards",
+        category="strategic_term",
+    ),
+    "ドロー": GlossaryEntry(
+        jp="ドロー",
+        romaji="doroo",
+        en="Draw",
+        context="Drawing cards",
+        category="strategic_term",
+    ),
+    "展開": GlossaryEntry(
+        jp="展開",
+        romaji="tenkai",
+        en="Setup",
+        context="Setting up the board/bench",
+        category="strategic_term",
+    ),
+    "アタッカー": GlossaryEntry(
+        jp="アタッカー",
+        romaji="atakkaa",
+        en="Attacker",
+        context="Main attacking Pokemon",
+        category="strategic_term",
+    ),
+    "サブアタッカー": GlossaryEntry(
+        jp="サブアタッカー",
+        romaji="sabu atakkaa",
+        en="Secondary Attacker",
+        context="Backup/secondary attacking Pokemon",
+        category="strategic_term",
+    ),
+    "システムポケモン": GlossaryEntry(
+        jp="システムポケモン",
+        romaji="shisutemu pokemon",
+        en="Support Pokemon",
+        context="Pokemon with supportive abilities (draw, search, etc.)",
+        category="strategic_term",
+    ),
+    "入れ替え": GlossaryEntry(
+        jp="入れ替え",
+        romaji="irekae",
+        en="Switch",
+        context="Switching Pokemon between active and bench",
+        category="strategic_term",
+    ),
+    "逃げエネ": GlossaryEntry(
+        jp="逃げエネ",
+        romaji="nige ene",
+        en="Retreat Cost",
+        context="Energy required to retreat",
+        category="strategic_term",
+    ),
+    "ベンチ狙撃": GlossaryEntry(
+        jp="ベンチ狙撃",
+        romaji="benchi sogeki",
+        en="Bench Snipe",
+        context="Attacking benched Pokemon directly",
+        category="strategic_term",
+    ),
+    "一撃": GlossaryEntry(
+        jp="一撃",
+        romaji="ichigeki",
+        en="Single Strike",
+        context="Single Strike battle style / one-hit KO",
+        category="strategic_term",
+    ),
+    "連撃": GlossaryEntry(
+        jp="連撃",
+        romaji="rengeki",
+        en="Rapid Strike",
+        context="Rapid Strike battle style",
+        category="strategic_term",
+    ),
+}
+
+_GLOSSARY_JP_TO_EN: dict[str, str] = {
+    entry.jp: entry.en for entry in TCG_GLOSSARY.values()
+}
+
+
+def get_claude_glossary() -> dict[str, str]:
+    """Return {jp: en} dict for ClaudeClient.translate() glossary parameter."""
+    return _GLOSSARY_JP_TO_EN.copy()
+
+
+def get_terms_by_category(category: Category) -> list[GlossaryEntry]:
+    """Return all glossary entries for a given category."""
+    return [entry for entry in TCG_GLOSSARY.values() if entry.category == category]
+
+
+def lookup_term(jp_term: str) -> GlossaryEntry | None:
+    """Look up a term by its Japanese text."""
+    return TCG_GLOSSARY.get(jp_term)

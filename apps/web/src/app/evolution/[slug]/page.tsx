@@ -41,9 +41,11 @@ export default function EvolutionArticlePage({
     isError,
     refetch,
   } = useEvolutionArticle(slug);
-  const { data: prediction } = useArchetypePrediction(
-    article?.archetype_id ?? null
-  );
+  const {
+    data: prediction,
+    isError: isPredictionError,
+    refetch: refetchPrediction,
+  } = useArchetypePrediction(article?.archetype_id ?? null);
 
   if (isLoading) {
     return (
@@ -190,12 +192,32 @@ export default function EvolutionArticlePage({
         </TabsContent>
       </Tabs>
 
-      {prediction && (
+      {isPredictionError ? (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Current Prediction</h2>
+          <Card className="border-amber-500/50">
+            <CardContent className="py-6 text-center">
+              <AlertCircle className="h-8 w-8 mx-auto text-amber-500 mb-3" />
+              <p className="text-amber-600 dark:text-amber-400 mb-3">
+                Unable to load prediction data
+              </p>
+              <Button
+                onClick={() => refetchPrediction()}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : prediction ? (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Current Prediction</h2>
           <PredictionCard prediction={prediction} />
         </div>
-      )}
+      ) : null}
 
       {article.conclusion && (
         <div className="prose prose-slate dark:prose-invert max-w-none mb-8">

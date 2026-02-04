@@ -6,16 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { TierBadge } from "@/components/ui/tier-badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { ApiArchetypePrediction } from "@trainerlab/shared-types";
+import type { ApiArchetypePrediction, PredictionTier } from "@trainerlab/shared-types";
 
 interface PredictionCardProps {
   prediction: ApiArchetypePrediction;
   className?: string;
 }
 
-type ValidTier = "S" | "A" | "B" | "C" | "Rogue";
-
-function isValidTier(tier: string | null | undefined): tier is ValidTier {
+function isValidTier(tier: string | null | undefined): tier is PredictionTier {
   return (
     tier === "S" ||
     tier === "A" ||
@@ -122,9 +120,7 @@ export function PredictionCard({ prediction, className }: PredictionCardProps) {
               <div className="flex flex-wrap gap-1.5">
                 {prediction.likely_adaptations.map((adaptation, index) => (
                   <Badge key={index} variant="outline" className="text-xs">
-                    {(adaptation as { description?: string }).description ||
-                      (adaptation as { type?: string }).type ||
-                      "Unknown"}
+                    {adaptation.description || adaptation.type || "Unknown"}
                   </Badge>
                 ))}
               </div>

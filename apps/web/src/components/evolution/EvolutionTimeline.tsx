@@ -1,8 +1,8 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
 import { Calendar, Trophy, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { safeFormatDate } from "@/lib/date-utils";
 import type { ApiEvolutionSnapshot } from "@trainerlab/shared-types";
 
 interface EvolutionTimelineProps {
@@ -30,9 +30,11 @@ export function EvolutionTimeline({
 
       <div className="space-y-6">
         {snapshots.map((snapshot, index) => {
-          const date = snapshot.created_at
-            ? format(parseISO(snapshot.created_at), "MMM d, yyyy")
-            : "Unknown date";
+          const date = safeFormatDate(
+            snapshot.created_at,
+            "MMM d, yyyy",
+            "Unknown date"
+          );
           const hasAdaptations = snapshot.adaptations.length > 0;
 
           return (

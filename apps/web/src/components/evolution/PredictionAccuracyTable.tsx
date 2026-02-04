@@ -1,6 +1,5 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
 import { CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 import { TierBadge } from "@/components/ui/tier-badge";
 import {
@@ -12,16 +11,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { ApiArchetypePrediction } from "@trainerlab/shared-types";
+import { safeFormatDate } from "@/lib/date-utils";
+import type { ApiArchetypePrediction, PredictionTier } from "@trainerlab/shared-types";
 
 interface PredictionAccuracyTableProps {
   predictions: ApiArchetypePrediction[];
   className?: string;
 }
 
-type ValidTier = "S" | "A" | "B" | "C" | "Rogue";
-
-function isValidTier(tier: string | null | undefined): tier is ValidTier {
+function isValidTier(tier: string | null | undefined): tier is PredictionTier {
   return (
     tier === "S" ||
     tier === "A" ||
@@ -79,9 +77,7 @@ export function PredictionAccuracyTable({
         <TableBody>
           {predictions.map((prediction) => {
             const predictedMid = prediction.predicted_meta_share?.mid;
-            const date = prediction.created_at
-              ? format(parseISO(prediction.created_at), "MMM d")
-              : "—";
+            const date = safeFormatDate(prediction.created_at, "MMM d");
 
             return (
               <TableRow key={prediction.id}>

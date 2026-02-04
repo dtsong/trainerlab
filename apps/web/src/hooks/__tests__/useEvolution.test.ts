@@ -163,6 +163,23 @@ describe("useEvolutionArticles", () => {
 
     expect(result.current.error).toBeTruthy();
   });
+
+  it("should pass pagination parameters including offset", async () => {
+    vi.mocked(evolutionApi.listArticles).mockResolvedValue([mockArticleListItem]);
+
+    const { result } = renderHook(
+      () => useEvolutionArticles({ limit: 10, offset: 20 }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data).toEqual([mockArticleListItem]);
+    expect(evolutionApi.listArticles).toHaveBeenCalledWith({
+      limit: 10,
+      offset: 20,
+    });
+  });
 });
 
 describe("useEvolutionArticle", () => {
@@ -193,6 +210,21 @@ describe("useEvolutionArticle", () => {
 
     expect(result.current.fetchStatus).toBe("idle");
     expect(evolutionApi.getArticleBySlug).not.toHaveBeenCalled();
+  });
+
+  it("should handle API errors", async () => {
+    vi.mocked(evolutionApi.getArticleBySlug).mockRejectedValue(
+      new Error("Article not found")
+    );
+
+    const { result } = renderHook(
+      () => useEvolutionArticle("nonexistent-slug"),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toBeTruthy();
   });
 });
 
@@ -226,6 +258,21 @@ describe("useArchetypeEvolution", () => {
     expect(result.current.fetchStatus).toBe("idle");
     expect(evolutionApi.getArchetypeEvolution).not.toHaveBeenCalled();
   });
+
+  it("should handle API errors", async () => {
+    vi.mocked(evolutionApi.getArchetypeEvolution).mockRejectedValue(
+      new Error("Evolution data not found")
+    );
+
+    const { result } = renderHook(
+      () => useArchetypeEvolution("nonexistent-archetype"),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toBeTruthy();
+  });
 });
 
 describe("useArchetypePrediction", () => {
@@ -258,6 +305,21 @@ describe("useArchetypePrediction", () => {
 
     expect(result.current.fetchStatus).toBe("idle");
     expect(evolutionApi.getArchetypePrediction).not.toHaveBeenCalled();
+  });
+
+  it("should handle API errors", async () => {
+    vi.mocked(evolutionApi.getArchetypePrediction).mockRejectedValue(
+      new Error("Prediction not found")
+    );
+
+    const { result } = renderHook(
+      () => useArchetypePrediction("nonexistent-archetype"),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toBeTruthy();
   });
 });
 

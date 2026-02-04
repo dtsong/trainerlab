@@ -1,14 +1,28 @@
 // Evolution API types (snake_case, matching backend schemas)
 
+export type AdaptationType = "tech" | "consistency" | "engine" | "removal";
+export type PredictionTier = "S" | "A" | "B" | "C" | "Rogue";
+export type ArticleStatus = "draft" | "published" | "archived";
+
+export interface CardChange {
+  name: string;
+  count?: number;
+}
+
+export interface LikelyAdaptation {
+  type?: AdaptationType | string;
+  description?: string;
+}
+
 /**
  * Single adaptation in an evolution snapshot.
  */
 export interface ApiAdaptation {
   id: string;
-  type: string;
+  type: AdaptationType | string;
   description?: string | null;
-  cards_added?: Record<string, unknown>[] | null;
-  cards_removed?: Record<string, unknown>[] | null;
+  cards_added?: CardChange[] | null;
+  cards_removed?: CardChange[] | null;
   target_archetype?: string | null;
   confidence?: number | null;
   source?: string | null;
@@ -48,8 +62,8 @@ export interface ApiArchetypePrediction {
   target_tournament_id: string;
   predicted_meta_share?: { low: number; mid: number; high: number } | null;
   predicted_day2_rate?: { low: number; mid: number; high: number } | null;
-  predicted_tier?: string | null;
-  likely_adaptations?: Record<string, unknown>[] | null;
+  predicted_tier?: PredictionTier | string | null;
+  likely_adaptations?: LikelyAdaptation[] | null;
   confidence?: number | null;
   methodology?: string | null;
   actual_meta_share?: number | null;
@@ -66,7 +80,7 @@ export interface ApiEvolutionArticleListItem {
   slug: string;
   title: string;
   excerpt?: string | null;
-  status: string;
+  status: ArticleStatus | string;
   is_premium: boolean;
   published_at?: string | null;
 }
@@ -82,7 +96,7 @@ export interface ApiEvolutionArticle {
   excerpt?: string | null;
   introduction?: string | null;
   conclusion?: string | null;
-  status: string;
+  status: ArticleStatus | string;
   is_premium: boolean;
   published_at?: string | null;
   view_count: number;

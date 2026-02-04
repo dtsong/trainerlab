@@ -14,17 +14,19 @@ import { computeMetaMovers } from "@/lib/home-utils";
 
 export function EvolutionPreview() {
   const { globalMeta, history, isLoading, isError } = useHomeMetaData();
-  const { data: articles } = useEvolutionArticles({ limit: 1 });
+  const { data: articles, isError: isArticlesError } = useEvolutionArticles({
+    limit: 1,
+  });
   const featuredArticle = articles?.[0];
 
   const archetypes = globalMeta?.archetype_breakdown ?? [];
   const topArchetype = archetypes[0];
   const movers = computeMetaMovers(globalMeta, history, 3);
 
-  const { data: evolutionData } = useArchetypeEvolution(
-    topArchetype?.name ?? null,
-    5
-  );
+  const { data: evolutionData, isError: isEvolutionError } =
+    useArchetypeEvolution(topArchetype?.name ?? null, 5);
+
+  const hasAnyError = isError || isArticlesError || isEvolutionError;
 
   const currentShare = (topArchetype?.share ?? 0) * 100;
   const oldestSnapshot = history?.snapshots?.[0];
@@ -49,9 +51,14 @@ export function EvolutionPreview() {
       .filter((v) => v > 0) ??
     [];
 
-  const hasData = !isLoading && !isError && topArchetype;
+  const hasData = !isLoading && !hasAnyError && topArchetype;
 
-  if (!isLoading && !isError && !topArchetype) {
+  if (!isLoading && !hasAnyError && !topArchetype) {
+    if (process.env.NODE_ENV === "development") {
+      console.info(
+        "EvolutionPreview: No top archetype data available, hiding section"
+      );
+    }
     return null;
   }
 

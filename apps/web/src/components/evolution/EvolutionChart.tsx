@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { format, parseISO } from "date-fns";
+import { safeFormatDate } from "@/lib/date-utils";
 import type { ApiEvolutionSnapshot } from "@trainerlab/shared-types";
 
 interface EvolutionChartProps {
@@ -39,7 +39,7 @@ function CustomTooltip({
     return (
       <div className="rounded-lg border bg-background p-3 shadow-md">
         <p className="mb-2 font-medium">
-          {format(parseISO(label), "MMM d, yyyy")}
+          {safeFormatDate(label, "MMM d, yyyy")}
         </p>
         {payload.map((entry) => (
           <div key={entry.dataKey} className="flex items-center gap-2 text-sm">
@@ -96,7 +96,7 @@ export function EvolutionChart({ snapshots, className }: EvolutionChartProps) {
           </defs>
           <XAxis
             dataKey="date"
-            tickFormatter={(value: string) => format(parseISO(value), "MMM d")}
+            tickFormatter={(value: string) => safeFormatDate(value, "MMM d")}
             fontSize={12}
           />
           <YAxis

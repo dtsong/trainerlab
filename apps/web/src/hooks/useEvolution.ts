@@ -8,7 +8,7 @@ const EVOLUTION_STALE_TIME = 1000 * 60 * 15;
 
 export function useEvolutionArticles(params: EvolutionArticlesParams = {}) {
   return useQuery({
-    queryKey: ["evolution", "articles", params.limit, params.offset],
+    queryKey: ["evolution", "articles", params],
     queryFn: () => evolutionApi.listArticles(params),
     staleTime: EVOLUTION_STALE_TIME,
   });

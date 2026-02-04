@@ -106,7 +106,8 @@ async function getAuthToken(): Promise<string | null> {
     if (!res.ok) return null;
     const data = await res.json();
     return data.token ?? null;
-  } catch {
+  } catch (error) {
+    console.error("Failed to retrieve auth token:", error);
     return null;
   }
 }

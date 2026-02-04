@@ -122,16 +122,8 @@ export function AdaptationLog({ adaptations, className }: AdaptationLogProps) {
             {isExpanded && hasDiff && (
               <div className="px-4 pb-4">
                 <DecklistDiff
-                  cardsAdded={
-                    adaptation.cards_added as
-                      | { name: string; count?: number }[]
-                      | null
-                  }
-                  cardsRemoved={
-                    adaptation.cards_removed as
-                      | { name: string; count?: number }[]
-                      | null
-                  }
+                  cardsAdded={adaptation.cards_added ?? null}
+                  cardsRemoved={adaptation.cards_removed ?? null}
                 />
               </div>
             )}

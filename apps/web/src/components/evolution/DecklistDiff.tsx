@@ -2,11 +2,7 @@
 
 import { Plus, Minus, Equal } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface CardChange {
-  name: string;
-  count?: number;
-}
+import type { CardChange } from "@trainerlab/shared-types";
 
 interface DecklistDiffProps {
   cardsAdded?: CardChange[] | null;

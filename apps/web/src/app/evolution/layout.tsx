@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { EvolutionLayoutClient } from "./layout-client";
+
 export const metadata: Metadata = {
   title: "Deck Evolution | TrainerLab",
   description:
@@ -11,5 +13,5 @@ export default function EvolutionLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <EvolutionLayoutClient>{children}</EvolutionLayoutClient>;
 }

@@ -70,6 +70,17 @@ class LimitlessJPCard:
 
 
 @dataclass
+class CardEquivalent:
+    """Card ID equivalent mapping between JP and EN."""
+
+    jp_card_id: str
+    en_card_id: str
+    card_name_en: str | None = None
+    jp_set_id: str | None = None
+    en_set_id: str | None = None
+
+
+@dataclass
 class LimitlessTournament:
     """Tournament data from Limitless."""
 
@@ -1731,3 +1742,161 @@ class LimitlessClient:
                 )
 
         return cards
+
+    # =========================================================================
+    # Card ID Equivalents (JP <-> EN mappings)
+    # =========================================================================
+
+    async def fetch_card_equivalents(
+        self,
+        jp_set_id: str,
+    ) -> list[CardEquivalent]:
+        """Fetch JP-to-EN card ID mappings for a Japanese set.
+
+        Scrapes each card's detail page to extract the "Int. Prints" section
+        which lists equivalent English card IDs.
+
+        Args:
+            jp_set_id: Japanese set code (e.g., "SV7", "SV7a").
+
+        Returns:
+            List of CardEquivalent mappings.
+        """
+        equivalents: list[CardEquivalent] = []
+
+        jp_cards = await self.fetch_set_cards(jp_set_id, translate=True)
+        logger.info(
+            "Fetching equivalents for %d cards in JP set %s", len(jp_cards), jp_set_id
+        )
+
+        for card in jp_cards:
+            try:
+                card_equiv = await self._fetch_single_card_equivalent(
+                    card.card_id, jp_set_id, card.name_en
+                )
+                if card_equiv:
+                    equivalents.append(card_equiv)
+            except LimitlessError as e:
+                logger.warning("Error fetching equivalent for %s: %s", card.card_id, e)
+                continue
+
+        logger.info(
+            "Found %d card equivalents for JP set %s", len(equivalents), jp_set_id
+        )
+        return equivalents
+
+    async def _fetch_single_card_equivalent(
+        self,
+        jp_card_id: str,
+        jp_set_id: str,
+        card_name_en: str | None = None,
+    ) -> CardEquivalent | None:
+        """Fetch EN equivalent for a single JP card.
+
+        Parses the card detail page at /cards/jp/{SET}/{NUMBER} to find
+        the "Int. Prints" section containing English equivalents.
+
+        Args:
+            jp_card_id: Japanese card ID (e.g., "SV7-18").
+            jp_set_id: Japanese set ID.
+            card_name_en: English card name if known.
+
+        Returns:
+            CardEquivalent or None if no EN equivalent found.
+        """
+        parts = jp_card_id.split("-")
+        if len(parts) < 2:
+            return None
+        card_number = parts[-1]
+
+        endpoint = f"/cards/jp/{jp_set_id}/{card_number}"
+        try:
+            html = await self._get_official(endpoint)
+        except LimitlessError:
+            return None
+
+        soup = BeautifulSoup(html, "lxml")
+        en_card_id = self._parse_international_prints(soup)
+
+        if not en_card_id:
+            return None
+
+        en_set_id = en_card_id.split("-")[0] if "-" in en_card_id else None
+
+        return CardEquivalent(
+            jp_card_id=jp_card_id,
+            en_card_id=en_card_id,
+            card_name_en=card_name_en,
+            jp_set_id=jp_set_id,
+            en_set_id=en_set_id,
+        )
+
+    def _parse_international_prints(self, soup: BeautifulSoup) -> str | None:
+        """Parse the International Prints section from a JP card page.
+
+        The page structure includes a section like:
+        <div class="prints">
+            <h3>Int. Prints</h3>
+            <a href="/cards/SCR/28">SCR 28</a>
+        </div>
+
+        Args:
+            soup: Parsed HTML of the card detail page.
+
+        Returns:
+            First EN card ID found (e.g., "SCR-28") or None.
+        """
+        prints_sections = soup.select(".prints, .card-prints, [class*='print']")
+
+        for section in prints_sections:
+            header = section.select_one("h3, h4, .section-title")
+            if header:
+                header_text = header.get_text(strip=True).lower()
+                if "int" in header_text or "english" in header_text:
+                    links = section.select("a[href*='/cards/']")
+                    for link in links:
+                        href = str(link.get("href", ""))
+                        en_match = re.search(r"/cards/([A-Z]+)/(\d+)", href)
+                        if en_match:
+                            set_code = en_match.group(1)
+                            number = en_match.group(2)
+                            tcgdex_set = map_set_code(set_code)
+                            return f"{tcgdex_set}-{number}"
+
+        all_links = soup.select("a[href*='/cards/']")
+        for link in all_links:
+            href = str(link.get("href", ""))
+            if "/cards/jp/" in href:
+                continue
+            en_match = re.search(r"/cards/([A-Z]{2,4})/(\d+)", href)
+            if en_match:
+                set_code = en_match.group(1)
+                number = en_match.group(2)
+                tcgdex_set = map_set_code(set_code)
+                return f"{tcgdex_set}-{number}"
+
+        return None
+
+    async def fetch_jp_sets(self) -> list[str]:
+        """Fetch list of available Japanese set codes.
+
+        Returns:
+            List of JP set codes (e.g., ["SV7", "SV7a", "SV6"]).
+        """
+        endpoint = "/cards/jp"
+        html = await self._get_official(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        set_codes: list[str] = []
+
+        set_links = soup.select("a[href*='/cards/jp/']")
+        for link in set_links:
+            href = str(link.get("href", ""))
+            match = re.search(r"/cards/jp/([A-Za-z0-9]+)/?$", href)
+            if match:
+                set_code = match.group(1).upper()
+                if set_code not in set_codes:
+                    set_codes.append(set_code)
+
+        logger.info("Found %d JP sets", len(set_codes))
+        return set_codes

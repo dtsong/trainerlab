@@ -20,7 +20,7 @@ from src.clients.limitless import (
     LimitlessPlacement,
     LimitlessTournament,
 )
-from src.models import Tournament, TournamentPlacement
+from src.models import CardIdMapping, Tournament, TournamentPlacement
 from src.services.archetype_detector import ArchetypeDetector
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,36 @@ class TournamentScrapeService:
         self.session = session
         self.client = client
         self.detector = archetype_detector or ArchetypeDetector()
+        self._jp_to_en_mapping: dict[str, str] | None = None
+
+    async def _get_jp_to_en_mapping(self) -> dict[str, str]:
+        """Load JP-to-EN card mapping from database (cached).
+
+        Returns:
+            Dict mapping JP card IDs to EN card IDs.
+        """
+        if self._jp_to_en_mapping is None:
+            query = select(CardIdMapping.jp_card_id, CardIdMapping.en_card_id)
+            result = await self.session.execute(query)
+            self._jp_to_en_mapping = {row.jp_card_id: row.en_card_id for row in result}
+            logger.info("Loaded %d JP-to-EN card mappings", len(self._jp_to_en_mapping))
+        return self._jp_to_en_mapping
+
+    def _get_detector_for_region(self, region: str) -> ArchetypeDetector:
+        """Get an archetype detector configured for the given region.
+
+        For JP region, returns a detector with JP-to-EN card mapping.
+        For other regions, returns the default detector.
+
+        Args:
+            region: Tournament region code.
+
+        Returns:
+            Configured ArchetypeDetector.
+        """
+        if region == "JP" and self._jp_to_en_mapping:
+            return ArchetypeDetector(jp_to_en_mapping=self._jp_to_en_mapping)
+        return self.detector
 
     # Name patterns that indicate a specific tier regardless of participant count
     _MAJOR_PATTERNS = ("regional", "international", "worlds", "world championship")
@@ -378,6 +408,8 @@ class TournamentScrapeService:
             lookback_days,
         )
 
+        await self._get_jp_to_en_mapping()
+
         try:
             all_tournaments = await self.client.fetch_jp_city_league_listings(
                 lookback_days=lookback_days,
@@ -506,9 +538,12 @@ class TournamentScrapeService:
 
             self.session.add(db_tournament)
 
-            # Create placement records
+            detector = self._get_detector_for_region(tournament.region)
+
             for placement in tournament.placements:
-                db_placement = self._create_placement(placement, db_tournament.id)
+                db_placement = self._create_placement(
+                    placement, db_tournament.id, detector
+                )
                 self.session.add(db_placement)
 
             await self.session.commit()
@@ -531,17 +566,21 @@ class TournamentScrapeService:
         self,
         placement: LimitlessPlacement,
         tournament_id,
+        detector: ArchetypeDetector | None = None,
     ) -> TournamentPlacement:
         """Create a TournamentPlacement model from Limitless data.
 
         Args:
             placement: Placement data from Limitless.
             tournament_id: ID of the parent tournament.
+            detector: Optional archetype detector (uses self.detector if None).
 
         Returns:
             TournamentPlacement model.
         """
-        # Convert decklist to our format
+        if detector is None:
+            detector = self.detector
+
         decklist_data = None
         decklist_source = None
 
@@ -556,10 +595,9 @@ class TournamentScrapeService:
             ]
             decklist_source = placement.decklist.source_url
 
-        # Detect archetype from decklist if available
         archetype = placement.archetype
         if decklist_data:
-            detected = self.detector.detect_from_existing_archetype(
+            detected = detector.detect_from_existing_archetype(
                 decklist_data, placement.archetype
             )
             archetype = detected

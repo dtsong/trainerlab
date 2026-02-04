@@ -262,6 +262,121 @@ class TestModuleLevelFunctions:
         assert detect_archetype(decklist) == "Charizard ex"
 
 
+class TestJPCardIdTranslation:
+    """Tests for JP card ID translation functionality."""
+
+    def test_translates_jp_card_id_to_en(self) -> None:
+        """Should translate JP card IDs using the mapping."""
+        jp_to_en = {
+            "SV7-18": "sv7-28",  # JP Cinderace -> EN Cinderace
+            "SV6-95": "sv6-95",  # Same ID (self-mapping)
+        }
+        detector = ArchetypeDetector(jp_to_en_mapping=jp_to_en)
+
+        decklist = [
+            {"card_id": "SV7-18", "quantity": 2},  # JP ID that maps to sv7-28
+        ]
+        assert detector._translate_card_id("SV7-18") == "sv7-28"
+
+    def test_preserves_unmapped_card_ids(self) -> None:
+        """Should preserve card IDs not in the mapping."""
+        jp_to_en = {"SV7-18": "sv7-28"}
+        detector = ArchetypeDetector(jp_to_en_mapping=jp_to_en)
+
+        assert detector._translate_card_id("unknown-card") == "unknown-card"
+
+    def test_detects_archetype_from_jp_decklist(self) -> None:
+        """Should detect archetype when JP cards map to EN signature cards."""
+        jp_to_en = {
+            "SV3-125-JP": "sv3-125",  # Maps to Charizard ex signature
+        }
+        detector = ArchetypeDetector(jp_to_en_mapping=jp_to_en)
+
+        decklist = [
+            {"card_id": "SV3-125-JP", "quantity": 2},
+        ]
+        assert detector.detect(decklist) == "Charizard ex"
+
+    def test_returns_rogue_for_unmapped_jp_cards(self) -> None:
+        """Should return Rogue when JP cards don't map to signatures."""
+        jp_to_en = {
+            "JP-RANDOM-1": "en-random-1",  # Maps to non-signature card
+        }
+        detector = ArchetypeDetector(jp_to_en_mapping=jp_to_en)
+
+        decklist = [
+            {"card_id": "JP-RANDOM-1", "quantity": 4},
+        ]
+        assert detector.detect(decklist) == "Rogue"
+
+    def test_empty_mapping_behaves_as_default(self) -> None:
+        """Empty mapping should not affect detection."""
+        detector = ArchetypeDetector(jp_to_en_mapping={})
+
+        decklist = [
+            {"card_id": "sv3-125", "quantity": 2},  # Direct EN ID
+        ]
+        assert detector.detect(decklist) == "Charizard ex"
+
+    def test_none_mapping_behaves_as_default(self) -> None:
+        """None mapping should not affect detection."""
+        detector = ArchetypeDetector(jp_to_en_mapping=None)
+
+        decklist = [
+            {"card_id": "sv3-125", "quantity": 2},  # Direct EN ID
+        ]
+        assert detector.detect(decklist) == "Charizard ex"
+
+    def test_detect_with_confidence_uses_translation(self) -> None:
+        """detect_with_confidence should also use JP translation."""
+        jp_to_en = {
+            "SV3-125-JP": "sv3-125",  # Charizard ex
+            "SV2-86-JP": "sv2-86",  # Gardevoir ex
+        }
+        detector = ArchetypeDetector(jp_to_en_mapping=jp_to_en)
+
+        decklist = [
+            {"card_id": "SV3-125-JP", "quantity": 2},
+            {"card_id": "SV2-86-JP", "quantity": 1},
+        ]
+        archetype, counts = detector.detect_with_confidence(decklist)
+
+        assert archetype == "Charizard ex"
+        assert counts == {"Charizard ex": 2, "Gardevoir ex": 1}
+
+
+class TestJPAliases:
+    """Tests for JP archetype alias normalization."""
+
+    def test_normalizes_cinderace_without_ex(self) -> None:
+        """Should normalize 'Cinderace' to 'Cinderace ex'."""
+        assert normalize_archetype("Cinderace") == "Cinderace ex"
+
+    def test_normalizes_jp_cinderace(self) -> None:
+        """Should normalize Japanese Cinderace name."""
+        assert normalize_archetype("エースバーンex") == "Cinderace ex"
+
+    def test_normalizes_jp_charizard(self) -> None:
+        """Should normalize Japanese Charizard name."""
+        assert normalize_archetype("リザードンex") == "Charizard ex"
+
+    def test_normalizes_dragapult_without_ex(self) -> None:
+        """Should normalize 'Dragapult' to 'Dragapult ex'."""
+        assert normalize_archetype("Dragapult") == "Dragapult ex"
+
+    def test_normalizes_jp_dragapult(self) -> None:
+        """Should normalize Japanese Dragapult name."""
+        assert normalize_archetype("ドラパルトex") == "Dragapult ex"
+
+    def test_normalizes_terapagos_without_ex(self) -> None:
+        """Should normalize 'Terapagos' to 'Terapagos ex'."""
+        assert normalize_archetype("Terapagos") == "Terapagos ex"
+
+    def test_normalizes_jp_lost_zone_box(self) -> None:
+        """Should normalize Japanese Lost Zone Box name."""
+        assert normalize_archetype("ロストバレット") == "Lost Zone Box"
+
+
 class TestSignatureCardsData:
     """Tests for signature cards data integrity."""
 

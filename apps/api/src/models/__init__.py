@@ -4,6 +4,7 @@ from src.models.adaptation import Adaptation
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
 from src.models.archetype_prediction import ArchetypePrediction
 from src.models.card import Card
+from src.models.card_id_mapping import CardIdMapping
 from src.models.deck import Deck
 from src.models.evolution_article import EvolutionArticle
 from src.models.evolution_article_snapshot import EvolutionArticleSnapshot
@@ -31,6 +32,7 @@ __all__ = [
     "ArchetypeEvolutionSnapshot",
     "ArchetypePrediction",
     "Card",
+    "CardIdMapping",
     "Deck",
     "EvolutionArticle",
     "EvolutionArticleSnapshot",

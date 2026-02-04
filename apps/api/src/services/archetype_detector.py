@@ -2,6 +2,9 @@
 
 Detects deck archetypes by matching cards in a decklist against known
 signature cards. Falls back to "Rogue" if no signature cards are found.
+
+Supports JP tournament decklists by translating JP card IDs to EN card IDs
+before matching against signature cards.
 """
 
 from collections import Counter
@@ -15,16 +18,27 @@ class ArchetypeDetector:
     Uses signature card matching to identify the primary archetype of a deck.
     When multiple archetypes have signature cards present, selects the archetype
     with the highest combined quantity of its signature cards.
+
+    For JP tournament decklists, pass a jp_to_en_mapping to translate JP card
+    IDs before matching against signature cards.
     """
 
-    def __init__(self, signature_cards: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        signature_cards: dict[str, str] | None = None,
+        jp_to_en_mapping: dict[str, str] | None = None,
+    ) -> None:
         """Initialize the detector.
 
         Args:
             signature_cards: Optional custom signature card mapping.
                            Defaults to the built-in SIGNATURE_CARDS.
+            jp_to_en_mapping: Optional mapping from JP card IDs to EN card IDs.
+                            When provided, JP card IDs in decklists are translated
+                            before signature card lookup.
         """
         self.signature_cards = signature_cards or SIGNATURE_CARDS
+        self.jp_to_en_mapping = jp_to_en_mapping or {}
 
     def detect(self, decklist: list[dict]) -> str:
         """Detect the archetype of a decklist.
@@ -49,7 +63,8 @@ class ArchetypeDetector:
             if not card_id:
                 continue
 
-            archetype = self.signature_cards.get(card_id)
+            lookup_id = self._translate_card_id(card_id)
+            archetype = self.signature_cards.get(lookup_id)
             if archetype:
                 quantity = self._parse_quantity(card_entry.get("quantity", 1))
                 archetype_counts[archetype] += quantity
@@ -57,9 +72,21 @@ class ArchetypeDetector:
         if not archetype_counts:
             return "Rogue"
 
-        # Return archetype with highest total quantity
         most_common = archetype_counts.most_common(1)
         return most_common[0][0]
+
+    def _translate_card_id(self, card_id: str) -> str:
+        """Translate a card ID from JP to EN if mapping exists.
+
+        Args:
+            card_id: Card ID (may be JP or EN format).
+
+        Returns:
+            EN card ID if mapping found, otherwise the original ID.
+        """
+        if not self.jp_to_en_mapping:
+            return card_id
+        return self.jp_to_en_mapping.get(card_id, card_id)
 
     def detect_with_confidence(
         self, decklist: list[dict]
@@ -86,7 +113,8 @@ class ArchetypeDetector:
             if not card_id:
                 continue
 
-            archetype = self.signature_cards.get(card_id)
+            lookup_id = self._translate_card_id(card_id)
+            archetype = self.signature_cards.get(lookup_id)
             if archetype:
                 quantity = self._parse_quantity(card_entry.get("quantity", 1))
                 archetype_counts[archetype] += quantity

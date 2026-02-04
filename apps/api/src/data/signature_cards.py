@@ -95,22 +95,101 @@ SIGNATURE_CARDS: dict[str, str] = {
 }
 
 # Mapping from generic names to normalized archetype
+# Includes JP image-extracted labels and common abbreviations
 ARCHETYPE_ALIASES: dict[str, str] = {
+    # Charizard ex
     "Zard": "Charizard ex",
     "Zard ex": "Charizard ex",
+    "Charizard": "Charizard ex",
+    "リザードンex": "Charizard ex",
+    # Gardevoir ex
     "Gard": "Gardevoir ex",
+    "Gardevoir": "Gardevoir ex",
+    "サーナイトex": "Gardevoir ex",
+    # Chien-Pao ex
     "Pao": "Chien-Pao ex",
+    "Chien-Pao": "Chien-Pao ex",
+    "パオジアンex": "Chien-Pao ex",
+    # Origin Forme Palkia VSTAR
     "Palkia": "Origin Forme Palkia VSTAR",
     "Palkia VSTAR": "Origin Forme Palkia VSTAR",
+    "パルキアVSTAR": "Origin Forme Palkia VSTAR",
+    # Giratina VSTAR
     "Tina": "Giratina VSTAR",
     "Giratina": "Giratina VSTAR",
+    "ギラティナVSTAR": "Giratina VSTAR",
+    # Lost Zone Box
     "LZB": "Lost Zone Box",
     "Lost Box": "Lost Zone Box",
     "LostBox": "Lost Zone Box",
+    "ロストバレット": "Lost Zone Box",
+    # Raging Bolt ex
     "Raging Bolt": "Raging Bolt ex",
     "Bolt": "Raging Bolt ex",
+    "タケルライコex": "Raging Bolt ex",
+    # Dragapult ex
     "Dragapult": "Dragapult ex",
     "Draga": "Dragapult ex",
+    "ドラパルトex": "Dragapult ex",
+    # Cinderace ex (the deck causing issues)
+    "Cinderace": "Cinderace ex",
+    "エースバーンex": "Cinderace ex",
+    # Terapagos ex
+    "Terapagos": "Terapagos ex",
+    "テラパゴスex": "Terapagos ex",
+    # Archaludon ex
+    "Archaludon": "Archaludon ex",
+    "ブリジュラスex": "Archaludon ex",
+    # Bloodmoon Ursaluna ex
+    "Bloodmoon Ursaluna": "Bloodmoon Ursaluna ex",
+    "Ursaluna": "Bloodmoon Ursaluna ex",
+    "ガチグマex": "Bloodmoon Ursaluna ex",
+    # Greninja ex
+    "Greninja": "Greninja ex",
+    "ゲッコウガex": "Greninja ex",
+    # Iron Thorns ex
+    "Iron Thorns": "Iron Thorns ex",
+    "テツノイバラex": "Iron Thorns ex",
+    # Walking Wake ex
+    "Walking Wake": "Walking Wake ex",
+    "ウネルミナモex": "Walking Wake ex",
+    # Gouging Fire ex
+    "Gouging Fire": "Gouging Fire ex",
+    "タギングルex": "Gouging Fire ex",
+    # Iron Hands ex
+    "Iron Hands": "Iron Hands ex",
+    "テツノカイナex": "Iron Hands ex",
+    # Iron Valiant ex
+    "Iron Valiant": "Iron Valiant ex",
+    "テツノブジンex": "Iron Valiant ex",
+    # Roaring Moon ex
+    "Roaring Moon": "Roaring Moon ex",
+    "トドロクツキex": "Roaring Moon ex",
+    # Gholdengo ex
+    "Gholdengo": "Gholdengo ex",
+    "サーフゴーex": "Gholdengo ex",
+    # Tyranitar ex
+    "Tyranitar": "Tyranitar ex",
+    "バンギラスex": "Tyranitar ex",
+    # Miraidon ex
+    "Miraidon": "Miraidon ex",
+    "ミライドンex": "Miraidon ex",
+    # Koraidon ex
+    "Koraidon": "Koraidon ex",
+    "コライドンex": "Koraidon ex",
+    # Lugia VSTAR
+    "Lugia": "Lugia VSTAR",
+    "ルギアVSTAR": "Lugia VSTAR",
+    # Arceus VSTAR
+    "Arceus": "Arceus VSTAR",
+    "アルセウスVSTAR": "Arceus VSTAR",
+    # Pidgeot ex Control
+    "Pidgeot": "Pidgeot ex Control",
+    "Pidgeot ex": "Pidgeot ex Control",
+    "ピジョットex": "Pidgeot ex Control",
+    # Regidrago VSTAR
+    "Regidrago": "Regidrago VSTAR",
+    "レジドラゴVSTAR": "Regidrago VSTAR",
 }
 
 # Build a case-insensitive lookup from the aliases

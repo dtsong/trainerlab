@@ -12,16 +12,26 @@ from src.dependencies.auth import get_current_user, get_current_user_optional
 from src.models.user import User
 
 
+def make_mock_request() -> MagicMock:
+    """Create a mock FastAPI Request object."""
+    request = MagicMock()
+    request.client.host = "127.0.0.1"
+    request.headers.get.return_value = "test-user-agent"
+    request.url.path = "/test"
+    return request
+
+
 class TestGetCurrentUser:
     """Tests for get_current_user dependency."""
 
     @pytest.mark.asyncio
     async def test_missing_auth_header(self) -> None:
         """Test that missing auth header raises 401."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization=None)
+            await get_current_user(mock_request, mock_db, authorization=None)
 
         assert exc_info.value.status_code == 401
         assert "Authorization header required" in exc_info.value.detail
@@ -29,10 +39,11 @@ class TestGetCurrentUser:
     @pytest.mark.asyncio
     async def test_invalid_auth_header_format(self) -> None:
         """Test that malformed auth header raises 401."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization="InvalidFormat")
+            await get_current_user(mock_request, mock_db, authorization="InvalidFormat")
 
         assert exc_info.value.status_code == 401
         assert "Invalid authorization header format" in exc_info.value.detail
@@ -40,10 +51,11 @@ class TestGetCurrentUser:
     @pytest.mark.asyncio
     async def test_invalid_auth_header_not_bearer(self) -> None:
         """Test that non-Bearer auth header raises 401."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization="Basic abc123")
+            await get_current_user(mock_request, mock_db, authorization="Basic abc123")
 
         assert exc_info.value.status_code == 401
         assert "Invalid authorization header format" in exc_info.value.detail
@@ -52,11 +64,12 @@ class TestGetCurrentUser:
     @patch("src.dependencies.auth.verify_token")
     async def test_invalid_token(self, mock_verify: MagicMock) -> None:
         """Test that invalid token raises 401."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_verify.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization="Bearer invalid-token")
+            await get_current_user(mock_request, mock_db, authorization="Bearer invalid-token")
 
         assert exc_info.value.status_code == 401
         assert "Invalid or expired token" in exc_info.value.detail
@@ -65,6 +78,7 @@ class TestGetCurrentUser:
     @patch("src.dependencies.auth.verify_token")
     async def test_existing_user_returned(self, mock_verify: MagicMock) -> None:
         """Test that existing user is returned from database."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_verify.return_value = DecodedToken(
             sub="google-uid-123",
@@ -80,7 +94,7 @@ class TestGetCurrentUser:
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute.return_value = mock_result
 
-        result = await get_current_user(mock_db, authorization="Bearer valid-token")
+        result = await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
 
         assert result == mock_user
         mock_db.add.assert_not_called()  # User already exists
@@ -89,6 +103,7 @@ class TestGetCurrentUser:
     @patch("src.dependencies.auth.verify_token")
     async def test_new_user_created(self, mock_verify: MagicMock) -> None:
         """Test that new user is created on first login."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         # db.add is synchronous, use MagicMock to avoid coroutine warning
         mock_db.add = MagicMock()
@@ -104,7 +119,7 @@ class TestGetCurrentUser:
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
 
-        await get_current_user(mock_db, authorization="Bearer valid-token")
+        await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
 
         # Verify user was created
         mock_db.add.assert_called_once()
@@ -122,6 +137,7 @@ class TestGetCurrentUser:
     @patch("src.dependencies.auth.verify_token")
     async def test_new_user_missing_email_raises(self, mock_verify: MagicMock) -> None:
         """Test that new user creation requires email."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_verify.return_value = DecodedToken(
             sub="google-uid-new",
@@ -134,7 +150,7 @@ class TestGetCurrentUser:
         mock_db.execute.return_value = mock_result
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization="Bearer valid-token")
+            await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
 
         assert exc_info.value.status_code == 401
         assert "Email required for account creation" in exc_info.value.detail
@@ -146,11 +162,12 @@ class TestGetCurrentUser:
         self, mock_verify: MagicMock
     ) -> None:
         """Test that infrastructure errors return 503 Service Unavailable."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_verify.side_effect = TokenVerificationError("Secret not configured")
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization="Bearer valid-token")
+            await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
 
         assert exc_info.value.status_code == 503
         assert "temporarily unavailable" in exc_info.value.detail
@@ -161,6 +178,7 @@ class TestGetCurrentUser:
         self, mock_verify: MagicMock
     ) -> None:
         """Test that IntegrityError triggers rollback and fetches existing user."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
         mock_verify.return_value = DecodedToken(
@@ -188,7 +206,7 @@ class TestGetCurrentUser:
             statement="INSERT", params={}, orig=Exception("duplicate key")
         )
 
-        result = await get_current_user(mock_db, authorization="Bearer valid-token")
+        result = await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
 
         # Verify rollback was called
         mock_db.rollback.assert_called_once()
@@ -203,6 +221,7 @@ class TestGetCurrentUser:
         self, mock_verify: MagicMock
     ) -> None:
         """Test that 500 is raised if user not found even after rollback."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
         mock_verify.return_value = DecodedToken(
@@ -221,7 +240,7 @@ class TestGetCurrentUser:
         )
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_db, authorization="Bearer valid-token")
+            await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
 
         assert exc_info.value.status_code == 500
         assert "Account creation failed" in exc_info.value.detail
@@ -234,9 +253,10 @@ class TestGetCurrentUserOptional:
     @pytest.mark.asyncio
     async def test_no_auth_returns_none(self) -> None:
         """Test that no auth header returns None."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
 
-        result = await get_current_user_optional(mock_db, authorization=None)
+        result = await get_current_user_optional(mock_request, mock_db, authorization=None)
 
         assert result is None
 
@@ -244,12 +264,13 @@ class TestGetCurrentUserOptional:
     @patch("src.dependencies.auth.verify_token")
     async def test_invalid_auth_raises(self, mock_verify: MagicMock) -> None:
         """Test that invalid auth header still raises 401."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_verify.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user_optional(
-                mock_db, authorization="Bearer invalid-token"
+                mock_request, mock_db, authorization="Bearer invalid-token"
             )
 
         assert exc_info.value.status_code == 401
@@ -258,6 +279,7 @@ class TestGetCurrentUserOptional:
     @patch("src.dependencies.auth.verify_token")
     async def test_valid_auth_returns_user(self, mock_verify: MagicMock) -> None:
         """Test that valid auth returns user."""
+        mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_verify.return_value = DecodedToken(
             sub="google-uid-123",
@@ -272,7 +294,7 @@ class TestGetCurrentUserOptional:
         mock_db.execute.return_value = mock_result
 
         result = await get_current_user_optional(
-            mock_db, authorization="Bearer valid-token"
+            mock_request, mock_db, authorization="Bearer valid-token"
         )
 
         assert result == mock_user

@@ -276,10 +276,12 @@ class MetaService:
         for placement in placements:
             name = placement.archetype
             if not name or not name.strip():
-                name = "Unknown"
+                continue
             archetype_counts[name] += 1
 
         total = sum(archetype_counts.values())
+        if total == 0:
+            return {}
 
         shares = {
             archetype: count / total

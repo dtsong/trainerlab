@@ -58,6 +58,18 @@ class LimitlessPlacement:
 
 
 @dataclass
+class LimitlessJPCard:
+    """A Japanese card from Limitless."""
+
+    card_id: str
+    name_jp: str
+    name_en: str | None = None
+    set_id: str | None = None
+    card_type: str | None = None
+    is_unreleased: bool = False
+
+
+@dataclass
 class LimitlessTournament:
     """Tournament data from Limitless."""
 
@@ -1502,3 +1514,220 @@ class LimitlessClient:
         return await self.fetch_official_tournament_placements(
             tournament_url, max_placements
         )
+
+    # =========================================================================
+    # Japanese Card Data (limitlesstcg.com/cards/jp)
+    # =========================================================================
+
+    async def fetch_unreleased_cards(
+        self,
+        translate: bool = True,
+    ) -> list[LimitlessJPCard]:
+        """Fetch Japanese cards not yet released internationally.
+
+        Args:
+            translate: If True, include English translations where available.
+
+        Returns:
+            List of unreleased JP cards.
+        """
+        endpoint = "/cards/jp"
+        params = "?q=is:unreleased"
+        if translate:
+            params += "&translate=en"
+
+        html = await self._get_official(f"{endpoint}{params}")
+        return self._parse_card_list(html, f"{self.OFFICIAL_BASE_URL}{endpoint}")
+
+    async def fetch_set_cards(
+        self,
+        set_code: str,
+        translate: bool = True,
+    ) -> list[LimitlessJPCard]:
+        """Fetch all cards from a specific Japanese set.
+
+        Args:
+            set_code: JP set code (e.g., "SV10", "SVIP").
+            translate: If True, include English translations where available.
+
+        Returns:
+            List of cards from the set.
+        """
+        endpoint = f"/cards/jp/{set_code}"
+        params = "?translate=en" if translate else ""
+
+        html = await self._get_official(f"{endpoint}{params}")
+        return self._parse_card_list(html, f"{self.OFFICIAL_BASE_URL}{endpoint}")
+
+    def _parse_card_list(self, html: str, source_url: str) -> list[LimitlessJPCard]:
+        """Parse a card list page from Limitless.
+
+        Args:
+            html: Raw HTML content.
+            source_url: URL where the content was fetched.
+
+        Returns:
+            List of parsed JP cards.
+        """
+        soup = BeautifulSoup(html, "lxml")
+        cards: list[LimitlessJPCard] = []
+
+        card_elements = soup.select(".card-item, .card, [data-card-id]")
+        if not card_elements:
+            card_elements = soup.select("table tr[data-card]")
+
+        for elem in card_elements:
+            card = self._parse_card_element(elem)
+            if card:
+                cards.append(card)
+
+        if not cards:
+            cards = self._parse_card_table(soup)
+
+        logger.info("Parsed %d cards from %s", len(cards), source_url)
+        return cards
+
+    def _parse_card_element(self, elem: Tag) -> LimitlessJPCard | None:
+        """Parse a single card element.
+
+        Args:
+            elem: BeautifulSoup Tag for the card element.
+
+        Returns:
+            LimitlessJPCard or None if parsing fails.
+        """
+        card_id = elem.get("data-card-id")
+        if not card_id:
+            link = elem.select_one("a[href*='/cards/']")
+            if link:
+                href = str(link.get("href", ""))
+                match = re.search(r"/cards/(?:jp/)?([^/]+)/(\d+)", href)
+                if match:
+                    card_id = f"{match.group(1)}-{match.group(2)}"
+
+        if not card_id:
+            return None
+
+        name_jp_elem = elem.select_one(".card-name-jp, .name-jp, [data-name-jp]")
+        name_jp = ""
+        if name_jp_elem:
+            name_jp = name_jp_elem.get("data-name-jp") or name_jp_elem.get_text(
+                strip=True
+            )
+            if isinstance(name_jp, list):
+                name_jp = name_jp[0] if name_jp else ""
+        if not name_jp:
+            name_elem = elem.select_one(".card-name, .name")
+            if name_elem:
+                name_jp = name_elem.get_text(strip=True)
+
+        name_en_elem = elem.select_one(".card-name-en, .name-en, [data-name-en]")
+        name_en = None
+        if name_en_elem:
+            name_en = name_en_elem.get("data-name-en") or name_en_elem.get_text(
+                strip=True
+            )
+            if isinstance(name_en, list):
+                name_en = name_en[0] if name_en else None
+
+        set_id = None
+        set_elem = elem.select_one(".card-set, .set, [data-set]")
+        if set_elem:
+            set_id = set_elem.get("data-set") or set_elem.get_text(strip=True)
+            if isinstance(set_id, list):
+                set_id = set_id[0] if set_id else None
+
+        card_type = None
+        type_elem = elem.select_one(".card-type, .type, [data-type]")
+        if type_elem:
+            card_type = type_elem.get("data-type") or type_elem.get_text(strip=True)
+            if isinstance(card_type, list):
+                card_type = card_type[0] if card_type else None
+
+        is_unreleased = bool(
+            elem.select_one(".unreleased, .jp-only")
+            or "unreleased" in str(elem.get("class", []))
+        )
+
+        return LimitlessJPCard(
+            card_id=str(card_id),
+            name_jp=str(name_jp) if name_jp else "",
+            name_en=str(name_en) if name_en else None,
+            set_id=str(set_id) if set_id else None,
+            card_type=str(card_type) if card_type else None,
+            is_unreleased=is_unreleased,
+        )
+
+    def _parse_card_table(self, soup: BeautifulSoup) -> list[LimitlessJPCard]:
+        """Parse cards from a table layout.
+
+        Args:
+            soup: Parsed HTML document.
+
+        Returns:
+            List of parsed JP cards.
+        """
+        cards: list[LimitlessJPCard] = []
+
+        tables = soup.select("table")
+        for table in tables:
+            headers = table.select("th")
+            col_map: dict[str, int] = {}
+
+            for i, header in enumerate(headers):
+                text = header.get_text(strip=True).lower()
+                if "name" in text or "カード" in text:
+                    col_map["name"] = i
+                elif "set" in text or "セット" in text:
+                    col_map["set"] = i
+                elif "type" in text or "タイプ" in text:
+                    col_map["type"] = i
+                elif "en" in text or "英語" in text:
+                    col_map["name_en"] = i
+
+            rows = table.select("tr")
+            for row in rows[1:]:
+                cells = row.select("td")
+                if not cells:
+                    continue
+
+                link = row.select_one("a[href*='/cards/']")
+                card_id = None
+                if link:
+                    href = str(link.get("href", ""))
+                    match = re.search(r"/cards/(?:jp/)?([^/]+)/(\d+)", href)
+                    if match:
+                        card_id = f"{match.group(1)}-{match.group(2)}"
+
+                if not card_id:
+                    continue
+
+                name_idx = col_map.get("name", 0)
+                name_jp = ""
+                if name_idx < len(cells):
+                    name_jp = cells[name_idx].get_text(strip=True)
+
+                name_en = None
+                if "name_en" in col_map and col_map["name_en"] < len(cells):
+                    name_en = cells[col_map["name_en"]].get_text(strip=True)
+
+                set_id = None
+                if "set" in col_map and col_map["set"] < len(cells):
+                    set_id = cells[col_map["set"]].get_text(strip=True)
+
+                card_type = None
+                if "type" in col_map and col_map["type"] < len(cells):
+                    card_type = cells[col_map["type"]].get_text(strip=True)
+
+                cards.append(
+                    LimitlessJPCard(
+                        card_id=card_id,
+                        name_jp=name_jp,
+                        name_en=name_en if name_en else None,
+                        set_id=set_id if set_id else None,
+                        card_type=card_type if card_type else None,
+                        is_unreleased=True,
+                    )
+                )
+
+        return cards

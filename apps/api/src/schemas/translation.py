@@ -138,3 +138,127 @@ class GlossaryResponse(BaseModel):
     terms: list[GlossaryTermResponse] = Field(description="All glossary terms")
     total: int = Field(description="Total term count")
     by_category: dict[str, int] = Field(description="Count by category")
+
+
+# Adoption rate schemas
+
+
+class JPAdoptionRateResponse(BaseModel):
+    """JP card adoption rate response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str = Field(description="Record ID")
+    card_id: str = Field(description="Card identifier")
+    card_name_jp: str | None = Field(description="Japanese card name")
+    card_name_en: str | None = Field(description="English card name")
+    inclusion_rate: float = Field(description="Inclusion rate (0-1)")
+    avg_copies: float | None = Field(description="Average copies when included")
+    archetype_context: str | None = Field(description="Archetype context")
+    period_start: str = Field(description="Period start date")
+    period_end: str = Field(description="Period end date")
+    source: str | None = Field(description="Data source")
+
+
+class JPAdoptionRateListResponse(BaseModel):
+    """List of JP adoption rates."""
+
+    rates: list[JPAdoptionRateResponse] = Field(description="Adoption rate data")
+    total: int = Field(description="Total count")
+
+
+# Unreleased card schemas
+
+
+class JPUnreleasedCardResponse(BaseModel):
+    """JP unreleased card response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str = Field(description="Record ID")
+    jp_card_id: str = Field(description="JP card identifier")
+    jp_set_id: str | None = Field(description="JP set identifier")
+    name_jp: str = Field(description="Japanese name")
+    name_en: str | None = Field(description="English name translation")
+    card_type: str | None = Field(description="Card type")
+    competitive_impact: int = Field(description="Competitive impact rating (1-5)")
+    affected_archetypes: list[str] | None = Field(description="Affected archetypes")
+    notes: str | None = Field(description="Analysis notes")
+    expected_release_set: str | None = Field(description="Expected EN release set")
+    is_released: bool = Field(description="Whether released internationally")
+
+
+class JPUnreleasedCardListResponse(BaseModel):
+    """List of JP unreleased cards."""
+
+    cards: list[JPUnreleasedCardResponse] = Field(description="Unreleased cards")
+    total: int = Field(description="Total count")
+
+
+# Admin translation schemas
+
+
+class TranslatedContentResponse(BaseModel):
+    """Translated content admin response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str = Field(description="Content ID")
+    source_id: str = Field(description="Source identifier")
+    source_url: str = Field(description="Source URL")
+    content_type: str = Field(description="Content type")
+    original_text: str = Field(description="Original Japanese text")
+    translated_text: str | None = Field(description="Translated English text")
+    status: str = Field(description="Translation status")
+    translated_at: datetime | None = Field(description="Translation timestamp")
+    uncertainties: list[str] | None = Field(description="Translation uncertainties")
+
+
+class TranslatedContentListResponse(BaseModel):
+    """List of translated content."""
+
+    content: list[TranslatedContentResponse] = Field(description="Content items")
+    total: int = Field(description="Total count")
+
+
+class SubmitTranslationRequest(BaseModel):
+    """Request to submit a URL for translation."""
+
+    url: str = Field(description="URL to translate")
+    content_type: ContentType = Field(default="article", description="Content type")
+    context: str | None = Field(default=None, description="Additional context")
+
+
+class UpdateTranslationRequest(BaseModel):
+    """Request to update a translation."""
+
+    translated_text: str | None = Field(default=None, description="Edited translation")
+    status: TranslationStatus | None = Field(default=None, description="New status")
+
+
+class GlossaryTermCreateRequest(BaseModel):
+    """Request to create/update a glossary term override."""
+
+    term_jp: str = Field(description="Japanese term")
+    term_en: str = Field(description="English translation")
+    context: str | None = Field(default=None, description="Usage context")
+
+
+class GlossaryTermOverrideResponse(BaseModel):
+    """Glossary term override response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str = Field(description="Record ID")
+    term_jp: str = Field(description="Japanese term")
+    term_en: str = Field(description="English translation")
+    context: str | None = Field(description="Usage context")
+    source: str | None = Field(description="Term source")
+    is_active: bool = Field(description="Whether active")
+
+
+class GlossaryTermOverrideListResponse(BaseModel):
+    """List of glossary term overrides."""
+
+    terms: list[GlossaryTermOverrideResponse] = Field(description="Term overrides")
+    total: int = Field(description="Total count")

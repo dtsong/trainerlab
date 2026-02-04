@@ -25,6 +25,7 @@ from src.routers import (
     pipeline_router,
     sets_router,
     tournaments_router,
+    translations_router,
     users_router,
     waitlist_router,
 )
@@ -116,5 +117,6 @@ app.include_router(meta_router)
 app.include_router(pipeline_router)
 app.include_router(sets_router)
 app.include_router(tournaments_router)
+app.include_router(translations_router)
 app.include_router(users_router)
 app.include_router(waitlist_router)

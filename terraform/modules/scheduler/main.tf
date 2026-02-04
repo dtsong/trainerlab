@@ -6,6 +6,10 @@
 # - compute-meta: 8 AM daily (after scraping)
 # - compute-evolution: 9 AM daily (after compute-meta, AI classification + predictions)
 # - sync-cards: 3 AM Sunday weekly (low traffic)
+# - translate-pokecabook: 9 AM MWF (Japanese content translation)
+# - sync-jp-adoption: 10 AM TTS (JP card adoption rates)
+# - translate-tier-lists: 10 AM Sunday (weekly tier list consolidation)
+# - monitor-card-reveals: every 6 hours (JP card reveal tracking)
 
 locals {
   jobs = {
@@ -43,6 +47,34 @@ locals {
       uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-cards"
       body             = jsonencode({ dry_run = false })
       attempt_deadline = "600s"
+    }
+    translate-pokecabook = {
+      description      = "Translate Japanese content from Pokecabook"
+      schedule         = "0 9 * * 1,3,5" # MWF at 9 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/translate-pokecabook"
+      body             = jsonencode({ dry_run = false, lookback_days = 7 })
+      attempt_deadline = "600s"
+    }
+    sync-jp-adoption = {
+      description      = "Sync JP card adoption rates from Pokecabook"
+      schedule         = "0 10 * * 2,4,6" # TTS at 10 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-jp-adoption"
+      body             = jsonencode({ dry_run = false })
+      attempt_deadline = "300s"
+    }
+    translate-tier-lists = {
+      description      = "Translate JP tier lists from Pokecabook and Pokekameshi"
+      schedule         = "0 10 * * 0" # Sunday at 10 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/translate-tier-lists"
+      body             = jsonencode({ dry_run = false })
+      attempt_deadline = "600s"
+    }
+    monitor-card-reveals = {
+      description      = "Monitor JP card reveals for unreleased cards"
+      schedule         = "0 */6 * * *" # Every 6 hours
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/monitor-card-reveals"
+      body             = jsonencode({ dry_run = false })
+      attempt_deadline = "300s"
     }
   }
 }

@@ -21,6 +21,12 @@ from src.pipelines.compute_meta import (
 from src.pipelines.compute_meta import (
     compute_daily_snapshots,
 )
+from src.pipelines.monitor_card_reveals import (
+    MonitorCardRevealsResult as MonitorCardRevealsResultInternal,
+)
+from src.pipelines.monitor_card_reveals import (
+    check_card_reveals,
+)
 from src.pipelines.scrape_limitless import (
     DiscoverResult as DiscoverResultInternal,
 )
@@ -30,6 +36,24 @@ from src.pipelines.scrape_limitless import (
     process_single_tournament,
 )
 from src.pipelines.sync_cards import sync_english_cards
+from src.pipelines.sync_jp_adoption_rates import (
+    SyncAdoptionRatesResult as SyncAdoptionRatesResultInternal,
+)
+from src.pipelines.sync_jp_adoption_rates import (
+    sync_adoption_rates,
+)
+from src.pipelines.translate_pokecabook import (
+    TranslatePokecabookResult as TranslatePokecabookResultInternal,
+)
+from src.pipelines.translate_pokecabook import (
+    translate_pokecabook_content,
+)
+from src.pipelines.translate_tier_lists import (
+    TranslateTierListsResult as TranslateTierListsResultInternal,
+)
+from src.pipelines.translate_tier_lists import (
+    translate_tier_lists,
+)
 from src.schemas.pipeline import (
     ComputeEvolutionRequest,
     ComputeEvolutionResult,
@@ -37,10 +61,18 @@ from src.schemas.pipeline import (
     ComputeMetaResult,
     DiscoverRequest,
     DiscoverResult,
+    MonitorCardRevealsRequest,
+    MonitorCardRevealsResult,
     ProcessTournamentRequest,
     ScrapeResult,
     SyncCardsRequest,
     SyncCardsResult,
+    SyncJPAdoptionRequest,
+    SyncJPAdoptionResult,
+    TranslatePokecabookRequest,
+    TranslatePokecabookResult,
+    TranslateTierListsRequest,
+    TranslateTierListsResult,
 )
 from src.services.tournament_scrape import ScrapeResult as ScrapeResultInternal
 
@@ -280,3 +312,163 @@ async def compute_evolution_endpoint(
     )
 
     return _convert_evolution_result(result)
+
+
+# Translation pipelines
+
+
+def _convert_translate_pokecabook_result(
+    internal: TranslatePokecabookResultInternal,
+) -> TranslatePokecabookResult:
+    """Convert internal TranslatePokecabookResult to API schema."""
+    return TranslatePokecabookResult(
+        articles_fetched=internal.articles_fetched,
+        articles_translated=internal.articles_translated,
+        articles_skipped=internal.articles_skipped,
+        tier_lists_translated=internal.tier_lists_translated,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+def _convert_sync_jp_adoption_result(
+    internal: SyncAdoptionRatesResultInternal,
+) -> SyncJPAdoptionResult:
+    """Convert internal SyncAdoptionRatesResult to API schema."""
+    return SyncJPAdoptionResult(
+        rates_fetched=internal.rates_fetched,
+        rates_created=internal.rates_created,
+        rates_updated=internal.rates_updated,
+        rates_skipped=internal.rates_skipped,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+def _convert_translate_tier_lists_result(
+    internal: TranslateTierListsResultInternal,
+) -> TranslateTierListsResult:
+    """Convert internal TranslateTierListsResult to API schema."""
+    return TranslateTierListsResult(
+        pokecabook_entries=internal.pokecabook_entries,
+        pokekameshi_entries=internal.pokekameshi_entries,
+        translations_saved=internal.translations_saved,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+def _convert_monitor_card_reveals_result(
+    internal: MonitorCardRevealsResultInternal,
+) -> MonitorCardRevealsResult:
+    """Convert internal MonitorCardRevealsResult to API schema."""
+    return MonitorCardRevealsResult(
+        cards_checked=internal.cards_checked,
+        new_cards_found=internal.new_cards_found,
+        cards_updated=internal.cards_updated,
+        cards_marked_released=internal.cards_marked_released,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post("/translate-pokecabook", response_model=TranslatePokecabookResult)
+async def translate_pokecabook_endpoint(
+    request: TranslatePokecabookRequest,
+) -> TranslatePokecabookResult:
+    """Translate Pokecabook content.
+
+    Called by Cloud Scheduler 3x/week (MWF) to translate Japanese
+    meta content from Pokecabook.
+    """
+    logger.info(
+        "Starting Pokecabook translation: lookback_days=%d, dry_run=%s",
+        request.lookback_days,
+        request.dry_run,
+    )
+
+    result = await translate_pokecabook_content(
+        lookback_days=request.lookback_days,
+        dry_run=request.dry_run,
+    )
+
+    logger.info(
+        "Pokecabook translation complete: fetched=%d, translated=%d, errors=%d",
+        result.articles_fetched,
+        result.articles_translated,
+        len(result.errors),
+    )
+
+    return _convert_translate_pokecabook_result(result)
+
+
+@router.post("/sync-jp-adoption", response_model=SyncJPAdoptionResult)
+async def sync_jp_adoption_endpoint(
+    request: SyncJPAdoptionRequest,
+) -> SyncJPAdoptionResult:
+    """Sync JP card adoption rates.
+
+    Called by Cloud Scheduler 3x/week (TTS) to sync card adoption
+    rate data from Pokecabook.
+    """
+    logger.info("Starting JP adoption rate sync: dry_run=%s", request.dry_run)
+
+    result = await sync_adoption_rates(dry_run=request.dry_run)
+
+    logger.info(
+        "JP adoption sync complete: fetched=%d, created=%d, updated=%d, errors=%d",
+        result.rates_fetched,
+        result.rates_created,
+        result.rates_updated,
+        len(result.errors),
+    )
+
+    return _convert_sync_jp_adoption_result(result)
+
+
+@router.post("/translate-tier-lists", response_model=TranslateTierListsResult)
+async def translate_tier_lists_endpoint(
+    request: TranslateTierListsRequest,
+) -> TranslateTierListsResult:
+    """Translate JP tier lists.
+
+    Called by Cloud Scheduler weekly (Sunday) to translate tier list
+    data from Pokecabook and Pokekameshi.
+    """
+    logger.info("Starting tier list translation: dry_run=%s", request.dry_run)
+
+    result = await translate_tier_lists(dry_run=request.dry_run)
+
+    logger.info(
+        "Tier list translation: pokecabook=%d, pokekameshi=%d, saved=%d, errors=%d",
+        result.pokecabook_entries,
+        result.pokekameshi_entries,
+        result.translations_saved,
+        len(result.errors),
+    )
+
+    return _convert_translate_tier_lists_result(result)
+
+
+@router.post("/monitor-card-reveals", response_model=MonitorCardRevealsResult)
+async def monitor_card_reveals_endpoint(
+    request: MonitorCardRevealsRequest,
+) -> MonitorCardRevealsResult:
+    """Monitor JP card reveals.
+
+    Called by Cloud Scheduler 4x/day (every 6 hours) to track new
+    JP card reveals and update release status.
+    """
+    logger.info("Starting card reveal monitor: dry_run=%s", request.dry_run)
+
+    result = await check_card_reveals(dry_run=request.dry_run)
+
+    logger.info(
+        "Card reveal monitor complete: checked=%d, new=%d, released=%d, errors=%d",
+        result.cards_checked,
+        result.new_cards_found,
+        result.cards_marked_released,
+        len(result.errors),
+    )
+
+    return _convert_monitor_card_reveals_result(result)

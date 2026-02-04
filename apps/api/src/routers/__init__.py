@@ -11,6 +11,7 @@ from src.routers.meta import router as meta_router
 from src.routers.pipeline import router as pipeline_router
 from src.routers.sets import router as sets_router
 from src.routers.tournaments import router as tournaments_router
+from src.routers.translations import router as translations_router
 from src.routers.users import router as users_router
 from src.routers.waitlist import router as waitlist_router
 
@@ -26,6 +27,7 @@ __all__ = [
     "pipeline_router",
     "sets_router",
     "tournaments_router",
+    "translations_router",
     "users_router",
     "waitlist_router",
 ]

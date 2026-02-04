@@ -153,3 +153,78 @@ class ComputeEvolutionResult(BaseModel):
     articles_generated: int = Field(ge=0, description="Articles generated")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether pipeline completed without errors")
+
+
+# Translation pipeline schemas
+
+
+class TranslatePokecabookRequest(PipelineRequest):
+    """Request for Pokecabook translation pipeline."""
+
+    lookback_days: int = Field(
+        default=7,
+        ge=1,
+        le=90,
+        description="Number of days to look back for articles",
+    )
+
+
+class TranslatePokecabookResult(BaseModel):
+    """Result from Pokecabook translation pipeline."""
+
+    articles_fetched: int = Field(ge=0, description="Articles fetched from Pokecabook")
+    articles_translated: int = Field(ge=0, description="Articles translated")
+    articles_skipped: int = Field(ge=0, description="Articles skipped")
+    tier_lists_translated: int = Field(ge=0, description="Tier lists translated")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class SyncJPAdoptionRequest(PipelineRequest):
+    """Request for JP adoption rate sync pipeline."""
+
+    pass
+
+
+class SyncJPAdoptionResult(BaseModel):
+    """Result from JP adoption rate sync pipeline."""
+
+    rates_fetched: int = Field(ge=0, description="Rates fetched from source")
+    rates_created: int = Field(ge=0, description="New rates created")
+    rates_updated: int = Field(ge=0, description="Existing rates updated")
+    rates_skipped: int = Field(ge=0, description="Rates skipped")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class TranslateTierListsRequest(PipelineRequest):
+    """Request for tier list translation pipeline."""
+
+    pass
+
+
+class TranslateTierListsResult(BaseModel):
+    """Result from tier list translation pipeline."""
+
+    pokecabook_entries: int = Field(ge=0, description="Entries from Pokecabook")
+    pokekameshi_entries: int = Field(ge=0, description="Entries from Pokekameshi")
+    translations_saved: int = Field(ge=0, description="Translations saved")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class MonitorCardRevealsRequest(PipelineRequest):
+    """Request for card reveal monitoring pipeline."""
+
+    pass
+
+
+class MonitorCardRevealsResult(BaseModel):
+    """Result from card reveal monitoring pipeline."""
+
+    cards_checked: int = Field(ge=0, description="Cards checked")
+    new_cards_found: int = Field(ge=0, description="New unreleased cards found")
+    cards_updated: int = Field(ge=0, description="Existing cards updated")
+    cards_marked_released: int = Field(ge=0, description="Cards marked as released")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")

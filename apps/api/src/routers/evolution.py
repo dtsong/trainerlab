@@ -8,7 +8,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -310,9 +310,9 @@ async def get_evolution_article(
     query = (
         select(EvolutionArticle)
         .options(
-            selectinload(EvolutionArticle.article_snapshots).selectinload(
-                EvolutionArticleSnapshot.snapshot
-            )
+            selectinload(EvolutionArticle.article_snapshots)
+            .selectinload(EvolutionArticleSnapshot.snapshot)
+            .selectinload(ArchetypeEvolutionSnapshot.adaptations)
         )
         .where(EvolutionArticle.slug == slug)
     )
@@ -337,30 +337,33 @@ async def get_evolution_article(
             detail=f"Article '{slug}' not found",
         )
 
-    # Increment view count
-    article.view_count = (article.view_count or 0) + 1
+    # Increment view count atomically
     try:
+        await db.execute(
+            update(EvolutionArticle)
+            .where(EvolutionArticle.id == article.id)
+            .values(view_count=func.coalesce(EvolutionArticle.view_count, 0) + 1)
+        )
         await db.commit()
+        article.view_count = (article.view_count or 0) + 1
     except SQLAlchemyError:
+        logger.warning(
+            "Failed to increment view count for article slug=%s",
+            slug,
+            exc_info=True,
+        )
         await db.rollback()
 
     # Build snapshot responses from junction table
     snapshot_responses = []
     for link in sorted(article.article_snapshots, key=lambda x: x.position):
         if link.snapshot:
-            snapshot_responses.append(
-                EvolutionSnapshotResponse(
-                    id=link.snapshot.id,
-                    archetype=link.snapshot.archetype,
-                    tournament_id=link.snapshot.tournament_id,
-                    meta_share=link.snapshot.meta_share,
-                    top_cut_conversion=link.snapshot.top_cut_conversion,
-                    best_placement=link.snapshot.best_placement,
-                    deck_count=link.snapshot.deck_count,
-                    consensus_list=link.snapshot.consensus_list,
-                    meta_context=link.snapshot.meta_context,
-                    created_at=link.snapshot.created_at,
-                )
+            snapshot_responses.append(_snapshot_to_response(link.snapshot))
+        else:
+            logger.warning(
+                "Article %s has link to missing snapshot at position %d",
+                article.id,
+                link.position,
             )
 
     return EvolutionArticleResponse(

@@ -7,19 +7,26 @@ and generates evolution articles.
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date as date_type
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
-from src.clients.claude import ClaudeClient
+from src.clients.claude import ClaudeClient, ClaudeError
 from src.db.database import async_session_factory
 from src.models.adaptation import Adaptation
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
 from src.models.archetype_prediction import ArchetypePrediction
 from src.models.tournament import Tournament
-from src.services.adaptation_classifier import AdaptationClassifier
-from src.services.evolution_article_generator import EvolutionArticleGenerator
-from src.services.prediction_engine import PredictionEngine
+from src.services.adaptation_classifier import (
+    AdaptationClassifier,
+    AdaptationClassifierError,
+)
+from src.services.evolution_article_generator import (
+    ArticleGeneratorError,
+    EvolutionArticleGenerator,
+)
+from src.services.prediction_engine import PredictionEngine, PredictionEngineError
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +84,13 @@ async def compute_evolution_intelligence(
             await _generate_articles(session, article_generator, result, dry_run)
 
     except SQLAlchemyError as e:
-        logger.error("Database error in evolution pipeline: %s", e)
+        logger.error("Database error in evolution pipeline: %s", e, exc_info=True)
         result.errors.append(f"Database error: {e}")
+    except ClaudeError as e:
+        logger.error("Claude API error in evolution pipeline: %s", e, exc_info=True)
+        result.errors.append(f"Claude API error: {e}")
     except Exception as e:
-        logger.error("Unexpected error in evolution pipeline: %s", e)
+        logger.error("Unexpected error in evolution pipeline: %s", e, exc_info=True)
         result.errors.append(f"Unexpected error: {e}")
 
     logger.info(
@@ -116,11 +126,12 @@ async def _classify_adaptations(
             if not dry_run:
                 await classifier.classify(adaptation)
             result.adaptations_classified += 1
-        except Exception as e:
+        except (AdaptationClassifierError, ClaudeError) as e:
             logger.warning(
                 "Failed to classify adaptation %s: %s",
                 adaptation.id,
                 e,
+                exc_info=True,
             )
             result.errors.append(
                 f"Classification failed for adaptation {adaptation.id}: {e}"
@@ -153,11 +164,12 @@ async def _generate_meta_contexts(
                     result.contexts_generated += 1
             else:
                 result.contexts_generated += 1
-        except Exception as e:
+        except (AdaptationClassifierError, ClaudeError) as e:
             logger.warning(
                 "Failed to generate context for snapshot %s: %s",
                 snapshot.id,
                 e,
+                exc_info=True,
             )
             result.errors.append(
                 f"Context generation failed for snapshot {snapshot.id}: {e}"
@@ -171,9 +183,6 @@ async def _generate_predictions(
     dry_run: bool,
 ) -> None:
     """Generate predictions for upcoming major tournaments."""
-    # Find upcoming tournaments without predictions
-    from datetime import date as date_type
-
     today = date_type.today()
     query = select(Tournament).where(
         Tournament.date > today,
@@ -195,22 +204,32 @@ async def _generate_predictions(
     arch_result = await session.execute(archetype_query)
     archetypes = [row[0] for row in arch_result.all()]
 
+    if not archetypes:
+        logger.info("No archetypes found for predictions")
+        return
+
+    # Batch-load existing predictions to avoid N+1 queries
+    tournament_ids = [t.id for t in tournaments]
+    existing_query = select(
+        ArchetypePrediction.archetype_id,
+        ArchetypePrediction.target_tournament_id,
+    ).where(ArchetypePrediction.target_tournament_id.in_(tournament_ids))
+    existing_result = await session.execute(existing_query)
+    existing_predictions = {
+        (row[0], row[1]) for row in existing_result.all()
+    }
+
     logger.info(
-        "Generating predictions for %d tournaments x %d archetypes",
+        "Generating predictions for %d tournaments x %d archetypes "
+        "(%d existing predictions found)",
         len(tournaments),
         len(archetypes),
+        len(existing_predictions),
     )
 
     for tournament in tournaments:
         for archetype in archetypes:
-            # Check if prediction already exists
-            existing = await session.execute(
-                select(ArchetypePrediction).where(
-                    ArchetypePrediction.archetype_id == archetype,
-                    ArchetypePrediction.target_tournament_id == tournament.id,
-                )
-            )
-            if existing.scalar_one_or_none():
+            if (archetype, tournament.id) in existing_predictions:
                 continue
 
             try:
@@ -218,12 +237,13 @@ async def _generate_predictions(
                     prediction = await engine.predict(archetype, tournament.id)
                     session.add(prediction)
                 result.predictions_generated += 1
-            except Exception as e:
+            except (PredictionEngineError, ClaudeError) as e:
                 logger.warning(
                     "Failed to predict %s at tournament %s: %s",
                     archetype,
                     tournament.id,
                     e,
+                    exc_info=True,
                 )
                 result.errors.append(
                     f"Prediction failed for {archetype} at {tournament.id}: {e}"
@@ -240,9 +260,6 @@ async def _generate_articles(
     dry_run: bool,
 ) -> None:
     """Generate evolution articles for archetypes with sufficient data."""
-    # Get archetypes with 3+ snapshots
-    from sqlalchemy import func
-
     archetype_query = (
         select(
             ArchetypeEvolutionSnapshot.archetype,
@@ -283,11 +300,12 @@ async def _generate_articles(
                     session.add(link)
 
             result.articles_generated += 1
-        except Exception as e:
+        except (ArticleGeneratorError, ClaudeError) as e:
             logger.warning(
                 "Failed to generate article for %s: %s",
                 archetype,
                 e,
+                exc_info=True,
             )
             result.errors.append(f"Article generation failed for {archetype}: {e}")
 

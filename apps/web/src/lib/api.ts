@@ -32,6 +32,11 @@ import type {
   ApiJPSetImpactList,
   ApiPredictionList,
   ApiCardCountEvolutionResponse,
+  ApiEvolutionTimeline,
+  ApiArchetypePrediction,
+  ApiEvolutionArticleListItem,
+  ApiEvolutionArticle,
+  ApiPredictionAccuracy,
 } from "@trainerlab/shared-types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -101,7 +106,8 @@ async function getAuthToken(): Promise<string | null> {
     if (!res.ok) return null;
     const data = await res.json();
     return data.token ?? null;
-  } catch {
+  } catch (error) {
+    console.error("Failed to retrieve auth token:", error);
     return null;
   }
 }
@@ -505,6 +511,50 @@ export const labNotesAdminApi = {
   listRevisions: (id: string) => {
     return fetchApiAuth<ApiLabNoteRevision[]>(
       `/api/v1/lab-notes/${encodeURIComponent(id)}/revisions`
+    );
+  },
+};
+
+// Evolution article search parameters
+export interface EvolutionArticlesParams {
+  limit?: number;
+  offset?: number;
+}
+
+// Evolution API
+export const evolutionApi = {
+  listArticles: (params: EvolutionArticlesParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiEvolutionArticleListItem[]>(
+      `/api/v1/evolution${query ? `?${query}` : ""}`
+    );
+  },
+
+  getArticleBySlug: (slug: string) => {
+    return fetchApi<ApiEvolutionArticle>(
+      `/api/v1/evolution/${encodeURIComponent(slug)}`
+    );
+  },
+
+  getAccuracy: (limit?: number) => {
+    const params = limit ? `?limit=${limit}` : "";
+    return fetchApi<ApiPredictionAccuracy>(`/api/v1/evolution/accuracy${params}`);
+  },
+
+  getArchetypeEvolution: (archetypeId: string, limit?: number) => {
+    const params = limit ? `?limit=${limit}` : "";
+    return fetchApi<ApiEvolutionTimeline>(
+      `/api/v1/archetypes/${encodeURIComponent(archetypeId)}/evolution${params}`
+    );
+  },
+
+  getArchetypePrediction: (archetypeId: string) => {
+    return fetchApi<ApiArchetypePrediction>(
+      `/api/v1/archetypes/${encodeURIComponent(archetypeId)}/prediction`
     );
   },
 };

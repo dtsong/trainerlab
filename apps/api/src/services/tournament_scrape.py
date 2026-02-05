@@ -642,7 +642,9 @@ class TournamentScrapeService:
                 quantity = card.get("quantity")
 
                 entry: dict[str, object] = {"quantity": quantity}
-                if jp_to_en_mapping:
+                # Always store original card_id as jp_card_id for JP tournaments
+                # and map to EN equivalent if available
+                if jp_to_en_mapping is not None:
                     entry["jp_card_id"] = card_id
                     entry["card_id"] = jp_to_en_mapping.get(card_id, card_id)
                 else:

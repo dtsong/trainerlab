@@ -1511,8 +1511,8 @@ class LimitlessClient:
     ) -> list[LimitlessPlacement]:
         """Fetch placements for a JP City League tournament.
 
-        Uses the same parsing as official tournaments since the detail
-        page structure is similar (rank | player | deck).
+        JP tournaments don't have a /standings endpoint like EN tournaments.
+        Instead, the standings table is on the main tournament page itself.
 
         Args:
             tournament_url: Full URL (e.g. limitlesstcg.com/tournaments/jp/3954).
@@ -1521,9 +1521,129 @@ class LimitlessClient:
         Returns:
             List of placements.
         """
-        # Reuse the official tournament placement parser — same page structure
-        return await self.fetch_official_tournament_placements(
-            tournament_url, max_placements
+        # Extract endpoint from URL (JP tournaments use main page, not /standings)
+        if tournament_url.startswith(self.OFFICIAL_BASE_URL):
+            endpoint = tournament_url[len(self.OFFICIAL_BASE_URL) :]
+        else:
+            endpoint = tournament_url
+
+        # Remove trailing slash if present
+        endpoint = endpoint.rstrip("/")
+
+        html = await self._get_official(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        placements: list[LimitlessPlacement] = []
+
+        # Find the standings table on the main page
+        # JP tournaments use a simple table structure
+        table = soup.select_one("table.striped, table.standings")
+        if not table:
+            # Fallback: look for any table with placement data
+            for candidate in soup.select("table"):
+                data_rows = [tr for tr in candidate.select("tr") if tr.select("td")]
+                if len(data_rows) >= 3:
+                    table = candidate
+                    break
+
+        if not table:
+            page_title = soup.title.string if soup.title else "(no title)"
+            logger.warning(
+                "No standings table found for JP tournament %s — title=%r",
+                tournament_url,
+                page_title,
+            )
+            return placements
+
+        rows = table.select("tbody tr")
+        if not rows:
+            rows = table.select("tr")[1:]  # Skip header row
+
+        for row in rows[:max_placements]:
+            try:
+                placement = self._parse_jp_placement_row(row)
+                if placement:
+                    placements.append(placement)
+            except (ValueError, KeyError, AttributeError) as e:
+                logger.warning(f"Error parsing JP placement row: {e}")
+                continue
+
+        logger.info(
+            "Parsed %d JP placements from %s",
+            len(placements),
+            tournament_url,
+        )
+        return placements
+
+    def _parse_jp_placement_row(self, row: Tag) -> LimitlessPlacement | None:
+        """Parse a placement row from a JP City League tournament page.
+
+        JP format: <tr><td>rank</td><td>player</td><td>deck</td><td>list-icon</td></tr>
+
+        Args:
+            row: BeautifulSoup Tag for the table row.
+
+        Returns:
+            LimitlessPlacement or None if parsing fails.
+        """
+        cells = row.select("td")
+        if len(cells) < 3:
+            return None
+
+        # Parse placement (first cell)
+        try:
+            placement = int(cells[0].get_text(strip=True))
+        except ValueError:
+            return None
+
+        # Parse player name (second cell)
+        player_cell = cells[1]
+        player_name = None
+        player_link = player_cell.select_one("a")
+        if player_link:
+            player_name = player_link.get_text(strip=True)
+        else:
+            player_name = player_cell.get_text(strip=True)
+
+        # Parse archetype and decklist URL (third cell)
+        archetype = "Unknown"
+        decklist_url: str | None = None
+
+        deck_cell = cells[2]
+        deck_link = deck_cell.select_one("a")
+        if deck_link:
+            href = str(deck_link.get("href", ""))
+            if href:
+                # Make absolute URL
+                if href.startswith("/"):
+                    decklist_url = f"{self.OFFICIAL_BASE_URL}{href}"
+                elif href.startswith("http"):
+                    decklist_url = href
+                else:
+                    decklist_url = f"{self.OFFICIAL_BASE_URL}/{href}"
+
+            # Try to determine archetype from Pokemon images
+            pokemon_imgs = deck_link.select("img.pokemon")
+            if pokemon_imgs:
+                pokemon_names = [
+                    str(img.get("alt", "")) for img in pokemon_imgs if img.get("alt")
+                ]
+                if pokemon_names:
+                    archetype = " ".join(pokemon_names[:2])
+
+        # Try to get country from player link if available
+        country = None
+        if player_link:
+            href = str(player_link.get("href", ""))
+            if "/players/jp/" in href:
+                country = "JP"
+
+        return LimitlessPlacement(
+            placement=placement,
+            player_name=player_name if player_name else None,
+            country=country,
+            archetype=archetype,
+            decklist_url=decklist_url,
         )
 
     # =========================================================================
@@ -1657,7 +1777,7 @@ class LimitlessClient:
 
         is_unreleased = bool(
             elem.select_one(".unreleased, .jp-only")
-            or "unreleased" in str(elem.get("class", []))
+            or "unreleased" in str(elem.get("class", ""))
         )
 
         return LimitlessJPCard(

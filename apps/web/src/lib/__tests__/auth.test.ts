@@ -123,6 +123,64 @@ describe("auth module", () => {
         expect(result).toBeNull();
       }
     });
+
+    it("should encode a valid token using jose SignJWT", async () => {
+      const NextAuth = (await import("next-auth")).default;
+      const jose = await import("jose");
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const encode = callArgs.jwt?.encode;
+
+      if (encode) {
+        const result = await encode({
+          token: { sub: "user-123", email: "test@example.com" },
+          salt: "",
+          secret: "test-secret",
+        });
+        expect(result).toBe("mock-jwt-token");
+        expect(jose.SignJWT).toHaveBeenCalled();
+      }
+    });
+
+    it("should decode a valid token using jose jwtVerify", async () => {
+      const NextAuth = (await import("next-auth")).default;
+      const jose = await import("jose");
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const decode = callArgs.jwt?.decode;
+
+      if (decode) {
+        const result = await decode({
+          token: "valid-jwt-token",
+          salt: "",
+          secret: "test-secret",
+        });
+        expect(result).toEqual({
+          sub: "user-123",
+          email: "test@example.com",
+        });
+        expect(jose.jwtVerify).toHaveBeenCalled();
+      }
+    });
+
+    it("should return null when decode encounters an error", async () => {
+      const NextAuth = (await import("next-auth")).default;
+      const jose = await import("jose");
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const decode = callArgs.jwt?.decode;
+
+      // Make jwtVerify throw an error
+      vi.mocked(jose.jwtVerify).mockRejectedValueOnce(
+        new Error("Invalid token")
+      );
+
+      if (decode) {
+        const result = await decode({
+          token: "invalid-jwt-token",
+          salt: "",
+          secret: "test-secret",
+        });
+        expect(result).toBeNull();
+      }
+    });
   });
 
   describe("callbacks", () => {

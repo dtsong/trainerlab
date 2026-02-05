@@ -6,9 +6,10 @@ import {
   transformSnapshot,
   safeFormatDate,
   getErrorMessage,
+  groupArchetypes,
 } from "../meta-utils";
 import { ApiError } from "../api";
-import type { ApiMetaSnapshot } from "@trainerlab/shared-types";
+import type { ApiMetaSnapshot, Archetype } from "@trainerlab/shared-types";
 
 describe("meta-utils", () => {
   // Suppress console.warn for expected warnings during tests
@@ -320,6 +321,116 @@ describe("meta-utils", () => {
       expect(getErrorMessage(undefined)).toBe(
         "An unexpected error occurred. Please try again."
       );
+    });
+  });
+
+  describe("groupArchetypes", () => {
+    function makeArchetype(name: string, share: number): Archetype {
+      return { name, share };
+    }
+
+    it("should return empty displayed array and null other for empty input", () => {
+      const result = groupArchetypes([]);
+      expect(result.displayed).toEqual([]);
+      expect(result.other).toBeNull();
+    });
+
+    it("should return all archetypes as displayed with null other when count <= topN", () => {
+      const archetypes = [
+        makeArchetype("Charizard ex", 0.15),
+        makeArchetype("Gardevoir ex", 0.12),
+        makeArchetype("Lugia VSTAR", 0.1),
+      ];
+
+      const result = groupArchetypes(archetypes);
+
+      expect(result.displayed).toEqual(archetypes);
+      expect(result.other).toBeNull();
+    });
+
+    it("should group archetypes exceeding topN into other bucket", () => {
+      const archetypes = [
+        makeArchetype("Deck A", 0.2),
+        makeArchetype("Deck B", 0.15),
+        makeArchetype("Deck C", 0.1),
+        makeArchetype("Deck D", 0.08),
+        makeArchetype("Deck E", 0.05),
+      ];
+
+      const result = groupArchetypes(archetypes, { topN: 3 });
+
+      expect(result.displayed).toHaveLength(3);
+      expect(result.displayed.map((a) => a.name)).toEqual([
+        "Deck A",
+        "Deck B",
+        "Deck C",
+      ]);
+
+      expect(result.other).not.toBeNull();
+      expect(result.other!.count).toBe(2);
+      expect(result.other!.share).toBeCloseTo(0.13);
+      expect(result.other!.archetypes.map((a) => a.name)).toEqual([
+        "Deck D",
+        "Deck E",
+      ]);
+    });
+
+    it("should sort archetypes by share descending before grouping", () => {
+      // Provide archetypes in non-sorted order
+      const archetypes = [
+        makeArchetype("Low", 0.02),
+        makeArchetype("High", 0.3),
+        makeArchetype("Mid", 0.1),
+        makeArchetype("Other1", 0.01),
+      ];
+
+      const result = groupArchetypes(archetypes, { topN: 2 });
+
+      expect(result.displayed[0].name).toBe("High");
+      expect(result.displayed[1].name).toBe("Mid");
+      expect(result.other!.archetypes[0].name).toBe("Low");
+      expect(result.other!.archetypes[1].name).toBe("Other1");
+    });
+
+    it("should put all archetypes into other when topN is 0", () => {
+      const archetypes = [
+        makeArchetype("Deck A", 0.5),
+        makeArchetype("Deck B", 0.3),
+        makeArchetype("Deck C", 0.2),
+      ];
+
+      const result = groupArchetypes(archetypes, { topN: 0 });
+
+      expect(result.displayed).toHaveLength(0);
+      expect(result.other).not.toBeNull();
+      expect(result.other!.count).toBe(3);
+      expect(result.other!.share).toBeCloseTo(1.0);
+    });
+
+    it("should return all as displayed with null other when count equals topN", () => {
+      const archetypes = [
+        makeArchetype("Deck A", 0.4),
+        makeArchetype("Deck B", 0.35),
+        makeArchetype("Deck C", 0.25),
+      ];
+
+      const result = groupArchetypes(archetypes, { topN: 3 });
+
+      expect(result.displayed).toEqual(archetypes);
+      expect(result.other).toBeNull();
+    });
+
+    it("should use default topN of 8", () => {
+      const archetypes = Array.from({ length: 10 }, (_, i) =>
+        makeArchetype(`Deck ${i + 1}`, (10 - i) / 100)
+      );
+
+      const result = groupArchetypes(archetypes);
+
+      expect(result.displayed).toHaveLength(8);
+      expect(result.other).not.toBeNull();
+      expect(result.other!.count).toBe(2);
+      expect(result.other!.share).toBeCloseTo(0.01 + 0.02);
     });
   });
 });

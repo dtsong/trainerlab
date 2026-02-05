@@ -925,3 +925,289 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
 
         assert key_cards["sv3-1"]["inclusion_rate"] == 0.5
         assert key_cards["sv3-1"]["avg_copies"] == 2.0
+
+
+class TestComputeMatchupsFromPlacements:
+    """Tests for _compute_matchups_from_placements helper function."""
+
+    def test_returns_empty_when_no_placements(self) -> None:
+        """Test empty placements return empty matchups."""
+        from src.routers.meta import _compute_matchups_from_placements
+
+        matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+            [], "Charizard ex"
+        )
+
+        assert matchups == []
+        assert overall_win_rate is None
+        assert total_games == 0
+
+    def test_returns_empty_when_archetype_not_present(self) -> None:
+        """Test returns empty when target archetype is not in placements."""
+        from src.routers.meta import _compute_matchups_from_placements
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = "t1"
+        p1.archetype = "Lugia VSTAR"
+        p1.placement = 1
+
+        matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+            [p1], "Charizard ex"
+        )
+
+        assert matchups == []
+        assert overall_win_rate is None
+        assert total_games == 0
+
+    def test_win_when_archetype_places_higher(self) -> None:
+        """Test archetype placing higher counts as a win."""
+        from src.routers.meta import _compute_matchups_from_placements
+
+        t_id = "tournament-1"
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = t_id
+        p1.archetype = "Charizard ex"
+        p1.placement = 1
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.tournament_id = t_id
+        p2.archetype = "Lugia VSTAR"
+        p2.placement = 2
+
+        matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+            [p1, p2], "Charizard ex"
+        )
+
+        assert len(matchups) == 1
+        assert matchups[0].opponent == "Lugia VSTAR"
+        assert matchups[0].win_rate == 1.0
+        assert matchups[0].sample_size == 1
+        assert total_games == 1
+        assert overall_win_rate == 1.0
+
+    def test_loss_when_archetype_places_lower(self) -> None:
+        """Test archetype placing lower counts as a loss."""
+        from src.routers.meta import _compute_matchups_from_placements
+
+        t_id = "tournament-1"
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = t_id
+        p1.archetype = "Charizard ex"
+        p1.placement = 5
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.tournament_id = t_id
+        p2.archetype = "Lugia VSTAR"
+        p2.placement = 1
+
+        matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+            [p1, p2], "Charizard ex"
+        )
+
+        assert len(matchups) == 1
+        assert matchups[0].opponent == "Lugia VSTAR"
+        assert matchups[0].win_rate == 0.0
+        assert total_games == 1
+        assert overall_win_rate == 0.0
+
+    def test_tie_counts_as_half_win(self) -> None:
+        """Test equal placement counts as 0.5 win (tie)."""
+        from src.routers.meta import _compute_matchups_from_placements
+
+        t_id = "tournament-1"
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = t_id
+        p1.archetype = "Charizard ex"
+        p1.placement = 3
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.tournament_id = t_id
+        p2.archetype = "Lugia VSTAR"
+        p2.placement = 3
+
+        matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+            [p1, p2], "Charizard ex"
+        )
+
+        assert len(matchups) == 1
+        assert matchups[0].win_rate == 0.5
+        assert total_games == 1
+        assert overall_win_rate == 0.5
+
+    def test_multiple_tournaments_aggregated(self) -> None:
+        """Test matchups aggregate across multiple tournaments."""
+        from src.routers.meta import _compute_matchups_from_placements
+
+        # Tournament 1: Charizard wins
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = "t1"
+        p1.archetype = "Charizard ex"
+        p1.placement = 1
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.tournament_id = "t1"
+        p2.archetype = "Lugia VSTAR"
+        p2.placement = 2
+
+        # Tournament 2: Lugia wins
+        p3 = MagicMock(spec=TournamentPlacement)
+        p3.tournament_id = "t2"
+        p3.archetype = "Charizard ex"
+        p3.placement = 4
+
+        p4 = MagicMock(spec=TournamentPlacement)
+        p4.tournament_id = "t2"
+        p4.archetype = "Lugia VSTAR"
+        p4.placement = 1
+
+        matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+            [p1, p2, p3, p4], "Charizard ex"
+        )
+
+        assert len(matchups) == 1
+        assert matchups[0].opponent == "Lugia VSTAR"
+        assert matchups[0].win_rate == 0.5  # 1 win, 1 loss = 50%
+        assert matchups[0].sample_size == 2
+        assert total_games == 2
+        assert overall_win_rate == 0.5
+
+    def test_confidence_levels(self) -> None:
+        """Test confidence levels based on sample size."""
+        from src.routers.meta import _compute_matchup_confidence
+
+        assert _compute_matchup_confidence(50) == "high"
+        assert _compute_matchup_confidence(100) == "high"
+        assert _compute_matchup_confidence(20) == "medium"
+        assert _compute_matchup_confidence(49) == "medium"
+        assert _compute_matchup_confidence(19) == "low"
+        assert _compute_matchup_confidence(1) == "low"
+        assert _compute_matchup_confidence(0) == "low"
+
+    def test_uses_best_placement_per_tournament(self) -> None:
+        """Test that the best placement for the archetype is used per tournament."""
+        from src.routers.meta import _compute_matchups_from_placements
+
+        t_id = "tournament-1"
+
+        # Two Charizard placements: 2nd and 5th
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = t_id
+        p1.archetype = "Charizard ex"
+        p1.placement = 5
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.tournament_id = t_id
+        p2.archetype = "Charizard ex"
+        p2.placement = 2
+
+        # Opponent at 3rd place
+        p3 = MagicMock(spec=TournamentPlacement)
+        p3.tournament_id = t_id
+        p3.archetype = "Lugia VSTAR"
+        p3.placement = 3
+
+        matchups, overall_win_rate, total_games = _compute_matchups_from_placements(
+            [p1, p2, p3], "Charizard ex"
+        )
+
+        assert len(matchups) == 1
+        # Best Charizard placement is 2, opponent is 3 -> win
+        assert matchups[0].win_rate == 1.0
+
+
+class TestGetArchetypeMatchups(TestMetaEndpoints):
+    """Tests for GET /api/v1/meta/archetypes/{name}/matchups."""
+
+    def test_get_matchups_success(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Test getting matchup spread successfully."""
+        t_id = "tournament-1"
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = t_id
+        p1.archetype = "Charizard ex"
+        p1.placement = 1
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.tournament_id = t_id
+        p2.archetype = "Lugia VSTAR"
+        p2.placement = 2
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [p1, p2]
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex/matchups")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["archetype"] == "Charizard ex"
+        assert len(data["matchups"]) == 1
+        assert data["matchups"][0]["opponent"] == "Lugia VSTAR"
+        assert data["matchups"][0]["win_rate"] == 1.0
+        assert data["total_games"] == 1
+
+    def test_get_matchups_archetype_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test 404 when archetype not found in tournament data."""
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.tournament_id = "t1"
+        p1.archetype = "Lugia VSTAR"
+        p1.placement = 1
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [p1]
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/archetypes/NonexistentDeck/matchups")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+    def test_get_matchups_db_error_returns_503(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test database error returns 503."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        mock_db.execute.side_effect = SQLAlchemyError("Connection failed")
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex/matchups")
+
+        assert response.status_code == 503
+        assert "try again later" in response.json()["detail"]
+
+    def test_get_matchups_limits_to_top_10(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that matchup results are limited to top 10."""
+        placements = []
+        t_id = "tournament-1"
+
+        # Create a Charizard placement
+        p = MagicMock(spec=TournamentPlacement)
+        p.tournament_id = t_id
+        p.archetype = "Charizard ex"
+        p.placement = 1
+        placements.append(p)
+
+        # Create 15 different opponent archetypes
+        for i in range(15):
+            opp = MagicMock(spec=TournamentPlacement)
+            opp.tournament_id = t_id
+            opp.archetype = f"Archetype {i}"
+            opp.placement = i + 2
+            placements.append(opp)
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = placements
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/meta/archetypes/Charizard%20ex/matchups")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["matchups"]) == 10  # Limited to top 10

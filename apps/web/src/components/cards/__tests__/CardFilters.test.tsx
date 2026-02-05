@@ -1,10 +1,19 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeAll } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CardFilters, DEFAULT_FILTERS } from "../CardFilters";
 import type { CardFiltersValues } from "../CardFilters";
 import type { ApiSet } from "@trainerlab/shared-types";
+
+// Mock pointer capture and scroll APIs for Radix UI compatibility in jsdom
+beforeAll(() => {
+  HTMLElement.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+  HTMLElement.prototype.setPointerCapture = vi.fn();
+  HTMLElement.prototype.releasePointerCapture = vi.fn();
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 function createMockSet(overrides: Partial<ApiSet> = {}): ApiSet {
   return {
@@ -181,6 +190,73 @@ describe("CardFilters", () => {
       expect(
         screen.getByRole("button", { name: /clear filters/i })
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("filter selection callbacks", () => {
+    it("should call onChange with supertype when supertype filter is changed", async () => {
+      const onChange = vi.fn();
+      render(<CardFilters values={DEFAULT_FILTERS} onChange={onChange} />);
+
+      const supertypeTrigger = screen.getByRole("combobox", {
+        name: /filter by card type/i,
+      });
+      fireEvent.click(supertypeTrigger);
+
+      const option = await screen.findByText("Pokemon");
+      fireEvent.click(option);
+
+      expect(onChange).toHaveBeenCalledWith("supertype", "Pokemon");
+    });
+
+    it("should call onChange with types when energy type filter is changed", async () => {
+      const onChange = vi.fn();
+      render(<CardFilters values={DEFAULT_FILTERS} onChange={onChange} />);
+
+      const energyTrigger = screen.getByRole("combobox", {
+        name: /filter by energy type/i,
+      });
+      fireEvent.click(energyTrigger);
+
+      const option = await screen.findByText("Fire");
+      fireEvent.click(option);
+
+      expect(onChange).toHaveBeenCalledWith("types", "Fire");
+    });
+
+    it("should call onChange with set_id when set filter is changed", async () => {
+      const onChange = vi.fn();
+      const sets: ApiSet[] = [
+        createMockSet({ id: "sv1", name: "Scarlet & Violet" }),
+      ];
+      render(
+        <CardFilters values={DEFAULT_FILTERS} onChange={onChange} sets={sets} />
+      );
+
+      const setTrigger = screen.getByRole("combobox", {
+        name: /filter by set/i,
+      });
+      fireEvent.click(setTrigger);
+
+      const option = await screen.findByText("Scarlet & Violet");
+      fireEvent.click(option);
+
+      expect(onChange).toHaveBeenCalledWith("set_id", "sv1");
+    });
+
+    it("should call onChange with standard_legal when format filter is changed", async () => {
+      const onChange = vi.fn();
+      render(<CardFilters values={DEFAULT_FILTERS} onChange={onChange} />);
+
+      const formatTrigger = screen.getByRole("combobox", {
+        name: /filter by format/i,
+      });
+      fireEvent.click(formatTrigger);
+
+      const option = await screen.findByText("Standard Legal");
+      fireEvent.click(option);
+
+      expect(onChange).toHaveBeenCalledWith("standard_legal", "standard");
     });
   });
 

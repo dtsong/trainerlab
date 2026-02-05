@@ -133,6 +133,8 @@ class TestDiscoverEnEndpoint:
             mock_discover.assert_called_once_with(
                 lookback_days=90,
                 game_format="standard",
+                auto_process=False,
+                max_auto_process=50,
             )
 
 

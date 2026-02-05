@@ -515,3 +515,154 @@ class TestDecklistSchemas:
         assert decklist.archetype == "Charizard ex"
         assert decklist.total_cards == 3
         assert len(decklist.cards) == 1
+
+
+class TestGetTournament:
+    """Tests for GET /api/v1/tournaments/{tournament_id}."""
+
+    @pytest.fixture
+    def mock_db(self) -> AsyncMock:
+        """Create mock database session."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def client(self, mock_db: AsyncMock) -> TestClient:
+        """Create test client with mocked database."""
+        from src.db.database import get_db
+
+        async def override_get_db():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = override_get_db
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    @pytest.fixture
+    def sample_tournament_with_placements(self) -> MagicMock:
+        """Create a sample tournament with placements for detail view."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+        tournament.name = "Charlotte Regional"
+        tournament.date = date(2024, 3, 15)
+        tournament.region = "NA"
+        tournament.country = "USA"
+        tournament.format = "standard"
+        tournament.best_of = 3
+        tournament.tier = "major"
+        tournament.participant_count = 512
+        tournament.source = "limitless"
+        tournament.source_url = "https://limitlesstcg.com/tournaments/en/1234"
+
+        p1 = MagicMock(spec=TournamentPlacement)
+        p1.id = uuid4()
+        p1.placement = 1
+        p1.player_name = "Alice"
+        p1.archetype = "Charizard ex"
+        p1.decklist = [{"card_id": "sv3-125", "quantity": 3}]
+
+        p2 = MagicMock(spec=TournamentPlacement)
+        p2.id = uuid4()
+        p2.placement = 2
+        p2.player_name = "Bob"
+        p2.archetype = "Lugia VSTAR"
+        p2.decklist = None
+
+        p3 = MagicMock(spec=TournamentPlacement)
+        p3.id = uuid4()
+        p3.placement = 3
+        p3.player_name = "Charlie"
+        p3.archetype = "Charizard ex"
+        p3.decklist = [{"card_id": "sv3-125", "quantity": 2}]
+
+        tournament.placements = [p2, p3, p1]  # Intentionally unordered
+
+        return tournament
+
+    def test_get_tournament_success(
+        self,
+        client: TestClient,
+        mock_db: AsyncMock,
+        sample_tournament_with_placements: MagicMock,
+    ) -> None:
+        """Test getting tournament detail successfully."""
+        tournament = sample_tournament_with_placements
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = tournament
+        mock_db.execute.return_value = mock_result
+
+        response = client.get(f"/api/v1/tournaments/{tournament.id}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Charlotte Regional"
+        assert data["region"] == "NA"
+        assert data["format"] == "standard"
+        assert data["best_of"] == 3
+        assert data["tier"] == "major"
+        assert data["participant_count"] == 512
+        assert data["source"] == "limitless"
+        assert data["source_url"] == "https://limitlesstcg.com/tournaments/en/1234"
+
+        # Placements should be sorted by placement number
+        assert len(data["placements"]) == 3
+        assert data["placements"][0]["placement"] == 1
+        assert data["placements"][0]["player_name"] == "Alice"
+        assert data["placements"][0]["has_decklist"] is True
+        assert data["placements"][1]["placement"] == 2
+        assert data["placements"][1]["has_decklist"] is False
+        assert data["placements"][2]["placement"] == 3
+
+    def test_get_tournament_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test 404 when tournament does not exist."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        tid = uuid4()
+        response = client.get(f"/api/v1/tournaments/{tid}")
+
+        assert response.status_code == 404
+        assert "Tournament not found" in response.json()["detail"]
+
+    def test_get_tournament_db_error_returns_503(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test database error returns 503."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        mock_db.execute.side_effect = SQLAlchemyError("Connection failed")
+
+        tid = uuid4()
+        response = client.get(f"/api/v1/tournaments/{tid}")
+
+        assert response.status_code == 503
+        assert "try again later" in response.json()["detail"]
+
+    def test_get_tournament_meta_breakdown(
+        self,
+        client: TestClient,
+        mock_db: AsyncMock,
+        sample_tournament_with_placements: MagicMock,
+    ) -> None:
+        """Test meta breakdown is computed correctly from placements."""
+        tournament = sample_tournament_with_placements
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = tournament
+        mock_db.execute.return_value = mock_result
+
+        response = client.get(f"/api/v1/tournaments/{tournament.id}")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # 2 Charizard ex, 1 Lugia VSTAR
+        meta = {m["archetype"]: m for m in data["meta_breakdown"]}
+        assert "Charizard ex" in meta
+        assert meta["Charizard ex"]["count"] == 2
+        assert meta["Charizard ex"]["share"] == round(2 / 3, 4)
+
+        assert "Lugia VSTAR" in meta
+        assert meta["Lugia VSTAR"]["count"] == 1
+        assert meta["Lugia VSTAR"]["share"] == round(1 / 3, 4)

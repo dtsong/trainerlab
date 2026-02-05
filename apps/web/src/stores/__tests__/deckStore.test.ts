@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { useDeckStore } from "../deckStore";
 import type { ApiCardSummary } from "@trainerlab/shared-types";
 
@@ -514,6 +514,209 @@ describe("deckStore", () => {
         expect(grouped.Pokemon).toHaveLength(1);
         expect(grouped.Trainer).toHaveLength(0);
         expect(grouped.Energy).toHaveLength(0);
+      });
+    });
+  });
+
+  describe("localStorage and persistence edge cases", () => {
+    // The store uses a custom storage adapter. We access it via the persist API.
+    const getStorage = () => useDeckStore.persist.getOptions().storage!;
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      localStorage.clear();
+    });
+
+    describe("storage.getItem error handling", () => {
+      it("should return null and log error when localStorage.getItem throws", () => {
+        const consoleErrorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const error = new Error("SecurityError: access denied");
+        vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+          throw error;
+        });
+
+        const storage = getStorage();
+        const result = storage.getItem("deck-builder-storage");
+
+        expect(result).toBeNull();
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Failed to read deck from localStorage:",
+          error
+        );
+      });
+
+      it("should return null and log error when localStorage contains invalid JSON", () => {
+        const consoleErrorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        vi.spyOn(Storage.prototype, "getItem").mockReturnValue(
+          "{corrupted json data!!"
+        );
+
+        const storage = getStorage();
+        const result = storage.getItem("deck-builder-storage");
+
+        expect(result).toBeNull();
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Failed to read deck from localStorage:",
+          expect.any(SyntaxError)
+        );
+      });
+
+      it("should return null when localStorage value is null (no saved data)", () => {
+        vi.spyOn(Storage.prototype, "getItem").mockReturnValue(null);
+
+        const storage = getStorage();
+        const result = storage.getItem("deck-builder-storage");
+
+        expect(result).toBeNull();
+      });
+
+      it("should parse and return valid JSON from localStorage", () => {
+        const storedData = { state: { cards: [], name: "Test" }, version: 0 };
+        vi.spyOn(Storage.prototype, "getItem").mockReturnValue(
+          JSON.stringify(storedData)
+        );
+
+        const storage = getStorage();
+        const result = storage.getItem("deck-builder-storage");
+
+        expect(result).toEqual(storedData);
+      });
+    });
+
+    describe("storage.setItem error handling", () => {
+      it("should log error when localStorage.setItem throws (quota exceeded)", () => {
+        const consoleErrorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const quotaError = new DOMException(
+          "QuotaExceededError",
+          "QuotaExceededError"
+        );
+        vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+          throw quotaError;
+        });
+
+        const storage = getStorage();
+        // Should not throw
+        storage.setItem("deck-builder-storage", {
+          state: { cards: [] },
+          version: 0,
+        });
+
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Failed to save deck to localStorage:",
+          quotaError
+        );
+      });
+    });
+
+    describe("storage.removeItem error handling", () => {
+      it("should log error when localStorage.removeItem throws", () => {
+        const consoleErrorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const error = new Error("Storage access denied");
+        vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+          throw error;
+        });
+
+        const storage = getStorage();
+        // Should not throw
+        storage.removeItem("deck-builder-storage");
+
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Failed to remove deck from localStorage:",
+          error
+        );
+      });
+    });
+
+    describe("SSR guards (window undefined)", () => {
+      it("should return null from getItem when window is undefined", () => {
+        const originalWindow = globalThis.window;
+        // @ts-expect-error - intentionally removing window to simulate SSR
+        delete globalThis.window;
+
+        try {
+          const storage = getStorage();
+          const result = storage.getItem("deck-builder-storage");
+          expect(result).toBeNull();
+        } finally {
+          globalThis.window = originalWindow;
+        }
+      });
+
+      it("should no-op on setItem when window is undefined", () => {
+        const originalWindow = globalThis.window;
+        // @ts-expect-error - intentionally removing window to simulate SSR
+        delete globalThis.window;
+
+        try {
+          const storage = getStorage();
+          // Should not throw
+          expect(() =>
+            storage.setItem("deck-builder-storage", {
+              state: { cards: [] },
+              version: 0,
+            })
+          ).not.toThrow();
+        } finally {
+          globalThis.window = originalWindow;
+        }
+      });
+
+      it("should no-op on removeItem when window is undefined", () => {
+        const originalWindow = globalThis.window;
+        // @ts-expect-error - intentionally removing window to simulate SSR
+        delete globalThis.window;
+
+        try {
+          const storage = getStorage();
+          // Should not throw
+          expect(() =>
+            storage.removeItem("deck-builder-storage")
+          ).not.toThrow();
+        } finally {
+          globalThis.window = originalWindow;
+        }
+      });
+    });
+
+    describe("onRehydrateStorage error callback", () => {
+      it("should log error when rehydration fails", () => {
+        const consoleErrorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const onRehydrate =
+          useDeckStore.persist.getOptions().onRehydrateStorage;
+
+        // onRehydrateStorage returns a callback that receives (state, error)
+        const callback = onRehydrate!();
+        const rehydrationError = new Error("Rehydration failed");
+        callback!(undefined, rehydrationError);
+
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Failed to restore deck from localStorage:",
+          rehydrationError
+        );
+      });
+
+      it("should not log when rehydration succeeds", () => {
+        const consoleErrorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const onRehydrate =
+          useDeckStore.persist.getOptions().onRehydrateStorage;
+
+        const callback = onRehydrate!();
+        // Successful rehydration: state is present, error is undefined
+        callback!(useDeckStore.getState(), undefined);
+
+        expect(consoleErrorSpy).not.toHaveBeenCalled();
       });
     });
   });

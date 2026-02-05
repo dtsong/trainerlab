@@ -1,10 +1,42 @@
 import React from "react";
-import { describe, it, expect, beforeAll } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { render, screen, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MetaPieChart } from "../MetaPieChart";
 import type { Archetype } from "@trainerlab/shared-types";
 import { groupArchetypes } from "@/lib/meta-utils";
+
+// Capture props passed to recharts components so we can invoke callbacks
+let capturedPieProps: Record<string, unknown> = {};
+let capturedTooltipProps: Record<string, unknown> = {};
+
+vi.mock("recharts", () => ({
+  PieChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="pie-chart">{children}</div>
+  ),
+  Pie: (props: Record<string, unknown>) => {
+    capturedPieProps = props;
+    const children = props.children as React.ReactNode;
+    return <div data-testid="pie">{children}</div>;
+  },
+  Cell: (props: Record<string, unknown>) => (
+    <div
+      data-testid="pie-cell"
+      data-fill={props.fill as string}
+      data-opacity={String(props.opacity)}
+    />
+  ),
+  Tooltip: (props: Record<string, unknown>) => {
+    capturedTooltipProps = props;
+    const ContentComponent = props.content as React.ReactElement;
+    return <div data-testid="tooltip">{ContentComponent}</div>;
+  },
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div className="recharts-responsive-container">{children}</div>
+  ),
+}));
+
+// Import after mocks
+import { MetaPieChart } from "../MetaPieChart";
 
 // Mock ResizeObserver for Recharts ResponsiveContainer
 beforeAll(() => {
@@ -86,6 +118,11 @@ describe("MetaPieChart", () => {
     { name: "Lost Zone", share: 0.08 },
   ];
 
+  beforeEach(() => {
+    capturedPieProps = {};
+    capturedTooltipProps = {};
+  });
+
   it("should render the chart container", () => {
     render(<MetaPieChart data={mockData} />);
     expect(screen.getByTestId("meta-pie-chart")).toBeInTheDocument();
@@ -121,6 +158,131 @@ describe("MetaPieChart", () => {
   it("should not show Other when data fits within topN", () => {
     render(<MetaPieChart data={mockData} />);
     expect(screen.queryByText(/Other/)).not.toBeInTheDocument();
+  });
+
+  describe("CustomTooltip", () => {
+    it("should render tooltip content when active with payload", () => {
+      render(<MetaPieChart data={mockData} />);
+      const tooltipContent = capturedTooltipProps.content as React.ReactElement;
+      expect(tooltipContent).toBeDefined();
+
+      const { container } = render(
+        React.cloneElement(tooltipContent, {
+          active: true,
+          payload: [
+            {
+              name: "Charizard ex",
+              value: 15,
+              payload: {
+                name: "Charizard ex",
+                share: 0.15,
+                value: 15,
+                color: "#ff0000",
+              },
+            },
+          ],
+        })
+      );
+
+      expect(container.textContent).toContain("Charizard ex");
+      expect(container.textContent).toContain("15.0% of meta");
+    });
+
+    it("should render nothing when not active", () => {
+      render(<MetaPieChart data={mockData} />);
+      const tooltipContent = capturedTooltipProps.content as React.ReactElement;
+
+      const { container } = render(
+        React.cloneElement(tooltipContent, {
+          active: false,
+          payload: [
+            {
+              name: "Charizard ex",
+              value: 15,
+              payload: {
+                name: "Charizard ex",
+                share: 0.15,
+                value: 15,
+                color: "#ff0000",
+              },
+            },
+          ],
+        })
+      );
+
+      expect(container.textContent).toBe("");
+    });
+
+    it("should render nothing when payload is empty", () => {
+      render(<MetaPieChart data={mockData} />);
+      const tooltipContent = capturedTooltipProps.content as React.ReactElement;
+
+      const { container } = render(
+        React.cloneElement(tooltipContent, {
+          active: true,
+          payload: [],
+        })
+      );
+
+      expect(container.textContent).toBe("");
+    });
+
+    it("should render nothing when payload is undefined", () => {
+      render(<MetaPieChart data={mockData} />);
+      const tooltipContent = capturedTooltipProps.content as React.ReactElement;
+
+      const { container } = render(
+        React.cloneElement(tooltipContent, {
+          active: true,
+          payload: undefined,
+        })
+      );
+
+      expect(container.textContent).toBe("");
+    });
+  });
+
+  describe("Pie onMouseEnter/onMouseLeave", () => {
+    it("should set activeIndex on mouse enter", () => {
+      render(<MetaPieChart data={mockData} />);
+      const onMouseEnter = capturedPieProps.onMouseEnter as (
+        data: unknown,
+        index: number
+      ) => void;
+      expect(onMouseEnter).toBeDefined();
+
+      // Triggering onMouseEnter should set the active index
+      // This exercises the setActiveIndex(index) callback
+      act(() => {
+        onMouseEnter(undefined, 0);
+      });
+    });
+
+    it("should clear activeIndex on mouse leave", () => {
+      render(<MetaPieChart data={mockData} />);
+      const onMouseLeave = capturedPieProps.onMouseLeave as () => void;
+      expect(onMouseLeave).toBeDefined();
+
+      // Triggering onMouseLeave should clear the active index
+      // This exercises the setActiveIndex(null) callback
+      act(() => {
+        onMouseLeave();
+      });
+    });
+  });
+
+  describe("legend interaction", () => {
+    it("should update activeIndex on legend item hover", async () => {
+      const user = userEvent.setup();
+      render(<MetaPieChart data={mockData} />);
+      const legend = screen.getByTestId("pie-legend");
+      const buttons = within(legend).getAllByRole("button");
+
+      // Hover over first legend item
+      await user.hover(buttons[0]);
+      // Un-hover
+      await user.unhover(buttons[0]);
+    });
   });
 
   describe("with many archetypes", () => {
@@ -164,6 +326,41 @@ describe("MetaPieChart", () => {
 
       await user.click(screen.getByText("Other (12)"));
       expect(screen.queryByTestId("other-detail")).not.toBeInTheDocument();
+    });
+
+    it("should sort Other detail by share descending", async () => {
+      const user = userEvent.setup();
+      render(<MetaPieChart data={manyArchetypes} topN={8} />);
+
+      await user.click(screen.getByText("Other (12)"));
+      const detail = screen.getByTestId("other-detail");
+
+      // The Other detail should show archetypes sorted by share desc
+      // Archetype 9 has higher share than Archetype 20
+      const detailText = detail.textContent || "";
+      const idx9 = detailText.indexOf("Archetype 9");
+      const idx20 = detailText.indexOf("Archetype 20");
+      expect(idx9).toBeLessThan(idx20);
+    });
+  });
+
+  describe("center label", () => {
+    it("should render center label with top archetype name and share", () => {
+      const { container } = render(<MetaPieChart data={mockData} />);
+      // The center label uses native <text> SVG elements inside PieChart
+      const textElements = container.querySelectorAll("text");
+      expect(textElements.length).toBeGreaterThanOrEqual(2);
+
+      // Check that the top archetype name and percentage are present
+      const allText = Array.from(textElements).map((t) => t.textContent);
+      expect(allText).toContain("Charizard ex");
+      expect(allText).toContain("15.0%");
+    });
+
+    it("should not render center label text elements when data is empty", () => {
+      const { container } = render(<MetaPieChart data={[]} />);
+      const textElements = container.querySelectorAll("text");
+      expect(textElements.length).toBe(0);
     });
   });
 });

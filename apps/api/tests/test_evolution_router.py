@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.main import app
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
@@ -240,3 +241,133 @@ class TestGetEvolutionArticle:
 
         response = client.get("/api/v1/evolution/nonexistent-slug")
         assert response.status_code == 404
+
+    def test_handles_view_count_increment_failure(self, client, mock_db) -> None:
+        """Should return article when view count fails."""
+        snapshot = MagicMock(spec=ArchetypeEvolutionSnapshot)
+        snapshot.id = uuid4()
+        snapshot.archetype = "Charizard ex"
+        snapshot.tournament_id = uuid4()
+        snapshot.meta_share = 0.12
+        snapshot.top_cut_conversion = 0.35
+        snapshot.best_placement = 2
+        snapshot.deck_count = 8
+        snapshot.consensus_list = None
+        snapshot.meta_context = None
+        snapshot.created_at = datetime.now(UTC)
+
+        link = MagicMock(spec=EvolutionArticleSnapshot)
+        link.position = 0
+        link.snapshot = snapshot
+
+        article = MagicMock(spec=EvolutionArticle)
+        article.id = uuid4()
+        article.archetype_id = "Charizard ex"
+        article.slug = "test-slug"
+        article.title = "Test Article"
+        article.excerpt = "Excerpt"
+        article.introduction = "Intro"
+        article.conclusion = "Conclusion"
+        article.status = "published"
+        article.is_premium = False
+        article.published_at = datetime.now(UTC)
+        article.view_count = 5
+        article.share_count = 0
+        article.article_snapshots = [link]
+
+        # First call: fetch article (succeeds)
+        # Second call: increment view count (fails with SQLAlchemy error)
+        first_result = _make_execute_result(scalar_one_or_none=article)
+        mock_db.execute.side_effect = [
+            first_result,
+            SQLAlchemyError("Connection lost"),
+        ]
+
+        response = client.get("/api/v1/evolution/test-slug")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "Test Article"
+
+    def test_handles_missing_snapshot_in_link(self, client, mock_db) -> None:
+        """Should skip links with missing snapshots (line 363)."""
+        link = MagicMock(spec=EvolutionArticleSnapshot)
+        link.position = 0
+        link.snapshot = None  # Missing snapshot
+
+        article = MagicMock(spec=EvolutionArticle)
+        article.id = uuid4()
+        article.archetype_id = "Charizard ex"
+        article.slug = "missing-snap"
+        article.title = "Test"
+        article.excerpt = "Excerpt"
+        article.introduction = "Intro"
+        article.conclusion = "Conclusion"
+        article.status = "published"
+        article.is_premium = False
+        article.published_at = datetime.now(UTC)
+        article.view_count = 0
+        article.share_count = 0
+        article.article_snapshots = [link]
+
+        mock_db.execute.return_value = _make_execute_result(scalar_one_or_none=article)
+
+        response = client.get("/api/v1/evolution/missing-snap")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["snapshots"] == []
+
+
+class TestEvolutionRouterDatabaseErrors:
+    """Tests for SQLAlchemy error handling in evolution."""
+
+    @pytest.fixture
+    def mock_db(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def client(self, mock_db):
+        from src.db.database import get_db
+
+        app.dependency_overrides[get_db] = lambda: mock_db
+        yield TestClient(app)
+        app.dependency_overrides.clear()
+
+    def test_evolution_timeline_db_error(self, client, mock_db) -> None:
+        """Should return 503 on DB error for evolution timeline (lines 99-105)."""
+        mock_db.execute.side_effect = SQLAlchemyError("Connection error")
+
+        response = client.get("/api/v1/archetypes/test/evolution")
+        assert response.status_code == 503
+        assert "Unable to retrieve" in response.json()["detail"]
+
+    def test_prediction_db_error(self, client, mock_db) -> None:
+        """Should return 503 on DB error for prediction (lines 141-147)."""
+        mock_db.execute.side_effect = SQLAlchemyError("Timeout")
+
+        response = client.get("/api/v1/archetypes/test/prediction")
+        assert response.status_code == 503
+        assert "Unable to retrieve" in response.json()["detail"]
+
+    def test_list_articles_db_error(self, client, mock_db) -> None:
+        """Should return 503 on DB error for article listing (lines 201-206)."""
+        mock_db.execute.side_effect = SQLAlchemyError("Pool exhausted")
+
+        response = client.get("/api/v1/evolution")
+        assert response.status_code == 503
+        assert "Unable to retrieve" in response.json()["detail"]
+
+    def test_accuracy_db_error(self, client, mock_db) -> None:
+        """Should return 503 on DB error for accuracy (lines 267-272)."""
+        mock_db.execute.side_effect = SQLAlchemyError("Broken pipe")
+
+        response = client.get("/api/v1/evolution/accuracy")
+        assert response.status_code == 503
+        assert "Unable to retrieve" in response.json()["detail"]
+
+    def test_article_detail_db_error(self, client, mock_db) -> None:
+        """Should return 503 on DB error for article detail (lines 323-329)."""
+        mock_db.execute.side_effect = SQLAlchemyError("Read-only")
+
+        response = client.get("/api/v1/evolution/some-slug")
+        assert response.status_code == 503
+        assert "Unable to retrieve" in response.json()["detail"]

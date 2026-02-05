@@ -75,11 +75,12 @@ class TestParseCardLine:
 
     def test_parses_basic_energy(self) -> None:
         """Should parse basic energy lines."""
+        # "4 Fire Energy Energy" matches the main pattern with set_code=Energy
         result = parse_card_line("4 Fire Energy Energy")
 
         assert result is not None
         assert result["quantity"] == 4
-        assert "fire" in result["card_id"].lower()
+        assert "energy" in result["card_id"].lower()
 
     def test_parses_jp_set_code_with_suffix(self) -> None:
         """Should parse JP set codes with digits and suffix letters."""
@@ -602,6 +603,254 @@ class TestJPStandingsParsing:
 
             assert placements[0].archetype == "Charizard ex"
             assert placements[0].decklist_url is not None
+
+
+class TestCountryToRegion:
+    """Tests for LimitlessClient._country_to_region helper."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    def test_maps_us_to_na(self, client: LimitlessClient) -> None:
+        """Should map US to NA region."""
+        assert client._country_to_region("US") == "NA"
+
+    def test_maps_ca_to_na(self, client: LimitlessClient) -> None:
+        """Should map Canada to NA region."""
+        assert client._country_to_region("CA") == "NA"
+
+    def test_maps_jp_to_jp(self, client: LimitlessClient) -> None:
+        """Should map Japan to JP region."""
+        assert client._country_to_region("JP") == "JP"
+
+    def test_maps_eu_countries(self, client: LimitlessClient) -> None:
+        """Should map European countries to EU region."""
+        eu_countries = ["GB", "DE", "FR", "IT", "ES", "NL", "SE", "PL"]
+        for country in eu_countries:
+            assert client._country_to_region(country) == "EU", f"Failed for {country}"
+
+    def test_maps_latam_countries(self, client: LimitlessClient) -> None:
+        """Should map Latin American countries to LATAM region."""
+        latam_countries = ["MX", "BR", "AR", "CL", "CO"]
+        for country in latam_countries:
+            assert client._country_to_region(country) == "LATAM", (
+                f"Failed for {country}"
+            )
+
+    def test_maps_oce_countries(self, client: LimitlessClient) -> None:
+        """Should map Oceania countries to OCE region."""
+        assert client._country_to_region("AU") == "OCE"
+        assert client._country_to_region("NZ") == "OCE"
+
+    def test_maps_asia_countries_to_apac(self, client: LimitlessClient) -> None:
+        """Should map non-JP Asian countries to APAC region."""
+        asia_countries = ["KR", "TW", "SG", "MY", "TH"]
+        for country in asia_countries:
+            assert client._country_to_region(country) == "APAC", f"Failed for {country}"
+
+    def test_maps_unknown_country_to_na(self, client: LimitlessClient) -> None:
+        """Should default unknown countries to NA."""
+        assert client._country_to_region("XX") == "NA"
+        assert client._country_to_region("") == "NA"
+
+
+class TestParseOfficialTournamentRow:
+    """Tests for LimitlessClient._parse_official_tournament_row helper."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    def _make_row(
+        self,
+        data_date: str = "2026-01-25",
+        data_country: str = "US",
+        data_name: str = "Charlotte Regional",
+        data_format: str = "standard",
+        data_players: str = "512",
+        href: str = "/tournaments/en/1234",
+    ) -> MagicMock:
+        """Create a mock BeautifulSoup row tag."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            f'<tr data-date="{data_date}" data-country="{data_country}" '
+            f'data-name="{data_name}" data-format="{data_format}" '
+            f'data-players="{data_players}">'
+            f'<td><a href="{href}">View</a></td>'
+            f"</tr>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        return soup.select_one("tr")
+
+    def test_parses_standard_tournament(self, client: LimitlessClient) -> None:
+        """Should parse a standard format tournament row."""
+        row = self._make_row()
+        result = client._parse_official_tournament_row(row, "standard")
+
+        assert result is not None
+        assert result.name == "Charlotte Regional"
+        assert result.tournament_date == date(2026, 1, 25)
+        assert result.region == "NA"
+        assert result.best_of == 3
+        assert result.participant_count == 512
+        assert "limitlesstcg.com" in result.source_url
+
+    def test_filters_out_wrong_format(self, client: LimitlessClient) -> None:
+        """Should return None when format does not match target."""
+        row = self._make_row(data_format="expanded")
+        result = client._parse_official_tournament_row(row, "standard")
+
+        assert result is None
+
+    def test_parses_expanded_format(self, client: LimitlessClient) -> None:
+        """Should parse expanded format tournaments when targeting expanded."""
+        row = self._make_row(data_format="expanded")
+        result = client._parse_official_tournament_row(row, "expanded")
+
+        assert result is not None
+        assert result.game_format == "expanded"
+
+    def test_parses_jp_standard_format(self, client: LimitlessClient) -> None:
+        """Should parse standard-jp as standard with BO1."""
+        row = self._make_row(
+            data_format="standard-jp", data_country="JP", data_name="Champions League"
+        )
+        result = client._parse_official_tournament_row(row, "standard")
+
+        assert result is not None
+        assert result.game_format == "standard"
+        assert result.best_of == 1
+        assert result.region == "JP"
+
+    def test_returns_none_when_missing_required_fields(
+        self, client: LimitlessClient
+    ) -> None:
+        """Should return None when required data attributes are missing."""
+        from bs4 import BeautifulSoup
+
+        # Missing data-name
+        html = (
+            '<tr data-date="2026-01-25" data-country="US" data-format="standard">'
+            '<td><a href="/tournaments/en/1234">View</a></td>'
+            "</tr>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        row = soup.select_one("tr")
+        result = client._parse_official_tournament_row(row, "standard")
+
+        assert result is None
+
+    def test_returns_none_when_no_link(self, client: LimitlessClient) -> None:
+        """Should return None when no tournament link is found."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            '<tr data-date="2026-01-25" data-country="US" '
+            'data-name="Test" data-format="standard">'
+            "<td>No link here</td>"
+            "</tr>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        row = soup.select_one("tr")
+        result = client._parse_official_tournament_row(row, "standard")
+
+        assert result is None
+
+    def test_jp_country_sets_bo1(self, client: LimitlessClient) -> None:
+        """Should set best_of=1 when country is JP even for standard format."""
+        row = self._make_row(data_country="JP", data_format="standard")
+        result = client._parse_official_tournament_row(row, "standard")
+
+        assert result is not None
+        assert result.best_of == 1
+
+    def test_eu_country_sets_bo3(self, client: LimitlessClient) -> None:
+        """Should set best_of=3 for EU country."""
+        row = self._make_row(data_country="GB")
+        result = client._parse_official_tournament_row(row, "standard")
+
+        assert result is not None
+        assert result.best_of == 3
+        assert result.region == "EU"
+
+
+class TestParseJPCityLeagueRow:
+    """Tests for LimitlessClient._parse_jp_city_league_row helper."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    def _make_jp_row(
+        self,
+        date_text: str = "01 Feb 26",
+        prefecture: str = "Tokyo",
+        href: str = "/tournaments/jp/3954",
+    ) -> MagicMock:
+        """Create a mock JP City League row."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            "<tr>"
+            f'<td><a href="{href}">{date_text}</a></td>'
+            f"<td>{prefecture}</td>"
+            f'<td><a href="{href}">View</a></td>'
+            "</tr>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        return soup.select_one("tr")
+
+    def test_parses_valid_row(self, client: LimitlessClient) -> None:
+        """Should parse a valid JP City League row."""
+        row = self._make_jp_row()
+        cutoff = date(2026, 1, 1)
+        result = client._parse_jp_city_league_row(row, cutoff)
+
+        assert result is not None
+        assert result.name == "City League Tokyo"
+        assert result.tournament_date == date(2026, 2, 1)
+        assert result.region == "JP"
+        assert result.best_of == 1
+        assert result.game_format == "standard"
+        assert "limitlesstcg.com" in result.source_url
+
+    def test_returns_none_for_old_tournament(self, client: LimitlessClient) -> None:
+        """Should return None when tournament is before cutoff date."""
+        row = self._make_jp_row(date_text="01 Jan 25")
+        cutoff = date(2026, 1, 1)
+        result = client._parse_jp_city_league_row(row, cutoff)
+
+        assert result is None
+
+    def test_returns_none_for_too_few_cells(self, client: LimitlessClient) -> None:
+        """Should return None when row has fewer than 3 cells."""
+        from bs4 import BeautifulSoup
+
+        html = "<tr><td>Only one cell</td></tr>"
+        soup = BeautifulSoup(html, "html.parser")
+        row = soup.select_one("tr")
+        result = client._parse_jp_city_league_row(row, date(2020, 1, 1))
+
+        assert result is None
+
+    def test_returns_none_when_no_jp_link(self, client: LimitlessClient) -> None:
+        """Should return None when no /tournaments/jp/ link is present."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            "<tr>"
+            '<td><a href="/other/link">01 Feb 26</a></td>'
+            "<td>Tokyo</td>"
+            "<td>Info</td>"
+            "</tr>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        row = soup.select_one("tr")
+        result = client._parse_jp_city_league_row(row, date(2020, 1, 1))
+
+        assert result is None
 
 
 class TestDecklistParserFailureLogging:

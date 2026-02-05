@@ -43,6 +43,74 @@ services:
       timeout: 5s
       retries: 3
 
+  # FastAPI backend
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/trainerlab
+      - REDIS_URL=redis://redis:6379
+      - TCGDEX_URL=http://tcgdex:3000
+      - SCHEDULER_AUTH_BYPASS=true
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-local-dev-secret}
+    volumes:
+      - ./exports:/app/exports
+      - ./apps/api/src:/app/src
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tcgdex:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js frontend
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-local-dev-secret}
+      - NEXTAUTH_URL=http://localhost:3000
+    volumes:
+      - ./apps/web:/app/apps/web
+      - /app/node_modules
+      - /app/apps/web/.next
+    depends_on:
+      - api
+    command: pnpm dev --filter @trainerlab/web --port 3000
+
+  # Jupyter notebook for analysis
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/notebooks
+      - ./analysis:/home/jovyan/analysis
+      - ./exports:/home/jovyan/exports
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/trainerlab
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=""
+    depends_on:
+      - db
+
 volumes:
   postgres_data:
   redis_data:

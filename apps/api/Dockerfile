@@ -43,6 +43,9 @@ COPY --from=builder --chown=appuser:appgroup /app/scripts /app/scripts
 COPY --from=builder --chown=appuser:appgroup /app/alembic /app/alembic
 COPY --from=builder --chown=appuser:appgroup /app/alembic.ini /app/alembic.ini
 
+# Make scripts executable
+RUN chmod +x /app/scripts/*.sh
+
 # Set PATH to use virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -53,5 +56,5 @@ USER appuser
 
 EXPOSE 8080
 
-# Run with uvicorn in exec form for proper signal handling (SIGTERM from Cloud Run)
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Run entrypoint script for migrations then start server
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]

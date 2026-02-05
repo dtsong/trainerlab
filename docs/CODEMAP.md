@@ -74,20 +74,20 @@ apps/api/src/
 
 ### API Routers (`routers/`)
 
-| Router           | Prefix                | Key Endpoints                                                     |
-| ---------------- | --------------------- | ----------------------------------------------------------------- |
-| `health.py`      | `/api/v1/health`      | Health check                                                      |
-| `cards.py`       | `/api/v1/cards`       | GET /, GET /{id}, Search with embeddings                          |
-| `sets.py`        | `/api/v1/sets`        | GET /, GET /{id}                                                  |
-| `decks.py`       | `/api/v1/decks`       | CRUD operations, export/import                                    |
-| `meta.py`        | `/api/v1/meta`        | GET /current, GET /history, GET /archetypes                       |
-| `tournaments.py` | `/api/v1/tournaments` | GET /, GET /{id}, Filter + paginate                               |
-| `japan.py`       | `/api/v1/japan`       | JP-specific endpoints (innovation, archetypes, sets, predictions) |
-| `lab_notes.py`   | `/api/v1/lab-notes`   | GET /, GET /{slug}                                                |
-| `waitlist.py`    | `/api/v1/waitlist`    | POST /                                                            |
-| `format.py`      | `/api/v1/format`      | GET /current, GET /rotations, GET /rotation-impact                |
-| `users.py`       | `/api/v1/users`       | GET /me, PUT /me                                                  |
-| `pipeline.py`    | `/api/v1/pipeline`    | POST /scrape-_, POST /compute-_, POST /sync-\*                    |
+| Router           | Prefix                | Key Endpoints                                                              |
+| ---------------- | --------------------- | -------------------------------------------------------------------------- |
+| `health.py`      | `/api/v1/health`      | Health check                                                               |
+| `cards.py`       | `/api/v1/cards`       | GET /, GET /{id}, Search with embeddings                                   |
+| `sets.py`        | `/api/v1/sets`        | GET /, GET /{id}                                                           |
+| `decks.py`       | `/api/v1/decks`       | CRUD operations, export/import                                             |
+| `meta.py`        | `/api/v1/meta`        | GET /current, GET /history, GET /archetypes                                |
+| `tournaments.py` | `/api/v1/tournaments` | GET /, GET /{id}, Filter + paginate                                        |
+| `japan.py`       | `/api/v1/japan`       | JP-specific endpoints (innovation, archetypes, sets, predictions)          |
+| `lab_notes.py`   | `/api/v1/lab-notes`   | GET /, GET /{slug}                                                         |
+| `waitlist.py`    | `/api/v1/waitlist`    | POST /                                                                     |
+| `format.py`      | `/api/v1/format`      | GET /current, GET /rotations, GET /rotation-impact                         |
+| `users.py`       | `/api/v1/users`       | GET /me, PUT /me                                                           |
+| `pipeline.py`    | `/api/v1/pipeline`    | POST /discover-_, POST /process-tournament, POST /compute-_, POST /sync-\* |
 
 ### Services (`services/`)
 
@@ -108,11 +108,12 @@ apps/api/src/
 
 ### Pipelines (`pipelines/`)
 
-| Pipeline              | Trigger               | Purpose                                     |
-| --------------------- | --------------------- | ------------------------------------------- |
-| `scrape_limitless.py` | Daily 6am/7am UTC     | Scrape EN/JP tournament data from Limitless |
-| `compute_meta.py`     | Daily 8am UTC         | Compute meta snapshots, JP signals, tiers   |
-| `sync_cards.py`       | Weekly Sunday 3am UTC | Sync cards from TCGdex                      |
+| Pipeline                | Trigger               | Purpose                                             |
+| ----------------------- | --------------------- | --------------------------------------------------- |
+| `scrape_limitless.py`   | Daily 6am/7am UTC     | Discover + process EN/JP tournaments from Limitless |
+| `compute_meta.py`       | Daily 8am UTC         | Compute meta snapshots, JP signals, tiers           |
+| `sync_cards.py`         | Weekly Sunday 3am UTC | Sync cards from TCGdex                              |
+| `sync_card_mappings.py` | Weekly Sunday 4am UTC | Sync JP↔EN card ID mappings                         |
 
 ### External Clients (`clients/`)
 
@@ -372,7 +373,7 @@ terraform/
 External Sources → Pipelines → Database → API → Frontend
      ↓                ↓           ↓        ↓       ↓
   TCGdex          sync_cards    Cards   GET     Card Search
-  Limitless       scrape_*      Tournaments  /tournaments  Browser
+  Limitless       discover-*/process-tournament      Tournaments  /tournaments  Browser
                   compute_meta  MetaSnapshots  /meta  Dashboard
 ```
 

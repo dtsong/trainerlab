@@ -14,37 +14,38 @@ Triggers Cloud Scheduler pipelines and verifies data existence via API.
 
 | Option          | Description                    |
 | --------------- | ------------------------------ |
-| `--step=N`      | Run specific step (1-4)        |
+| `--step=N`      | Run specific step (1-5)        |
 | `--verify-only` | Skip triggers, just check data |
 | `-h, --help`    | Show help                      |
 
 **Steps:**
 
-| Step | Pipeline     | Verifies                |
-| ---- | ------------ | ----------------------- |
-| 1    | sync-cards   | Card count > 0          |
-| 2    | discover-en  | Tournament count > 0    |
-| 3    | discover-jp  | JP tournament count > 0 |
-| 4    | compute-meta | Meta archetypes present |
+| Step | Pipeline           | Verifies                   |
+| ---- | ------------------ | -------------------------- |
+| 1    | sync-cards         | Card count > 0             |
+| 2    | sync-card-mappings | Mapping sync job completed |
+| 3    | discover-en        | Tournament count > 0       |
+| 4    | discover-jp        | JP tournament count > 0    |
+| 5    | compute-meta       | Meta archetypes present    |
 
 **Prerequisites:** gcloud CLI, jq, authenticated GCP session
 
 ### test-production-scrapers.sh
 
-Manually triggers production scrapers via Cloud Scheduler. Writes to the production database.
+Manually triggers production pipelines via Cloud Scheduler. Writes to the production database.
 
 ```bash
 ./scripts/test-production-scrapers.sh [OPTIONS]
 ```
 
-| Option            | Description                                                                       |
-| ----------------- | --------------------------------------------------------------------------------- |
-| `--pipeline=NAME` | Run specific pipeline: `discover-en`, `discover-jp`, `compute-meta`, `sync-cards` |
-| `--all`           | Run all pipelines sequentially                                                    |
-| `--confirm`       | **Required** — acknowledge production DB writes                                   |
-| `--verify`        | Verify results after execution                                                    |
-| `--check-logs`    | Check Cloud Logs for recent errors (no execution)                                 |
-| `-h, --help`      | Show help                                                                         |
+| Option            | Description                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `--pipeline=NAME` | Run specific pipeline: `discover-en`, `discover-jp`, `compute-meta`, `sync-cards`, `sync-card-mappings` |
+| `--all`           | Run all pipelines (triggered in parallel)                                                               |
+| `--confirm`       | **Required** — acknowledge production DB writes                                                         |
+| `--verify`        | Verify results after execution                                                                          |
+| `--check-logs`    | Check Cloud Logs for recent errors (no execution)                                                       |
+| `-h, --help`      | Show help                                                                                               |
 
 **Safety:** Requires `--confirm` flag because it writes to the production database.
 

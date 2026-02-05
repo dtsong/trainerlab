@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# TrainerLab Production Scraper Testing Script
+# TrainerLab Production Pipeline Testing Script
 # Usage: ./scripts/test-production-scrapers.sh [OPTIONS]
 #
-# This script manually triggers scrapers in the trainerlab-prod GCP environment
+# This script manually triggers pipelines in the trainerlab-prod GCP environment
 # via Cloud Scheduler jobs. This is the recommended way to test pipelines as it
 # uses the same authentication path as production.
 
@@ -34,7 +34,7 @@ Triggers Cloud Scheduler jobs to run pipeline tasks. This uses the scheduler's
 service account authentication, which is the same path used in production.
 
 Options:
-    --pipeline=PIPELINE      Run specific pipeline: discover-en, discover-jp, compute-meta, sync-cards
+    --pipeline=PIPELINE      Run specific pipeline: discover-en, discover-jp, compute-meta, sync-cards, sync-card-mappings
     --all                    Run all pipelines sequentially
     --confirm                Confirm you want to write data to production database
     --verify                 Verify results after execution
@@ -270,7 +270,7 @@ done
 
 # Main execution
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║   TrainerLab Production Scraper Testing                   ║"
+echo "║   TrainerLab Production Pipeline Testing                  ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -311,7 +311,7 @@ if [ "$RUN_ALL" = true ]; then
 
     # Trigger all scheduler jobs in parallel
     PIDS=()
-    PIPELINES=(discover-en discover-jp sync-cards compute-meta)
+    PIPELINES=(sync-cards sync-card-mappings discover-en discover-jp compute-meta)
 
     for pipeline in "${PIPELINES[@]}"; do
         job_name="trainerlab-${pipeline}"

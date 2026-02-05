@@ -52,15 +52,15 @@ sequenceDiagram
     Scheduler->>GCP: Request OIDC token<br/>for trainerlab-scheduler@
     GCP-->>Scheduler: Signed JWT (OIDC token)
 
-    Scheduler->>API: POST /api/v1/pipeline/scrape-en<br/>Authorization: Bearer {oidcToken}
+    Scheduler->>API: POST /api/v1/pipeline/discover-en<br/>Authorization: Bearer {oidcToken}
 
     API->>GCP: Verify OIDC token signature
     GCP-->>API: Token claims (iss, aud, email)
 
     API->>API: Validate service account email<br/>matches SCHEDULER_SERVICE_ACCOUNT
 
-    API->>Pipeline: Execute scrape_limitless()
-    Pipeline->>DB: INSERT tournaments, placements
+    API->>Pipeline: Execute discovery pipeline
+    Pipeline->>DB: Enqueue tournaments, persist results
     DB-->>Pipeline: Success
 
     Pipeline-->>API: Pipeline result

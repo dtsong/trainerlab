@@ -5,6 +5,7 @@ tournament data in the database.
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from uuid import uuid4
@@ -72,9 +73,52 @@ class TournamentScrapeService:
         if self._jp_to_en_mapping is None:
             query = select(CardIdMapping.jp_card_id, CardIdMapping.en_card_id)
             result = await self.session.execute(query)
-            self._jp_to_en_mapping = {row.jp_card_id: row.en_card_id for row in result}
-            logger.info("Loaded %d JP-to-EN card mappings", len(self._jp_to_en_mapping))
+            mapping: dict[str, str] = {}
+            base_count = 0
+            for row in result:
+                base_count += 1
+                jp_card_id = row.jp_card_id
+                en_card_id = row.en_card_id
+                for variant in self._card_id_variants(jp_card_id):
+                    mapping.setdefault(variant, en_card_id)
+            self._jp_to_en_mapping = mapping
+            logger.info(
+                "Loaded %d JP-to-EN card mappings (%d normalized variants)",
+                base_count,
+                len(mapping),
+            )
         return self._jp_to_en_mapping
+
+    @staticmethod
+    def _card_id_variants(card_id: str) -> set[str]:
+        """Generate normalized variants for a JP card ID.
+
+        Handles case differences and numeric zero-padding to improve
+        matching between JP decklists and JP-to-EN mapping keys.
+        """
+        raw = card_id.strip()
+        if not raw:
+            return set()
+
+        if "-" not in raw:
+            return {raw, raw.lower(), raw.upper()}
+
+        set_part, num_part = raw.split("-", 1)
+        set_variants = {set_part, set_part.lower(), set_part.upper()}
+
+        num_variants: set[str] = {num_part, num_part.lower(), num_part.upper()}
+        match = re.match(r"^([A-Za-z]*)(\d+)$", num_part)
+        if match:
+            prefix, digits = match.groups()
+            digits_int = str(int(digits))
+            digit_variants = {digits, digits_int, digits.zfill(2), digits.zfill(3)}
+            prefix_variants = {prefix, prefix.lower(), prefix.upper()}
+            for p in prefix_variants:
+                for d in digit_variants:
+                    num_variants.add(f"{p}{d}")
+
+        variants = {f"{s}-{n}" for s in set_variants for n in num_variants}
+        return variants
 
     def _get_detector_for_region(self, region: str) -> ArchetypeDetector:
         """Get an archetype detector configured for the given region.
@@ -538,11 +582,15 @@ class TournamentScrapeService:
 
             self.session.add(db_tournament)
 
+            if tournament.region == "JP":
+                await self._get_jp_to_en_mapping()
+
             detector = self._get_detector_for_region(tournament.region)
+            jp_mapping = self._jp_to_en_mapping if tournament.region == "JP" else None
 
             for placement in tournament.placements:
                 db_placement = self._create_placement(
-                    placement, db_tournament.id, detector
+                    placement, db_tournament.id, detector, jp_mapping
                 )
                 self.session.add(db_placement)
 
@@ -567,6 +615,7 @@ class TournamentScrapeService:
         placement: LimitlessPlacement,
         tournament_id,
         detector: ArchetypeDetector | None = None,
+        jp_to_en_mapping: dict[str, str] | None = None,
     ) -> TournamentPlacement:
         """Create a TournamentPlacement model from Limitless data.
 
@@ -585,14 +634,22 @@ class TournamentScrapeService:
         decklist_source = None
 
         if placement.decklist and placement.decklist.is_valid:
-            decklist_data = [
-                {
-                    "card_id": card.get("card_id"),
-                    "quantity": card.get("quantity"),
-                }
-                for card in placement.decklist.cards
-                if card.get("card_id")
-            ]
+            decklist_data = []
+            for card in placement.decklist.cards:
+                card_id = card.get("card_id")
+                if not card_id:
+                    continue
+                quantity = card.get("quantity")
+
+                entry: dict[str, object] = {"quantity": quantity}
+                if jp_to_en_mapping:
+                    entry["jp_card_id"] = card_id
+                    entry["card_id"] = jp_to_en_mapping.get(card_id, card_id)
+                else:
+                    entry["card_id"] = card_id
+
+                decklist_data.append(entry)
+
             decklist_source = placement.decklist.source_url
 
         archetype = placement.archetype

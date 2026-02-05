@@ -29,12 +29,13 @@
 
 ### Scheduled Jobs
 
-| Job          | Schedule        | Purpose                       |
-| ------------ | --------------- | ----------------------------- |
-| discover-en  | Daily 6 AM UTC  | Discover English tournaments  |
-| discover-jp  | Daily 7 AM UTC  | Discover Japanese tournaments |
-| compute-meta | Daily 8 AM UTC  | Meta snapshot generation      |
-| sync-cards   | Sunday 3 AM UTC | Card database sync            |
+| Job                | Schedule        | Purpose                       |
+| ------------------ | --------------- | ----------------------------- |
+| discover-en        | Daily 6 AM UTC  | Discover English tournaments  |
+| discover-jp        | Daily 7 AM UTC  | Discover Japanese tournaments |
+| compute-meta       | Daily 8 AM UTC  | Meta snapshot generation      |
+| sync-cards         | Sunday 3 AM UTC | Card database sync            |
+| sync-card-mappings | Sunday 4 AM UTC | JP↔EN card ID mapping sync    |
 
 ---
 

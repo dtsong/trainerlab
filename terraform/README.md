@@ -213,7 +213,7 @@ Creates Cloud Scheduler jobs for:
 terraform apply -var="scheduler_paused=true"
 
 # Or via gcloud (faster)
-gcloud scheduler jobs pause trainerlab-scrape-en --location=us-west1
+gcloud scheduler jobs pause trainerlab-discover-en --location=us-west1
 ```
 
 ## Troubleshooting

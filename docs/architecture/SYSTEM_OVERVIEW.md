@@ -29,7 +29,7 @@ flowchart TB
         end
 
         subgraph Scheduler["Cloud Scheduler"]
-            Jobs["4 Pipeline Jobs<br/>Daily/Weekly"]
+            Jobs["Pipeline Jobs<br/>Daily/Weekly"]
         end
 
         subgraph CloudTasks["Cloud Tasks"]

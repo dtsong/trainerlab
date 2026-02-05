@@ -523,10 +523,11 @@ def detect_archetype(decklist: list[dict]) -> str:
 Cloud Scheduler jobs:
 | Job | Schedule | Target |
 |-----|----------|--------|
-| scrape-en | 0 6 \* \* _ | POST /api/v1/pipeline/scrape-en |
-| scrape-jp | 0 7 _ \* _ | POST /api/v1/pipeline/scrape-jp |
+| discover-en | 0 6 \* \* _ | POST /api/v1/pipeline/discover-en |
+| discover-jp | 0 7 _ \* _ | POST /api/v1/pipeline/discover-jp |
 | compute-meta | 0 8 _ \* _ | POST /api/v1/pipeline/compute-meta |
 | sync-cards | 0 3 _ \* 0 | POST /api/v1/pipeline/sync-cards |
+| sync-card-mappings | 0 4 \_ \* 0 | POST /api/v1/pipeline/sync-card-mappings |
 
 ---
 
@@ -588,10 +589,12 @@ GET  /api/v1/lab-notes                # List notes
 GET  /api/v1/lab-notes/{slug}         # Get note by slug
 
 # Pipeline (admin)
-POST /api/v1/pipeline/scrape-en       # Trigger EN scrape
-POST /api/v1/pipeline/scrape-jp       # Trigger JP scrape
+POST /api/v1/pipeline/discover-en     # Discover + enqueue EN tournaments
+POST /api/v1/pipeline/discover-jp     # Discover + enqueue JP tournaments
+POST /api/v1/pipeline/process-tournament # Process single tournament (Cloud Tasks)
 POST /api/v1/pipeline/compute-meta    # Compute snapshots
 POST /api/v1/pipeline/sync-cards      # Sync cards from TCGdex
+POST /api/v1/pipeline/sync-card-mappings # Sync JP↔EN card ID mappings
 ```
 
 ---

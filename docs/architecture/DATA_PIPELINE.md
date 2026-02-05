@@ -15,6 +15,7 @@ flowchart TB
         DiscoverJP["discover-jp<br/>Daily 7 AM UTC"]
         ComputeMeta["compute-meta<br/>Daily 8 AM UTC"]
         SyncCards["sync-cards<br/>Sunday 3 AM UTC"]
+        SyncMappings["sync-card-mappings<br/>Sunday 4 AM UTC"]
     end
 
     subgraph External["External Data Sources"]
@@ -28,6 +29,7 @@ flowchart TB
         PipelineProcess["/api/v1/pipeline/process-tournament"]
         PipelineMeta["/api/v1/pipeline/compute-meta"]
         PipelineCards["/api/v1/pipeline/sync-cards"]
+        PipelineMappings["/api/v1/pipeline/sync-card-mappings"]
     end
 
     subgraph Queue["Cloud Tasks"]
@@ -40,12 +42,14 @@ flowchart TB
         Archetype["archetype_detector.py<br/>Classify deck archetypes"]
         MetaCalc["meta_service.py<br/>Compute snapshots & tiers"]
         CardSync["card_sync.py<br/>Sync card data"]
+        CardMappings["sync_card_mappings.py<br/>JP↔EN card IDs"]
     end
 
     subgraph Database["PostgreSQL Database"]
         Tournaments[("Tournaments<br/>+ Placements")]
         MetaSnapshots[("Meta Snapshots<br/>EN + JP")]
         Cards[("Cards<br/>+ Embeddings")]
+        CardIdMappings[("Card ID Mappings<br/>JP↔EN")]
     end
 
     subgraph Output["Computed Intelligence"]
@@ -59,6 +63,7 @@ flowchart TB
     DiscoverJP -->|"OIDC"| PipelineJP
     ComputeMeta -->|"OIDC"| PipelineMeta
     SyncCards -->|"OIDC"| PipelineCards
+    SyncMappings -->|"OIDC"| PipelineMappings
 
     %% Discovery enqueues to Cloud Tasks
     PipelineEN --> CloudTasksSvc
@@ -72,9 +77,11 @@ flowchart TB
     %% Other pipelines
     PipelineMeta --> MetaCalc
     PipelineCards --> CardSync
+    PipelineMappings --> CardMappings
 
     %% External data
     Scraper -->|"Fetch"| Limitless
+    CardMappings -->|"Fetch"| Limitless
     CardSync -->|"Fetch"| TCGdex
 
     %% Service processing
@@ -82,6 +89,7 @@ flowchart TB
     Archetype --> Tournaments
     MetaCalc --> MetaSnapshots
     CardSync --> Cards
+    CardMappings --> CardIdMappings
 
     %% Output generation
     MetaSnapshots --> Tiers
@@ -121,12 +129,13 @@ flowchart TB
 
 ## Pipeline Schedule
 
-| Job          | Schedule    | Timezone | Purpose                       |
-| ------------ | ----------- | -------- | ----------------------------- |
-| discover-en  | `0 6 * * *` | UTC      | Discover new EN tournaments   |
-| discover-jp  | `0 7 * * *` | UTC      | Discover new JP tournaments   |
-| compute-meta | `0 8 * * *` | UTC      | After all processing finishes |
-| sync-cards   | `0 3 * * 0` | UTC      | Weekly during low traffic     |
+| Job                | Schedule    | Timezone | Purpose                       |
+| ------------------ | ----------- | -------- | ----------------------------- |
+| discover-en        | `0 6 * * *` | UTC      | Discover new EN tournaments   |
+| discover-jp        | `0 7 * * *` | UTC      | Discover new JP tournaments   |
+| compute-meta       | `0 8 * * *` | UTC      | After all processing finishes |
+| sync-cards         | `0 3 * * 0` | UTC      | Weekly during low traffic     |
+| sync-card-mappings | `0 4 * * 0` | UTC      | JP↔EN card ID mapping sync    |
 
 ## Notes
 

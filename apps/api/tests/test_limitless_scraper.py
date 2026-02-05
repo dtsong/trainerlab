@@ -81,6 +81,15 @@ class TestParseCardLine:
         assert result["quantity"] == 4
         assert "fire" in result["card_id"].lower()
 
+    def test_parses_jp_set_code_with_suffix(self) -> None:
+        """Should parse JP set codes with digits and suffix letters."""
+        result = parse_card_line("2 Pikachu SV5a 012")
+
+        assert result is not None
+        assert result["card_id"] == "sv5a-012"
+        assert result["quantity"] == 2
+        assert result["name"] == "Pikachu"
+
     def test_returns_none_for_empty_line(self) -> None:
         """Should return None for empty lines."""
         assert parse_card_line("") is None

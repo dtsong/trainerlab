@@ -247,8 +247,8 @@ def parse_card_line(line: str) -> dict[str, Any] | None:
 
     # Match pattern: quantity, name, set code, card number
     # Pattern accounts for various card name formats
-    pattern = r"^(\d+)\s+(.+?)\s+([A-Z]{2,4}|Energy)\s+(\d+|[A-Z]+\d*)$"
-    match = re.match(pattern, line)
+    pattern = r"^(\d+)\s+(.+?)\s+([A-Z0-9]{2,5}[A-Z]?|Energy)\s+(\d+|[A-Z]+\d*)$"
+    match = re.match(pattern, line, re.IGNORECASE)
 
     if not match:
         # Try without card number (basic energy)

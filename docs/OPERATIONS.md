@@ -6,7 +6,7 @@ This guide covers operational procedures for managing the TrainerLab production 
 
 - [Environment Overview](#environment-overview)
 - [Prerequisites](#prerequisites)
-- [Scraper Management](#scraper-management)
+- [Pipeline Management](#pipeline-management)
 - [Monitoring](#monitoring)
 - [Troubleshooting](#troubleshooting)
 - [Database Operations](#database-operations)
@@ -19,7 +19,7 @@ This guide covers operational procedures for managing the TrainerLab production 
 | **Region**         | `us-west1`                           |
 | **API Service**    | `trainerlab-api` (Cloud Run)         |
 | **Database**       | Cloud SQL (PostgreSQL with pgvector) |
-| **Scheduled Jobs** | Cloud Scheduler triggers scrapers    |
+| **Scheduled Jobs** | Cloud Scheduler triggers pipelines   |
 
 ### Architecture
 
@@ -27,9 +27,9 @@ This guide covers operational procedures for managing the TrainerLab production 
 Cloud Scheduler → Cloud Run (trainerlab-api) → Cloud SQL
                       ↓
               External APIs:
-              - LimitlessTCG (EN tournaments)
-              - Pokémon Card Lab (JP tournaments)
+              - LimitlessTCG (EN + JP tournaments)
               - TCGdex (card data)
+              - Pokecabook (JP adoption + translations)
 ```
 
 ## Prerequisites
@@ -95,120 +95,49 @@ chmod +x scripts/test-production-scrapers.sh
 ./scripts/test-production-scrapers.sh --help
 ```
 
-## Scraper Management
+## Pipeline Management
 
-### Available Scrapers
+### Available Pipelines
 
-| Pipeline       | Data Source      | Schedule           | Purpose                     |
-| -------------- | ---------------- | ------------------ | --------------------------- |
-| `scrape-en`    | LimitlessTCG     | Daily 2 AM PT      | English tournament data     |
-| `scrape-jp`    | Pokémon Card Lab | Daily 3 AM PT      | Japanese tournament data    |
-| `compute-meta` | Internal DB      | Daily 4 AM PT      | Meta snapshots & deck stats |
-| `sync-cards`   | TCGdex           | Weekly Sun 1 AM PT | Card database sync          |
+| Pipeline             | Data Source                          | Schedule (UTC) | Purpose                                 |
+| -------------------- | ------------------------------------ | -------------- | --------------------------------------- |
+| `discover-en`        | LimitlessTCG (official + grassroots) | `0 6 * * *`    | Discover + enqueue EN tournaments       |
+| `discover-jp`        | LimitlessTCG JP City Leagues         | `0 7 * * *`    | Discover + enqueue JP tournaments (BO1) |
+| `compute-meta`       | Internal DB                          | `0 8 * * *`    | Meta snapshots & deck stats             |
+| `sync-cards`         | TCGdex                               | `0 3 * * 0`    | Card database sync                      |
+| `sync-card-mappings` | LimitlessTCG (JP↔EN equivalents)     | `0 4 * * 0`    | JP↔EN card ID mapping for archetypes    |
 
-### Manual Scraper Testing
+### Manual Pipeline Testing
 
-#### Safe Dry-Run (Recommended First Step)
-
-```bash
-# Test English scraper without writing data (production)
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --use-service-account
-
-# Test all scrapers in dry-run mode
-./scripts/test-production-scrapers.sh --all --use-service-account
-
-# Test with custom lookback period
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --lookback-days=14 --use-service-account
-
-# Test specific format
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --format=standard --use-service-account
-
-# Development mode (if scheduler_auth_bypass=true)
-./scripts/test-production-scrapers.sh --pipeline=scrape-en
-```
-
-#### Live Runs (Writes to Database)
+#### Read-Only Checks (No Writes)
 
 ```bash
-# Live run with verification (production)
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --no-dry-run --verify --use-service-account
+# Verify data without triggering pipelines
+./scripts/verify-pipelines.sh --verify-only
 
-# Live run with custom parameters
-./scripts/test-production-scrapers.sh \
-  --pipeline=scrape-en \
-  --no-dry-run \
-  --lookback-days=3 \
-  --format=standard \
-  --verify \
-  --use-service-account
+# Deep data quality checks
+./scripts/verify-data.sh --group=tournaments
+
+# Check recent Cloud Run errors
+./scripts/test-production-scrapers.sh --check-logs
 ```
 
-**⚠️ Live Run Warning:** The script will show a 5-second warning before executing live runs. Press Ctrl+C to cancel.
+#### Pipeline Runs (Writes to Production)
 
-### Pipeline Parameters
+```bash
+# Run a single pipeline via Cloud Scheduler
+./scripts/test-production-scrapers.sh --pipeline=discover-en --confirm
 
-#### Scrape Pipelines (`scrape-en`, `scrape-jp`)
+# Run JP mapping sync
+./scripts/test-production-scrapers.sh --pipeline=sync-card-mappings --confirm
 
-```json
-{
-  "dry_run": true, // false to write data
-  "lookback_days": 7, // How far back to scrape
-  "game_format": "all" // "standard", "expanded", or "all"
-}
+# Run all pipelines (triggered in parallel)
+./scripts/test-production-scrapers.sh --all --confirm
 ```
 
-**Expected Response:**
-
-```json
-{
-  "success": true,
-  "tournaments_saved": 12,
-  "placements_saved": 384,
-  "errors": [],
-  "message": "Pipeline completed successfully"
-}
-```
-
-#### Compute Meta Pipeline
-
-```json
-{
-  "dry_run": true,
-  "lookback_days": 30, // Window for meta calculation
-  "snapshot_date": null // Optional: specific date (YYYY-MM-DD)
-}
-```
-
-**Expected Response:**
-
-```json
-{
-  "success": true,
-  "snapshots_saved": 2, // One per format (standard, expanded)
-  "errors": [],
-  "message": "Meta computation completed"
-}
-```
-
-#### Sync Cards Pipeline
-
-```json
-{
-  "dry_run": true
-}
-```
-
-**Expected Response:**
-
-```json
-{
-  "success": true,
-  "cards_synced": 1234,
-  "sets_synced": 45,
-  "errors": [],
-  "message": "Card sync completed"
-}
-```
+**⚠️ Warning:** Cloud Scheduler jobs always run with Terraform-configured parameters
+(`dry_run=false`). To change lookback days or formats, update
+`terraform/modules/scheduler/main.tf`.
 
 ### Viewing Scheduled Jobs
 
@@ -217,23 +146,29 @@ chmod +x scripts/test-production-scrapers.sh
 gcloud scheduler jobs list --project=trainerlab-prod
 
 # View specific job details
-gcloud scheduler jobs describe scrape-en-daily --location=us-west1
+gcloud scheduler jobs describe trainerlab-discover-en --location=us-west1
 
 # View recent executions
-gcloud scheduler jobs describe scrape-en-daily --location=us-west1 | grep lastAttemptTime
+gcloud scheduler jobs describe trainerlab-discover-en --location=us-west1 | grep lastAttemptTime
 ```
 
 ### Manually Triggering Scheduled Jobs
 
 ```bash
-# Trigger English scraper job
-gcloud scheduler jobs run scrape-en-daily --location=us-west1
+# Trigger English discovery job
+gcloud scheduler jobs run trainerlab-discover-en --location=us-west1
 
-# Trigger Japanese scraper job
-gcloud scheduler jobs run scrape-jp-daily --location=us-west1
+# Trigger Japanese discovery job
+gcloud scheduler jobs run trainerlab-discover-jp --location=us-west1
+
+# Trigger card sync
+gcloud scheduler jobs run trainerlab-sync-cards --location=us-west1
+
+# Trigger card mapping sync
+gcloud scheduler jobs run trainerlab-sync-card-mappings --location=us-west1
 
 # Trigger meta computation
-gcloud scheduler jobs run compute-meta-daily --location=us-west1
+gcloud scheduler jobs run trainerlab-compute-meta --location=us-west1
 ```
 
 **Note:** This triggers the scheduled job, which will invoke the API with production parameters (not dry-run).
@@ -318,7 +253,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ### Common Issues
 
-#### 1. Scraper Returns No Data
+#### 1. Pipeline Returns No Data
 
 **Symptoms:**
 
@@ -344,8 +279,11 @@ gcloud logging read \
   "resource.type=cloud_run_revision AND textPayload=~\"HTTP.*error\"" \
   --limit=20
 
-# Try with longer lookback period
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --lookback-days=30
+# Re-run discovery pipeline
+./scripts/test-production-scrapers.sh --pipeline=discover-en --confirm
+
+# If lookback window is too short, update the scheduler job body in Terraform:
+# terraform/modules/scheduler/main.tf
 
 # Check external API directly
 curl "https://play.limitlesstcg.com/tournaments/completed?game=POKEMON"
@@ -512,18 +450,22 @@ gcloud sql backups restore BACKUP_ID --backup-instance=trainerlab-db
 
 ### Disable Automated Scrapers
 
-If scrapers are causing issues:
+If pipelines are causing issues:
 
 ```bash
 # Pause all scheduled jobs
-gcloud scheduler jobs pause scrape-en-daily --location=us-west1
-gcloud scheduler jobs pause scrape-jp-daily --location=us-west1
-gcloud scheduler jobs pause compute-meta-daily --location=us-west1
+gcloud scheduler jobs pause trainerlab-discover-en --location=us-west1
+gcloud scheduler jobs pause trainerlab-discover-jp --location=us-west1
+gcloud scheduler jobs pause trainerlab-compute-meta --location=us-west1
+gcloud scheduler jobs pause trainerlab-sync-cards --location=us-west1
+gcloud scheduler jobs pause trainerlab-sync-card-mappings --location=us-west1
 
 # Resume when ready
-gcloud scheduler jobs resume scrape-en-daily --location=us-west1
-gcloud scheduler jobs resume scrape-jp-daily --location=us-west1
-gcloud scheduler jobs resume compute-meta-daily --location=us-west1
+gcloud scheduler jobs resume trainerlab-discover-en --location=us-west1
+gcloud scheduler jobs resume trainerlab-discover-jp --location=us-west1
+gcloud scheduler jobs resume trainerlab-compute-meta --location=us-west1
+gcloud scheduler jobs resume trainerlab-sync-cards --location=us-west1
+gcloud scheduler jobs resume trainerlab-sync-card-mappings --location=us-west1
 ```
 
 ### Rollback Deployment

@@ -52,7 +52,7 @@ terraform apply -var-file=environments/prod.tfvars
 curl https://api.trainerlab.io/api/v1/health
 
 # Test with operations service account
-./scripts/test-production-scrapers.sh --pipeline=scrape-en --use-service-account
+./scripts/test-production-scrapers.sh --pipeline=discover-en --confirm
 ```
 
 ### Certificate Provisioning

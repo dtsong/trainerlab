@@ -20,6 +20,7 @@ from src.models.jp_unreleased_card import JPUnreleasedCard
 from src.models.lab_note import LabNote
 from src.models.lab_note_revision import LabNoteRevision
 from src.models.meta_snapshot import MetaSnapshot
+from src.models.placeholder_card import PlaceholderCard
 from src.models.prediction import Prediction
 from src.models.rotation_impact import RotationImpact
 from src.models.set import Set
@@ -53,6 +54,7 @@ __all__ = [
     "LabNote",
     "LabNoteRevision",
     "MetaSnapshot",
+    "PlaceholderCard",
     "Prediction",
     "RotationImpact",
     "Set",

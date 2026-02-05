@@ -141,20 +141,26 @@ async def discover_en_endpoint(
     Phase 1 of the two-phase pipeline. Discovers new tournaments from
     Limitless and enqueues them as Cloud Tasks for individual processing.
     Designed to complete in <30s.
+
+    For local development, set auto_process=True to process tournaments
+    synchronously without Cloud Tasks.
     """
     logger.info(
-        "Starting EN discovery: lookback=%d, format=%s",
+        "Starting EN discovery: lookback=%d, format=%s, auto_process=%s",
         request.lookback_days,
         request.game_format,
+        request.auto_process,
     )
 
     result = await discover_en_tournaments(
         lookback_days=request.lookback_days,
         game_format=request.game_format,
+        auto_process=request.auto_process,
+        max_auto_process=request.max_auto_process,
     )
 
     logger.info(
-        "EN discovery complete: discovered=%d, enqueued=%d, errors=%d",
+        "EN discovery complete: discovered=%d, enqueued/processed=%d, errors=%d",
         result.tournaments_discovered,
         result.tasks_enqueued,
         len(result.errors),
@@ -170,18 +176,24 @@ async def discover_jp_endpoint(
     """Discover new JP tournaments and enqueue for processing.
 
     Phase 1 of the two-phase pipeline for Japanese tournaments.
+
+    For local development, set auto_process=True to process tournaments
+    synchronously without Cloud Tasks.
     """
     logger.info(
-        "Starting JP discovery: lookback=%d",
+        "Starting JP discovery: lookback=%d, auto_process=%s",
         request.lookback_days,
+        request.auto_process,
     )
 
     result = await discover_jp_tournaments(
         lookback_days=request.lookback_days,
+        auto_process=request.auto_process,
+        max_auto_process=request.max_auto_process,
     )
 
     logger.info(
-        "JP discovery complete: discovered=%d, enqueued=%d, errors=%d",
+        "JP discovery complete: discovered=%d, enqueued/processed=%d, errors=%d",
         result.tournaments_discovered,
         result.tasks_enqueued,
         len(result.errors),

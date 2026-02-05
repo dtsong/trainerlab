@@ -53,6 +53,8 @@ def _tournament_to_task_payload(t: LimitlessTournament) -> dict:
 async def discover_en_tournaments(
     lookback_days: int = 90,
     game_format: str = "standard",
+    auto_process: bool = False,
+    max_auto_process: int = 50,
 ) -> DiscoverResult:
     """Discover new EN tournaments and enqueue them for processing.
 
@@ -61,6 +63,9 @@ async def discover_en_tournaments(
     Args:
         lookback_days: Number of days to look back.
         game_format: Game format to scrape.
+        auto_process: Process synchronously if Cloud Tasks
+            not configured.
+        max_auto_process: Maximum tournaments to process synchronously.
 
     Returns:
         DiscoverResult with discovery statistics.
@@ -87,24 +92,48 @@ async def discover_en_tournaments(
     all_new = grassroots + official
     result.tournaments_discovered = len(all_new)
 
-    # Enqueue each new tournament as a Cloud Task
-    for tournament in all_new:
-        payload = _tournament_to_task_payload(tournament)
-        payload["is_official"] = tournament in official
-        try:
-            task_name = await tasks_service.enqueue_tournament(payload)
-            if task_name:
-                result.tasks_enqueued += 1
-            else:
-                # Cloud Tasks not configured (local dev) — skip
-                result.tournaments_skipped += 1
-        except Exception as e:
-            error_msg = f"Failed to enqueue {tournament.name}: {e}"
-            logger.error(error_msg)
-            result.errors.append(error_msg)
+    # Check if we're in local dev mode (Cloud Tasks not configured)
+    if not tasks_service.is_configured and auto_process:
+        logger.info(
+            "Cloud Tasks not configured, processing %d tournaments synchronously",
+            min(len(all_new), max_auto_process),
+        )
+
+        for tournament in all_new[:max_auto_process]:
+            payload = _tournament_to_task_payload(tournament)
+            payload["is_official"] = tournament in official
+            try:
+                scrape_result = await process_single_tournament(payload)
+                if scrape_result.success and scrape_result.tournaments_saved > 0:
+                    result.tasks_enqueued += 1  # Count as "processed"
+                else:
+                    result.tournaments_skipped += 1
+                    if scrape_result.errors:
+                        result.errors.extend(scrape_result.errors)
+            except Exception as e:
+                error_msg = f"Failed to process {tournament.name}: {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+    else:
+        # Use Cloud Tasks (production mode)
+        for tournament in all_new:
+            payload = _tournament_to_task_payload(tournament)
+            payload["is_official"] = tournament in official
+            try:
+                task_name = await tasks_service.enqueue_tournament(payload)
+                if task_name:
+                    result.tasks_enqueued += 1
+                else:
+                    # Cloud Tasks not configured (local dev) — skip
+                    result.tournaments_skipped += 1
+            except Exception as e:
+                error_msg = f"Failed to enqueue {tournament.name}: {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
 
     logger.info(
-        "EN discovery complete: discovered=%d, enqueued=%d, skipped=%d, errors=%d",
+        "EN discovery complete: discovered=%d, "
+        "enqueued/processed=%d, skipped=%d, errors=%d",
         result.tournaments_discovered,
         result.tasks_enqueued,
         result.tournaments_skipped,
@@ -115,6 +144,8 @@ async def discover_en_tournaments(
 
 async def discover_jp_tournaments(
     lookback_days: int = 90,
+    auto_process: bool = False,
+    max_auto_process: int = 50,
 ) -> DiscoverResult:
     """Discover new JP tournaments and enqueue them for processing.
 
@@ -122,6 +153,9 @@ async def discover_jp_tournaments(
 
     Args:
         lookback_days: Number of days to look back.
+        auto_process: Process synchronously if Cloud Tasks
+            not configured.
+        max_auto_process: Maximum tournaments to process synchronously.
 
     Returns:
         DiscoverResult with discovery statistics.
@@ -138,22 +172,47 @@ async def discover_jp_tournaments(
 
     result.tournaments_discovered = len(jp_tournaments)
 
-    for tournament in jp_tournaments:
-        payload = _tournament_to_task_payload(tournament)
-        payload["is_jp_city_league"] = True
-        try:
-            task_name = await tasks_service.enqueue_tournament(payload)
-            if task_name:
-                result.tasks_enqueued += 1
-            else:
-                result.tournaments_skipped += 1
-        except Exception as e:
-            error_msg = f"Failed to enqueue {tournament.name}: {e}"
-            logger.error(error_msg)
-            result.errors.append(error_msg)
+    # Check if we're in local dev mode (Cloud Tasks not configured)
+    if not tasks_service.is_configured and auto_process:
+        logger.info(
+            "Cloud Tasks not configured, processing %d tournaments synchronously",
+            min(len(jp_tournaments), max_auto_process),
+        )
+
+        for tournament in jp_tournaments[:max_auto_process]:
+            payload = _tournament_to_task_payload(tournament)
+            payload["is_jp_city_league"] = True
+            try:
+                scrape_result = await process_single_tournament(payload)
+                if scrape_result.success and scrape_result.tournaments_saved > 0:
+                    result.tasks_enqueued += 1  # Count as "processed"
+                else:
+                    result.tournaments_skipped += 1
+                    if scrape_result.errors:
+                        result.errors.extend(scrape_result.errors)
+            except Exception as e:
+                error_msg = f"Failed to process {tournament.name}: {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+    else:
+        # Use Cloud Tasks (production mode)
+        for tournament in jp_tournaments:
+            payload = _tournament_to_task_payload(tournament)
+            payload["is_jp_city_league"] = True
+            try:
+                task_name = await tasks_service.enqueue_tournament(payload)
+                if task_name:
+                    result.tasks_enqueued += 1
+                else:
+                    result.tournaments_skipped += 1
+            except Exception as e:
+                error_msg = f"Failed to enqueue {tournament.name}: {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
 
     logger.info(
-        "JP discovery complete: discovered=%d, enqueued=%d, skipped=%d, errors=%d",
+        "JP discovery complete: discovered=%d, "
+        "enqueued/processed=%d, skipped=%d, errors=%d",
         result.tournaments_discovered,
         result.tasks_enqueued,
         result.tournaments_skipped,

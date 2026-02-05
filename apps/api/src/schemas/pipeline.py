@@ -96,6 +96,16 @@ class DiscoverRequest(PipelineRequest):
         default="standard",
         description="Game format to discover",
     )
+    auto_process: bool = Field(
+        default=False,
+        description="Process synchronously if Cloud Tasks not configured",
+    )
+    max_auto_process: int = Field(
+        default=50,
+        ge=1,
+        le=200,
+        description="Max tournaments to process synchronously",
+    )
 
 
 class DiscoverResult(BaseModel):

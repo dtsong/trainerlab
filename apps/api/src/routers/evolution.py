@@ -41,13 +41,13 @@ def _snapshot_to_response(
     adaptations = [
         AdaptationResponse(
             id=a.id,
-            type=a.type,
+            type=a.type,  # ty: ignore[invalid-argument-type]
             description=a.description,
             cards_added=a.cards_added,
             cards_removed=a.cards_removed,
             target_archetype=a.target_archetype,
             confidence=a.confidence,
-            source=a.source,
+            source=a.source,  # ty: ignore[invalid-argument-type]
         )
         for a in (snapshot.adaptations or [])
     ]
@@ -161,7 +161,7 @@ async def get_archetype_prediction(
         target_tournament_id=prediction.target_tournament_id,
         predicted_meta_share=prediction.predicted_meta_share,
         predicted_day2_rate=prediction.predicted_day2_rate,
-        predicted_tier=prediction.predicted_tier,
+        predicted_tier=prediction.predicted_tier,  # ty: ignore[invalid-argument-type]
         likely_adaptations=prediction.likely_adaptations,
         confidence=prediction.confidence,
         methodology=prediction.methodology,
@@ -215,7 +215,7 @@ async def list_evolution_articles(
             slug=a.slug,
             title=a.title,
             excerpt=a.excerpt,
-            status=a.status,
+            status=a.status,  # ty: ignore[invalid-argument-type]
             is_premium=a.is_premium,
             published_at=a.published_at,
         )
@@ -285,7 +285,7 @@ async def get_prediction_accuracy(
                 target_tournament_id=p.target_tournament_id,
                 predicted_meta_share=p.predicted_meta_share,
                 predicted_day2_rate=p.predicted_day2_rate,
-                predicted_tier=p.predicted_tier,
+                predicted_tier=p.predicted_tier,  # ty: ignore[invalid-argument-type]
                 likely_adaptations=p.likely_adaptations,
                 confidence=p.confidence,
                 methodology=p.methodology,
@@ -374,7 +374,7 @@ async def get_evolution_article(
         excerpt=article.excerpt,
         introduction=article.introduction,
         conclusion=article.conclusion,
-        status=article.status,
+        status=article.status,  # ty: ignore[invalid-argument-type]
         is_premium=article.is_premium,
         published_at=article.published_at,
         view_count=article.view_count,

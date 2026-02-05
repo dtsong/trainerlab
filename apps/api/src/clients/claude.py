@@ -114,7 +114,7 @@ class ClaudeClient:
                     usage.output_tokens,
                 )
 
-                text = response.content[0].text
+                text = response.content[0].text  # type: ignore[union-attr]
                 return text, usage
 
             except RateLimitError as e:

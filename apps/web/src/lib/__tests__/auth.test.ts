@@ -50,6 +50,7 @@ describe("auth module", () => {
 
     expect(NextAuth).toHaveBeenCalledWith(
       expect.objectContaining({
+        trustHost: true,
         providers: expect.any(Array),
         session: expect.objectContaining({
           strategy: "jwt",

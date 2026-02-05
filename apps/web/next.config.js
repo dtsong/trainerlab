@@ -28,7 +28,7 @@ const nextConfig = {
           "default-src 'self'",
           "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
           "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' https://assets.tcgdex.net data:",
+          "img-src 'self' https://assets.tcgdex.net https://lh3.googleusercontent.com data:",
           "font-src 'self'",
           "connect-src 'self' https://api.trainerlab.io",
           "frame-ancestors 'none'",

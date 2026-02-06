@@ -1,7 +1,7 @@
 """Tests for StorageService."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from google.cloud.exceptions import NotFound
@@ -14,7 +14,6 @@ def mock_settings():
     """Create mock settings."""
     settings = MagicMock()
     settings.exports_bucket = "test-exports-bucket"
-    settings.og_images_bucket = "test-og-images-bucket"
     return settings
 
 
@@ -249,9 +248,7 @@ class TestCleanupExpiredExports:
     """Tests for cleanup_expired_exports method."""
 
     @pytest.mark.asyncio
-    async def test_deletes_expired_files(
-        self, mock_settings, mock_client, mock_bucket
-    ):
+    async def test_deletes_expired_files(self, mock_settings, mock_client, mock_bucket):
         """Test deleting expired files."""
         old_blob = MagicMock()
         old_blob.time_created = datetime.now(UTC) - timedelta(hours=48)
@@ -278,9 +275,7 @@ class TestCleanupExpiredExports:
         new_blob.delete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_handles_delete_errors(
-        self, mock_settings, mock_client, mock_bucket
-    ):
+    async def test_handles_delete_errors(self, mock_settings, mock_client, mock_bucket):
         """Test handling delete errors gracefully."""
         old_blob = MagicMock()
         old_blob.time_created = datetime.now(UTC) - timedelta(hours=48)
@@ -300,9 +295,7 @@ class TestCleanupExpiredExports:
         assert result == 0
 
     @pytest.mark.asyncio
-    async def test_uses_custom_max_age(
-        self, mock_settings, mock_client, mock_bucket
-    ):
+    async def test_uses_custom_max_age(self, mock_settings, mock_client, mock_bucket):
         """Test using custom max age."""
         blob = MagicMock()
         blob.time_created = datetime.now(UTC) - timedelta(hours=50)

@@ -82,7 +82,6 @@ class Settings(BaseSettings):
 
     # Cloud Storage (creator exports)
     exports_bucket: str = "trainerlab-exports"
-    og_images_bucket: str = "trainerlab-og-images"
 
     @property
     def is_development(self) -> bool:

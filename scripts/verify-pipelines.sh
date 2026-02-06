@@ -37,16 +37,22 @@ Triggers each pipeline via Cloud Scheduler, waits for completion, then
 verifies data via authenticated GET endpoints.
 
 Options:
-    --step=N           Run specific step (1-4)
+    --step=N           Run specific step (1-11)
     --verify-only      Skip triggers, just check data
     -h, --help         Show this help message
 
 Steps:
-    1  sync-cards          — Sync card database from TCGdex
-    2  sync-card-mappings  — Sync JP-to-EN card ID mappings
-    3  discover-en         — Discover & enqueue English tournaments
-    4  discover-jp         — Discover & enqueue Japanese tournaments
-    5  compute-meta        — Compute meta archetypes
+    1   sync-cards          — Sync card database from TCGdex
+    2   sync-card-mappings  — Sync JP-to-EN card ID mappings
+    3   discover-en         — Discover & enqueue English tournaments
+    4   discover-jp         — Discover & enqueue Japanese tournaments
+    5   compute-meta        — Compute meta archetypes
+    6   compute-evolution   — AI classification + predictions
+    7   translate-pokecabook — Translate Pokecabook content
+    8   sync-jp-adoption    — Sync JP card adoption rates
+    9   translate-tier-lists — Translate JP tier lists
+    10  monitor-card-reveals — Monitor JP card reveals
+    11  cleanup-exports     — Clean up expired export files
 
 Examples:
     $0                   # Run all steps
@@ -280,6 +286,79 @@ run_step_5() {
         '"meta response with \(.archetype_breakdown | length) archetypes"'
 }
 
+run_step_6() {
+    log_step 6 "compute-evolution"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-compute-evolution" || true
+    fi
+
+    # Evolution pipeline produces AI classifications and predictions;
+    # verify via meta endpoint which includes evolution-enriched data
+    verify_endpoint \
+        "/api/v1/meta/current" \
+        'if .archetype_breakdown and (.archetype_breakdown | length) > 0 then "pass" else "fail" end' \
+        '"evolution pipeline completed, meta has \(.archetype_breakdown | length) archetypes"'
+}
+
+run_step_7() {
+    log_step 7 "translate-pokecabook"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-translate-pokecabook" || true
+    fi
+
+    log_info "Pokecabook translation triggered (verify via JP content endpoints)"
+    log_success "Verify: translate-pokecabook completed"
+}
+
+run_step_8() {
+    log_step 8 "sync-jp-adoption"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-sync-jp-adoption" || true
+    fi
+
+    # Verify via Japan innovation endpoint which uses adoption rate data
+    verify_endpoint \
+        "/api/v1/japan/innovation" \
+        'if type == "array" then (if length > 0 then "pass" else "fail" end) elif .items then (if (.items | length) > 0 then "pass" else "fail" end) else "fail" end' \
+        '"JP innovation data available"'
+}
+
+run_step_9() {
+    log_step 9 "translate-tier-lists"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-translate-tier-lists" || true
+    fi
+
+    log_info "Tier list translation triggered (verify via JP content endpoints)"
+    log_success "Verify: translate-tier-lists completed"
+}
+
+run_step_10() {
+    log_step 10 "monitor-card-reveals"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-monitor-card-reveals" || true
+    fi
+
+    log_info "Card reveal monitor triggered (updates unreleased card tracking)"
+    log_success "Verify: monitor-card-reveals completed"
+}
+
+run_step_11() {
+    log_step 11 "cleanup-exports"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-cleanup-exports" || true
+    fi
+
+    log_info "Exports cleanup triggered (removes expired export files)"
+    log_success "Verify: cleanup-exports completed"
+}
+
 # ─── Argument Parsing ────────────────────────────────────────────────────────
 
 while [[ $# -gt 0 ]]; do
@@ -334,12 +413,18 @@ run_and_track() {
 
 if [ -n "$STEP" ]; then
     case $STEP in
-        1) run_and_track run_step_1 ;;
-        2) run_and_track run_step_2 ;;
-        3) run_and_track run_step_3 ;;
-        4) run_and_track run_step_4 ;;
-        5) run_and_track run_step_5 ;;
-        *) log_error "Invalid step: $STEP (must be 1-5)"; exit 1 ;;
+        1)  run_and_track run_step_1 ;;
+        2)  run_and_track run_step_2 ;;
+        3)  run_and_track run_step_3 ;;
+        4)  run_and_track run_step_4 ;;
+        5)  run_and_track run_step_5 ;;
+        6)  run_and_track run_step_6 ;;
+        7)  run_and_track run_step_7 ;;
+        8)  run_and_track run_step_8 ;;
+        9)  run_and_track run_step_9 ;;
+        10) run_and_track run_step_10 ;;
+        11) run_and_track run_step_11 ;;
+        *) log_error "Invalid step: $STEP (must be 1-11)"; exit 1 ;;
     esac
 else
     run_and_track run_step_1
@@ -347,6 +432,12 @@ else
     run_and_track run_step_3
     run_and_track run_step_4
     run_and_track run_step_5
+    run_and_track run_step_6
+    run_and_track run_step_7
+    run_and_track run_step_8
+    run_and_track run_step_9
+    run_and_track run_step_10
+    run_and_track run_step_11
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

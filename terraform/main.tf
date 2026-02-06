@@ -277,7 +277,7 @@ module "api" {
     CLOUD_TASKS_LOCATION        = var.region
     API_SERVICE_ACCOUNT         = google_service_account.api.email
     EXPORTS_BUCKET              = google_storage_bucket.exports.name
-    OG_IMAGES_BUCKET            = google_storage_bucket.og_images.name
+
   }
 
   secret_env_vars = {
@@ -400,38 +400,10 @@ resource "google_storage_bucket" "exports" {
   }
 }
 
-# OG images bucket (public, for social sharing previews)
-resource "google_storage_bucket" "og_images" {
-  name     = "${var.project_id}-og-images"
-  location = var.region
-  project  = var.project_id
-
-  uniform_bucket_level_access = true
-
-  labels = {
-    environment = var.environment
-    app         = "trainerlab"
-    purpose     = "og-images"
-  }
-}
-
-# Make OG images publicly readable
-resource "google_storage_bucket_iam_member" "og_images_public" {
-  bucket = google_storage_bucket.og_images.name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
-}
 
 # Grant API SA permission to write to exports bucket
 resource "google_storage_bucket_iam_member" "api_exports_writer" {
   bucket = google_storage_bucket.exports.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.api.email}"
-}
-
-# Grant API SA permission to write to OG images bucket
-resource "google_storage_bucket_iam_member" "api_og_images_writer" {
-  bucket = google_storage_bucket.og_images.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.api.email}"
 }

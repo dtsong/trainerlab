@@ -23,6 +23,7 @@ from src.clients.limitless import (
 )
 from src.models import CardIdMapping, Tournament, TournamentPlacement
 from src.services.archetype_detector import ArchetypeDetector
+from src.services.archetype_normalizer import ArchetypeNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class TournamentScrapeService:
         session: AsyncSession,
         client: LimitlessClient,
         archetype_detector: ArchetypeDetector | None = None,
+        normalizer: ArchetypeNormalizer | None = None,
     ):
         """Initialize the service.
 
@@ -58,10 +60,13 @@ class TournamentScrapeService:
             session: Database session.
             client: Limitless HTTP client.
             archetype_detector: Optional archetype detector for re-detecting.
+            normalizer: Optional archetype normalizer for sprite-based
+                resolution. Auto-created for JP tournaments if not provided.
         """
         self.session = session
         self.client = client
         self.detector = archetype_detector or ArchetypeDetector()
+        self.normalizer = normalizer
         self._jp_to_en_mapping: dict[str, str] | None = None
 
     async def _get_jp_to_en_mapping(self) -> dict[str, str]:
@@ -588,9 +593,18 @@ class TournamentScrapeService:
             detector = self._get_detector_for_region(tournament.region)
             jp_mapping = self._jp_to_en_mapping if tournament.region == "JP" else None
 
+            # Auto-create normalizer for JP tournaments
+            normalizer = self.normalizer
+            if tournament.region == "JP" and normalizer is None:
+                normalizer = ArchetypeNormalizer(detector=detector)
+
             for placement in tournament.placements:
                 db_placement = self._create_placement(
-                    placement, db_tournament.id, detector, jp_mapping
+                    placement,
+                    db_tournament.id,
+                    detector,
+                    jp_mapping,
+                    normalizer,
                 )
                 self.session.add(db_placement)
 
@@ -616,13 +630,18 @@ class TournamentScrapeService:
         tournament_id,
         detector: ArchetypeDetector | None = None,
         jp_to_en_mapping: dict[str, str] | None = None,
+        normalizer: ArchetypeNormalizer | None = None,
     ) -> TournamentPlacement:
         """Create a TournamentPlacement model from Limitless data.
 
         Args:
             placement: Placement data from Limitless.
             tournament_id: ID of the parent tournament.
-            detector: Optional archetype detector (uses self.detector if None).
+            detector: Optional archetype detector (uses self.detector
+                if None).
+            jp_to_en_mapping: Optional JP→EN card ID mapping.
+            normalizer: Optional archetype normalizer for sprite-based
+                resolution (JP tournaments).
 
         Returns:
             TournamentPlacement model.
@@ -642,8 +661,6 @@ class TournamentScrapeService:
                 quantity = card.get("quantity")
 
                 entry: dict[str, object] = {"quantity": quantity}
-                # Always store original card_id as jp_card_id for JP tournaments
-                # and map to EN equivalent if available
                 if jp_to_en_mapping is not None:
                     entry["jp_card_id"] = card_id
                     entry["card_id"] = jp_to_en_mapping.get(card_id, card_id)
@@ -654,12 +671,27 @@ class TournamentScrapeService:
 
             decklist_source = placement.decklist.source_url
 
-        archetype = placement.archetype
-        if decklist_data:
-            detected = detector.detect_from_existing_archetype(
-                decklist_data, placement.archetype
+        # Archetype resolution with provenance tracking
+        raw_archetype: str | None = None
+        raw_archetype_sprites: list[str] | None = None
+        detection_method: str | None = None
+
+        if normalizer is not None:
+            archetype, raw_archetype, detection_method = normalizer.resolve(
+                placement.sprite_urls,
+                placement.archetype,
+                decklist_data,
             )
-            archetype = detected
+            if placement.sprite_urls:
+                raw_archetype_sprites = placement.sprite_urls
+        else:
+            # Legacy EN path
+            archetype = placement.archetype
+            if decklist_data:
+                detected = detector.detect_from_existing_archetype(
+                    decklist_data, placement.archetype
+                )
+                archetype = detected
 
         return TournamentPlacement(
             id=uuid4(),
@@ -669,6 +701,9 @@ class TournamentScrapeService:
             archetype=archetype,
             decklist=decklist_data,
             decklist_source=decklist_source,
+            raw_archetype=raw_archetype,
+            raw_archetype_sprites=raw_archetype_sprites,
+            archetype_detection_method=detection_method,
         )
 
     async def discover_new_tournaments(

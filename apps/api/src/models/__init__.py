@@ -5,6 +5,7 @@ from src.models.api_key import ApiKey
 from src.models.api_request import ApiRequest
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
 from src.models.archetype_prediction import ArchetypePrediction
+from src.models.archetype_sprite import ArchetypeSprite
 from src.models.card import Card
 from src.models.card_id_mapping import CardIdMapping
 from src.models.data_export import DataExport
@@ -39,6 +40,7 @@ __all__ = [
     "ApiRequest",
     "ArchetypeEvolutionSnapshot",
     "ArchetypePrediction",
+    "ArchetypeSprite",
     "Card",
     "CardIdMapping",
     "DataExport",

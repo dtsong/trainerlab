@@ -604,6 +604,136 @@ class TestJPStandingsParsing:
             assert placements[0].archetype == "Charizard ex"
             assert placements[0].decklist_url is not None
 
+    @pytest.mark.asyncio
+    async def test_captures_sprite_urls_r2_cdn(self, client: LimitlessClient) -> None:
+        """Should capture sprite URLs from r2 CDN pattern."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_official_tournament_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            # Row 1: r2 CDN URLs
+            assert len(placements[0].sprite_urls) == 2
+            assert "r2.limitlesstcg.net" in placements[0].sprite_urls[0]
+            assert "grimmsnarl.png" in placements[0].sprite_urls[0]
+            assert "froslass.png" in placements[0].sprite_urls[1]
+
+            # Row 2: single r2 CDN URL
+            assert len(placements[1].sprite_urls) == 1
+            assert "charizard.png" in placements[1].sprite_urls[0]
+
+    @pytest.mark.asyncio
+    async def test_captures_sprite_urls_old_pattern(
+        self, client: LimitlessClient
+    ) -> None:
+        """Should capture sprite URLs from old limitlesstcg.com pattern."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_official_tournament_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            # Row 3: old URL pattern
+            assert len(placements[2].sprite_urls) == 2
+            assert "limitlesstcg.com/img/pokemon" in placements[2].sprite_urls[0]
+
+    @pytest.mark.asyncio
+    async def test_text_only_row_has_no_sprites(self, client: LimitlessClient) -> None:
+        """Should return empty sprite_urls for text-only rows."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_official_tournament_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            # Row 4: text "Rogue" — no sprites
+            assert placements[3].sprite_urls == []
+
+
+class TestExtractArchetypeAndSprites:
+    """Tests for _extract_archetype_and_sprites_from_images static method."""
+
+    def test_returns_tuple_with_archetype_and_urls(self) -> None:
+        """Should return (archetype, sprite_urls) tuple."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            '<a href="/decks/123">'
+            '<img alt="Charizard" src="https://r2.limitlesstcg.net/pokemon/gen9/charizard.png">'
+            "</a>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        link = soup.select_one("a")
+
+        archetype, urls = LimitlessClient._extract_archetype_and_sprites_from_images(
+            link
+        )
+
+        assert archetype == "Charizard"
+        assert urls == ["https://r2.limitlesstcg.net/pokemon/gen9/charizard.png"]
+
+    def test_multiple_sprites(self) -> None:
+        """Should handle multiple sprite images."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            '<a href="/decks/123">'
+            '<img alt="Dragapult" src="https://example.com/dragapult.png">'
+            '<img alt="Pidgeot" src="https://example.com/pidgeot.png">'
+            "</a>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        link = soup.select_one("a")
+
+        archetype, urls = LimitlessClient._extract_archetype_and_sprites_from_images(
+            link
+        )
+
+        assert archetype == "Dragapult / Pidgeot"
+        assert len(urls) == 2
+
+    def test_no_images_returns_unknown(self) -> None:
+        """Should return Unknown with empty list when no images."""
+        from bs4 import BeautifulSoup
+
+        html = '<a href="/decks/123">Some text</a>'
+        soup = BeautifulSoup(html, "html.parser")
+        link = soup.select_one("a")
+
+        archetype, urls = LimitlessClient._extract_archetype_and_sprites_from_images(
+            link
+        )
+
+        assert archetype == "Unknown"
+        assert urls == []
+
+    def test_backward_compat_wrapper_returns_string(self) -> None:
+        """Backward-compat wrapper should return plain string."""
+        from bs4 import BeautifulSoup
+
+        html = (
+            '<a href="/decks/123">'
+            '<img alt="Charizard" src="https://example.com/charizard.png">'
+            "</a>"
+        )
+        soup = BeautifulSoup(html, "html.parser")
+        link = soup.select_one("a")
+
+        result = LimitlessClient._extract_archetype_from_images(link)
+
+        assert isinstance(result, str)
+        assert result == "Charizard"
+
 
 class TestCountryToRegion:
     """Tests for LimitlessClient._country_to_region helper."""
@@ -851,6 +981,163 @@ class TestParseJPCityLeagueRow:
         result = client._parse_jp_city_league_row(row, date(2020, 1, 1))
 
         assert result is None
+
+
+class TestJPCityLeaguePlacementParsing:
+    """Tests for JP City League placement parsing with fixture."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    @pytest.mark.asyncio
+    async def test_parses_all_jp_placement_rows(self, client: LimitlessClient) -> None:
+        """Should parse all 4 rows from JP standings fixture."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_jp_city_league_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            assert len(placements) == 4
+
+    @pytest.mark.asyncio
+    async def test_jp_row1_sprites_from_r2_cdn(self, client: LimitlessClient) -> None:
+        """Row 1 should have r2 CDN sprite URLs and correct archetype."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_jp_city_league_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            p = placements[0]
+            assert p.placement == 1
+            assert p.player_name == "Taro Yamada"
+            assert p.archetype == "Grimmsnarl / Froslass"
+            assert len(p.sprite_urls) == 2
+            assert "r2.limitlesstcg.net" in p.sprite_urls[0]
+
+    @pytest.mark.asyncio
+    async def test_jp_row2_single_sprite(self, client: LimitlessClient) -> None:
+        """Row 2 should have a single sprite URL."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_jp_city_league_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            p = placements[1]
+            assert p.placement == 2
+            assert p.archetype == "Charizard"
+            assert len(p.sprite_urls) == 1
+
+    @pytest.mark.asyncio
+    async def test_jp_row3_old_url_pattern(self, client: LimitlessClient) -> None:
+        """Row 3 should use old URL pattern and derive from filename."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_jp_city_league_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            p = placements[2]
+            assert p.placement == 3
+            assert p.archetype == "Dragapult / Pidgeot"
+            assert len(p.sprite_urls) == 2
+            assert "limitlesstcg.com/img/pokemon" in p.sprite_urls[0]
+
+    @pytest.mark.asyncio
+    async def test_jp_row4_text_only_rogue(self, client: LimitlessClient) -> None:
+        """Row 4 should fall back to text 'Rogue' with no sprites."""
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_jp_city_league_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+            p = placements[3]
+            assert p.placement == 4
+            assert p.archetype == "Rogue"
+            assert p.sprite_urls == []
+            assert p.decklist_url is None
+
+
+class TestJPPipelineEndToEnd:
+    """End-to-end: JP fixture HTML → LimitlessPlacement → ArchetypeNormalizer."""
+
+    @pytest.fixture
+    def client(self) -> LimitlessClient:
+        return LimitlessClient(requests_per_minute=100, max_concurrent=10)
+
+    @pytest.fixture
+    def normalizer(self):
+        from src.services.archetype_normalizer import ArchetypeNormalizer
+
+        return ArchetypeNormalizer()
+
+    @pytest.mark.asyncio
+    async def test_full_pipeline_all_rows(
+        self,
+        client: LimitlessClient,
+        normalizer,
+    ) -> None:
+        """Parse JP fixture, run through normalizer, verify all rows."""
+        from src.services.archetype_normalizer import ArchetypeNormalizer
+
+        normalizer = ArchetypeNormalizer()
+        html = load_fixture("limitless_jp_standings.html")
+
+        with patch.object(client, "_get_official", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_jp_city_league_placements(
+                "https://limitlesstcg.com/tournaments/jp/3954"
+            )
+
+        assert len(placements) == 4
+
+        # Row 1: grimmsnarl + froslass → auto_derive (not in lookup)
+        a1, r1, m1 = normalizer.resolve(
+            placements[0].sprite_urls, placements[0].archetype, None
+        )
+        assert a1 == "Grimmsnarl Froslass"
+        assert m1 == "auto_derive"
+
+        # Row 2: charizard → sprite_lookup → "Charizard ex"
+        a2, r2, m2 = normalizer.resolve(
+            placements[1].sprite_urls, placements[1].archetype, None
+        )
+        assert a2 == "Charizard ex"
+        assert m2 == "sprite_lookup"
+
+        # Row 3: dragapult + pidgeot → sprite_lookup → "Dragapult ex"
+        a3, r3, m3 = normalizer.resolve(
+            placements[2].sprite_urls, placements[2].archetype, None
+        )
+        assert a3 == "Dragapult ex"
+        assert m3 == "sprite_lookup"
+
+        # Row 4: no sprites, text "Rogue" → text_label
+        a4, r4, m4 = normalizer.resolve(
+            placements[3].sprite_urls, placements[3].archetype, None
+        )
+        assert a4 == "Rogue"
+        assert m4 == "text_label"
 
 
 class TestDecklistParserFailureLogging:

@@ -56,5 +56,6 @@ USER appuser
 
 EXPOSE 8080
 
-# Run entrypoint script for migrations then start server
-ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+# Run with uvicorn directly for Cloud Run (proper signal handling via SIGTERM)
+# For local dev with docker-compose, override with entrypoint.sh
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

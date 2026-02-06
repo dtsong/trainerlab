@@ -568,9 +568,17 @@ async def cleanup_exports_endpoint(
         deleted_count = 0
         logger.info("Dry run - would clean up expired exports")
     else:
-        deleted_count = await storage.cleanup_expired_exports(
-            max_age_hours=request.max_age_hours
-        )
+        try:
+            deleted_count = await storage.cleanup_expired_exports(
+                max_age_hours=request.max_age_hours
+            )
+        except Exception:
+            logger.exception("Exports cleanup failed")
+            return CleanupExportsResult(
+                files_deleted=0,
+                errors=["Exports cleanup failed, check logs"],
+                success=False,
+            )
 
     logger.info("Exports cleanup complete: deleted=%d", deleted_count)
 

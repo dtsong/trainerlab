@@ -640,6 +640,27 @@ class TestCleanupExportsEndpoint:
                 max_age_hours=24  # default
             )
 
+    def test_cleanup_exports_gcs_error(self, client: TestClient) -> None:
+        """Should return structured error on GCS failure."""
+        with patch("src.routers.pipeline.StorageService") as mock_storage_cls:
+            mock_storage = MagicMock()
+            mock_storage.cleanup_expired_exports = AsyncMock(
+                side_effect=Exception("bucket not found")
+            )
+            mock_storage_cls.return_value = mock_storage
+
+            response = client.post(
+                "/api/v1/pipeline/cleanup-exports",
+                json={"max_age_hours": 48, "dry_run": False},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is False
+            assert data["files_deleted"] == 0
+            assert len(data["errors"]) == 1
+            assert "failed" in data["errors"][0].lower()
+
     def test_cleanup_exports_validates_max_age(self, client: TestClient) -> None:
         """Should validate max_age_hours range (1-168)."""
         response = client.post(

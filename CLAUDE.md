@@ -73,5 +73,5 @@ Pre-commit hooks are configured for both Python and TypeScript. Run `pre-commit 
 
 ## Current Focus
 
-- JP archetype data pipeline overhaul (sprite-based detection, historical reprocess)
-- Next: Phase 2 historical reprocess + meta recomputation
+- Phase 3 complete: April 10 Intelligence Surface (comparison, forecast, tech card insights)
+- JP archetype pipeline: Phases 1-3 complete (sprite detection, reprocess, intelligence surface)

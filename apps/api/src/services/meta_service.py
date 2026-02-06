@@ -16,8 +16,16 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import MetaSnapshot, Tournament, TournamentPlacement
-from src.schemas.meta import DivergentArchetype
+from src.models import ArchetypeSprite, MetaSnapshot, Tournament, TournamentPlacement
+from src.schemas.meta import (
+    ArchetypeComparison,
+    ConfidenceIndicator,
+    DivergentArchetype,
+    FormatForecastEntry,
+    FormatForecastResponse,
+    LagAnalysis,
+    MetaComparisonResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -597,6 +605,324 @@ class MetaService:
             }
 
         return trends
+
+    # --- Region best-of mapping (JP=BO1, else=BO3) ---
+    REGION_BEST_OF: dict[str | None, Literal[1, 3]] = {
+        "JP": 1,
+    }
+
+    def _best_of_for_region(self, region: str | None) -> Literal[1, 3]:
+        return self.REGION_BEST_OF.get(region, 3)
+
+    # --- Confidence computation ---
+
+    def _compute_confidence(
+        self,
+        sample_size: int,
+        freshness_days: int,
+    ) -> ConfidenceIndicator:
+        if sample_size >= 200 and freshness_days <= 3:
+            level: Literal["high", "medium", "low"] = "high"
+        elif sample_size >= 50 and freshness_days <= 7:
+            level = "medium"
+        else:
+            level = "low"
+        return ConfidenceIndicator(
+            sample_size=sample_size,
+            data_freshness_days=freshness_days,
+            confidence=level,
+        )
+
+    # --- Sprite URL helper ---
+
+    async def _get_sprite_urls_for_archetypes(
+        self, archetype_names: list[str]
+    ) -> dict[str, list[str]]:
+        if not archetype_names:
+            return {}
+        try:
+            query = select(ArchetypeSprite).where(
+                ArchetypeSprite.archetype_name.in_(archetype_names)
+            )
+            result = await self.session.execute(query)
+            sprites = result.scalars().all()
+        except SQLAlchemyError:
+            logger.warning(
+                "Failed to fetch sprites for archetypes",
+                exc_info=True,
+            )
+            return {}
+
+        mapping: dict[str, list[str]] = {}
+        for sprite in sprites:
+            mapping[sprite.archetype_name] = sprite.sprite_urls or []
+        return mapping
+
+    # --- Comparison ---
+
+    async def compute_meta_comparison(
+        self,
+        *,
+        region_a: str = "JP",
+        region_b: str | None = None,
+        game_format: Literal["standard", "expanded"] = "standard",
+        lag_days: int = 0,
+        top_n: int = 15,
+    ) -> MetaComparisonResponse:
+        """Compare meta between two regions.
+
+        Args:
+            region_a: First region (default JP).
+            region_b: Second region (None = Global).
+            game_format: Game format.
+            lag_days: If >0, use region_a snapshot from N days ago.
+            top_n: Max archetypes to return.
+
+        Returns:
+            MetaComparisonResponse with comparisons and confidence.
+
+        Raises:
+            ValueError: If no data found for either region.
+        """
+        today = date.today()
+        bo_a = self._best_of_for_region(region_a)
+        bo_b = self._best_of_for_region(region_b)
+
+        # Fetch latest snapshots
+        snap_a = await self._get_latest_snapshot(
+            region=region_a,
+            game_format=game_format,
+            best_of=bo_a,
+        )
+        snap_b = await self._get_latest_snapshot(
+            region=region_b,
+            game_format=game_format,
+            best_of=bo_b,
+        )
+
+        if not snap_a or not snap_b:
+            missing = []
+            if not snap_a:
+                missing.append(region_a or "Global")
+            if not snap_b:
+                missing.append(region_b or "Global")
+            raise ValueError(f"No snapshot data for: {', '.join(missing)}")
+
+        comparisons = await self._build_comparisons(snap_a, snap_b, top_n)
+
+        fresh_a = (today - snap_a.snapshot_date).days
+        fresh_b = (today - snap_b.snapshot_date).days
+
+        conf_a = self._compute_confidence(snap_a.sample_size, fresh_a)
+        conf_b = self._compute_confidence(snap_b.sample_size, fresh_b)
+
+        # Lag analysis
+        lag = None
+        if lag_days > 0:
+            lagged_date = today - timedelta(days=lag_days)
+            lagged_snap = await self.get_snapshot(
+                snapshot_date=lagged_date,
+                region=region_a,
+                game_format=game_format,
+                best_of=bo_a,
+            )
+            if lagged_snap:
+                lagged_comparisons = await self._build_comparisons(
+                    lagged_snap, snap_b, top_n
+                )
+                lag = LagAnalysis(
+                    lag_days=lag_days,
+                    jp_snapshot_date=lagged_snap.snapshot_date,
+                    en_snapshot_date=snap_b.snapshot_date,
+                    lagged_comparisons=lagged_comparisons,
+                )
+
+        return MetaComparisonResponse(
+            region_a=region_a,
+            region_b=region_b or "Global",
+            region_a_snapshot_date=snap_a.snapshot_date,
+            region_b_snapshot_date=snap_b.snapshot_date,
+            comparisons=comparisons,
+            region_a_confidence=conf_a,
+            region_b_confidence=conf_b,
+            lag_analysis=lag,
+        )
+
+    # --- Forecast ---
+
+    async def compute_format_forecast(
+        self,
+        *,
+        game_format: Literal["standard", "expanded"] = "standard",
+        top_n: int = 5,
+    ) -> FormatForecastResponse:
+        """Forecast format based on JP meta divergence.
+
+        Args:
+            game_format: Game format.
+            top_n: Max archetypes to return.
+
+        Returns:
+            FormatForecastResponse with JP archetypes to watch.
+
+        Raises:
+            ValueError: If no data for JP or Global.
+        """
+        today = date.today()
+
+        jp_snap = await self._get_latest_snapshot(
+            region="JP",
+            game_format=game_format,
+            best_of=1,
+        )
+        en_snap = await self._get_latest_snapshot(
+            region=None,
+            game_format=game_format,
+            best_of=3,
+        )
+
+        if not jp_snap or not en_snap:
+            missing = []
+            if not jp_snap:
+                missing.append("JP")
+            if not en_snap:
+                missing.append("Global")
+            raise ValueError(f"No snapshot data for: {', '.join(missing)}")
+
+        jp_shares = {
+            k: v
+            for k, v in (jp_snap.archetype_shares or {}).items()
+            if k not in EXCLUDED_ARCHETYPES and v > 0.01
+        }
+        en_shares = {
+            k: v
+            for k, v in (en_snap.archetype_shares or {}).items()
+            if k not in EXCLUDED_ARCHETYPES
+        }
+
+        # Sort JP archetypes by share descending
+        sorted_jp = sorted(jp_shares.items(), key=lambda x: x[1], reverse=True)[:top_n]
+
+        archetype_names = [name for name, _ in sorted_jp]
+        sprite_map = await self._get_sprite_urls_for_archetypes(archetype_names)
+
+        jp_tiers = jp_snap.tier_assignments or {}
+        jp_trends = jp_snap.trends or {}
+        jp_fresh = (today - jp_snap.snapshot_date).days
+
+        entries: list[FormatForecastEntry] = []
+        for name, jp_share in sorted_jp:
+            en_share = en_shares.get(name, 0.0)
+            divergence = round(jp_share - en_share, 4)
+            trend_data = jp_trends.get(name, {})
+            trend_dir = (
+                trend_data.get("direction") if isinstance(trend_data, dict) else None
+            )
+
+            conf = self._compute_confidence(jp_snap.sample_size, jp_fresh)
+
+            entries.append(
+                FormatForecastEntry(
+                    archetype=name,
+                    jp_share=round(jp_share, 4),
+                    en_share=round(en_share, 4),
+                    divergence=divergence,
+                    tier=jp_tiers.get(name),
+                    trend_direction=trend_dir,
+                    sprite_urls=sprite_map.get(name, []),
+                    confidence=conf.confidence,
+                )
+            )
+
+        return FormatForecastResponse(
+            forecast_archetypes=entries,
+            jp_snapshot_date=jp_snap.snapshot_date,
+            en_snapshot_date=en_snap.snapshot_date,
+            jp_sample_size=jp_snap.sample_size,
+            en_sample_size=en_snap.sample_size,
+        )
+
+    # --- Internal helpers ---
+
+    async def _get_latest_snapshot(
+        self,
+        *,
+        region: str | None,
+        game_format: Literal["standard", "expanded"],
+        best_of: Literal[1, 3],
+    ) -> MetaSnapshot | None:
+        """Get the most recent snapshot for given dimensions."""
+        query = select(MetaSnapshot).where(
+            MetaSnapshot.format == game_format,
+            MetaSnapshot.best_of == best_of,
+        )
+        if region is None:
+            query = query.where(MetaSnapshot.region.is_(None))
+        else:
+            query = query.where(MetaSnapshot.region == region)
+
+        query = query.order_by(MetaSnapshot.snapshot_date.desc()).limit(1)
+
+        try:
+            result = await self.session.execute(query)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError:
+            logger.error(
+                "Failed to get latest snapshot: region=%s, format=%s, best_of=%s",
+                region,
+                game_format,
+                best_of,
+                exc_info=True,
+            )
+            raise
+
+    async def _build_comparisons(
+        self,
+        snap_a: MetaSnapshot,
+        snap_b: MetaSnapshot,
+        top_n: int,
+    ) -> list[ArchetypeComparison]:
+        """Build comparison list from two snapshots."""
+        shares_a = {
+            k: v
+            for k, v in (snap_a.archetype_shares or {}).items()
+            if k not in EXCLUDED_ARCHETYPES
+        }
+        shares_b = {
+            k: v
+            for k, v in (snap_b.archetype_shares or {}).items()
+            if k not in EXCLUDED_ARCHETYPES
+        }
+
+        all_names = set(shares_a.keys()) | set(shares_b.keys())
+
+        # Sort by max share across both regions
+        ranked = sorted(
+            all_names,
+            key=lambda n: max(shares_a.get(n, 0.0), shares_b.get(n, 0.0)),
+            reverse=True,
+        )[:top_n]
+
+        sprite_map = await self._get_sprite_urls_for_archetypes(ranked)
+
+        tiers_a = snap_a.tier_assignments or {}
+        tiers_b = snap_b.tier_assignments or {}
+
+        return [
+            ArchetypeComparison(
+                archetype=name,
+                region_a_share=round(shares_a.get(name, 0.0), 4),
+                region_b_share=round(shares_b.get(name, 0.0), 4),
+                divergence=round(
+                    shares_a.get(name, 0.0) - shares_b.get(name, 0.0),
+                    4,
+                ),
+                region_a_tier=tiers_a.get(name),
+                region_b_tier=tiers_b.get(name),
+                sprite_urls=sprite_map.get(name, []),
+            )
+            for name in ranked
+        ]
 
     async def compute_enhanced_meta_snapshot(
         self,

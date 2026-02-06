@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { subDays, endOfDay, startOfDay, format } from "date-fns";
 import { useSearchParams, useRouter } from "next/navigation";
 
+import { AlertTriangle } from "lucide-react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   MetaPieChart,
@@ -22,12 +24,14 @@ import {
   CardAdoptionRates,
   UpcomingCards,
 } from "@/components/japan";
+import { ConfidenceBadge } from "@/components/ui/confidence-badge";
 import { metaApi } from "@/lib/api";
 import {
   transformSnapshot,
   parseDays,
   getErrorMessage,
 } from "@/lib/meta-utils";
+import { useArchetypeDetail } from "@/hooks/useMeta";
 import { Button } from "@/components/ui/button";
 import type { MetaSnapshot, Archetype } from "@trainerlab/shared-types";
 
@@ -123,6 +127,17 @@ function JapanMetaPageContent() {
   // Default to top archetype when data loads
   const effectiveArchetype = selectedArchetype || archetypeNames[0] || "";
 
+  // Tech Card Insights: archetype selector for top 5
+  const [techArchetype, setTechArchetype] = useState<string | null>(null);
+  const top5Archetypes = archetypeNames.slice(0, 5);
+  const effectiveTechArchetype = techArchetype || top5Archetypes[0] || null;
+  const { data: archetypeDetail, isLoading: isLoadingDetail } =
+    useArchetypeDetail(effectiveTechArchetype, {
+      region: "JP",
+      format: "standard",
+      best_of: 1,
+    });
+
   // Format dates for feed filtering
   const startDateStr = format(dateRange.start, "yyyy-MM-dd");
   const endDateStr = format(dateRange.end, "yyyy-MM-dd");
@@ -141,6 +156,18 @@ function JapanMetaPageContent() {
         <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
       </div>
 
+      {/* Persistent BO1 context strip */}
+      <div
+        className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
+        data-testid="bo1-context-strip"
+      >
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        <span>
+          All Japan data uses <strong>Best-of-1</strong> format — ties count as
+          double losses
+        </span>
+      </div>
+
       {/* BO1 Context Banner */}
       <BO1ContextBanner />
 
@@ -151,7 +178,21 @@ function JapanMetaPageContent() {
 
       {/* Section 2: JP Meta Overview */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">JP Meta Overview (BO1)</h2>
+        <div className="mb-4 flex items-center gap-3">
+          <h2 className="text-xl font-semibold">JP Meta Overview (BO1)</h2>
+          {currentMeta && (
+            <ConfidenceBadge
+              confidence={
+                currentMeta.sample_size >= 200
+                  ? "high"
+                  : currentMeta.sample_size >= 50
+                    ? "medium"
+                    : "low"
+              }
+              sampleSize={currentMeta.sample_size}
+            />
+          )}
+        </div>
         {metaError && (
           <Card className="border-destructive">
             <CardContent className="pt-6">
@@ -231,6 +272,117 @@ function JapanMetaPageContent() {
           </div>
         )}
       </section>
+
+      {/* Section 2.5: Tech Card Insights */}
+      {top5Archetypes.length > 0 && (
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Tech Card Insights</h2>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap gap-2">
+                {top5Archetypes.map((name) => (
+                  <Button
+                    key={name}
+                    variant={
+                      name === effectiveTechArchetype ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() => setTechArchetype(name)}
+                  >
+                    {name}
+                  </Button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingDetail && (
+                <div className="space-y-2">
+                  <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-64 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-56 animate-pulse rounded bg-muted" />
+                </div>
+              )}
+              {!isLoadingDetail && archetypeDetail && (
+                <div className="space-y-4">
+                  {/* Core cards (>80% inclusion) */}
+                  {archetypeDetail.key_cards.filter(
+                    (c) => c.inclusion_rate > 0.8
+                  ).length > 0 && (
+                    <div>
+                      <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+                        Core ({">"} 80% inclusion)
+                      </h4>
+                      <div className="space-y-1">
+                        {archetypeDetail.key_cards
+                          .filter((c) => c.inclusion_rate > 0.8)
+                          .map((card) => (
+                            <div
+                              key={card.card_id}
+                              className="flex items-center justify-between rounded-md px-3 py-1.5 text-sm odd:bg-muted/50"
+                            >
+                              <span className="font-medium">
+                                {card.card_id}
+                              </span>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>
+                                  {(card.inclusion_rate * 100).toFixed(0)}%
+                                  included
+                                </span>
+                                <span>
+                                  ~{card.avg_copies.toFixed(1)} copies
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tech cards (<=80% inclusion) */}
+                  {archetypeDetail.key_cards.filter(
+                    (c) => c.inclusion_rate <= 0.8
+                  ).length > 0 && (
+                    <div>
+                      <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+                        Tech (flex slots)
+                      </h4>
+                      <div className="space-y-1">
+                        {archetypeDetail.key_cards
+                          .filter((c) => c.inclusion_rate <= 0.8)
+                          .map((card) => (
+                            <div
+                              key={card.card_id}
+                              className="flex items-center justify-between rounded-md px-3 py-1.5 text-sm odd:bg-muted/50"
+                            >
+                              <span className="font-medium">
+                                {card.card_id}
+                              </span>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>
+                                  {(card.inclusion_rate * 100).toFixed(0)}%
+                                  included
+                                </span>
+                                <span>
+                                  ~{card.avg_copies.toFixed(1)} copies
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {archetypeDetail.key_cards.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No card data available for this archetype
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* Section 3: Card Adoption & Upcoming Cards */}
       <section>

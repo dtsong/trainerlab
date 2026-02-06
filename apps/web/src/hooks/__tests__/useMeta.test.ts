@@ -2,10 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useCurrentMeta, useMetaHistory, useHomeMetaData } from "../useMeta";
+import {
+  useCurrentMeta,
+  useMetaHistory,
+  useHomeMetaData,
+  useMetaComparison,
+  useFormatForecast,
+} from "../useMeta";
 import type {
   ApiMetaSnapshot,
   ApiMetaHistoryResponse,
+  ApiMetaComparisonResponse,
+  ApiFormatForecastResponse,
 } from "@trainerlab/shared-types";
 
 // Mock the API module
@@ -13,6 +21,8 @@ vi.mock("@/lib/api", () => ({
   metaApi: {
     getCurrent: vi.fn(),
     getHistory: vi.fn(),
+    compare: vi.fn(),
+    getForecast: vi.fn(),
   },
 }));
 
@@ -173,5 +183,113 @@ describe("useHomeMetaData", () => {
     // Global meta and history should still be available
     expect(result.current.globalMeta).toEqual(mockSnapshot);
     expect(result.current.history).toEqual(mockHistory);
+  });
+});
+
+const mockComparisonResponse: ApiMetaComparisonResponse = {
+  region_a: "JP",
+  region_b: "Global",
+  region_a_snapshot_date: "2026-02-05",
+  region_b_snapshot_date: "2026-02-05",
+  comparisons: [
+    {
+      archetype: "Charizard ex",
+      region_a_share: 0.2,
+      region_b_share: 0.15,
+      divergence: 0.05,
+      region_a_tier: "S",
+      region_b_tier: "A",
+      sprite_urls: [],
+    },
+  ],
+  region_a_confidence: {
+    sample_size: 200,
+    data_freshness_days: 1,
+    confidence: "high",
+  },
+  region_b_confidence: {
+    sample_size: 500,
+    data_freshness_days: 1,
+    confidence: "high",
+  },
+  lag_analysis: null,
+};
+
+const mockForecastResponse: ApiFormatForecastResponse = {
+  forecast_archetypes: [
+    {
+      archetype: "Raging Bolt ex",
+      jp_share: 0.15,
+      en_share: 0.08,
+      divergence: 0.07,
+      tier: "A",
+      trend_direction: "up",
+      sprite_urls: [],
+      confidence: "high",
+    },
+  ],
+  jp_snapshot_date: "2026-02-05",
+  en_snapshot_date: "2026-02-05",
+  jp_sample_size: 200,
+  en_sample_size: 500,
+};
+
+describe("useMetaComparison", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should fetch meta comparison data", async () => {
+    vi.mocked(metaApi.compare).mockResolvedValue(mockComparisonResponse);
+
+    const { result } = renderHook(() => useMetaComparison({ region_a: "JP" }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data).toEqual(mockComparisonResponse);
+    expect(metaApi.compare).toHaveBeenCalledWith({ region_a: "JP" });
+  });
+
+  it("should handle API errors", async () => {
+    vi.mocked(metaApi.compare).mockRejectedValue(new Error("Not found"));
+
+    const { result } = renderHook(() => useMetaComparison(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeTruthy();
+  });
+});
+
+describe("useFormatForecast", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should fetch format forecast data", async () => {
+    vi.mocked(metaApi.getForecast).mockResolvedValue(mockForecastResponse);
+
+    const { result } = renderHook(() => useFormatForecast({ top_n: 5 }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data).toEqual(mockForecastResponse);
+    expect(metaApi.getForecast).toHaveBeenCalledWith({ top_n: 5 });
+  });
+
+  it("should handle API errors", async () => {
+    vi.mocked(metaApi.getForecast).mockRejectedValue(new Error("Failed"));
+
+    const { result } = renderHook(() => useFormatForecast(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeTruthy();
   });
 });

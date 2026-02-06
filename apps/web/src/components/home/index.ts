@@ -1,5 +1,6 @@
 export { ContentGrid } from "./ContentGrid";
 export { EvolutionPreview } from "./EvolutionPreview";
+export { FormatForecast } from "./FormatForecast";
 export { Hero } from "./Hero";
 export { JPAlertBanner } from "./JPAlertBanner";
 export { JPPreview } from "./JPPreview";

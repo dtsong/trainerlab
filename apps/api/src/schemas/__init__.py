@@ -26,12 +26,6 @@ from src.schemas.deck import (
     UnmatchedCard,
     UserSummary,
 )
-from src.schemas.export import (
-    ExportCreate,
-    ExportDownloadResponse,
-    ExportListResponse,
-    ExportResponse,
-)
 from src.schemas.evolution import (
     AdaptationResponse,
     EvolutionArticleListItem,
@@ -40,6 +34,12 @@ from src.schemas.evolution import (
     EvolutionTimelineResponse,
     PredictionAccuracyResponse,
     PredictionResponse,
+)
+from src.schemas.export import (
+    ExportCreate,
+    ExportDownloadResponse,
+    ExportListResponse,
+    ExportResponse,
 )
 from src.schemas.format import (
     FormatConfigResponse,
@@ -57,15 +57,21 @@ from src.schemas.lab_note import (
     LabNoteUpdate,
 )
 from src.schemas.meta import (
+    ArchetypeComparison,
     ArchetypeDetailResponse,
     ArchetypeHistoryPoint,
     ArchetypeResponse,
     CardUsageSummary,
+    ConfidenceIndicator,
+    FormatForecastEntry,
+    FormatForecastResponse,
     FormatNotes,
     JPSignals,
     KeyCardResponse,
+    LagAnalysis,
     MatchupResponse,
     MatchupSpreadResponse,
+    MetaComparisonResponse,
     MetaHistoryResponse,
     MetaSnapshotResponse,
     SampleDeckResponse,
@@ -111,9 +117,11 @@ __all__ = [
     "ApiKeyCreatedResponse",
     "ApiKeyListResponse",
     "ApiKeyResponse",
+    "ArchetypeComparison",
     "ArchetypeDetailResponse",
     "ArchetypeHistoryPoint",
     "ArchetypeResponse",
+    "ConfidenceIndicator",
     "AttackSchema",
     "BestOf",
     "CardInDeck",
@@ -143,8 +151,11 @@ __all__ = [
     "ExportListResponse",
     "ExportResponse",
     "FormatConfigResponse",
+    "FormatForecastEntry",
+    "FormatForecastResponse",
     "FormatNotes",
     "JPSignals",
+    "LagAnalysis",
     "KeyCardResponse",
     "LabNoteCreate",
     "LabNoteListResponse",
@@ -153,6 +164,7 @@ __all__ = [
     "LabNoteUpdate",
     "MatchupResponse",
     "MatchupSpreadResponse",
+    "MetaComparisonResponse",
     "MetaHistoryResponse",
     "MetaSnapshotResponse",
     "PaginatedResponse",

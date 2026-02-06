@@ -233,3 +233,96 @@ class MatchupSpreadResponse(BaseModel):
         default=None, ge=0.0, le=1.0, description="Overall win rate across all matchups"
     )
     total_games: int = Field(ge=0, description="Total games in sample")
+
+
+class ConfidenceIndicator(BaseModel):
+    """Data quality confidence indicator."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    sample_size: int = Field(ge=0, description="Number of placements")
+    data_freshness_days: int = Field(ge=0, description="Days since snapshot")
+    confidence: Literal["high", "medium", "low"] = Field(description="Confidence level")
+
+
+class ArchetypeComparison(BaseModel):
+    """Single archetype comparison between two regions."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    archetype: str = Field(description="Archetype name")
+    region_a_share: float = Field(ge=0.0, le=1.0, description="Share in region A")
+    region_b_share: float = Field(ge=0.0, le=1.0, description="Share in region B")
+    divergence: float = Field(description="Percentage point difference (A - B)")
+    region_a_tier: str | None = Field(default=None, description="Tier in region A")
+    region_b_tier: str | None = Field(default=None, description="Tier in region B")
+    sprite_urls: list[str] = Field(
+        default_factory=list, description="Sprite image URLs"
+    )
+
+
+class LagAnalysis(BaseModel):
+    """Lag-adjusted comparison (JP from N days ago vs EN now)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    lag_days: int = Field(ge=0, description="Days of lag applied")
+    jp_snapshot_date: date = Field(description="JP snapshot date (lagged)")
+    en_snapshot_date: date = Field(description="EN snapshot date (current)")
+    lagged_comparisons: list[ArchetypeComparison] = Field(
+        description="Comparisons using lagged JP data"
+    )
+
+
+class MetaComparisonResponse(BaseModel):
+    """Full meta comparison between two regions."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    region_a: str = Field(description="First region")
+    region_b: str = Field(description="Second region (Global)")
+    region_a_snapshot_date: date = Field(description="Snapshot date for region A")
+    region_b_snapshot_date: date = Field(description="Snapshot date for region B")
+    comparisons: list[ArchetypeComparison] = Field(description="Archetype comparisons")
+    region_a_confidence: ConfidenceIndicator = Field(
+        description="Region A data quality"
+    )
+    region_b_confidence: ConfidenceIndicator = Field(
+        description="Region B data quality"
+    )
+    lag_analysis: LagAnalysis | None = Field(
+        default=None, description="Optional lag-adjusted analysis"
+    )
+
+
+class FormatForecastEntry(BaseModel):
+    """Single archetype in format forecast."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    archetype: str = Field(description="Archetype name")
+    jp_share: float = Field(ge=0.0, le=1.0, description="JP meta share")
+    en_share: float = Field(ge=0.0, le=1.0, description="Global meta share")
+    divergence: float = Field(description="PP difference (jp_share - en_share)")
+    tier: str | None = Field(default=None, description="JP tier")
+    trend_direction: Literal["up", "down", "stable"] | None = Field(
+        default=None, description="JP trend direction"
+    )
+    sprite_urls: list[str] = Field(
+        default_factory=list, description="Sprite image URLs"
+    )
+    confidence: Literal["high", "medium", "low"] = Field(description="Data confidence")
+
+
+class FormatForecastResponse(BaseModel):
+    """Format forecast showing JP archetypes to watch."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    forecast_archetypes: list[FormatForecastEntry] = Field(
+        description="Archetypes to watch from JP"
+    )
+    jp_snapshot_date: date = Field(description="JP snapshot date")
+    en_snapshot_date: date = Field(description="Global snapshot date")
+    jp_sample_size: int = Field(ge=0, description="JP placement count")
+    en_sample_size: int = Field(ge=0, description="Global placement count")

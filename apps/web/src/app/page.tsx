@@ -20,8 +20,11 @@ const ContentGrid = dynamic(
   () => import("@/components/home/ContentGrid").then((mod) => mod.ContentGrid),
   { ssr: true }
 );
-const JPPreview = dynamic(
-  () => import("@/components/home/JPPreview").then((mod) => mod.JPPreview),
+const FormatForecast = dynamic(
+  () =>
+    import("@/components/home/FormatForecast").then(
+      (mod) => mod.FormatForecast
+    ),
   { ssr: true }
 );
 const WhyTrainerLab = dynamic(
@@ -63,7 +66,7 @@ export default function Home() {
         <ContentGrid />
       </ErrorBoundary>
       <ErrorBoundary fallback={null}>
-        <JPPreview />
+        <FormatForecast />
       </ErrorBoundary>
       <WhyTrainerLab />
       <ResearchPassWaitlist />

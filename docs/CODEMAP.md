@@ -101,7 +101,7 @@ apps/api/src/
 | `cards.py`        | `/api/v1/cards`       | GET /, GET /{id}, Search with embeddings                                  |
 | `sets.py`         | `/api/v1/sets`        | GET /, GET /{id}                                                          |
 | `decks.py`        | `/api/v1/decks`       | CRUD operations, export/import                                            |
-| `meta.py`         | `/api/v1/meta`        | GET /current, GET /history, GET /archetypes                               |
+| `meta.py`         | `/api/v1/meta`        | GET /current, /history, /archetypes, /compare, /forecast                  |
 | `tournaments.py`  | `/api/v1/tournaments` | GET /, GET /{id}, Filter + paginate                                       |
 | `japan.py`        | `/api/v1/japan`       | JP-specific endpoints (innovation, archetypes, sets, predictions)         |
 | `lab_notes.py`    | `/api/v1/lab-notes`   | GET /, GET /{slug}                                                        |
@@ -287,7 +287,7 @@ apps/web/src/
 
 - button, input, card, badge, dialog, dropdown-menu, select, label, table, tabs, checkbox, textarea, progress, avatar, separator, sheet, sonner
 
-**Custom TrainerLab components (10):**
+**Custom TrainerLab components (11):**
 
 - `pill-toggle.tsx` - Filter toggle group
 - `section-label.tsx` - Mono label with icon + divider
@@ -296,6 +296,7 @@ apps/web/src/
 - `jp-signal-badge.tsx` - JP divergence badge (red)
 - `stat-block.tsx` - Large mono numbers with labels
 - `panel-overlay.tsx` - Dark overlay for slide-outs
+- `confidence-badge.tsx` - Data confidence indicator (high/medium/low)
 
 #### Domain Components
 
@@ -313,11 +314,11 @@ apps/web/src/
 
 **Home Page (`components/home/`):**
 
-- Hero, JPAlertBanner, MetaSnapshot, EvolutionPreview, ContentGrid, JPPreview, WhyTrainerLab, ResearchPassWaitlist, TrainersToolkit
+- Hero, JPAlertBanner, MetaSnapshot, EvolutionPreview, ContentGrid, FormatForecast, WhyTrainerLab, ResearchPassWaitlist, TrainersToolkit
 
 **Japan (`components/japan/`):**
 
-- PredictionAccuracyTracker, CardInnovationTracker, NewArchetypeWatch, SetImpactTimeline
+- PredictionAccuracyTracker, CardInnovationTracker, NewArchetypeWatch, SetImpactTimeline, MetaDivergenceComparison, CardCountEvolutionChart, CardCountEvolutionSection, CardAdoptionRates, UpcomingCards, CityLeagueResultsFeed, DecklistViewer
 
 **Layout (`components/layout/`):**
 
@@ -345,16 +346,17 @@ apps/web/src/
 
 ### Custom Hooks (`hooks/`)
 
-| Hook             | Purpose                   |
-| ---------------- | ------------------------- |
-| `useAuth`        | NextAuth.js session state |
-| `useCards`       | Card search queries       |
-| `useSets`        | Card set queries          |
-| `useDecks`       | Deck CRUD operations      |
-| `useTournaments` | Tournament queries        |
-| `useLabNotes`    | Lab notes queries         |
-| `useJapan`       | Japan-specific queries    |
-| `useFormat`      | Format rotation queries   |
+| Hook             | Purpose                                                      |
+| ---------------- | ------------------------------------------------------------ |
+| `useAuth`        | NextAuth.js session state                                    |
+| `useCards`       | Card search queries                                          |
+| `useSets`        | Card set queries                                             |
+| `useDecks`       | Deck CRUD operations                                         |
+| `useTournaments` | Tournament queries                                           |
+| `useLabNotes`    | Lab notes queries                                            |
+| `useJapan`       | Japan-specific queries                                       |
+| `useFormat`      | Format rotation queries                                      |
+| `useMeta`        | Meta queries: current, history, comparison, forecast, detail |
 
 ### State Management
 
@@ -456,8 +458,9 @@ External Sources → Pipelines → Database → API → Frontend
 1. **Card Search:** Frontend → API `/cards?q=...` → pgvector similarity search → Results
 2. **Deck Building:** Frontend (Zustand) → API `/decks` → PostgreSQL → Saved
 3. **Meta View:** Frontend → API `/meta/current?region=...` → Computed snapshot → Charts
-4. **JP Comparison:** Frontend → API `/meta/current?region=JP` + `/meta/current?region=Global` → Side-by-side
-5. **Tournament Browse:** Frontend → API `/tournaments?filter=...` → Paginated results
+4. **JP Comparison:** Frontend → API `/meta/compare?region_a=JP` → Server-side divergence analysis
+5. **Format Forecast:** Frontend → API `/meta/forecast` → JP archetypes to watch for EN meta
+6. **Tournament Browse:** Frontend → API `/tournaments?filter=...` → Paginated results
 
 ### Authentication Flow
 

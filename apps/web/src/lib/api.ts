@@ -9,6 +9,9 @@ import type {
   ApiPaginatedResponse,
   ApiMetaSnapshot,
   ApiMetaHistoryResponse,
+  ApiMetaComparisonResponse,
+  ApiFormatForecastResponse,
+  ApiArchetypeDetailResponse,
   ApiArchetype,
   ApiFormatConfig,
   ApiUpcomingFormat,
@@ -229,6 +232,19 @@ export interface MetaSearchParams {
   days?: number;
 }
 
+export interface MetaCompareParams {
+  region_a?: string;
+  region_b?: string;
+  format?: "standard" | "expanded";
+  lag_days?: number;
+  top_n?: number;
+}
+
+export interface MetaForecastParams {
+  format?: "standard" | "expanded";
+  top_n?: number;
+}
+
 // Meta API
 export const metaApi = {
   getCurrent: (params: MetaSearchParams = {}) => {
@@ -268,6 +284,43 @@ export const metaApi = {
     return fetchApiValidated<ApiArchetype[], unknown>(
       `/api/v1/meta/archetypes${query ? `?${query}` : ""}`,
       ArchetypeSchema.array()
+    );
+  },
+
+  getArchetypeDetail: (name: string, params: MetaSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.region) searchParams.set("region", params.region);
+    if (params.format) searchParams.set("format", params.format);
+    if (params.best_of) searchParams.set("best_of", String(params.best_of));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiArchetypeDetailResponse>(
+      `/api/v1/meta/archetypes/${encodeURIComponent(name)}${query ? `?${query}` : ""}`
+    );
+  },
+
+  compare: (params: MetaCompareParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.region_a) searchParams.set("region_a", params.region_a);
+    if (params.region_b) searchParams.set("region_b", params.region_b);
+    if (params.format) searchParams.set("format", params.format);
+    if (params.lag_days) searchParams.set("lag_days", String(params.lag_days));
+    if (params.top_n) searchParams.set("top_n", String(params.top_n));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiMetaComparisonResponse>(
+      `/api/v1/meta/compare${query ? `?${query}` : ""}`
+    );
+  },
+
+  getForecast: (params: MetaForecastParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.format) searchParams.set("format", params.format);
+    if (params.top_n) searchParams.set("top_n", String(params.top_n));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiFormatForecastResponse>(
+      `/api/v1/meta/forecast${query ? `?${query}` : ""}`
     );
   },
 };

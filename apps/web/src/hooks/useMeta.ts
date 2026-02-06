@@ -2,7 +2,12 @@
 
 import { useQuery, useQueries } from "@tanstack/react-query";
 
-import { metaApi, type MetaSearchParams } from "@/lib/api";
+import {
+  metaApi,
+  type MetaSearchParams,
+  type MetaCompareParams,
+  type MetaForecastParams,
+} from "@/lib/api";
 
 const META_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
@@ -19,6 +24,34 @@ export function useMetaHistory(params: MetaSearchParams = {}) {
     queryKey: ["meta", "history", params],
     queryFn: () => metaApi.getHistory(params),
     staleTime: META_STALE_TIME,
+  });
+}
+
+export function useMetaComparison(params: MetaCompareParams = {}) {
+  return useQuery({
+    queryKey: ["meta", "compare", params],
+    queryFn: () => metaApi.compare(params),
+    staleTime: META_STALE_TIME,
+  });
+}
+
+export function useFormatForecast(params: MetaForecastParams = {}) {
+  return useQuery({
+    queryKey: ["meta", "forecast", params],
+    queryFn: () => metaApi.getForecast(params),
+    staleTime: META_STALE_TIME,
+  });
+}
+
+export function useArchetypeDetail(
+  name: string | null,
+  params: MetaSearchParams = {}
+) {
+  return useQuery({
+    queryKey: ["meta", "archetype-detail", name, params],
+    queryFn: () => metaApi.getArchetypeDetail(name!, params),
+    staleTime: META_STALE_TIME,
+    enabled: !!name,
   });
 }
 

@@ -21,16 +21,19 @@ from src.schemas import (
     ArchetypeResponse,
     BestOf,
     CardUsageSummary,
+    FormatForecastResponse,
     FormatNotes,
     JPSignals,
     KeyCardResponse,
     MatchupResponse,
     MatchupSpreadResponse,
+    MetaComparisonResponse,
     MetaHistoryResponse,
     MetaSnapshotResponse,
     SampleDeckResponse,
     TrendInfo,
 )
+from src.services.meta_service import MetaService
 
 logger = logging.getLogger(__name__)
 
@@ -740,3 +743,87 @@ async def get_archetype_matchups(
         overall_win_rate=overall_win_rate,
         total_games=total_games,
     )
+
+
+@router.get("/compare")
+@limiter.limit("30/minute")
+async def compare_meta(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    region_a: Annotated[
+        str,
+        Query(description="First region (e.g., JP)"),
+    ] = "JP",
+    region_b: Annotated[
+        str | None,
+        Query(description="Second region or null for Global"),
+    ] = None,
+    format: Annotated[
+        Literal["standard", "expanded"],
+        Query(description="Game format"),
+    ] = "standard",
+    lag_days: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=90,
+            description="Lag days for region_a snapshot",
+        ),
+    ] = 0,
+    top_n: Annotated[
+        int,
+        Query(ge=1, le=30, description="Max archetypes"),
+    ] = 15,
+) -> MetaComparisonResponse:
+    """Compare meta between two regions.
+
+    Returns archetype-by-archetype comparison with divergence,
+    tiers, sprites, and data confidence. Optionally includes
+    lag-adjusted analysis.
+    """
+    svc = MetaService(db)
+    try:
+        return await svc.compute_meta_comparison(
+            region_a=region_a,
+            region_b=region_b,
+            game_format=format,
+            lag_days=lag_days,
+            top_n=top_n,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+
+
+@router.get("/forecast")
+@limiter.limit("30/minute")
+async def format_forecast(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    format: Annotated[
+        Literal["standard", "expanded"],
+        Query(description="Game format"),
+    ] = "standard",
+    top_n: Annotated[
+        int,
+        Query(ge=1, le=10, description="Max archetypes"),
+    ] = 5,
+) -> FormatForecastResponse:
+    """Get format forecast based on JP meta divergence.
+
+    Returns JP archetypes to watch, sorted by JP share,
+    enriched with sprites, tiers, trends, and confidence.
+    """
+    svc = MetaService(db)
+    try:
+        return await svc.compute_format_forecast(
+            game_format=format,
+            top_n=top_n,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None

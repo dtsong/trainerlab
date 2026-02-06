@@ -107,6 +107,7 @@ function JapanMetaPageContent() {
       name: a.name,
       share: a.share,
       keyCards: a.key_cards ?? undefined,
+      spriteUrls: a.sprite_urls ?? undefined,
     })) ?? [];
 
   const snapshots: MetaSnapshot[] =
@@ -143,9 +144,14 @@ function JapanMetaPageContent() {
       {/* BO1 Context Banner */}
       <BO1ContextBanner />
 
-      {/* Section 1: JP Meta Overview */}
+      {/* Section 1: JP vs EN Divergence */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">JP Meta Overview</h2>
+        <MetaDivergenceComparison />
+      </section>
+
+      {/* Section 2: JP Meta Overview */}
+      <section>
+        <h2 className="text-xl font-semibold mb-4">JP Meta Overview (BO1)</h2>
         {metaError && (
           <Card className="border-destructive">
             <CardContent className="pt-6">
@@ -226,7 +232,7 @@ function JapanMetaPageContent() {
         )}
       </section>
 
-      {/* Section 2: Card Adoption & Upcoming Cards */}
+      {/* Section 3: Card Adoption & Upcoming Cards */}
       <section>
         <h2 className="text-xl font-semibold mb-4">Card Intelligence</h2>
         <div className="grid gap-6 lg:grid-cols-2">
@@ -235,14 +241,9 @@ function JapanMetaPageContent() {
         </div>
       </section>
 
-      {/* Section 3: City League Results */}
+      {/* Section 4: City League Results */}
       <section>
         <CityLeagueResultsFeed startDate={startDateStr} endDate={endDateStr} />
-      </section>
-
-      {/* Section 4: JP vs EN Divergence */}
-      <section>
-        <MetaDivergenceComparison />
       </section>
 
       {/* Section 5: Card Count Evolution */}

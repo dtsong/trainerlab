@@ -6,6 +6,7 @@ tournament data in the database.
 
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from uuid import uuid4
@@ -599,6 +600,7 @@ class TournamentScrapeService:
                 normalizer = ArchetypeNormalizer(detector=detector)
                 await normalizer.load_db_sprites(self.session)
 
+            method_counts: Counter[str | None] = Counter()
             for placement in tournament.placements:
                 db_placement = self._create_placement(
                     placement,
@@ -607,7 +609,29 @@ class TournamentScrapeService:
                     jp_mapping,
                     normalizer,
                 )
+                method_counts[db_placement.archetype_detection_method] += 1
                 self.session.add(db_placement)
+
+            if normalizer is not None:
+                n = len(tournament.placements)
+                logger.info(
+                    "Normalized %d placements: sprite_lookup=%d, "
+                    "auto_derive=%d, signature_card=%d, "
+                    "text_label=%d",
+                    n,
+                    method_counts.get("sprite_lookup", 0),
+                    method_counts.get("auto_derive", 0),
+                    method_counts.get("signature_card", 0),
+                    method_counts.get("text_label", 0),
+                    extra={
+                        "tournament": tournament.name,
+                        "total": n,
+                        "sprite_lookup": method_counts.get("sprite_lookup", 0),
+                        "auto_derive": method_counts.get("auto_derive", 0),
+                        "signature_card": method_counts.get("signature_card", 0),
+                        "text_label": method_counts.get("text_label", 0),
+                    },
+                )
 
             await self.session.commit()
             return db_tournament

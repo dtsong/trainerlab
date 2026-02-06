@@ -4,6 +4,7 @@ import { AlertCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArchetypeSprites } from "@/components/meta/ArchetypeSprites";
 import { useCurrentMeta } from "@/hooks/useMeta";
 import type { ApiArchetype } from "@trainerlab/shared-types";
 
@@ -19,9 +20,17 @@ function ArchetypeRow({
   const sharePercent = (archetype.share * 100).toFixed(1);
   const isDivergent =
     divergentShare !== undefined && Math.abs(divergentShare) > 5;
+  const spriteUrls = archetype.sprite_urls ?? [];
 
   return (
     <div className="flex items-center gap-2 py-1.5 text-sm">
+      {spriteUrls.length > 0 && (
+        <ArchetypeSprites
+          spriteUrls={spriteUrls}
+          archetypeName={archetype.name}
+          size="sm"
+        />
+      )}
       <span className="flex-1 truncate font-medium">{archetype.name}</span>
       <span className="tabular-nums text-muted-foreground">
         {sharePercent}%

@@ -37,7 +37,7 @@ export function CardCountEvolutionSection({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-destructive" />
-            Card Count Evolution
+            Card Count Evolution (BO1)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -53,7 +53,7 @@ export function CardCountEvolutionSection({
     <div className={className} data-testid="card-count-section">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Card Count Evolution</h2>
+          <h2 className="text-xl font-semibold">Card Count Evolution (BO1)</h2>
           <p className="text-sm text-muted-foreground">
             How average card copies change over time within an archetype
           </p>
@@ -86,7 +86,7 @@ export function CardCountEvolutionSection({
       ) : (
         <Card>
           <CardContent className="pt-6">
-            <ChartErrorBoundary chartName="Card Count Evolution">
+            <ChartErrorBoundary chartName="Card Count Evolution (BO1)">
               <CardCountEvolutionChart cards={data?.cards ?? []} />
             </ChartErrorBoundary>
             {data && data.tournaments_analyzed > 0 && (

@@ -20,10 +20,7 @@ function RateBar({ rate }: { rate: number }) {
   return (
     <div className="flex items-center gap-2">
       <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full bg-teal-500"
-          style={{ width: `${percent}%` }}
-        />
+        <div className="h-full bg-teal-500" style={{ width: `${percent}%` }} />
       </div>
       <span className="font-mono text-sm">{percent}%</span>
     </div>
@@ -90,7 +87,7 @@ export function CardAdoptionRates({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-destructive" />
-            Card Adoption Rates
+            Card Adoption Rates (BO1)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -106,7 +103,7 @@ export function CardAdoptionRates({
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle>Card Adoption Rates</CardTitle>
+          <CardTitle>Card Adoption Rates (BO1)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -124,7 +121,7 @@ export function CardAdoptionRates({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Card Adoption Rates</CardTitle>
+        <CardTitle>Card Adoption Rates (BO1)</CardTitle>
         <p className="text-sm text-muted-foreground">
           Most-used cards in JP meta (last {days} days)
         </p>

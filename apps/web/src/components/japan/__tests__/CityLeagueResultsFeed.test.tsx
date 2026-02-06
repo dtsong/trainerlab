@@ -39,7 +39,7 @@ describe("CityLeagueResultsFeed", () => {
     mockTournamentsApi.list.mockReturnValue(new Promise(() => {}));
 
     render(<CityLeagueResultsFeed />, { wrapper: createWrapper() });
-    expect(screen.getByText("City League Results")).toBeInTheDocument();
+    expect(screen.getByText("City League Results (BO1)")).toBeInTheDocument();
   });
 
   it("should render empty state when no tournaments", async () => {

@@ -7,6 +7,7 @@ import { CHART_COLORS, OTHER_COLOR } from "@/lib/chart-colors";
 import { groupArchetypes } from "@/lib/meta-utils";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { ArchetypeSprites } from "./ArchetypeSprites";
 
 interface MetaPieChartProps {
   data: Archetype[];
@@ -20,6 +21,7 @@ interface SliceData {
   value: number;
   color: string;
   isOther?: boolean;
+  spriteUrls?: string[];
 }
 
 interface TooltipPayload {
@@ -60,6 +62,7 @@ export function MetaPieChart({ data, topN = 8, className }: MetaPieChartProps) {
     share: archetype.share,
     value: archetype.share * 100,
     color: CHART_COLORS[i % CHART_COLORS.length],
+    spriteUrls: archetype.spriteUrls,
   }));
 
   if (other) {
@@ -160,6 +163,13 @@ export function MetaPieChart({ data, topN = 8, className }: MetaPieChartProps) {
               className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
               style={{ backgroundColor: slice.color }}
             />
+            {slice.spriteUrls && slice.spriteUrls.length > 0 && (
+              <ArchetypeSprites
+                spriteUrls={slice.spriteUrls}
+                archetypeName={slice.name}
+                size="sm"
+              />
+            )}
             <span className="truncate text-foreground">{slice.name}</span>
             <span className="ml-auto flex-shrink-0 tabular-nums text-muted-foreground">
               {(slice.share * 100).toFixed(1)}%

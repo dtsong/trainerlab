@@ -5,6 +5,7 @@ export interface ApiArchetype {
   share: number;
   sample_decks?: string[] | null;
   key_cards?: string[] | null;
+  sprite_urls?: string[] | null;
 }
 
 export interface ApiCardUsageSummary {
@@ -38,6 +39,7 @@ export interface Archetype {
   share: number;
   sampleDecks?: string[];
   keyCards?: string[];
+  spriteUrls?: string[];
 }
 
 export interface CardUsageSummary {

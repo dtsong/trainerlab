@@ -164,7 +164,7 @@ export function CityLeagueResultsFeed({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-destructive" />
-            City League Results
+            City League Results (BO1)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -179,7 +179,9 @@ export function CityLeagueResultsFeed({
   if (isLoading) {
     return (
       <div className={className}>
-        <h2 className="text-xl font-semibold mb-4">City League Results</h2>
+        <h2 className="text-xl font-semibold mb-4">
+          City League Results (BO1)
+        </h2>
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i}>
@@ -198,7 +200,7 @@ export function CityLeagueResultsFeed({
   return (
     <div className={className} data-testid="city-league-feed">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold">City League Results</h2>
+        <h2 className="text-xl font-semibold">City League Results (BO1)</h2>
         <p className="text-sm text-muted-foreground">
           Recent JP City League top cuts — expand to view decklists
         </p>

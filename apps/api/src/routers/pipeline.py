@@ -27,6 +27,12 @@ from src.pipelines.monitor_card_reveals import (
 from src.pipelines.monitor_card_reveals import (
     check_card_reveals,
 )
+from src.pipelines.reprocess_archetypes import (
+    ReprocessArchetypesResult as ReprocessArchetypesResultInternal,
+)
+from src.pipelines.reprocess_archetypes import (
+    reprocess_archetypes,
+)
 from src.pipelines.scrape_limitless import (
     DiscoverResult as DiscoverResultInternal,
 )
@@ -73,6 +79,8 @@ from src.schemas.pipeline import (
     MonitorCardRevealsRequest,
     MonitorCardRevealsResult,
     ProcessTournamentRequest,
+    ReprocessArchetypesRequest,
+    ReprocessArchetypesResult,
     ScrapeResult,
     SyncCardMappingsRequest,
     SyncCardMappingsResult,
@@ -587,3 +595,63 @@ async def cleanup_exports_endpoint(
         errors=[],
         success=True,
     )
+
+
+# Archetype reprocess pipeline
+
+
+def _convert_reprocess_result(
+    internal: ReprocessArchetypesResultInternal,
+) -> ReprocessArchetypesResult:
+    """Convert internal ReprocessArchetypesResult to API schema."""
+    return ReprocessArchetypesResult(
+        processed=internal.processed,
+        updated=internal.updated,
+        skipped=internal.skipped,
+        errors=internal.errors,
+        next_cursor=internal.next_cursor,
+        total_remaining=internal.total_remaining,
+        success=internal.success,
+    )
+
+
+@router.post(
+    "/reprocess-archetypes",
+    response_model=ReprocessArchetypesResult,
+)
+async def reprocess_archetypes_endpoint(
+    request: ReprocessArchetypesRequest,
+) -> ReprocessArchetypesResult:
+    """Reprocess archetype labels for existing placements.
+
+    Paginated endpoint that updates existing tournament placements
+    through the ArchetypeNormalizer. Call repeatedly with next_cursor
+    until next_cursor is None.
+
+    Designed for Cloud Tasks orchestration at 0.5 req/sec.
+    """
+    logger.info(
+        "Starting archetype reprocess: region=%s, batch_size=%d, force=%s, dry_run=%s",
+        request.region,
+        request.batch_size,
+        request.force,
+        request.dry_run,
+    )
+
+    result = await reprocess_archetypes(
+        region=request.region,
+        batch_size=request.batch_size,
+        cursor=request.cursor,
+        force=request.force,
+        dry_run=request.dry_run,
+    )
+
+    logger.info(
+        "Reprocess batch complete: processed=%d, updated=%d, skipped=%d, remaining=%d",
+        result.processed,
+        result.updated,
+        result.skipped,
+        result.total_remaining,
+    )
+
+    return _convert_reprocess_result(result)

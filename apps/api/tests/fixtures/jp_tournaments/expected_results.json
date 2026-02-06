@@ -38,7 +38,7 @@
     },
     {
       "placement": 7,
-      "archetype": "Grimmsnarl Froslass",
+      "archetype": "Froslass Grimmsnarl",
       "detection_method": "auto_derive",
       "sprite_count": 2
     },
@@ -50,7 +50,7 @@
     },
     {
       "placement": 9,
-      "archetype": "Fluttermane Brambleghast",
+      "archetype": "Brambleghast Fluttermane",
       "detection_method": "auto_derive",
       "sprite_count": 2
     },
@@ -118,7 +118,7 @@
     },
     {
       "placement": 10,
-      "archetype": "Klawf Dondozo",
+      "archetype": "Dondozo Klawf",
       "detection_method": "auto_derive",
       "sprite_count": 2
     }

@@ -124,7 +124,7 @@ export function CardInnovationTracker({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-destructive" />
-            Card Innovation Tracker
+            Card Innovation Tracker (BO1)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -140,7 +140,7 @@ export function CardInnovationTracker({
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle>Card Innovation Tracker</CardTitle>
+          <CardTitle>Card Innovation Tracker (BO1)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -158,7 +158,7 @@ export function CardInnovationTracker({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Card Innovation Tracker</CardTitle>
+        <CardTitle>Card Innovation Tracker (BO1)</CardTitle>
         <p className="text-sm text-muted-foreground">
           New cards seeing competitive play in Japan City Leagues
         </p>

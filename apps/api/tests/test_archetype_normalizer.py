@@ -19,20 +19,42 @@ class TestBuildSpriteKey:
         assert ArchetypeNormalizer.build_sprite_key(urls) == "charizard"
 
     def test_r2_cdn_two_urls(self) -> None:
-        """Should join names from multiple r2 CDN URLs."""
+        """Should join names from multiple r2 CDN URLs (sorted)."""
         urls = [
             "https://r2.limitlesstcg.net/pokemon/gen9/dragapult.png",
             "https://r2.limitlesstcg.net/pokemon/gen9/pidgeot.png",
         ]
         assert ArchetypeNormalizer.build_sprite_key(urls) == "dragapult-pidgeot"
 
+    def test_names_sorted_alphabetically(self) -> None:
+        """Should sort names alphabetically regardless of URL order."""
+        urls = [
+            "https://example.com/pidgeot.png",
+            "https://example.com/dragapult.png",
+        ]
+        assert ArchetypeNormalizer.build_sprite_key(urls) == "dragapult-pidgeot"
+
+    def test_reverse_order_same_key(self) -> None:
+        """Both orderings should produce the same canonical key."""
+        urls_a = [
+            "https://example.com/kangaskhan-mega.png",
+            "https://example.com/absol-mega.png",
+        ]
+        urls_b = [
+            "https://example.com/absol-mega.png",
+            "https://example.com/kangaskhan-mega.png",
+        ]
+        assert ArchetypeNormalizer.build_sprite_key(
+            urls_a
+        ) == ArchetypeNormalizer.build_sprite_key(urls_b)
+
     def test_old_url_pattern(self) -> None:
-        """Should extract name from old limitlesstcg URL pattern."""
+        """Should extract name from old limitlesstcg URL pattern (sorted)."""
         urls = [
             "https://limitlesstcg.com/img/pokemon/grimmsnarl.png",
             "https://limitlesstcg.com/img/pokemon/froslass.png",
         ]
-        assert ArchetypeNormalizer.build_sprite_key(urls) == "grimmsnarl-froslass"
+        assert ArchetypeNormalizer.build_sprite_key(urls) == "froslass-grimmsnarl"
 
     def test_empty_urls(self) -> None:
         """Should return empty string for empty list."""
@@ -108,7 +130,8 @@ class TestResolve:
         ]
         archetype, raw, method = normalizer.resolve(urls, "Unknown", None)
 
-        assert archetype == "Grimmsnarl Froslass"
+        # Sorted: froslass < grimmsnarl, so key is "froslass-grimmsnarl"
+        assert archetype == "Froslass Grimmsnarl"
         assert method == "auto_derive"
 
     def test_priority3_signature_card(self) -> None:
@@ -201,7 +224,7 @@ class TestExpandedSpriteMap:
         assert method == "sprite_lookup"
 
     def test_chien_pao_baxcalibur(self) -> None:
-        """Should resolve chien-pao-baxcalibur to Chien-Pao ex."""
+        """Should resolve baxcalibur+chien-pao to Chien-Pao ex (sorted key)."""
         normalizer = ArchetypeNormalizer()
         urls = [
             "https://example.com/chien-pao.png",
@@ -233,6 +256,88 @@ class TestExpandedSpriteMap:
         urls = ["https://r2.limitlesstcg.net/pokemon/gen9/snorlax.png"]
         archetype, _, method = normalizer.resolve(urls, "?", None)
         assert archetype == "Snorlax Stall"
+        assert method == "sprite_lookup"
+
+    def test_mega_lopunny(self) -> None:
+        """Should resolve lopunny-mega to Mega Lopunny ex."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/lopunny-mega.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Mega Lopunny ex"
+        assert method == "sprite_lookup"
+
+    def test_mega_lucario(self) -> None:
+        """Should resolve lucario-mega to Mega Lucario ex."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/lucario-mega.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Mega Lucario ex"
+        assert method == "sprite_lookup"
+
+    def test_composite_mega_absol_box(self) -> None:
+        """Should resolve absol-mega + kangaskhan-mega to Mega Absol Box."""
+        normalizer = ArchetypeNormalizer()
+        urls = [
+            "https://example.com/absol-mega.png",
+            "https://example.com/kangaskhan-mega.png",
+        ]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Mega Absol Box"
+        assert method == "sprite_lookup"
+
+    def test_composite_mega_absol_box_reverse_order(self) -> None:
+        """Should resolve kangaskhan-mega + absol-mega to Mega Absol Box."""
+        normalizer = ArchetypeNormalizer()
+        urls = [
+            "https://example.com/kangaskhan-mega.png",
+            "https://example.com/absol-mega.png",
+        ]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Mega Absol Box"
+        assert method == "sprite_lookup"
+
+    def test_composite_tera_box(self) -> None:
+        """Should resolve noctowl + ogerpon-wellspring to Tera Box."""
+        normalizer = ArchetypeNormalizer()
+        urls = [
+            "https://example.com/noctowl.png",
+            "https://example.com/ogerpon-wellspring.png",
+        ]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Tera Box"
+        assert method == "sprite_lookup"
+
+    def test_composite_tera_box_reverse_order(self) -> None:
+        """Reversed URL order should still resolve to Tera Box."""
+        normalizer = ArchetypeNormalizer()
+        urls = [
+            "https://example.com/ogerpon-wellspring.png",
+            "https://example.com/noctowl.png",
+        ]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Tera Box"
+        assert method == "sprite_lookup"
+
+    def test_composite_joltik_box(self) -> None:
+        """Should resolve joltik + pikachu to Joltik Box."""
+        normalizer = ArchetypeNormalizer()
+        urls = [
+            "https://example.com/pikachu.png",
+            "https://example.com/joltik.png",
+        ]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Joltik Box"
+        assert method == "sprite_lookup"
+
+    def test_composite_ho_oh_armarouge(self) -> None:
+        """Should resolve ho-oh + armarouge to Ho-Oh Armarouge."""
+        normalizer = ArchetypeNormalizer()
+        urls = [
+            "https://example.com/ho-oh.png",
+            "https://example.com/armarouge.png",
+        ]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Ho-Oh Armarouge"
         assert method == "sprite_lookup"
 
     def test_map_has_minimum_40_entries(self) -> None:

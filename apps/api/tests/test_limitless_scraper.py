@@ -1111,11 +1111,11 @@ class TestJPPipelineEndToEnd:
 
         assert len(placements) == 4
 
-        # Row 1: grimmsnarl + froslass → auto_derive (not in lookup)
+        # Row 1: grimmsnarl + froslass → auto_derive (sorted: froslass-grimmsnarl)
         a1, r1, m1 = normalizer.resolve(
             placements[0].sprite_urls, placements[0].archetype, None
         )
-        assert a1 == "Grimmsnarl Froslass"
+        assert a1 == "Froslass Grimmsnarl"
         assert m1 == "auto_derive"
 
         # Row 2: charizard → sprite_lookup → "Charizard ex"

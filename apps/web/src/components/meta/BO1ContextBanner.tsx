@@ -4,12 +4,22 @@ import { Info, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+const STORAGE_KEY = "trainerlab-bo1-banner-dismissed";
+
 interface BO1ContextBannerProps {
   className?: string;
 }
 
 export function BO1ContextBanner({ className }: BO1ContextBannerProps) {
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  });
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    localStorage.setItem(STORAGE_KEY, "true");
+  };
 
   if (dismissed) {
     return null;
@@ -25,7 +35,7 @@ export function BO1ContextBanner({ className }: BO1ContextBannerProps) {
       role="alert"
     >
       <button
-        onClick={() => setDismissed(true)}
+        onClick={handleDismiss}
         className="absolute right-2 top-2 rounded p-1 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900"
         aria-label="Dismiss"
       >

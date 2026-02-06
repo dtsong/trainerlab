@@ -54,7 +54,9 @@ describe("CardInnovationTracker", () => {
 
     render(<CardInnovationTracker />, { wrapper: createWrapper() });
 
-    expect(screen.getByText("Card Innovation Tracker")).toBeInTheDocument();
+    expect(
+      screen.getByText("Card Innovation Tracker (BO1)")
+    ).toBeInTheDocument();
   });
 
   it("should render title and description when data loads", async () => {
@@ -71,7 +73,9 @@ describe("CardInnovationTracker", () => {
         "New cards seeing competitive play in Japan City Leagues"
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("Card Innovation Tracker")).toBeInTheDocument();
+    expect(
+      screen.getByText("Card Innovation Tracker (BO1)")
+    ).toBeInTheDocument();
   });
 
   it("should display empty state when no cards", async () => {
@@ -246,7 +250,7 @@ describe("CardInnovationTracker", () => {
       { wrapper: createWrapper() }
     );
 
-    await screen.findByText("Card Innovation Tracker");
+    await screen.findByText("Card Innovation Tracker (BO1)");
     const card = container.querySelector(".custom-class");
     expect(card).toBeInTheDocument();
   });

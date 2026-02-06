@@ -45,7 +45,7 @@ SPRITE_ARCHETYPE_MAP: dict[str, str] = {
     "gardevoir": "Gardevoir ex",
     # --- Raging Bolt ---
     "raging-bolt": "Raging Bolt ex",
-    "raging-bolt-ogerpon": "Raging Bolt ex",
+    "ogerpon-raging-bolt": "Raging Bolt ex",
     # --- Gholdengo ---
     "gholdengo": "Gholdengo ex",
     # --- Terapagos ---
@@ -66,11 +66,10 @@ SPRITE_ARCHETYPE_MAP: dict[str, str] = {
     "roaring-moon": "Roaring Moon ex",
     # --- Chien-Pao ---
     "chien-pao": "Chien-Pao ex",
-    "chien-pao-baxcalibur": "Chien-Pao ex",
+    "baxcalibur-chien-pao": "Chien-Pao ex",
     # --- Lost Zone ---
-    "giratina-comfey": "Lost Zone Giratina",
+    "comfey-giratina": "Lost Zone Giratina",
     "comfey-sableye": "Lost Zone Box",
-    "sableye-comfey": "Lost Zone Box",
     # --- VSTAR era (rotated but present in historical data) ---
     "lugia": "Lugia VSTAR",
     "palkia": "Origin Forme Palkia VSTAR",
@@ -101,8 +100,19 @@ SPRITE_ARCHETYPE_MAP: dict[str, str] = {
     "snorlax": "Snorlax Stall",
     "cinderace": "Cinderace ex",
     "klawf": "Klawf ex",
+    # --- Multi-sprite composites (JP meta >0.5%) ---
+    "absol-mega-kangaskhan-mega": "Mega Absol Box",
+    "noctowl-ogerpon-wellspring": "Tera Box",
+    "joltik-pikachu": "Joltik Box",
+    "armarouge-ho-oh": "Ho-Oh Armarouge",
+    # --- Missing Mega entries ---
+    "lopunny-mega": "Mega Lopunny ex",
+    "lucario-mega": "Mega Lucario ex",
 }
 
+# Only matches .png sprite URLs. If Limitless migrates to .webp or adds
+# query parameters, this regex and tests must be updated. See
+# test_archetype_edge_cases.py for documented limitation tests.
 _FILENAME_RE = re.compile(r"/([a-zA-Z0-9_-]+)\.png")
 
 
@@ -241,7 +251,7 @@ class ArchetypeNormalizer:
             if sprite_key:
                 derived = self.derive_name_from_key(sprite_key)
                 if derived:
-                    logger.debug(
+                    logger.info(
                         "archetype_resolved",
                         extra={
                             "sprite_key": sprite_key,
@@ -295,16 +305,18 @@ class ArchetypeNormalizer:
     def build_sprite_key(sprite_urls: list[str]) -> str:
         """Build a canonical sprite key from image URLs.
 
-        Extracts the filename stem from each URL, lowercases, and joins
-        with hyphens. Underscores in filenames are converted to hyphens.
+        Extracts the filename stem from each URL, lowercases, sorts
+        alphabetically, and joins with hyphens. Sorting ensures the
+        same key is produced regardless of URL order. Underscores in
+        filenames are converted to hyphens.
 
         Examples:
             ["https://r2.limitlesstcg.net/.../charizard.png"]
             → "charizard"
 
-            ["https://example.com/dragapult.png",
-             "https://example.com/pidgeot.png"]
-            → "dragapult-pidgeot"
+            ["https://example.com/pidgeot.png",
+             "https://example.com/dragapult.png"]
+            → "dragapult-pidgeot"  (sorted)
         """
         names: list[str] = []
         for url in sprite_urls:
@@ -317,6 +329,7 @@ class ArchetypeNormalizer:
                     "sprite_url_no_match",
                     extra={"url": url},
                 )
+        names.sort()
         return "-".join(names)
 
     @staticmethod

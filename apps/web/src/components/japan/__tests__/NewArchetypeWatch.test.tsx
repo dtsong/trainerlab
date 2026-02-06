@@ -60,7 +60,7 @@ describe("NewArchetypeWatch", () => {
 
     render(<NewArchetypeWatch />, { wrapper: createWrapper() });
 
-    expect(screen.getByText("New Archetype Watch")).toBeInTheDocument();
+    expect(screen.getByText("New Archetype Watch (BO1)")).toBeInTheDocument();
   });
 
   it("should render title and description when data loads", async () => {
@@ -77,7 +77,7 @@ describe("NewArchetypeWatch", () => {
         "JP-exclusive archetypes not yet in the English meta"
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("New Archetype Watch")).toBeInTheDocument();
+    expect(screen.getByText("New Archetype Watch (BO1)")).toBeInTheDocument();
   });
 
   it("should display empty state when no archetypes", async () => {
@@ -295,7 +295,7 @@ describe("NewArchetypeWatch", () => {
       { wrapper: createWrapper() }
     );
 
-    await screen.findByText("New Archetype Watch");
+    await screen.findByText("New Archetype Watch (BO1)");
     const wrapper = container.querySelector(".custom-class");
     expect(wrapper).toBeInTheDocument();
   });

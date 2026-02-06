@@ -56,7 +56,7 @@ describe("CardCountEvolutionSection", () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getByText("Card Count Evolution")).toBeInTheDocument();
+    expect(screen.getByText("Card Count Evolution (BO1)")).toBeInTheDocument();
     expect(
       screen.getByText(
         "How average card copies change over time within an archetype"

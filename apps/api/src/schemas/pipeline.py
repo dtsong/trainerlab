@@ -283,3 +283,41 @@ class CleanupExportsResult(BaseModel):
     files_deleted: int = Field(ge=0, description="Export files deleted")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether cleanup completed without errors")
+
+
+class ReprocessArchetypesRequest(PipelineRequest):
+    """Request for archetype reprocess pipeline."""
+
+    region: str = Field(
+        default="JP",
+        description="Tournament region to reprocess",
+    )
+    batch_size: int = Field(
+        default=200,
+        ge=1,
+        le=1000,
+        description="Placements per batch",
+    )
+    cursor: str | None = Field(
+        default=None,
+        description="Pagination cursor (placement UUID)",
+    )
+    force: bool = Field(
+        default=False,
+        description="Re-run even if detection_method is populated",
+    )
+
+
+class ReprocessArchetypesResult(BaseModel):
+    """Result from archetype reprocess pipeline."""
+
+    processed: int = Field(ge=0, description="Placements processed")
+    updated: int = Field(ge=0, description="Placements updated")
+    skipped: int = Field(ge=0, description="Placements unchanged")
+    errors: list[str] = Field(default_factory=list)
+    next_cursor: str | None = Field(
+        default=None,
+        description="Next cursor (None means done)",
+    )
+    total_remaining: int = Field(ge=0, default=0, description="Approximate remaining")
+    success: bool = Field(description="Whether pipeline succeeded")

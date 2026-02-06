@@ -1,4 +1,5 @@
 export { ArchetypeCard } from "./ArchetypeCard";
+export { ArchetypeSprites } from "./ArchetypeSprites";
 export {
   ArchetypeCardSkeleton,
   ArchetypeGridSkeleton,

@@ -1086,7 +1086,7 @@ class TestCreatePlacementWithNormalizer:
             normalizer=normalizer,
         )
 
-        assert result.archetype == "Grimmsnarl Froslass"
+        assert result.archetype == "Froslass Grimmsnarl"
         assert result.archetype_detection_method == "auto_derive"
         assert len(result.raw_archetype_sprites) == 2
 

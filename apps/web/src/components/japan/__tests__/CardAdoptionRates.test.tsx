@@ -53,7 +53,7 @@ describe("CardAdoptionRates", () => {
 
     render(<CardAdoptionRates />, { wrapper: createWrapper() });
 
-    expect(screen.getByText("Card Adoption Rates")).toBeInTheDocument();
+    expect(screen.getByText("Card Adoption Rates (BO1)")).toBeInTheDocument();
   });
 
   it("should render skeleton placeholders while loading", () => {
@@ -78,7 +78,7 @@ describe("CardAdoptionRates", () => {
     expect(
       await screen.findByText("Most-used cards in JP meta (last 30 days)")
     ).toBeInTheDocument();
-    expect(screen.getByText("Card Adoption Rates")).toBeInTheDocument();
+    expect(screen.getByText("Card Adoption Rates (BO1)")).toBeInTheDocument();
   });
 
   it("should display empty state when no rates", async () => {
@@ -292,7 +292,7 @@ describe("CardAdoptionRates", () => {
       { wrapper: createWrapper() }
     );
 
-    await screen.findByText("Card Adoption Rates");
+    await screen.findByText("Card Adoption Rates (BO1)");
     const card = container.querySelector(".custom-class");
     expect(card).toBeInTheDocument();
   });

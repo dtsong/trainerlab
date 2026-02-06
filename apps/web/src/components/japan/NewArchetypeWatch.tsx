@@ -128,7 +128,7 @@ export function NewArchetypeWatch({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-destructive" />
-            New Archetype Watch
+            New Archetype Watch (BO1)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -143,7 +143,9 @@ export function NewArchetypeWatch({
   if (isLoading) {
     return (
       <div className={className}>
-        <h2 className="text-xl font-semibold mb-4">New Archetype Watch</h2>
+        <h2 className="text-xl font-semibold mb-4">
+          New Archetype Watch (BO1)
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i}>
@@ -162,7 +164,7 @@ export function NewArchetypeWatch({
   return (
     <div className={className}>
       <div className="mb-4">
-        <h2 className="text-xl font-semibold">New Archetype Watch</h2>
+        <h2 className="text-xl font-semibold">New Archetype Watch (BO1)</h2>
         <p className="text-sm text-muted-foreground">
           JP-exclusive archetypes not yet in the English meta
         </p>

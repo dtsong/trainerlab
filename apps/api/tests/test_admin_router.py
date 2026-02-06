@@ -1,4 +1,4 @@
-"""Tests for admin router endpoints (placeholder card management)."""
+"""Tests for admin router endpoints (placeholder card + archetype sprite)."""
 
 import json
 from datetime import UTC, datetime
@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.db.database import get_db
+from src.models.archetype_sprite import ArchetypeSprite
 from src.models.placeholder_card import PlaceholderCard
 from src.routers.admin import router
 
@@ -679,3 +680,227 @@ class TestMarkPlaceholderReleased:
         )
 
         assert response.status_code == 422
+
+
+# --- Archetype Sprite endpoint tests ---
+
+
+def _make_sprite(**overrides) -> MagicMock:
+    """Create a mock ArchetypeSprite with sensible defaults."""
+    mock = MagicMock(spec=ArchetypeSprite)
+    defaults = {
+        "id": uuid4(),
+        "sprite_key": "charizard",
+        "archetype_name": "Charizard ex",
+        "sprite_urls": [],
+        "pokemon_names": ["charizard"],
+    }
+    defaults.update(overrides)
+    for key, value in defaults.items():
+        setattr(mock, key, value)
+    return mock
+
+
+class TestListArchetypeSprites:
+    """Tests for GET /api/v1/admin/archetype-sprites."""
+
+    def test_list_sprites_success(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Should return list of all archetype sprite mappings."""
+        s1 = _make_sprite(sprite_key="charizard")
+        s2 = _make_sprite(
+            sprite_key="dragapult-pidgeot",
+            archetype_name="Dragapult ex",
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [s1, s2]
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/admin/archetype-sprites")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        assert data["items"][0]["sprite_key"] == "charizard"
+        assert data["items"][1]["archetype_name"] == "Dragapult ex"
+
+    def test_list_sprites_empty(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Should return empty list when no sprites exist."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_db.execute.return_value = mock_result
+
+        response = client.get("/api/v1/admin/archetype-sprites")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert data["items"] == []
+
+
+class TestCreateArchetypeSprite:
+    """Tests for POST /api/v1/admin/archetype-sprites."""
+
+    def test_create_sprite_success(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Should create a new sprite mapping."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        # db.refresh is a no-op; the real ArchetypeSprite object
+        # created in the endpoint already has all attrs set.
+        mock_db.refresh = AsyncMock(side_effect=lambda x: None)
+
+        response = client.post(
+            "/api/v1/admin/archetype-sprites",
+            json={
+                "sprite_key": "new-mon",
+                "archetype_name": "New Mon ex",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sprite_key"] == "new-mon"
+        assert data["archetype_name"] == "New Mon ex"
+        mock_db.add.assert_called_once()
+        mock_db.commit.assert_called_once()
+
+    def test_create_sprite_duplicate(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Should return 400 if sprite key already exists."""
+        existing = _make_sprite(sprite_key="charizard")
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing
+        mock_db.execute.return_value = mock_result
+
+        response = client.post(
+            "/api/v1/admin/archetype-sprites",
+            json={
+                "sprite_key": "charizard",
+                "archetype_name": "Charizard ex",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "already exists" in response.json()["detail"]
+
+    def test_create_sprite_missing_fields(self, client: TestClient) -> None:
+        """Should return 422 when required fields are missing."""
+        response = client.post(
+            "/api/v1/admin/archetype-sprites",
+            json={"sprite_key": "charizard"},
+        )
+
+        assert response.status_code == 422
+
+
+class TestUpdateArchetypeSprite:
+    """Tests for PATCH /api/v1/admin/archetype-sprites/{sprite_key}."""
+
+    def test_update_sprite_success(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Should update the archetype name for a sprite key."""
+        sprite = _make_sprite(sprite_key="charizard")
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sprite
+        mock_db.execute.return_value = mock_result
+
+        response = client.patch(
+            "/api/v1/admin/archetype-sprites/charizard",
+            json={
+                "archetype_name": "Charizard ex Updated",
+            },
+        )
+
+        assert response.status_code == 200
+        assert sprite.archetype_name == "Charizard ex Updated"
+        mock_db.commit.assert_called_once()
+        mock_db.refresh.assert_called_once_with(sprite)
+
+    def test_update_sprite_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Should return 404 when sprite key does not exist."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        response = client.patch(
+            "/api/v1/admin/archetype-sprites/nonexistent",
+            json={
+                "archetype_name": "Something",
+            },
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+
+class TestDeleteArchetypeSprite:
+    """Tests for DELETE /api/v1/admin/archetype-sprites/{sprite_key}."""
+
+    def test_delete_sprite_success(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Should delete a sprite mapping and return confirmation."""
+        sprite = _make_sprite(sprite_key="charizard")
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sprite
+        mock_db.execute.return_value = mock_result
+
+        response = client.delete("/api/v1/admin/archetype-sprites/charizard")
+
+        assert response.status_code == 200
+        assert response.json() == {"deleted": "charizard"}
+        mock_db.delete.assert_called_once_with(sprite)
+        mock_db.commit.assert_called_once()
+
+    def test_delete_sprite_not_found(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Should return 404 when sprite key does not exist."""
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        response = client.delete("/api/v1/admin/archetype-sprites/nonexistent")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+
+
+class TestSeedArchetypeSprites:
+    """Tests for POST /api/v1/admin/archetype-sprites/seed."""
+
+    def test_seed_sprites_success(self, client: TestClient, mock_db: AsyncMock) -> None:
+        """Should seed sprites and return inserted count."""
+        with patch("src.routers.admin.ArchetypeNormalizer") as mock_norm_cls:
+            mock_norm_cls.seed_db_sprites = AsyncMock(return_value=42)
+
+            response = client.post("/api/v1/admin/archetype-sprites/seed")
+
+        assert response.status_code == 200
+        assert response.json() == {"inserted": 42}
+        mock_norm_cls.seed_db_sprites.assert_called_once()
+        mock_db.commit.assert_called_once()
+
+    def test_seed_sprites_zero_inserted(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Should return 0 when all entries already exist."""
+        with patch("src.routers.admin.ArchetypeNormalizer") as mock_norm_cls:
+            mock_norm_cls.seed_db_sprites = AsyncMock(return_value=0)
+
+            response = client.post("/api/v1/admin/archetype-sprites/seed")
+
+        assert response.status_code == 200
+        assert response.json() == {"inserted": 0}

@@ -55,6 +55,7 @@ class LimitlessPlacement:
     archetype: str
     decklist: LimitlessDecklist | None = None
     decklist_url: str | None = None
+    sprite_urls: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -1269,14 +1270,19 @@ class LimitlessClient:
         # Extract archetype (usually 3rd or later cell with deck link)
         archetype = "Unknown"
         decklist_url: str | None = None
+        sprite_urls: list[str] = []
 
         for cell in cells[2:]:
             deck_link = cell.select_one("a[href*='/decks/']")
             if deck_link:
                 archetype = deck_link.get_text(strip=True)
+                # Always capture sprite URLs from images
+                extracted, sprite_urls = (
+                    self._extract_archetype_and_sprites_from_images(deck_link)
+                )
                 # JP pages use Pokemon images instead of text
                 if not archetype:
-                    archetype = self._extract_archetype_from_images(deck_link)
+                    archetype = extracted
                 href = str(deck_link.get("href", ""))
                 if href:
                     decklist_url = (
@@ -1298,40 +1304,57 @@ class LimitlessClient:
             country=country,
             archetype=archetype,
             decklist_url=decklist_url,
+            sprite_urls=sprite_urls,
         )
 
     @staticmethod
-    def _extract_archetype_from_images(link_tag: Tag) -> str:
-        """Extract archetype name from Pokemon images inside a link.
+    def _extract_archetype_and_sprites_from_images(
+        link_tag: Tag,
+    ) -> tuple[str, list[str]]:
+        """Extract archetype name and sprite URLs from Pokemon images.
 
         JP tournament pages show Pokemon card images instead of text labels.
         This extracts names from ``<img alt="PokemonName">`` or from the
-        image filename (e.g. ``.../grimmsnarl.png``).
+        image filename (e.g. ``.../grimmsnarl.png``), plus the raw
+        sprite image URLs for downstream archetype resolution.
 
         Args:
             link_tag: An ``<a>`` tag that may contain ``<img>`` children.
 
         Returns:
-            Archetype string like ``"Grimmsnarl / Froslass"`` or
-            ``"Unknown"`` if no names could be extracted.
+            Tuple of (archetype_string, sprite_urls).
+            Archetype is like ``"Grimmsnarl / Froslass"`` or ``"Unknown"``.
         """
         names: list[str] = []
+        sprite_urls: list[str] = []
         for img in link_tag.select("img"):
+            src = str(img.get("src", ""))
+            if src:
+                sprite_urls.append(src)
             alt = img.get("alt")
             if isinstance(alt, str) and alt.strip():
                 names.append(alt.strip())
                 continue
             # Fallback: extract from filename
-            src = str(img.get("src", ""))
-            filename_match = re.search(r"/([a-zA-Z_-]+)\.png", src)
+            filename_match = re.search(r"/([a-zA-Z0-9_-]+)\.png", src)
             if filename_match:
                 raw = filename_match.group(1)
-                # Convert filenames like "grimmsnarl" → "Grimmsnarl"
                 name = raw.replace("-", " ").replace("_", " ").title()
                 names.append(name)
-        if names:
-            return " / ".join(names)
-        return "Unknown"
+        archetype = " / ".join(names) if names else "Unknown"
+        return archetype, sprite_urls
+
+    @staticmethod
+    def _extract_archetype_from_images(link_tag: Tag) -> str:
+        """Extract archetype name from Pokemon images inside a link.
+
+        Backward-compatible wrapper around
+        ``_extract_archetype_and_sprites_from_images``.
+        """
+        archetype, _ = LimitlessClient._extract_archetype_and_sprites_from_images(
+            link_tag
+        )
+        return archetype
 
     # =========================================================================
     # Japanese City League (limitlesstcg.com/tournaments/jp)
@@ -1608,6 +1631,7 @@ class LimitlessClient:
         # Parse archetype and decklist URL (third cell)
         archetype = "Unknown"
         decklist_url: str | None = None
+        sprite_urls: list[str] = []
 
         deck_cell = cells[2]
         deck_link = deck_cell.select_one("a")
@@ -1622,14 +1646,17 @@ class LimitlessClient:
                 else:
                     decklist_url = f"{self.OFFICIAL_BASE_URL}/{href}"
 
-            # Try to determine archetype from Pokemon images
-            pokemon_imgs = deck_link.select("img.pokemon")
-            if pokemon_imgs:
-                pokemon_names = [
-                    str(img.get("alt", "")) for img in pokemon_imgs if img.get("alt")
-                ]
-                if pokemon_names:
-                    archetype = " ".join(pokemon_names[:2])
+            # Extract archetype from sprite images (the actual Limitless HTML
+            # uses plain <img> tags, not img.pokemon)
+            archetype, sprite_urls = self._extract_archetype_and_sprites_from_images(
+                deck_link
+            )
+
+        # If no deck link, try to get archetype from cell text
+        if archetype == "Unknown" and not deck_link:
+            text = deck_cell.get_text(strip=True)
+            if text:
+                archetype = text
 
         # Try to get country from player link if available
         country = None
@@ -1644,6 +1671,7 @@ class LimitlessClient:
             country=country,
             archetype=archetype,
             decklist_url=decklist_url,
+            sprite_urls=sprite_urls,
         )
 
     # =========================================================================

@@ -17,6 +17,7 @@ from src.clients.limitless import (
 )
 from src.models import Tournament
 from src.services.archetype_detector import ArchetypeDetector
+from src.services.archetype_normalizer import ArchetypeNormalizer
 from src.services.tournament_scrape import ScrapeResult, TournamentScrapeService
 
 
@@ -101,7 +102,9 @@ class TestClassifyTier:
 
     def test_classifies_major_by_name_regional(self) -> None:
         """Should classify as major based on 'regional' in name."""
-        tier = TournamentScrapeService.classify_tier(50, "Portland Regional Championship")
+        tier = TournamentScrapeService.classify_tier(
+            50, "Portland Regional Championship"
+        )
         assert tier == "major"
 
     def test_classifies_major_by_name_international(self) -> None:
@@ -151,9 +154,7 @@ class TestClassifyTier:
 
     def test_name_takes_priority_over_participant_count(self) -> None:
         """Name-based classification should override participant count."""
-        tier = TournamentScrapeService.classify_tier(
-            10, "Regional Championship"
-        )
+        tier = TournamentScrapeService.classify_tier(10, "Regional Championship")
         assert tier == "major"
 
 
@@ -743,16 +744,18 @@ class TestDiscoverNewTournaments:
     ) -> None:
         """Should stop pagination when page returns empty."""
         mock_client.fetch_tournament_listings.side_effect = [
-            [LimitlessTournament(
-                name="T1",
-                tournament_date=date.today(),
-                region="NA",
-                game_format="standard",
-                best_of=3,
-                participant_count=100,
-                source_url="url1",
-                placements=[],
-            )],
+            [
+                LimitlessTournament(
+                    name="T1",
+                    tournament_date=date.today(),
+                    region="NA",
+                    game_format="standard",
+                    best_of=3,
+                    participant_count=100,
+                    source_url="url1",
+                    placements=[],
+                )
+            ],
             [],
         ]
 
@@ -942,7 +945,9 @@ class TestProcessTournamentByUrl:
         sample_placement: LimitlessPlacement,
     ) -> None:
         """Should use official placements fetcher when is_official=True."""
-        mock_client.fetch_official_tournament_placements.return_value = [sample_placement]
+        mock_client.fetch_official_tournament_placements.return_value = [
+            sample_placement
+        ]
 
         mock_result = MagicMock()
         mock_result.first.return_value = None
@@ -1018,3 +1023,224 @@ class TestScrapeResult:
         assert result.decklists_saved == 0
         assert result.errors == []
         assert result.success is True
+
+
+class TestCreatePlacementWithNormalizer:
+    """Tests for _create_placement with ArchetypeNormalizer."""
+
+    @pytest.fixture
+    def normalizer(self) -> ArchetypeNormalizer:
+        detector = MagicMock(spec=ArchetypeDetector)
+        detector.detect.return_value = "Rogue"
+        return ArchetypeNormalizer(detector=detector)
+
+    def test_normalizer_with_known_sprites(
+        self,
+        service: TournamentScrapeService,
+        normalizer: ArchetypeNormalizer,
+    ) -> None:
+        """Should resolve archetype via sprite_lookup with normalizer."""
+        placement = LimitlessPlacement(
+            placement=1,
+            player_name="Player",
+            country="JP",
+            archetype="Unknown",
+            sprite_urls=["https://r2.limitlesstcg.net/pokemon/gen9/charizard.png"],
+        )
+        tournament_id = uuid4()
+
+        result = service._create_placement(
+            placement,
+            tournament_id,
+            normalizer=normalizer,
+        )
+
+        assert result.archetype == "Charizard ex"
+        assert result.raw_archetype == "Unknown"
+        assert result.archetype_detection_method == "sprite_lookup"
+        assert result.raw_archetype_sprites == [
+            "https://r2.limitlesstcg.net/pokemon/gen9/charizard.png"
+        ]
+
+    def test_normalizer_with_unknown_sprites(
+        self,
+        service: TournamentScrapeService,
+        normalizer: ArchetypeNormalizer,
+    ) -> None:
+        """Should auto-derive archetype for unknown sprite combos."""
+        placement = LimitlessPlacement(
+            placement=2,
+            player_name="Player",
+            country="JP",
+            archetype="Unknown",
+            sprite_urls=[
+                "https://example.com/grimmsnarl.png",
+                "https://example.com/froslass.png",
+            ],
+        )
+        tournament_id = uuid4()
+
+        result = service._create_placement(
+            placement,
+            tournament_id,
+            normalizer=normalizer,
+        )
+
+        assert result.archetype == "Grimmsnarl Froslass"
+        assert result.archetype_detection_method == "auto_derive"
+        assert len(result.raw_archetype_sprites) == 2
+
+    def test_legacy_path_without_normalizer(
+        self,
+        service: TournamentScrapeService,
+        mock_detector: MagicMock,
+    ) -> None:
+        """Legacy path should leave new columns as None."""
+        placement = LimitlessPlacement(
+            placement=1,
+            player_name="EN Player",
+            country="US",
+            archetype="Charizard ex",
+            decklist=LimitlessDecklist(cards=[{"card_id": "sv3-125", "quantity": 2}]),
+        )
+        tournament_id = uuid4()
+
+        result = service._create_placement(
+            placement,
+            tournament_id,
+            normalizer=None,
+        )
+
+        assert result.archetype == "Charizard ex"
+        assert result.raw_archetype is None
+        assert result.raw_archetype_sprites is None
+        assert result.archetype_detection_method is None
+
+    def test_normalizer_text_label_fallback(
+        self,
+        service: TournamentScrapeService,
+        normalizer: ArchetypeNormalizer,
+    ) -> None:
+        """Should fall back to text_label when no sprites or decklist."""
+        placement = LimitlessPlacement(
+            placement=4,
+            player_name="Player",
+            country="JP",
+            archetype="Charizard",
+            sprite_urls=[],
+        )
+        tournament_id = uuid4()
+
+        result = service._create_placement(
+            placement,
+            tournament_id,
+            normalizer=normalizer,
+        )
+
+        assert result.archetype == "Charizard ex"
+        assert result.archetype_detection_method == "text_label"
+        assert result.raw_archetype == "Charizard"
+        assert result.raw_archetype_sprites is None
+
+
+class TestSaveTournamentNormalizerAutoCreate:
+    """Tests for save_tournament auto-creating normalizer for JP."""
+
+    @pytest.fixture
+    def jp_tournament(self) -> LimitlessTournament:
+        return LimitlessTournament(
+            name="City League Tokyo",
+            tournament_date=date.today(),
+            region="JP",
+            game_format="standard",
+            best_of=1,
+            participant_count=32,
+            source_url="https://play.limitlesstcg.com/tournament/jp001",
+            placements=[
+                LimitlessPlacement(
+                    placement=1,
+                    player_name="Player",
+                    country="JP",
+                    archetype="Unknown",
+                    sprite_urls=[
+                        "https://r2.limitlesstcg.net/pokemon/gen9/charizard.png",
+                    ],
+                ),
+            ],
+        )
+
+    @pytest.mark.asyncio
+    async def test_jp_tournament_auto_creates_normalizer(
+        self,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        mock_detector: MagicMock,
+        jp_tournament: LimitlessTournament,
+    ) -> None:
+        """save_tournament should auto-create normalizer for JP."""
+        service = TournamentScrapeService(
+            session=mock_session,
+            client=mock_client,
+            archetype_detector=mock_detector,
+        )
+        assert service.normalizer is None
+
+        # Mock DB responses: JP mapping query, then load_db_sprites query
+        mock_empty = MagicMock()
+        mock_empty.all.return_value = []
+        mock_empty.first.return_value = None
+        mock_session.execute.return_value = mock_empty
+
+        result = await service.save_tournament(jp_tournament)
+
+        assert result is not None
+        # The placement should have normalizer-resolved archetype
+        added_calls = mock_session.add.call_args_list
+        placement_obj = added_calls[1][0][0]  # 2nd add = placement
+        assert placement_obj.archetype == "Charizard ex"
+        assert placement_obj.archetype_detection_method == "sprite_lookup"
+        assert placement_obj.raw_archetype_sprites is not None
+
+    @pytest.mark.asyncio
+    async def test_en_tournament_does_not_create_normalizer(
+        self,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        mock_detector: MagicMock,
+    ) -> None:
+        """save_tournament should NOT create normalizer for EN."""
+        service = TournamentScrapeService(
+            session=mock_session,
+            client=mock_client,
+            archetype_detector=mock_detector,
+        )
+        en_tournament = LimitlessTournament(
+            name="Regional Championship",
+            tournament_date=date.today(),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            participant_count=256,
+            source_url="https://play.limitlesstcg.com/tournament/en001",
+            placements=[
+                LimitlessPlacement(
+                    placement=1,
+                    player_name="Player",
+                    country="US",
+                    archetype="Charizard ex",
+                ),
+            ],
+        )
+
+        mock_empty = MagicMock()
+        mock_empty.all.return_value = []
+        mock_empty.first.return_value = None
+        mock_session.execute.return_value = mock_empty
+
+        result = await service.save_tournament(en_tournament)
+
+        assert result is not None
+        added_calls = mock_session.add.call_args_list
+        placement_obj = added_calls[1][0][0]
+        assert placement_obj.archetype_detection_method is None
+        assert placement_obj.raw_archetype is None

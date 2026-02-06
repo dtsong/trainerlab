@@ -47,7 +47,17 @@ Pre-commit hooks are configured for both Python and TypeScript. Run `pre-commit 
 
 - TCGdex is primary card data source
 - Japanese meta data needs BO1 context (tie = double loss)
+- Archetype detection: Sprite-based (from Limitless) with signature card fallback
+- Archetype naming: Follows LimitlessTCG sprite conventions
 - Target: competitors, coaches, creators, parents
+
+## Archetype Detection
+
+- Primary: `ArchetypeNormalizer` (`src/services/archetype_normalizer.py`)
+- Priority chain: sprite_lookup → auto_derive → signature_card → text_label
+- Sprite map: `SPRITE_ARCHETYPE_MAP` in `archetype_normalizer.py`; DB table `archetype_sprites` for runtime overrides
+- Legacy: `ArchetypeDetector` (`src/services/archetype_detector.py`) is fallback only
+- Provenance: `TournamentPlacement.archetype_detection_method` tracks which strategy produced the label
 
 ## Testing
 
@@ -63,7 +73,5 @@ Pre-commit hooks are configured for both Python and TypeScript. Run `pre-commit 
 
 ## Current Focus
 
-[Update this as you work]
-
-- Building card database + search
-- Next: deck builder MVP
+- JP archetype data pipeline overhaul (sprite-based detection, historical reprocess)
+- Next: Phase 2 historical reprocess + meta recomputation

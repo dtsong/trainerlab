@@ -1,15 +1,23 @@
-"""Admin endpoints for placeholder card management."""
+"""Admin endpoints for placeholder card and archetype sprite management."""
 
 import logging
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
+from src.models.archetype_sprite import ArchetypeSprite
 from src.models.placeholder_card import PlaceholderCard
+from src.schemas.archetype_sprite import (
+    ArchetypeSpriteCreate,
+    ArchetypeSpriteListResponse,
+    ArchetypeSpriteResponse,
+    ArchetypeSpriteUpdate,
+)
 from src.schemas.placeholder import (
     PlaceholderCardCreate,
     PlaceholderCardResponse,
@@ -18,6 +26,7 @@ from src.schemas.placeholder import (
     TranslationFetchRequest,
     TranslationFetchResponse,
 )
+from src.services.archetype_normalizer import ArchetypeNormalizer
 from src.services.placeholder_service import PlaceholderService
 
 logger = logging.getLogger(__name__)
@@ -297,3 +306,127 @@ async def mark_placeholder_released(
     )
 
     return PlaceholderCardResponse.model_validate(placeholder)
+
+
+# --- Archetype Sprite endpoints ---
+
+
+@router.get(
+    "/archetype-sprites",
+    response_model=ArchetypeSpriteListResponse,
+    summary="List archetype sprite mappings",
+)
+async def list_archetype_sprites(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ArchetypeSpriteListResponse:
+    """List all archetype sprite mappings."""
+    result = await db.execute(
+        select(ArchetypeSprite).order_by(ArchetypeSprite.sprite_key)
+    )
+    items = result.scalars().all()
+    return ArchetypeSpriteListResponse(
+        total=len(items),
+        items=[ArchetypeSpriteResponse.model_validate(i) for i in items],
+    )
+
+
+@router.post(
+    "/archetype-sprites",
+    response_model=ArchetypeSpriteResponse,
+    summary="Create archetype sprite mapping",
+)
+async def create_archetype_sprite(
+    data: ArchetypeSpriteCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ArchetypeSpriteResponse:
+    """Create a new sprite-key to archetype mapping."""
+    existing = await db.execute(
+        select(ArchetypeSprite).where(ArchetypeSprite.sprite_key == data.sprite_key)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sprite key already exists: {data.sprite_key}",
+        )
+
+    sprite = ArchetypeSprite(
+        id=uuid4(),
+        sprite_key=data.sprite_key,
+        archetype_name=data.archetype_name,
+        sprite_urls=[],
+        pokemon_names=[data.sprite_key],
+    )
+    db.add(sprite)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sprite key already exists: {data.sprite_key}",
+        ) from None
+    await db.refresh(sprite)
+    return ArchetypeSpriteResponse.model_validate(sprite)
+
+
+@router.patch(
+    "/archetype-sprites/{sprite_key}",
+    response_model=ArchetypeSpriteResponse,
+    summary="Update archetype sprite mapping",
+)
+async def update_archetype_sprite(
+    sprite_key: str,
+    data: ArchetypeSpriteUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ArchetypeSpriteResponse:
+    """Update an existing sprite-key to archetype mapping."""
+    result = await db.execute(
+        select(ArchetypeSprite).where(ArchetypeSprite.sprite_key == sprite_key)
+    )
+    sprite = result.scalar_one_or_none()
+    if not sprite:
+        raise HTTPException(status_code=404, detail="Sprite mapping not found")
+    sprite.archetype_name = data.archetype_name
+    await db.commit()
+    await db.refresh(sprite)
+    return ArchetypeSpriteResponse.model_validate(sprite)
+
+
+@router.delete(
+    "/archetype-sprites/{sprite_key}",
+    summary="Delete archetype sprite mapping",
+)
+async def delete_archetype_sprite(
+    sprite_key: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Delete a sprite-key to archetype mapping."""
+    result = await db.execute(
+        select(ArchetypeSprite).where(ArchetypeSprite.sprite_key == sprite_key)
+    )
+    sprite = result.scalar_one_or_none()
+    if not sprite:
+        raise HTTPException(status_code=404, detail="Sprite mapping not found")
+    await db.delete(sprite)
+    await db.commit()
+    return {"deleted": sprite_key}
+
+
+@router.post(
+    "/archetype-sprites/seed",
+    summary="Seed archetype sprites from in-code map",
+)
+async def seed_archetype_sprites(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Seed the archetype_sprites DB table from SPRITE_ARCHETYPE_MAP."""
+    try:
+        inserted = await ArchetypeNormalizer.seed_db_sprites(db)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Seed failed due to conflicting data",
+        ) from None
+    return {"inserted": inserted}

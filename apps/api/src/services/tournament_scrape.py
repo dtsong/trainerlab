@@ -655,6 +655,7 @@ class TournamentScrapeService:
 
         if placement.decklist and placement.decklist.is_valid:
             decklist_data = []
+            unmapped_ids: list[str] = []
             for card in placement.decklist.cards:
                 card_id = card.get("card_id")
                 if not card_id:
@@ -664,11 +665,24 @@ class TournamentScrapeService:
                 entry: dict[str, object] = {"quantity": quantity}
                 if jp_to_en_mapping is not None:
                     entry["jp_card_id"] = card_id
-                    entry["card_id"] = jp_to_en_mapping.get(card_id, card_id)
+                    mapped_id = jp_to_en_mapping.get(card_id, card_id)
+                    entry["card_id"] = mapped_id
+                    if mapped_id == card_id:
+                        unmapped_ids.append(card_id)
                 else:
                     entry["card_id"] = card_id
 
                 decklist_data.append(entry)
+
+            if unmapped_ids:
+                logger.warning(
+                    "Unmapped JP card IDs: %d of %d cards "
+                    "had no EN mapping (placement=%d)",
+                    len(unmapped_ids),
+                    len(decklist_data),
+                    placement.placement,
+                    extra={"unmapped_ids": unmapped_ids},
+                )
 
             decklist_source = placement.decklist.source_url
 

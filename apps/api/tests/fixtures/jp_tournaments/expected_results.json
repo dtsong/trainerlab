@@ -1,0 +1,126 @@
+{
+  "city_league_tokyo_2025.html": [
+    {
+      "placement": 1,
+      "archetype": "Charizard ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 2,
+      "archetype": "Gardevoir ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 3,
+      "archetype": "Dragapult ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 4,
+      "archetype": "Rogue",
+      "detection_method": "text_label",
+      "sprite_count": 0
+    },
+    {
+      "placement": 5,
+      "archetype": "Cinderace ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 6,
+      "archetype": "Cinderace Moltres",
+      "detection_method": "auto_derive",
+      "sprite_count": 2
+    },
+    {
+      "placement": 7,
+      "archetype": "Grimmsnarl Froslass",
+      "detection_method": "auto_derive",
+      "sprite_count": 2
+    },
+    {
+      "placement": 8,
+      "archetype": "Noctowl Box",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 9,
+      "archetype": "Fluttermane Brambleghast",
+      "detection_method": "auto_derive",
+      "sprite_count": 2
+    },
+    {
+      "placement": 10,
+      "archetype": "Substitute",
+      "detection_method": "auto_derive",
+      "sprite_count": 1
+    }
+  ],
+  "city_league_osaka_2025.html": [
+    {
+      "placement": 1,
+      "archetype": "Raging Bolt ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 2,
+      "archetype": "Charizard ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 3,
+      "archetype": "Gholdengo ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 4,
+      "archetype": "Ceruledge ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 5,
+      "archetype": "Zoroark ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 6,
+      "archetype": "Froslass Munkidori",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 7,
+      "archetype": "Terapagos ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 8,
+      "archetype": "Rogue",
+      "detection_method": "text_label",
+      "sprite_count": 0
+    },
+    {
+      "placement": 9,
+      "archetype": "Lugia VSTAR",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 10,
+      "archetype": "Klawf Dondozo",
+      "detection_method": "auto_derive",
+      "sprite_count": 2
+    }
+  ]
+}

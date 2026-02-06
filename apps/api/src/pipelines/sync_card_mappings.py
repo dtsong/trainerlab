@@ -70,6 +70,7 @@ async def sync_card_mappings_for_set(
             card_name_en=equiv.card_name_en,
             jp_set_id=equiv.jp_set_id,
             en_set_id=equiv.en_set_id,
+            confidence=1.0,
         )
 
         stmt = stmt.on_conflict_do_update(

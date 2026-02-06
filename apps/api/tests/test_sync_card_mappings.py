@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.clients.limitless import CardEquivalent, LimitlessClient, LimitlessError
+from src.models.card_id_mapping import CardIdMapping
 from src.pipelines.sync_card_mappings import (
     SyncMappingsResult,
     get_en_to_jp_mapping,
@@ -437,3 +438,22 @@ class TestGetEnToJpMapping:
         mapping = await get_en_to_jp_mapping(mock_session)
 
         assert mapping == {}
+
+
+class TestCardIdMappingConfidence:
+    """Tests for confidence column on CardIdMapping."""
+
+    def test_confidence_column_exists(self):
+        """CardIdMapping model should have a confidence column."""
+        columns = CardIdMapping.__table__.columns
+        assert "confidence" in columns
+
+    def test_confidence_defaults_to_one(self):
+        """Confidence server_default should be 1.0."""
+        col = CardIdMapping.__table__.columns["confidence"]
+        assert col.server_default.arg == "1.0"
+
+    def test_confidence_not_nullable(self):
+        """Confidence column should not be nullable."""
+        col = CardIdMapping.__table__.columns["confidence"]
+        assert col.nullable is False

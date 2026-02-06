@@ -1244,3 +1244,127 @@ class TestSaveTournamentNormalizerAutoCreate:
         placement_obj = added_calls[1][0][0]
         assert placement_obj.archetype_detection_method is None
         assert placement_obj.raw_archetype is None
+
+
+class TestCreatePlacementJpMapping:
+    """Tests for _create_placement JP card ID mapping."""
+
+    def test_mapped_card_ids_pass_through(
+        self,
+        service: TournamentScrapeService,
+    ) -> None:
+        """Mapped JP card IDs should be translated to EN."""
+        placement = LimitlessPlacement(
+            placement=1,
+            player_name="Player",
+            country="JP",
+            archetype="Charizard ex",
+            decklist=LimitlessDecklist(
+                cards=[
+                    {"card_id": "SV7-018", "quantity": 2},
+                    {"card_id": "SV7-055", "quantity": 3},
+                ],
+                source_url="https://example.com/deck",
+            ),
+        )
+        jp_to_en = {
+            "SV7-018": "sv7-28",
+            "SV7-055": "sv7-65",
+        }
+
+        result = service._create_placement(
+            placement,
+            uuid4(),
+            jp_to_en_mapping=jp_to_en,
+        )
+
+        assert result.decklist is not None
+        assert len(result.decklist) == 2
+        assert result.decklist[0]["card_id"] == "sv7-28"
+        assert result.decklist[0]["jp_card_id"] == "SV7-018"
+        assert result.decklist[1]["card_id"] == "sv7-65"
+        assert result.decklist[1]["jp_card_id"] == "SV7-055"
+
+    def test_unmapped_jp_ids_log_warning(
+        self,
+        service: TournamentScrapeService,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Unmapped JP card IDs should produce a warning."""
+        placement = LimitlessPlacement(
+            placement=3,
+            player_name="Player",
+            country="JP",
+            archetype="Unknown",
+            decklist=LimitlessDecklist(
+                cards=[
+                    {"card_id": "SV7-018", "quantity": 2},
+                    {"card_id": "JP-ONLY-001", "quantity": 1},
+                    {"card_id": "JP-ONLY-002", "quantity": 4},
+                ],
+                source_url="https://example.com/deck",
+            ),
+        )
+        jp_to_en = {"SV7-018": "sv7-28"}
+
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            result = service._create_placement(
+                placement,
+                uuid4(),
+                jp_to_en_mapping=jp_to_en,
+            )
+
+        assert result.decklist is not None
+        assert len(result.decklist) == 3
+        # Unmapped cards keep their JP ID
+        assert result.decklist[1]["card_id"] == "JP-ONLY-001"
+        assert result.decklist[2]["card_id"] == "JP-ONLY-002"
+
+        assert any("Unmapped JP card IDs" in r.message for r in caplog.records)
+        warning_record = next(
+            r for r in caplog.records if "Unmapped JP card IDs" in r.message
+        )
+        assert "2 of 3" in warning_record.message
+
+    def test_no_warning_when_all_mapped(
+        self,
+        service: TournamentScrapeService,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """No warning when all JP cards have EN mappings."""
+        placement = LimitlessPlacement(
+            placement=1,
+            player_name="Player",
+            country="JP",
+            archetype="Charizard ex",
+            decklist=LimitlessDecklist(
+                cards=[
+                    {"card_id": "SV7-018", "quantity": 2},
+                ],
+                source_url="https://example.com/deck",
+            ),
+        )
+        jp_to_en = {"SV7-018": "sv7-28"}
+
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            service._create_placement(
+                placement,
+                uuid4(),
+                jp_to_en_mapping=jp_to_en,
+            )
+
+        assert not any("Unmapped JP card IDs" in r.message for r in caplog.records)
+
+
+class TestCardIdMappingConfidence:
+    """Tests for confidence column on CardIdMapping model."""
+
+    def test_confidence_column_exists(self) -> None:
+        """CardIdMapping should have a confidence attribute."""
+        from src.models.card_id_mapping import CardIdMapping
+
+        assert hasattr(CardIdMapping, "confidence")

@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, Index, String
+from sqlalchemy import Boolean, Float, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base, TimestampMixin
@@ -41,6 +41,10 @@ class CardIdMapping(Base, TimestampMixin):
 
     # Track if this is a synthetic mapping for unreleased cards
     is_synthetic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    confidence: Mapped[float] = mapped_column(
+        Float, nullable=False, server_default="1.0"
+    )
 
     # Link to placeholder card details (if synthetic)
     placeholder_card_id: Mapped[UUID | None] = mapped_column(

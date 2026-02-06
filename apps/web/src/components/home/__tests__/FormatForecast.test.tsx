@@ -136,4 +136,32 @@ describe("FormatForecast", () => {
       expect(container.querySelector("section")).toBeNull();
     });
   });
+
+  it("should hide section gracefully when API returns error", async () => {
+    vi.mocked(metaApi.getForecast).mockRejectedValue(
+      new Error("Internal Server Error")
+    );
+
+    const { container } = render(<FormatForecast />, {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(container.querySelector("section")).toBeNull();
+    });
+  });
+
+  it("should render single archetype correctly", async () => {
+    vi.mocked(metaApi.getForecast).mockResolvedValue({
+      ...mockForecast,
+      forecast_archetypes: [mockForecast.forecast_archetypes[0]],
+    });
+
+    render(<FormatForecast />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText("Raging Bolt ex")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Charizard ex")).not.toBeInTheDocument();
+  });
 });

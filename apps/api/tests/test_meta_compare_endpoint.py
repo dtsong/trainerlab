@@ -117,6 +117,42 @@ class TestCompareEndpoint:
         response = client.get("/api/v1/meta/compare?top_n=0")
         assert response.status_code == 422
 
+    def test_compare_negative_lag_days(self, client):
+        response = client.get("/api/v1/meta/compare?lag_days=-1")
+        assert response.status_code == 422
+
+    @patch("src.routers.meta.MetaService")
+    def test_compare_format_forwarded(self, mock_svc_cls, client):
+        mock_svc = AsyncMock()
+        mock_svc.compute_meta_comparison.return_value = self._make_comparison_response()
+        mock_svc_cls.return_value = mock_svc
+
+        response = client.get("/api/v1/meta/compare?format=expanded&top_n=5")
+
+        assert response.status_code == 200
+        mock_svc.compute_meta_comparison.assert_called_once_with(
+            region_a="JP",
+            region_b=None,
+            game_format="expanded",
+            lag_days=0,
+            top_n=5,
+        )
+
+    @patch("src.routers.meta.MetaService")
+    def test_compare_dates_are_iso8601(self, mock_svc_cls, client):
+        mock_svc = AsyncMock()
+        mock_svc.compute_meta_comparison.return_value = self._make_comparison_response()
+        mock_svc_cls.return_value = mock_svc
+
+        response = client.get("/api/v1/meta/compare?region_a=JP")
+
+        assert response.status_code == 200
+        data = response.json()
+        # ISO 8601 date format YYYY-MM-DD
+        assert len(data["region_a_snapshot_date"]) == 10
+        assert data["region_a_snapshot_date"][4] == "-"
+        assert data["region_b_snapshot_date"][4] == "-"
+
 
 class TestForecastEndpoint:
     """Tests for GET /api/v1/meta/forecast."""
@@ -199,3 +235,21 @@ class TestForecastEndpoint:
     def test_forecast_invalid_top_n(self, client):
         response = client.get("/api/v1/meta/forecast?top_n=20")
         assert response.status_code == 422
+
+    def test_forecast_top_n_zero_invalid(self, client):
+        response = client.get("/api/v1/meta/forecast?top_n=0")
+        assert response.status_code == 422
+
+    @patch("src.routers.meta.MetaService")
+    def test_forecast_dates_are_iso8601(self, mock_svc_cls, client):
+        mock_svc = AsyncMock()
+        mock_svc.compute_format_forecast.return_value = self._make_forecast_response()
+        mock_svc_cls.return_value = mock_svc
+
+        response = client.get("/api/v1/meta/forecast")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["jp_snapshot_date"]) == 10
+        assert data["jp_snapshot_date"][4] == "-"
+        assert data["en_snapshot_date"][4] == "-"

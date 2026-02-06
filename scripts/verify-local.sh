@@ -29,7 +29,7 @@ Usage: $0 [OPTIONS]
 Deep data quality verification across all API endpoints in local environment.
 
 Options:
-    --group=NAME    Run specific group (cards, sets, tournaments, meta, japan, format, frontend)
+    --group=NAME    Run specific group (cards, sets, tournaments, meta, japan, format, frontend, comparison, forecast, techcards)
     --api-url=URL   Override API URL (default: http://localhost:8080)
     -h, --help      Show this help message
 
@@ -41,6 +41,9 @@ Groups:
     japan           JP meta, innovation, new archetypes
     format          Format config + rotation impact
     frontend        Exact fields that frontend hooks destructure
+    comparison      Phase 3: Meta comparison (JP vs Global)
+    forecast        Phase 3: Format forecast from JP divergence
+    techcards       Phase 3: Tech card insights for archetypes
 
 Examples:
     $0                        # Run all groups
@@ -392,6 +395,234 @@ verify_frontend() {
     fi
 }
 
+# ─── Group 8: Comparison (Phase 3) ──────────────────────────────────────────
+
+verify_comparison() {
+    log_group "COMPARISON" "Meta comparison: JP vs Global (Phase 3)"
+
+    # 8a — Basic comparison
+    fetch "/api/v1/meta/compare?region_a=JP"
+    if require_200 "GET /api/v1/meta/compare?region_a=JP"; then
+        local has_regions
+        has_regions=$(echo "$RESP_BODY" | jq 'has("region_a") and has("region_b") and has("comparisons") and has("region_a_confidence") and has("region_b_confidence")')
+        if [ "$has_regions" = "true" ]; then
+            log_pass "Comparison fields: region_a, region_b, comparisons, confidence present"
+        else
+            log_fail "Comparison fields: missing required fields"
+        fi
+
+        local region_a
+        region_a=$(echo "$RESP_BODY" | jq -r '.region_a')
+        if [ "$region_a" = "JP" ]; then
+            log_pass "Region A: JP"
+        else
+            log_fail "Region A: expected JP, got $region_a"
+        fi
+
+        local comp_count
+        comp_count=$(echo "$RESP_BODY" | jq '.comparisons | length')
+        if [ "$comp_count" -gt 0 ]; then
+            log_pass "Comparisons: $comp_count archetypes"
+        else
+            log_warn "Comparisons: empty (may need to compute meta)"
+        fi
+
+        # Validate comparison entry fields
+        if [ "$comp_count" -gt 0 ]; then
+            local has_entry_fields
+            has_entry_fields=$(echo "$RESP_BODY" | jq '
+                [.comparisons[0] | has("archetype", "region_a_share", "region_b_share", "divergence")] | all
+            ')
+            if [ "$has_entry_fields" = "true" ]; then
+                log_pass "Comparison entry fields: archetype, shares, divergence present"
+            else
+                log_fail "Comparison entry fields: missing required fields"
+            fi
+
+            # Shares in 0.0–1.0
+            local shares_valid
+            shares_valid=$(echo "$RESP_BODY" | jq '
+                [.comparisons[0].region_a_share, .comparisons[0].region_b_share] |
+                all(. >= 0.0 and . <= 1.0)
+            ')
+            if [ "$shares_valid" = "true" ]; then
+                log_pass "Share ranges: first entry shares in 0.0–1.0"
+            else
+                log_fail "Share ranges: shares outside 0.0–1.0"
+            fi
+
+            # Divergence = a_share - b_share (spot check)
+            local div_check
+            div_check=$(echo "$RESP_BODY" | jq '
+                (.comparisons[0].region_a_share - .comparisons[0].region_b_share - .comparisons[0].divergence) | fabs < 0.001
+            ')
+            if [ "$div_check" = "true" ]; then
+                log_pass "Divergence math: a_share - b_share matches divergence"
+            else
+                log_warn "Divergence math: first entry divergence may not match shares"
+            fi
+        fi
+
+        # Confidence indicator fields
+        local has_conf_fields
+        has_conf_fields=$(echo "$RESP_BODY" | jq '
+            [.region_a_confidence | has("sample_size", "data_freshness_days", "confidence")] | all
+        ')
+        if [ "$has_conf_fields" = "true" ]; then
+            log_pass "Confidence fields: sample_size, data_freshness_days, confidence present"
+        else
+            log_fail "Confidence fields: missing required fields"
+        fi
+
+        local conf_level
+        conf_level=$(echo "$RESP_BODY" | jq -r '.region_a_confidence.confidence')
+        case "$conf_level" in
+            high|medium|low)
+                log_pass "Confidence level: $conf_level (valid)"
+                ;;
+            *)
+                log_fail "Confidence level: '$conf_level' (expected high/medium/low)"
+                ;;
+        esac
+    fi
+}
+
+# ─── Group 9: Forecast (Phase 3) ───────────────────────────────────────────
+
+verify_forecast() {
+    log_group "FORECAST" "Format forecast from JP divergence (Phase 3)"
+
+    # 9a — Default forecast
+    fetch "/api/v1/meta/forecast"
+    if require_200 "GET /api/v1/meta/forecast"; then
+        local has_fields
+        has_fields=$(echo "$RESP_BODY" | jq 'has("forecast_archetypes") and has("jp_snapshot_date") and has("en_snapshot_date") and has("jp_sample_size")')
+        if [ "$has_fields" = "true" ]; then
+            log_pass "Forecast fields: forecast_archetypes, dates, sample_size present"
+        else
+            log_fail "Forecast fields: missing required fields"
+        fi
+
+        local entry_count
+        entry_count=$(echo "$RESP_BODY" | jq '.forecast_archetypes | length')
+        if [ "$entry_count" -gt 0 ]; then
+            log_pass "Forecast entries: $entry_count archetypes"
+        else
+            log_warn "Forecast entries: empty (may need JP + Global meta)"
+        fi
+
+        # Validate entry fields
+        if [ "$entry_count" -gt 0 ]; then
+            local has_entry_fields
+            has_entry_fields=$(echo "$RESP_BODY" | jq '
+                [.forecast_archetypes[0] | has("archetype", "jp_share", "tier", "trend_direction", "confidence")] | all
+            ')
+            if [ "$has_entry_fields" = "true" ]; then
+                log_pass "Forecast entry fields: archetype, jp_share, tier, trend, confidence"
+            else
+                log_fail "Forecast entry fields: missing required fields"
+            fi
+
+            # All jp_share >= 0.01 (1% threshold)
+            local all_above_threshold
+            all_above_threshold=$(echo "$RESP_BODY" | jq '
+                [.forecast_archetypes[].jp_share] | all(. >= 0.01)
+            ')
+            if [ "$all_above_threshold" = "true" ]; then
+                log_pass "Forecast threshold: all jp_share >= 1%"
+            else
+                log_fail "Forecast threshold: some jp_share below 1%"
+            fi
+
+            # trend_direction valid values
+            local trends_valid
+            trends_valid=$(echo "$RESP_BODY" | jq '
+                [.forecast_archetypes[].trend_direction] |
+                all(. == "up" or . == "down" or . == "stable" or . == null)
+            ')
+            if [ "$trends_valid" = "true" ]; then
+                log_pass "Forecast trends: all directions valid (up/down/stable/null)"
+            else
+                log_fail "Forecast trends: invalid trend_direction value"
+            fi
+        fi
+    fi
+
+    # 9b — top_n=3 limits results
+    fetch "/api/v1/meta/forecast?top_n=3"
+    if require_200 "GET /api/v1/meta/forecast?top_n=3"; then
+        local limited_count
+        limited_count=$(echo "$RESP_BODY" | jq '.forecast_archetypes | length')
+        if [ "$limited_count" -le 3 ]; then
+            log_pass "Forecast top_n=3: returned $limited_count entries (<= 3)"
+        else
+            log_fail "Forecast top_n=3: returned $limited_count entries (expected <= 3)"
+        fi
+    fi
+}
+
+# ─── Group 10: Tech Cards (Phase 3) ────────────────────────────────────────
+
+verify_techcards() {
+    log_group "TECHCARDS" "Tech card insights for archetypes (Phase 3)"
+
+    # Discover a real archetype name from comparison endpoint
+    fetch "/api/v1/meta/compare?region_a=JP&top_n=1"
+    if ! require_200 "GET /api/v1/meta/compare?top_n=1 (discover archetype)"; then
+        log_warn "Tech cards: cannot discover archetype, skipping"
+        return
+    fi
+
+    local archetype_name
+    archetype_name=$(echo "$RESP_BODY" | jq -r '.comparisons[0].archetype // ""')
+    if [ -z "$archetype_name" ]; then
+        log_warn "Tech cards: no archetype found in comparison, skipping"
+        return
+    fi
+
+    log_info "Discovered archetype: $archetype_name"
+
+    # URL-encode the archetype name
+    local encoded_name
+    encoded_name=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$archetype_name'))" 2>/dev/null || echo "$archetype_name")
+
+    fetch "/api/v1/meta/archetypes/${encoded_name}"
+    if require_200 "GET /api/v1/meta/archetypes/${archetype_name}"; then
+        local has_key_cards
+        has_key_cards=$(echo "$RESP_BODY" | jq 'has("key_cards")')
+        if [ "$has_key_cards" = "true" ]; then
+            local card_count
+            card_count=$(echo "$RESP_BODY" | jq '.key_cards | length')
+            log_pass "Key cards: $card_count cards for $archetype_name"
+
+            if [ "$card_count" -gt 0 ]; then
+                local has_card_fields
+                has_card_fields=$(echo "$RESP_BODY" | jq '
+                    [.key_cards[0] | has("card_id", "inclusion_rate")] | all
+                ')
+                if [ "$has_card_fields" = "true" ]; then
+                    log_pass "Key card fields: card_id, inclusion_rate present"
+                else
+                    log_fail "Key card fields: missing required fields"
+                fi
+
+                # inclusion_rate in 0–1
+                local rate_valid
+                rate_valid=$(echo "$RESP_BODY" | jq '
+                    .key_cards[0].inclusion_rate >= 0 and .key_cards[0].inclusion_rate <= 1
+                ')
+                if [ "$rate_valid" = "true" ]; then
+                    log_pass "Inclusion rate: in 0–1 range"
+                else
+                    log_fail "Inclusion rate: outside 0–1 range"
+                fi
+            fi
+        else
+            log_warn "Key cards: field not present (may need archetype detail endpoint)"
+        fi
+    fi
+}
+
 # ─── Argument Parsing ────────────────────────────────────────────────────────
 
 while [[ $# -gt 0 ]]; do
@@ -434,6 +665,9 @@ run_group() {
         japan)       verify_japan ;;
         format)      verify_format ;;
         frontend)    verify_frontend ;;
+        comparison)  verify_comparison ;;
+        forecast)    verify_forecast ;;
+        techcards)   verify_techcards ;;
         *)
             echo -e "${RED}[FAIL]${NC} Unknown group: $1"
             exit 1
@@ -451,6 +685,9 @@ else
     verify_japan
     verify_format
     verify_frontend
+    verify_comparison
+    verify_forecast
+    verify_techcards
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

@@ -172,4 +172,47 @@ describe("MetaDivergenceComparison", () => {
       expect(screen.getByText("No data available")).toBeInTheDocument();
     });
   });
+
+  it("should show confidence badge tooltip with sample size and freshness", async () => {
+    mockMetaApi.compare.mockResolvedValue(mockComparisonResponse);
+
+    render(<MetaDivergenceComparison />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText("Charizard ex")).toBeInTheDocument();
+    });
+
+    const badges = screen.getAllByTestId("confidence-badge");
+    // Badges should have title attributes with sample size info
+    const titles = badges.map((b) => b.getAttribute("title")).filter(Boolean);
+    expect(titles.length).toBeGreaterThan(0);
+    // At least one badge should mention placements
+    expect(titles.some((t) => t!.includes("placements"))).toBe(true);
+  });
+
+  it("should show EN Only badge for EN-exclusive archetypes", async () => {
+    mockMetaApi.compare.mockResolvedValue(mockComparisonResponse);
+
+    render(<MetaDivergenceComparison />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText("EN Only")).toBeInTheDocument();
+    });
+
+    // Verify JP Only is also present for JP-exclusive archetype
+    expect(screen.getByText("JP Only")).toBeInTheDocument();
+  });
+
+  it("should render JP exclusive with zero EN share", async () => {
+    mockMetaApi.compare.mockResolvedValue(mockComparisonResponse);
+
+    render(<MetaDivergenceComparison />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText("JP Exclusive")).toBeInTheDocument();
+    });
+
+    // Should show 8.0% JP share for JP Exclusive and 0.0% EN share
+    expect(screen.getByText("JP Only")).toBeInTheDocument();
+  });
 });

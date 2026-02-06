@@ -597,6 +597,7 @@ class TournamentScrapeService:
             normalizer = self.normalizer
             if tournament.region == "JP" and normalizer is None:
                 normalizer = ArchetypeNormalizer(detector=detector)
+                await normalizer.load_db_sprites(self.session)
 
             for placement in tournament.placements:
                 db_placement = self._create_placement(

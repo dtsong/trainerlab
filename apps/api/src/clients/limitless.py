@@ -1277,14 +1277,12 @@ class LimitlessClient:
             if deck_link:
                 archetype = deck_link.get_text(strip=True)
                 # Always capture sprite URLs from images
-                _, sprite_urls = self._extract_archetype_and_sprites_from_images(
-                    deck_link
+                extracted, sprite_urls = (
+                    self._extract_archetype_and_sprites_from_images(deck_link)
                 )
                 # JP pages use Pokemon images instead of text
                 if not archetype:
-                    archetype, sprite_urls = (
-                        self._extract_archetype_and_sprites_from_images(deck_link)
-                    )
+                    archetype = extracted
                 href = str(deck_link.get("href", ""))
                 if href:
                     decklist_url = (
@@ -1338,7 +1336,7 @@ class LimitlessClient:
                 names.append(alt.strip())
                 continue
             # Fallback: extract from filename
-            filename_match = re.search(r"/([a-zA-Z_-]+)\.png", src)
+            filename_match = re.search(r"/([a-zA-Z0-9_-]+)\.png", src)
             if filename_match:
                 raw = filename_match.group(1)
                 name = raw.replace("-", " ").replace("_", " ").title()

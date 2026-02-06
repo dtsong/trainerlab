@@ -1,6 +1,6 @@
 # TrainerLab Codemap
 
-> Last updated: 2026-02-02
+> Last updated: 2026-02-06
 > Purpose: Quick reference for code navigation and token-efficient context
 
 ---
@@ -42,35 +42,36 @@ apps/api/src/
 ├── dependencies/
 │   ├── auth.py               # JWT token verification dependency
 │   └── scheduler_auth.py     # Cloud Scheduler auth dependency
-├── models/                   # SQLAlchemy ORM models (14 files)
+├── models/                   # SQLAlchemy ORM models (15 files)
 ├── schemas/                  # Pydantic request/response schemas (12 files)
 ├── routers/                  # API endpoint definitions (12 files)
-├── services/                 # Business logic (12 files)
+├── services/                 # Business logic (13 files)
 ├── pipelines/                # Data pipeline jobs (3 files)
 ├── clients/                  # External API clients (2 files)
-├── data/                     # Static data (signature cards)
+├── data/                     # Static data (signature cards, sprite archetype map)
 └── fixtures/                 # Test data
 ```
 
 ### Database Models (`models/`)
 
-| Model               | File                      | Purpose                   |
-| ------------------- | ------------------------- | ------------------------- |
-| User                | `user.py`                 | User accounts             |
-| Deck                | `deck.py`                 | User decks                |
-| Card                | `card.py`                 | TCG card data             |
-| Set                 | `set.py`                  | Card sets                 |
-| Tournament          | `tournament.py`           | Tournament metadata       |
-| TournamentPlacement | `tournament_placement.py` | Tournament results        |
-| MetaSnapshot        | `meta_snapshot.py`        | Meta share aggregations   |
-| LabNote             | `lab_note.py`             | Content articles          |
-| Waitlist            | `waitlist.py`             | Email signups             |
-| FormatConfig        | `format_config.py`        | Format rotation dates     |
-| RotationImpact      | `rotation_impact.py`      | Card rotation analysis    |
-| JPCardInnovation    | `jp_card_innovation.py`   | Japanese card tracking    |
-| JPNewArchetype      | `jp_new_archetype.py`     | New JP archetypes         |
-| JPSetImpact         | `jp_set_impact.py`        | JP set impact predictions |
-| Prediction          | `prediction.py`           | Meta predictions          |
+| Model               | File                      | Purpose                        |
+| ------------------- | ------------------------- | ------------------------------ |
+| User                | `user.py`                 | User accounts                  |
+| Deck                | `deck.py`                 | User decks                     |
+| Card                | `card.py`                 | TCG card data                  |
+| Set                 | `set.py`                  | Card sets                      |
+| Tournament          | `tournament.py`           | Tournament metadata            |
+| TournamentPlacement | `tournament_placement.py` | Tournament results             |
+| MetaSnapshot        | `meta_snapshot.py`        | Meta share aggregations        |
+| LabNote             | `lab_note.py`             | Content articles               |
+| Waitlist            | `waitlist.py`             | Email signups                  |
+| FormatConfig        | `format_config.py`        | Format rotation dates          |
+| RotationImpact      | `rotation_impact.py`      | Card rotation analysis         |
+| JPCardInnovation    | `jp_card_innovation.py`   | Japanese card tracking         |
+| JPNewArchetype      | `jp_new_archetype.py`     | New JP archetypes              |
+| JPSetImpact         | `jp_set_impact.py`        | JP set impact predictions      |
+| ArchetypeSprite     | `archetype_sprite.py`     | Sprite-key → archetype mapping |
+| Prediction          | `prediction.py`           | Meta predictions               |
 
 ### API Routers (`routers/`)
 
@@ -91,20 +92,21 @@ apps/api/src/
 
 ### Services (`services/`)
 
-| Service                 | Purpose                                        |
-| ----------------------- | ---------------------------------------------- |
-| `card_service.py`       | Card search with vector embeddings             |
-| `card_sync.py`          | Sync cards from TCGdex API                     |
-| `set_service.py`        | Set management                                 |
-| `deck_service.py`       | Deck CRUD operations                           |
-| `deck_import.py`        | Import from PTCGO/Limitless/TCGONEgame formats |
-| `deck_export.py`        | Export to PTCGO format                         |
-| `meta_service.py`       | Meta snapshot queries                          |
-| `tournament_scrape.py`  | Scrape Limitless tournament data               |
-| `archetype_detector.py` | Detect deck archetype from signature cards     |
-| `lab_note_service.py`   | Lab notes CRUD                                 |
-| `usage_service.py`      | Deck usage analytics                           |
-| `user_service.py`       | User management                                |
+| Service                   | Purpose                                                                            |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| `card_service.py`         | Card search with vector embeddings                                                 |
+| `card_sync.py`            | Sync cards from TCGdex API                                                         |
+| `set_service.py`          | Set management                                                                     |
+| `deck_service.py`         | Deck CRUD operations                                                               |
+| `deck_import.py`          | Import from PTCGO/Limitless/TCGONEgame formats                                     |
+| `deck_export.py`          | Export to PTCGO format                                                             |
+| `meta_service.py`         | Meta snapshot queries                                                              |
+| `tournament_scrape.py`    | Scrape Limitless tournament data                                                   |
+| `archetype_detector.py`   | Detect deck archetype from signature cards (fallback)                              |
+| `archetype_normalizer.py` | Archetype normalization: sprite_lookup → auto_derive → signature_card → text_label |
+| `lab_note_service.py`     | Lab notes CRUD                                                                     |
+| `usage_service.py`        | Deck usage analytics                                                               |
+| `user_service.py`         | User management                                                                    |
 
 ### Pipelines (`pipelines/`)
 
@@ -123,7 +125,7 @@ apps/api/src/
 ### Database Migrations
 
 - **Location:** `alembic/versions/`
-- **Count:** ~14 migrations
+- **Count:** 22 migrations
 - **Tool:** Alembic
 
 ---
@@ -430,10 +432,15 @@ def calculate_jp_signal(jp_share: float, en_share: float, threshold: float = 0.0
 ### Archetype Detection
 
 ```python
-# src/services/archetype_detector.py
+# Primary: src/services/archetype_normalizer.py
+# Priority chain: sprite_lookup → auto_derive → signature_card → text_label
+# SPRITE_ARCHETYPE_MAP maps known sprite-keys to canonical archetype names
+# DB table: archetype_sprites (runtime override for curated mappings)
+# Provenance: TournamentPlacement.archetype_detection_method
+
+# Fallback: src/services/archetype_detector.py
 # Maps signature cards (e.g., "sv4-125") → archetype name
-# Scans decklist for known signature cards
-# Returns archetype name or "Rogue"
+# Used as Priority 3 within ArchetypeNormalizer
 ```
 
 ### Card Search with Embeddings

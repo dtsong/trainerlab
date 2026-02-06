@@ -1,10 +1,13 @@
 """Tests for ArchetypeNormalizer service."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.services.archetype_normalizer import ArchetypeNormalizer
+from src.services.archetype_normalizer import (
+    SPRITE_ARCHETYPE_MAP,
+    ArchetypeNormalizer,
+)
 
 
 class TestBuildSpriteKey:
@@ -168,3 +171,185 @@ class TestResolve:
 
         assert archetype == "Test Archetype"
         assert method == "sprite_lookup"
+
+
+class TestExpandedSpriteMap:
+    """Tests for expanded SPRITE_ARCHETYPE_MAP coverage."""
+
+    def test_mega_absol(self) -> None:
+        """Should resolve absol-mega to Mega Absol ex."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/absol-mega.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Mega Absol ex"
+        assert method == "sprite_lookup"
+
+    def test_mega_kangaskhan(self) -> None:
+        """Should resolve kangaskhan-mega to Mega Kangaskhan ex."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/kangaskhan-mega.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Mega Kangaskhan ex"
+        assert method == "sprite_lookup"
+
+    def test_noctowl_box(self) -> None:
+        """Should resolve noctowl to Noctowl Box."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/noctowl.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Noctowl Box"
+        assert method == "sprite_lookup"
+
+    def test_chien_pao_baxcalibur(self) -> None:
+        """Should resolve chien-pao-baxcalibur to Chien-Pao ex."""
+        normalizer = ArchetypeNormalizer()
+        urls = [
+            "https://example.com/chien-pao.png",
+            "https://example.com/baxcalibur.png",
+        ]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Chien-Pao ex"
+        assert method == "sprite_lookup"
+
+    def test_cinderace(self) -> None:
+        """Should resolve cinderace (the original bug)."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/cinderace.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Cinderace ex"
+        assert method == "sprite_lookup"
+
+    def test_pidgeot_control(self) -> None:
+        """Should resolve pidgeot alone to Pidgeot ex Control."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/pidgeot.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Pidgeot ex Control"
+        assert method == "sprite_lookup"
+
+    def test_snorlax_stall(self) -> None:
+        """Should resolve snorlax to Snorlax Stall."""
+        normalizer = ArchetypeNormalizer()
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen9/snorlax.png"]
+        archetype, _, method = normalizer.resolve(urls, "?", None)
+        assert archetype == "Snorlax Stall"
+        assert method == "sprite_lookup"
+
+    def test_map_has_minimum_40_entries(self) -> None:
+        """Sprite map should have at least 40 entries."""
+        assert len(SPRITE_ARCHETYPE_MAP) >= 40
+
+
+class TestBuildSpriteKeyDigits:
+    """Tests for digit-handling in sprite key extraction."""
+
+    def test_filename_with_digits(self) -> None:
+        """Should handle filenames containing digits."""
+        urls = ["https://example.com/mewtwo2.png"]
+        assert ArchetypeNormalizer.build_sprite_key(urls) == "mewtwo2"
+
+    def test_gen_path_with_digits(self) -> None:
+        """Should extract name from gen-numbered path."""
+        urls = ["https://r2.limitlesstcg.net/pokemon/gen10/charizard.png"]
+        assert ArchetypeNormalizer.build_sprite_key(urls) == "charizard"
+
+
+class TestSpriteMapDoesNotMutate:
+    """Ensure the module-level map is not mutated by instances."""
+
+    def test_custom_map_does_not_mutate_default(self) -> None:
+        """Custom sprite_map should not change the module-level dict."""
+        original_len = len(SPRITE_ARCHETYPE_MAP)
+        custom = {"custom-key": "Custom Archetype"}
+        normalizer = ArchetypeNormalizer(sprite_map=custom)
+        normalizer.sprite_map["another-key"] = "Another"
+        assert len(SPRITE_ARCHETYPE_MAP) == original_len
+
+    def test_default_map_is_copied(self) -> None:
+        """Default map instance should be a copy."""
+        normalizer = ArchetypeNormalizer()
+        normalizer.sprite_map["injected-key"] = "Injected"
+        assert "injected-key" not in SPRITE_ARCHETYPE_MAP
+
+
+class TestLoadDbSprites:
+    """Tests for DB-backed sprite loading."""
+
+    @pytest.mark.asyncio
+    async def test_load_merges_db_over_code(self) -> None:
+        """DB entries should override in-code entries."""
+        from collections import namedtuple
+
+        row = namedtuple("Row", ["sprite_key", "archetype_name"])
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [
+            row("charizard", "DB Charizard Override"),
+            row("new-db-key", "New DB Archetype"),
+        ]
+        mock_session.execute.return_value = mock_result
+
+        normalizer = ArchetypeNormalizer()
+        count = await normalizer.load_db_sprites(mock_session)
+
+        assert count == 2
+        assert normalizer.sprite_map["charizard"] == "DB Charizard Override"
+        assert normalizer.sprite_map["new-db-key"] == "New DB Archetype"
+        # Original entries still present
+        assert "dragapult" in normalizer.sprite_map
+        assert normalizer._db_loaded is True
+
+    @pytest.mark.asyncio
+    async def test_load_empty_db(self) -> None:
+        """Empty DB should leave in-code map intact."""
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        normalizer = ArchetypeNormalizer()
+        original_len = len(normalizer.sprite_map)
+        count = await normalizer.load_db_sprites(mock_session)
+
+        assert count == 0
+        assert len(normalizer.sprite_map) == original_len
+
+
+class TestSeedDbSprites:
+    """Tests for seeding the DB from the in-code map."""
+
+    @pytest.mark.asyncio
+    async def test_seed_inserts_missing_keys(self) -> None:
+        """Should insert entries not already in DB."""
+        mock_session = AsyncMock()
+        # Simulate empty DB
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        with patch(
+            "src.services.archetype_normalizer.SPRITE_ARCHETYPE_MAP",
+            {"key-a": "Archetype A", "key-b": "Archetype B"},
+        ):
+            count = await ArchetypeNormalizer.seed_db_sprites(mock_session)
+
+        assert count == 2
+        assert mock_session.add.call_count == 2
+        mock_session.flush.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_seed_skips_existing_keys(self) -> None:
+        """Should not re-insert keys already in DB."""
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [("key-a",)]
+        mock_session.execute.return_value = mock_result
+
+        with patch(
+            "src.services.archetype_normalizer.SPRITE_ARCHETYPE_MAP",
+            {"key-a": "Archetype A", "key-b": "Archetype B"},
+        ):
+            count = await ArchetypeNormalizer.seed_db_sprites(mock_session)
+
+        assert count == 1
+        assert mock_session.add.call_count == 1

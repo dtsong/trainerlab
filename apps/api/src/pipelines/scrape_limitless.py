@@ -459,6 +459,90 @@ async def scrape_jp_tournaments(
     return combined_result
 
 
+@dataclass
+class RescrapeResult:
+    """Result of a rescrape operation."""
+
+    tournaments_found: int = 0
+    tournaments_rescraped: int = 0
+    tournaments_skipped: int = 0
+    placements_refreshed: int = 0
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def success(self) -> bool:
+        return len(self.errors) == 0
+
+
+async def rescrape_jp_tournaments(
+    dry_run: bool = False,
+    lookback_days: int = 90,
+) -> RescrapeResult:
+    """Re-scrape JP tournaments that have empty archetype data.
+
+    Finds tournaments where >50% of placements have empty archetypes
+    (from scrapes that ran during pipeline development), deletes their
+    placements, and re-fetches from Limitless with the current
+    archetype detection pipeline.
+
+    Args:
+        dry_run: If True, report what would be rescraped without
+            modifying the database.
+        lookback_days: Number of days to look back.
+
+    Returns:
+        RescrapeResult with statistics.
+    """
+    result = RescrapeResult()
+
+    logger.info(
+        "Starting JP rescrape: dry_run=%s, lookback=%d",
+        dry_run,
+        lookback_days,
+    )
+
+    async with LimitlessClient() as client, async_session_factory() as session:
+        service = TournamentScrapeService(session, client)
+
+        tournaments = await service.find_tournaments_needing_rescrape(
+            region="JP",
+            lookback_days=lookback_days,
+        )
+
+        result.tournaments_found = len(tournaments)
+        logger.info("Found %d JP tournaments needing rescrape", len(tournaments))
+
+        if dry_run:
+            for t in tournaments:
+                logger.info(
+                    "Would rescrape: %s (%s) — %s",
+                    t.name,
+                    t.date,
+                    t.source_url,
+                )
+            return result
+
+        for tournament in tournaments:
+            try:
+                count = await service.rescrape_tournament(tournament)
+                result.tournaments_rescraped += 1
+                result.placements_refreshed += count
+            except (LimitlessError, httpx.RequestError) as e:
+                msg = f"Error rescraping {tournament.name}: {e}"
+                logger.error(msg, exc_info=True)
+                result.errors.append(msg)
+
+    logger.info(
+        "JP rescrape complete: found=%d, rescraped=%d, placements=%d, errors=%d",
+        result.tournaments_found,
+        result.tournaments_rescraped,
+        result.placements_refreshed,
+        len(result.errors),
+    )
+
+    return result
+
+
 async def scrape_all_tournaments(
     dry_run: bool = False,
     lookback_days: int = 7,

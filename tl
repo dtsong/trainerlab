@@ -831,7 +831,7 @@ dispatch_prod() {
                 tl_error "Usage: ./tl prod trigger <pipeline> [--execute]"
                 printf "\n  Pipelines: discover-en, discover-jp, compute-meta, compute-evolution\n"
                 printf "             sync-cards, sync-card-mappings, reprocess-archetypes\n"
-                printf "             translate-pokecabook, translate-tier-lists\n"
+                printf "             rescrape-jp, translate-pokecabook, translate-tier-lists\n"
                 printf "             sync-jp-adoption, monitor-card-reveals\n"
                 printf "\n  ${DIM}Default: dry-run. Add --execute for real run.${RESET}\n"
                 exit 1

@@ -43,9 +43,13 @@ from src.pipelines.scrape_limitless import (
     DiscoverResult as DiscoverResultInternal,
 )
 from src.pipelines.scrape_limitless import (
+    RescrapeResult as RescrapeResultInternal,
+)
+from src.pipelines.scrape_limitless import (
     discover_en_tournaments,
     discover_jp_tournaments,
     process_single_tournament,
+    rescrape_jp_tournaments,
 )
 from src.pipelines.sync_card_mappings import (
     SyncMappingsResult as SyncMappingsResultInternal,
@@ -89,6 +93,8 @@ from src.schemas.pipeline import (
     ProcessTournamentRequest,
     ReprocessArchetypesRequest,
     ReprocessArchetypesResult,
+    RescrapeJPRequest,
+    RescrapeJPResult,
     ScrapeResult,
     SyncCardMappingsRequest,
     SyncCardMappingsResult,
@@ -709,3 +715,56 @@ async def reprocess_archetypes_endpoint(
     )
 
     return _convert_reprocess_result(result)
+
+
+# Rescrape JP tournaments pipeline
+
+
+def _convert_rescrape_result(
+    internal: RescrapeResultInternal,
+) -> RescrapeJPResult:
+    """Convert internal RescrapeResult to API schema."""
+    return RescrapeJPResult(
+        tournaments_found=internal.tournaments_found,
+        tournaments_rescraped=internal.tournaments_rescraped,
+        tournaments_skipped=internal.tournaments_skipped,
+        placements_refreshed=internal.placements_refreshed,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post(
+    "/rescrape-jp",
+    response_model=RescrapeJPResult,
+)
+async def rescrape_jp_endpoint(
+    request: RescrapeJPRequest,
+) -> RescrapeJPResult:
+    """Re-scrape JP tournaments with empty archetype data.
+
+    Finds tournaments where >50% of placements have empty archetypes
+    (from scrapes that ran during pipeline development), deletes
+    their placements, and re-fetches from Limitless with the current
+    archetype detection pipeline.
+    """
+    logger.info(
+        "Starting JP rescrape: lookback=%d, dry_run=%s",
+        request.lookback_days,
+        request.dry_run,
+    )
+
+    result = await rescrape_jp_tournaments(
+        dry_run=request.dry_run,
+        lookback_days=request.lookback_days,
+    )
+
+    logger.info(
+        "JP rescrape complete: found=%d, rescraped=%d, placements=%d, errors=%d",
+        result.tournaments_found,
+        result.tournaments_rescraped,
+        result.placements_refreshed,
+        len(result.errors),
+    )
+
+    return _convert_rescrape_result(result)

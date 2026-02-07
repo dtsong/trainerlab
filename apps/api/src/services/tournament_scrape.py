@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from uuid import uuid4
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -648,6 +648,165 @@ class TournamentScrapeService:
         except SQLAlchemyError:
             await self.session.rollback()
             raise
+
+    async def rescrape_tournament(
+        self,
+        tournament: Tournament,
+        max_placements: int = 32,
+        fetch_decklists: bool = True,
+    ) -> int:
+        """Delete placements and re-scrape from Limitless.
+
+        Used to fix tournaments scraped with broken/incomplete
+        archetype detection. Keeps the tournament record intact,
+        deletes all placements, re-fetches from Limitless, and
+        creates new placements with the current pipeline.
+
+        Args:
+            tournament: Existing Tournament DB record.
+            max_placements: Max placements to fetch.
+            fetch_decklists: Whether to fetch decklists.
+
+        Returns:
+            Number of new placements saved.
+        """
+        source_url = tournament.source_url
+        if not source_url:
+            logger.warning(
+                "Cannot rescrape tournament without source_url: %s",
+                tournament.name,
+            )
+            return 0
+
+        # Delete existing placements
+        await self.session.execute(
+            delete(TournamentPlacement).where(
+                TournamentPlacement.tournament_id == tournament.id
+            )
+        )
+
+        # Determine fetch method from URL pattern
+        is_jp = tournament.region == "JP"
+        is_jp_city_league = is_jp and "/tournaments/jp" in source_url
+
+        if is_jp_city_league:
+            placements = await self.client.fetch_jp_city_league_placements(
+                source_url, max_placements=max_placements
+            )
+        elif "limitlesstcg.com/tournament" in source_url:
+            placements = await self.client.fetch_official_tournament_placements(
+                source_url, max_placements=max_placements
+            )
+        else:
+            placements = await self.client.fetch_tournament_placements(
+                source_url, max_placements=max_placements
+            )
+
+        # Fetch decklists
+        if fetch_decklists:
+            for placement in placements:
+                if placement.decklist_url:
+                    try:
+                        placement.decklist = await self.client.fetch_decklist(
+                            placement.decklist_url
+                        )
+                    except (
+                        LimitlessError,
+                        httpx.RequestError,
+                        httpx.HTTPStatusError,
+                    ) as e:
+                        logger.warning(
+                            "Error fetching decklist %s: %s",
+                            placement.decklist_url,
+                            e,
+                        )
+
+        # Set up archetype detection
+        if is_jp:
+            await self._get_jp_to_en_mapping()
+        detector = self._get_detector_for_region(tournament.region)
+        jp_mapping = self._jp_to_en_mapping if is_jp else None
+
+        normalizer = self.normalizer
+        if is_jp and normalizer is None:
+            normalizer = ArchetypeNormalizer(detector=detector)
+            await normalizer.load_db_sprites(self.session)
+
+        # Create new placements
+        method_counts: Counter[str | None] = Counter()
+        for placement in placements:
+            db_placement = self._create_placement(
+                placement,
+                tournament.id,
+                detector,
+                jp_mapping,
+                normalizer,
+            )
+            method_counts[db_placement.archetype_detection_method] += 1
+            self.session.add(db_placement)
+
+        logger.info(
+            "Rescraped %s: %d placements (sprite=%d, derive=%d, sig=%d, text=%d)",
+            tournament.name,
+            len(placements),
+            method_counts.get("sprite_lookup", 0),
+            method_counts.get("auto_derive", 0),
+            method_counts.get("signature_card", 0),
+            method_counts.get("text_label", 0),
+        )
+
+        await self.session.commit()
+        return len(placements)
+
+    async def find_tournaments_needing_rescrape(
+        self,
+        region: str = "JP",
+        lookback_days: int = 90,
+    ) -> list[Tournament]:
+        """Find tournaments where most placements have empty archetypes.
+
+        Args:
+            region: Tournament region.
+            lookback_days: Only check tournaments from last N days.
+
+        Returns:
+            List of Tournament records needing rescrape.
+        """
+        cutoff = date.today() - timedelta(days=lookback_days)
+
+        # Find tournaments where >50% of placements have empty archetypes
+        query = (
+            select(Tournament)
+            .where(Tournament.region == region)
+            .where(Tournament.date >= cutoff)
+            .where(Tournament.source_url.isnot(None))
+            .order_by(Tournament.date.desc())
+        )
+
+        result = await self.session.execute(query)
+        all_tournaments = result.scalars().all()
+
+        needs_rescrape = []
+        for t in all_tournaments:
+            counts = await self.session.execute(
+                select(
+                    func.count().label("total"),
+                    func.count()
+                    .filter(TournamentPlacement.archetype != "")
+                    .label("non_empty"),
+                ).where(TournamentPlacement.tournament_id == t.id)
+            )
+            row = counts.one()
+            total, non_empty = row.total, row.non_empty
+
+            if total == 0:
+                continue
+
+            empty_pct = 1 - (non_empty / total)
+            if empty_pct > 0.5:
+                needs_rescrape.append(t)
+
+        return needs_rescrape
 
     def _create_placement(
         self,

@@ -306,6 +306,32 @@ class ComputeJPIntelligenceResult(BaseModel):
     success: bool = Field(description="Whether pipeline completed without errors")
 
 
+class RescrapeJPRequest(PipelineRequest):
+    """Request for JP rescrape pipeline."""
+
+    lookback_days: int = Field(
+        default=90,
+        ge=1,
+        le=365,
+        description="Days to look back for tournaments to rescrape",
+    )
+
+
+class RescrapeJPResult(BaseModel):
+    """Result from JP rescrape pipeline."""
+
+    tournaments_found: int = Field(
+        ge=0, description="Tournaments with empty archetypes"
+    )
+    tournaments_rescraped: int = Field(
+        ge=0, description="Tournaments successfully rescraped"
+    )
+    tournaments_skipped: int = Field(ge=0, description="Tournaments skipped")
+    placements_refreshed: int = Field(ge=0, description="Placements re-created")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
 class ReprocessArchetypesRequest(PipelineRequest):
     """Request for archetype reprocess pipeline."""
 

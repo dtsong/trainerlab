@@ -59,7 +59,8 @@ show_help() {
     printf "\n"
 
     printf "${BOLD}${CYAN}WORKFLOW${RESET} — Composite runners\n"
-    fmt_cmd "dev"              "Start full local stack (Docker + API + web)"
+    fmt_cmd "dev"              "Start local stack (Postgres + API + web)"
+    fmt_cmd "start"            "Start Postgres + API server only (no web)"
     fmt_cmd "setup"            "First-time setup (deps, Docker, migrations, seed)"
     fmt_cmd "nuke"             "Teardown all local resources for clean reinstall"
     fmt_cmd "check"            "Run all verification scripts"
@@ -91,6 +92,12 @@ show_help() {
     fmt_cmd "sync cards"       "Sync card data from TCGdex"
     fmt_cmd "sync mappings"    "Sync JP↔EN card ID mappings"
     fmt_cmd "ingest jp"        "Deep ingest JP City League data"
+    printf "\n"
+
+    printf "${BOLD}${YELLOW}DOCKER${RESET} — Container maintenance\n"
+    fmt_cmd "docker stats"     "Show Docker disk usage"
+    fmt_cmd "docker prune"     "Remove dangling images, volumes, build cache"
+    fmt_cmd "docker prune-all" "Remove ALL unused Docker resources"
     printf "\n"
 
     printf "${DIM}Pass --help to any command for its own usage info.${RESET}\n"
@@ -128,13 +135,55 @@ show_sync_help() {
     printf "\n${DIM}Example: ./tl sync cards --dry-run${RESET}\n"
 }
 
+# ── Composite: start ────────────────────────────────────────────────
+
+run_start() {
+    require_deps docker uv
+
+    tl_info "Starting PostgreSQL..."
+    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d db
+
+    tl_info "Waiting for database..."
+    local retries=30
+    while ! docker compose -f "$SCRIPT_DIR/docker-compose.yml" exec -T db pg_isready -U postgres >/dev/null 2>&1; do
+        retries=$((retries - 1))
+        if [ "$retries" -le 0 ]; then
+            tl_error "Database failed to become ready"
+            exit 1
+        fi
+        sleep 1
+    done
+    tl_success "Database ready"
+
+    tl_info "Starting API server (uvicorn)..."
+    printf "${DIM}Press Ctrl+C to stop${RESET}\n\n"
+
+    API_PID=""
+
+    cleanup() {
+        printf "\n"
+        tl_info "Shutting down..."
+        [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null
+        wait "$API_PID" 2>/dev/null
+        tl_info "Stopping Docker services..."
+        docker compose -f "$SCRIPT_DIR/docker-compose.yml" stop db
+        tl_success "All services stopped"
+    }
+    trap cleanup INT TERM
+
+    (cd "$API_DIR" && uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8080) &
+    API_PID=$!
+
+    wait "$API_PID" 2>/dev/null || true
+}
+
 # ── Composite: dev ──────────────────────────────────────────────────
 
 run_dev() {
     require_deps docker uv pnpm
 
-    tl_info "Starting Docker services (db, redis, tcgdex)..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d db redis tcgdex
+    tl_info "Starting PostgreSQL..."
+    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d db
 
     tl_info "Waiting for database..."
     local retries=30
@@ -163,7 +212,7 @@ run_dev() {
         wait "$API_PID" 2>/dev/null
         wait "$WEB_PID" 2>/dev/null
         tl_info "Stopping Docker services..."
-        docker compose -f "$SCRIPT_DIR/docker-compose.yml" stop db redis tcgdex
+        docker compose -f "$SCRIPT_DIR/docker-compose.yml" stop db
         tl_success "All services stopped"
     }
     trap cleanup INT TERM
@@ -191,8 +240,8 @@ run_setup() {
     (cd "$SCRIPT_DIR" && pnpm install)
     tl_success "Node.js dependencies installed"
 
-    tl_info "Starting Docker services..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d db redis tcgdex
+    tl_info "Starting PostgreSQL..."
+    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d db
 
     tl_info "Waiting for database..."
     local retries=30
@@ -251,7 +300,7 @@ run_nuke() {
         tl_info "Stopping and removing Docker containers..."
         docker compose -f "$SCRIPT_DIR/docker-compose.yml" down --remove-orphans 2>/dev/null || true
 
-        tl_info "Removing Docker volumes (postgres_data, redis_data)..."
+        tl_info "Removing Docker volumes (postgres_data)..."
         docker compose -f "$SCRIPT_DIR/docker-compose.yml" down -v 2>/dev/null || true
 
         tl_success "Docker resources removed"
@@ -604,12 +653,79 @@ dispatch_sync() {
     esac
 }
 
+# ── Dispatch: docker ────────────────────────────────────────
+
+show_docker_help() {
+    printf "${BOLD}DOCKER${RESET} — Container maintenance\n\n"
+    fmt_cmd "docker stats"     "Show Docker disk usage (docker system df)"
+    fmt_cmd "docker prune"     "Remove dangling images, unused volumes, build cache"
+    fmt_cmd "docker prune-all" "Remove ALL unused Docker resources (⚠ destructive)"
+    printf "\n${DIM}Example: ./tl docker prune${RESET}\n"
+}
+
+dispatch_docker() {
+    local sub="${1:-}"
+    [ -n "$sub" ] && shift
+
+    case "$sub" in
+        stats)
+            require_deps docker
+            tl_info "Docker disk usage:"
+            docker system df
+            ;;
+        prune)
+            require_deps docker
+            tl_info "Pruning dangling images..."
+            docker image prune -f
+            tl_info "Pruning unused volumes..."
+            docker volume prune -f
+            tl_info "Pruning build cache..."
+            docker builder prune -f
+            tl_success "Prune complete"
+            printf "\n"
+            docker system df
+            ;;
+        prune-all)
+            require_deps docker
+            printf "${RED}${BOLD}This will remove ALL unused Docker resources:${RESET}\n"
+            printf "  - All stopped containers\n"
+            printf "  - All unused networks\n"
+            printf "  - All unused images (not just dangling)\n"
+            printf "  - All unused volumes\n"
+            printf "  - All build cache\n\n"
+            printf "${YELLOW}?${RESET} Proceed? [y/N] "
+            read -r answer
+            case "$answer" in
+                [yY]|[yY][eE][sS])
+                    docker system prune -a --volumes -f
+                    tl_success "Full prune complete"
+                    printf "\n"
+                    docker system df
+                    ;;
+                *)
+                    tl_info "Aborted"
+                    ;;
+            esac
+            ;;
+        ""|--help|-h)
+            show_docker_help
+            ;;
+        *)
+            tl_error "Unknown subcommand: docker $sub"
+            printf "\n"
+            show_docker_help
+            exit 1
+            ;;
+    esac
+}
+
 # ── Main ────────────────────────────────────────────────────────────
 
 cmd="${1:-}"
 [ -n "$cmd" ] && shift
 
 case "$cmd" in
+    start)     run_start ;;
     dev)       run_dev ;;
     setup)     run_setup ;;
     nuke)      run_nuke "$@" ;;
@@ -620,6 +736,7 @@ case "$cmd" in
     test)     dispatch_test "$@" ;;
     seed)     dispatch_seed "$@" ;;
     sync)     dispatch_sync "$@" ;;
+    docker)   dispatch_docker "$@" ;;
 
     db)
         require_deps docker

@@ -92,7 +92,6 @@ terraform plan  # Works immediately with defaults!
 | `db_tier`           | Cloud SQL machine type               | `db-f1-micro`                          |
 | `db_disk_size`      | Cloud SQL disk size (GB)             | `10`                                   |
 | `cors_origins`      | Allowed CORS origins                 | `trainerlab.app` domains               |
-| `redis_url`         | Redis connection URL                 | `""` (none)                            |
 | `tcgdex_url`        | TCGdex API endpoint                  | `https://api.tcgdex.net/v2`            |
 | `timezone`          | Scheduler timezone                   | `America/New_York`                     |
 | `scheduler_paused`  | Pause scheduler jobs                 | `false`                                |

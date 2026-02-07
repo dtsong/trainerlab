@@ -112,10 +112,8 @@ ensure_services() {
     local compose_cmd=""
     if docker compose version > /dev/null 2>&1; then
         compose_cmd="docker compose"
-    elif command -v docker-compose > /dev/null 2>&1; then
-        compose_cmd="docker-compose"
     else
-        echo -e "${RED}[FAIL]${NC} docker compose not found. Please install Docker Desktop or docker-compose."
+        echo -e "${RED}[FAIL]${NC} docker compose not found. Please install Docker Desktop."
         exit 1
     fi
 
@@ -128,8 +126,8 @@ ensure_services() {
         exit 1
     fi
 
-    log_info "Starting docker-compose services..."
-    (cd "$project_root" && $compose_cmd up -d)
+    log_info "Starting PostgreSQL..."
+    (cd "$project_root" && $compose_cmd up -d db)
 
     # Poll the health endpoint with a 120s timeout
     local timeout=120
@@ -149,7 +147,7 @@ ensure_services() {
 
     echo ""
     echo -e "${RED}[FAIL]${NC} API did not become healthy within ${timeout}s"
-    echo -e "${YELLOW}[HINT]${NC} Check logs with: docker compose logs api"
+    echo -e "${YELLOW}[HINT]${NC} Start the stack with: ./tl start"
     exit 1
 }
 

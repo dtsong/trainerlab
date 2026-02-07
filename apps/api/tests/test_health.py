@@ -32,18 +32,10 @@ class TestDatabaseHealthCheck:
     @pytest.mark.asyncio
     async def test_db_health_check_success(self, client: AsyncClient) -> None:
         """Test DB health check when database is available."""
-        # Mock successful database connection
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-                return_value={"status": "ok", "latency_ms": 5.0},
-            ),
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-                return_value={"status": "ok", "latency_ms": 2.0},
-            ),
+        with patch(
+            "src.routers.health.check_database_health",
+            new_callable=AsyncMock,
+            return_value={"status": "ok", "latency_ms": 5.0},
         ):
             response = await client.get("/api/v1/health/db")
 
@@ -51,24 +43,18 @@ class TestDatabaseHealthCheck:
         data = response.json()
         assert data["status"] == "ok"
         assert "database" in data
-        assert "redis" in data
         assert data["database"]["status"] == "ok"
-        assert data["redis"]["status"] == "ok"
 
     @pytest.mark.asyncio
     async def test_db_health_check_database_failure(self, client: AsyncClient) -> None:
         """Test DB health check when database is unavailable."""
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-                return_value={"status": "error", "error": "Connection refused"},
-            ),
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-                return_value={"status": "ok", "latency_ms": 2.0},
-            ),
+        with patch(
+            "src.routers.health.check_database_health",
+            new_callable=AsyncMock,
+            return_value={
+                "status": "error",
+                "error": "Connection refused",
+            },
         ):
             response = await client.get("/api/v1/health/db")
 
@@ -78,41 +64,12 @@ class TestDatabaseHealthCheck:
         assert data["database"]["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_db_health_check_redis_failure(self, client: AsyncClient) -> None:
-        """Test DB health check when Redis is unavailable."""
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-                return_value={"status": "ok", "latency_ms": 5.0},
-            ),
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-                return_value={"status": "error", "error": "Connection refused"},
-            ),
-        ):
-            response = await client.get("/api/v1/health/db")
-
-        assert response.status_code == 503
-        data = response.json()
-        assert data["status"] == "degraded"
-        assert data["redis"]["status"] == "error"
-
-    @pytest.mark.asyncio
     async def test_db_health_check_all_failed(self, client: AsyncClient) -> None:
-        """Test DB health check when all services are unavailable."""
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-                return_value={"status": "error", "error": "DB down"},
-            ),
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-                return_value={"status": "error", "error": "Redis down"},
-            ),
+        """Test DB health check when database is unavailable."""
+        with patch(
+            "src.routers.health.check_database_health",
+            new_callable=AsyncMock,
+            return_value={"status": "error", "error": "DB down"},
         ):
             response = await client.get("/api/v1/health/db")
 

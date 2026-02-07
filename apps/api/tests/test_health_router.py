@@ -1,6 +1,6 @@
 """Tests for health check router endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -40,19 +40,15 @@ class TestDbHealthCheck:
     """Tests for GET /api/v1/health/db."""
 
     def test_all_healthy(self, client: TestClient) -> None:
-        """Should return ok when both database and redis are healthy."""
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-            ) as mock_db,
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-            ) as mock_redis,
-        ):
-            mock_db.return_value = {"status": "ok", "latency_ms": 1.5}
-            mock_redis.return_value = {"status": "ok", "latency_ms": 0.8}
+        """Should return ok when database is healthy."""
+        with patch(
+            "src.routers.health.check_database_health",
+            new_callable=AsyncMock,
+        ) as mock_db:
+            mock_db.return_value = {
+                "status": "ok",
+                "latency_ms": 1.5,
+            }
 
             response = client.get("/api/v1/health/db")
 
@@ -60,22 +56,17 @@ class TestDbHealthCheck:
             data = response.json()
             assert data["status"] == "ok"
             assert data["database"]["status"] == "ok"
-            assert data["redis"]["status"] == "ok"
 
     def test_database_unhealthy(self, client: TestClient) -> None:
         """Should return 503 and degraded when database is down."""
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-            ) as mock_db,
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-            ) as mock_redis,
-        ):
-            mock_db.return_value = {"status": "error", "error": "Connection refused"}
-            mock_redis.return_value = {"status": "ok", "latency_ms": 0.8}
+        with patch(
+            "src.routers.health.check_database_health",
+            new_callable=AsyncMock,
+        ) as mock_db:
+            mock_db.return_value = {
+                "status": "error",
+                "error": "Connection refused",
+            }
 
             response = client.get("/api/v1/health/db")
 
@@ -83,51 +74,6 @@ class TestDbHealthCheck:
             data = response.json()
             assert data["status"] == "degraded"
             assert data["database"]["status"] == "error"
-            assert data["redis"]["status"] == "ok"
-
-    def test_redis_unhealthy(self, client: TestClient) -> None:
-        """Should return 503 and degraded when redis is down."""
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-            ) as mock_db,
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-            ) as mock_redis,
-        ):
-            mock_db.return_value = {"status": "ok", "latency_ms": 1.5}
-            mock_redis.return_value = {"status": "error", "error": "Connection refused"}
-
-            response = client.get("/api/v1/health/db")
-
-            assert response.status_code == 503
-            data = response.json()
-            assert data["status"] == "degraded"
-            assert data["database"]["status"] == "ok"
-            assert data["redis"]["status"] == "error"
-
-    def test_both_unhealthy(self, client: TestClient) -> None:
-        """Should return 503 and degraded when both are down."""
-        with (
-            patch(
-                "src.routers.health.check_database_health",
-                new_callable=AsyncMock,
-            ) as mock_db,
-            patch(
-                "src.routers.health.check_redis_health",
-                new_callable=AsyncMock,
-            ) as mock_redis,
-        ):
-            mock_db.return_value = {"status": "error", "error": "Timeout"}
-            mock_redis.return_value = {"status": "error", "error": "Timeout"}
-
-            response = client.get("/api/v1/health/db")
-
-            assert response.status_code == 503
-            data = response.json()
-            assert data["status"] == "degraded"
 
 
 class TestCheckDatabaseHealth:
@@ -187,56 +133,6 @@ class TestCheckDatabaseHealth:
             from src.routers.health import check_database_health
 
             result = await check_database_health()
-
-        assert result["status"] == "error"
-        assert result["error"] == "Connection timeout"
-
-
-class TestCheckRedisHealth:
-    """Tests for check_redis_health helper."""
-
-    @pytest.mark.asyncio
-    async def test_redis_healthy(self) -> None:
-        """Should return ok with latency when redis responds."""
-        mock_client = AsyncMock()
-        mock_client.ping = AsyncMock(return_value=True)
-        mock_client.aclose = AsyncMock()
-
-        mock_redis_mod = MagicMock()
-        mock_redis_mod.from_url.return_value = mock_client
-
-        with patch("redis.asyncio", mock_redis_mod):
-            from src.routers.health import check_redis_health
-
-            result = await check_redis_health()
-
-        assert result["status"] == "ok"
-        assert "latency_ms" in result
-
-    @pytest.mark.asyncio
-    async def test_redis_connection_error(self) -> None:
-        """Should return error when redis connection fails."""
-        mock_redis_mod = MagicMock()
-        mock_redis_mod.from_url.side_effect = ConnectionError("Connection refused")
-
-        with patch("redis.asyncio", mock_redis_mod):
-            from src.routers.health import check_redis_health
-
-            result = await check_redis_health()
-
-        assert result["status"] == "error"
-        assert "error" in result
-
-    @pytest.mark.asyncio
-    async def test_redis_timeout(self) -> None:
-        """Should return error on timeout."""
-        mock_redis_mod = MagicMock()
-        mock_redis_mod.from_url.side_effect = TimeoutError()
-
-        with patch("redis.asyncio", mock_redis_mod):
-            from src.routers.health import check_redis_health
-
-            result = await check_redis_health()
 
         assert result["status"] == "error"
         assert result["error"] == "Connection timeout"

@@ -267,7 +267,6 @@ module "api" {
   env_vars = {
     ENVIRONMENT                 = var.environment
     DATABASE_URL                = "postgresql+asyncpg://trainerlab_app@${module.database.private_ip_address}:5432/trainerlab"
-    REDIS_URL                   = var.redis_url
     TCGDEX_URL                  = var.tcgdex_url
     CORS_ORIGINS                = var.cors_origins
     CLOUD_RUN_URL               = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"

@@ -38,7 +38,6 @@ operations_admins = [
 # db_disk_size = 50                   # 50GB SSD
 
 # External Services
-# redis_url  = "redis://memorystore-ip:6379"
 # tcgdex_url = "https://api.tcgdex.net/v2"
 
 # Scheduler Settings

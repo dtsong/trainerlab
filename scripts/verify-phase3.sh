@@ -831,6 +831,26 @@ echo ""
 
 check_prerequisites
 
+# Pre-flight: verify the API is reachable before running all checks
+log_info "Checking API connectivity at ${API_URL}..."
+if ! curl -sf --max-time 5 "${API_URL}/api/v1/health" > /dev/null 2>&1; then
+    echo ""
+    echo -e "${RED}${BOLD}ERROR: API is not reachable at ${API_URL}${NC}"
+    echo ""
+    echo "  Phase 3 validation requires a running API server."
+    echo "  Start the server first with one of:"
+    echo ""
+    echo -e "    ${GREEN}./tl start${NC}      Start Docker + API server"
+    echo -e "    ${GREEN}./tl dev${NC}        Start full dev stack (Docker + API + web)"
+    echo ""
+    echo "  Or point to a different URL:"
+    echo ""
+    echo -e "    $0 ${GREEN}--api-url=https://your-api.example.com${NC}"
+    echo ""
+    exit 1
+fi
+log_info "API is reachable"
+
 verify_comparison_quality
 verify_lag_analysis
 verify_forecast_logic

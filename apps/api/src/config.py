@@ -43,11 +43,8 @@ class Settings(BaseSettings):
                 return new_url
         return self.database_url
 
-    # Redis
-    redis_url: str = "redis://localhost:6379"
-
     # TCGdex
-    tcgdex_url: str = "http://localhost:3001"
+    tcgdex_url: str = "https://api.tcgdex.net/v2"
 
     # OpenAI (optional)
     openai_api_key: str | None = None

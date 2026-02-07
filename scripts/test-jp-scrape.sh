@@ -25,7 +25,7 @@ echo ""
 echo "✅ Test complete!"
 echo ""
 echo "Checking database for imported data:"
-docker-compose exec db psql -U postgres -d trainerlab -c "
+docker compose exec db psql -U postgres -d trainerlab -c "
 SELECT
     t.name,
     t.date,

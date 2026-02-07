@@ -65,12 +65,6 @@ variable "db_disk_size" {
 # External Services
 # =============================================================================
 
-variable "redis_url" {
-  description = "Redis connection URL (Memorystore or external)"
-  type        = string
-  default     = ""
-}
-
 variable "tcgdex_url" {
   description = "TCGdex API URL (v2 endpoint)"
   type        = string

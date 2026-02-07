@@ -114,7 +114,7 @@ check_prerequisites() {
     # Check if API is accessible
     if ! curl -s "$API_URL/api/v1/health" > /dev/null; then
         log_error "Cannot connect to API at $API_URL"
-        log_info "Make sure docker-compose is running: docker-compose up -d"
+        log_info "Make sure the stack is running: ./tl start"
         exit 1
     fi
 

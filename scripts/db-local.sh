@@ -40,10 +40,10 @@ EOF
     exit 0
 }
 
-# Check if docker-compose is running
-if ! docker-compose ps | grep -q "db.*Up"; then
+# Check if docker compose is running
+if ! docker compose ps | grep -q "db.*Up"; then
     echo -e "${BLUE}[INFO]${NC} Database container not running. Starting services..."
-    docker-compose up -d db
+    docker compose up -d db
     sleep 5
 fi
 
@@ -76,16 +76,16 @@ done
 if [ -n "$FILE" ]; then
     # Execute SQL file
     echo -e "${BLUE}[INFO]${NC} Executing SQL file: $FILE"
-    docker-compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" < "$FILE"
+    docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" < "$FILE"
 elif [ -n "$COMMAND" ]; then
     # Execute single command
     echo -e "${BLUE}[INFO]${NC} Executing: $COMMAND"
-    docker-compose exec db psql -U "$DB_USER" -d "$DB_NAME" -c "$COMMAND"
+    docker compose exec db psql -U "$DB_USER" -d "$DB_NAME" -c "$COMMAND"
 else
     # Interactive shell
     echo -e "${BLUE}[INFO]${NC} Opening interactive psql shell..."
     echo "Connected to database: $DB_NAME"
     echo "Type \\q to quit, \\dt to list tables"
     echo ""
-    docker-compose exec db psql -U "$DB_USER" -d "$DB_NAME"
+    docker compose exec db psql -U "$DB_USER" -d "$DB_NAME"
 fi

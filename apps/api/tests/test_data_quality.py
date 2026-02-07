@@ -5,6 +5,7 @@ Each test targets a specific issue found in the live dataset.
 """
 
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 from bs4 import BeautifulSoup
@@ -155,10 +156,21 @@ class TestMetaArchetypeSharesDataQuality:
 
     def test_empty_archetype_excluded_from_shares(self, service: MetaService) -> None:
         """Placements with empty archetype string must not appear in shares."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
         placements = []
-        for archetype in ["Charizard ex", "", "", "Lugia VSTAR"]:
+        for archetype, tid in [
+            ("Charizard ex", t1),
+            ("Charizard ex", t2),
+            ("Charizard ex", t3),
+            ("", t1),
+            ("", t2),
+            ("Lugia VSTAR", t1),
+            ("Lugia VSTAR", t2),
+            ("Lugia VSTAR", t3),
+        ]:
             p = MagicMock(spec=TournamentPlacement)
             p.archetype = archetype
+            p.tournament_id = tid
             placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
@@ -171,11 +183,17 @@ class TestMetaArchetypeSharesDataQuality:
         self, service: MetaService
     ) -> None:
         """Placements with whitespace-only archetype must be excluded."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
         placements = []
-        for archetype in ["Dragapult ex", "   ", "Dragapult ex"]:
+        for tid in [t1, t2, t3]:
             p = MagicMock(spec=TournamentPlacement)
-            p.archetype = archetype
+            p.archetype = "Dragapult ex"
+            p.tournament_id = tid
             placements.append(p)
+        p = MagicMock(spec=TournamentPlacement)
+        p.archetype = "   "
+        p.tournament_id = t1
+        placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
 
@@ -184,16 +202,27 @@ class TestMetaArchetypeSharesDataQuality:
 
     def test_shares_sum_to_one_after_filtering(self, service: MetaService) -> None:
         """Shares should still sum to ~1.0 after filtering empty archetypes."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
         placements = []
-        for archetype in ["A", "A", "", "B"]:
+        # A in 3 tournaments, B in 3 tournaments, empty in 1
+        for tid in [t1, t2, t3]:
             p = MagicMock(spec=TournamentPlacement)
-            p.archetype = archetype
+            p.archetype = "A"
+            p.tournament_id = tid
             placements.append(p)
+        for tid in [t1, t2, t3]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "B"
+            p.tournament_id = tid
+            placements.append(p)
+        p = MagicMock(spec=TournamentPlacement)
+        p.archetype = ""
+        p.tournament_id = t1
+        placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
 
-        # After filtering empty, only A (2) and B (1) remain
-        # Shares should be recalculated based on remaining placements
+        # After filtering empty, only A (3) and B (3) remain
         total = sum(shares.values())
         assert abs(total - 1.0) < 0.01, f"Shares sum to {total}, expected ~1.0"
 

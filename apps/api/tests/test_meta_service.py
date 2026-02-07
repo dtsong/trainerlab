@@ -25,29 +25,43 @@ class TestComputeArchetypeShares:
 
     def test_computes_shares_correctly(self, service: MetaService) -> None:
         """Should compute correct archetype percentages."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
         placements = []
-        archetypes = ["Charizard ex", "Charizard ex", "Lugia VSTAR", "Gardevoir ex"]
-
-        for archetype in archetypes:
-            placement = MagicMock(spec=TournamentPlacement)
-            placement.archetype = archetype
-            placements.append(placement)
+        # Each archetype must appear in 3+ tournaments
+        arch_tournaments = {
+            "Charizard ex": [t1, t2, t3, t1, t2, t3],  # 6 placements
+            "Lugia VSTAR": [t1, t2, t3],  # 3 placements
+            "Gardevoir ex": [t1, t2, t3],  # 3 placements
+        }
+        for archetype, tids in arch_tournaments.items():
+            for tid in tids:
+                p = MagicMock(spec=TournamentPlacement)
+                p.archetype = archetype
+                p.tournament_id = tid
+                placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
 
-        assert shares["Charizard ex"] == 0.5  # 2/4
-        assert shares["Lugia VSTAR"] == 0.25  # 1/4
-        assert shares["Gardevoir ex"] == 0.25  # 1/4
+        assert shares["Charizard ex"] == 0.5  # 6/12
+        assert shares["Lugia VSTAR"] == 0.25  # 3/12
+        assert shares["Gardevoir ex"] == 0.25  # 3/12
 
     def test_sorts_by_share_descending(self, service: MetaService) -> None:
         """Should sort archetypes by share, highest first."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
         placements = []
-        archetypes = ["A", "B", "B", "C", "C", "C"]
-
-        for archetype in archetypes:
-            placement = MagicMock(spec=TournamentPlacement)
-            placement.archetype = archetype
-            placements.append(placement)
+        # Each archetype spread across 3 tournaments
+        arch_tournaments = {
+            "A": [t1, t2, t3],  # 3 placements
+            "B": [t1, t1, t2, t2, t3, t3],  # 6 placements
+            "C": [t1, t1, t1, t2, t2, t2, t3, t3, t3],  # 9 placements
+        }
+        for archetype, tids in arch_tournaments.items():
+            for tid in tids:
+                p = MagicMock(spec=TournamentPlacement)
+                p.archetype = archetype
+                p.tournament_id = tid
+                placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
         keys = list(shares.keys())
@@ -63,26 +77,43 @@ class TestComputeArchetypeShares:
 
     def test_excludes_unknown_archetype(self, service: MetaService) -> None:
         """Should exclude 'Unknown' from shares output."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
         placements = []
-        for archetype in ["Charizard ex", "Charizard ex", "Unknown", "Unknown"]:
+        for archetype, tid in [
+            ("Charizard ex", t1),
+            ("Charizard ex", t2),
+            ("Charizard ex", t3),
+            ("Unknown", t1),
+            ("Unknown", t2),
+            ("Unknown", t3),
+        ]:
             p = MagicMock(spec=TournamentPlacement)
             p.archetype = archetype
+            p.tournament_id = tid
             placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
 
         assert "Unknown" not in shares
         # Charizard share computed against total (including Unknown counts)
-        assert shares["Charizard ex"] == 0.5  # 2/4
+        assert shares["Charizard ex"] == 0.5  # 3/6
 
     def test_excludes_empty_string_archetype_as_unknown(
         self, service: MetaService
     ) -> None:
         """Should map empty/blank archetype names to 'Unknown' and exclude them."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
         placements = []
-        for archetype in ["Charizard ex", "", "  ", None]:
+        # Charizard in 3 tournaments so it passes the filter
+        for tid in [t1, t2, t3]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "Charizard ex"
+            p.tournament_id = tid
+            placements.append(p)
+        for archetype in ["", "  ", None]:
             p = MagicMock(spec=TournamentPlacement)
             p.archetype = archetype
+            p.tournament_id = t1
             placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
@@ -92,14 +123,19 @@ class TestComputeArchetypeShares:
 
     def test_excludes_low_share_archetypes(self, service: MetaService) -> None:
         """Should exclude archetypes below MIN_ARCHETYPE_SHARE (0.5%)."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        tids = [t1, t2, t3]
         placements = []
-        # 200 placements of Charizard, 1 of Rogue (0.5% = boundary, excluded)
-        for _ in range(200):
+        # 200 Charizard across 3 tournaments
+        for i in range(200):
             p = MagicMock(spec=TournamentPlacement)
             p.archetype = "Charizard ex"
+            p.tournament_id = tids[i % 3]
             placements.append(p)
+        # 1 Rogue in 1 tournament (fails both share and tournament filter)
         p = MagicMock(spec=TournamentPlacement)
         p.archetype = "Rogue Deck"
+        p.tournament_id = t1
         placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
@@ -110,20 +146,63 @@ class TestComputeArchetypeShares:
 
     def test_keeps_archetypes_above_min_share(self, service: MetaService) -> None:
         """Should keep archetypes at or above the minimum share threshold."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        tids = [t1, t2, t3]
         placements = []
-        # 99 Charizard + 1 Lugia = 1% share for Lugia (above 0.5%)
-        for _ in range(99):
+        # 99 Charizard across 3 tournaments
+        for i in range(99):
             p = MagicMock(spec=TournamentPlacement)
             p.archetype = "Charizard ex"
+            p.tournament_id = tids[i % 3]
             placements.append(p)
-        p = MagicMock(spec=TournamentPlacement)
-        p.archetype = "Lugia VSTAR"
-        placements.append(p)
+        # 3 Lugia across 3 tournaments (passes tournament filter)
+        for tid in tids:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "Lugia VSTAR"
+            p.tournament_id = tid
+            placements.append(p)
 
         shares = service._compute_archetype_shares(placements)
 
         assert "Lugia VSTAR" in shares
-        assert shares["Lugia VSTAR"] == 0.01
+        # 3/102 ≈ 0.0294 > 0.005
+        assert shares["Lugia VSTAR"] == pytest.approx(3 / 102)
+
+    def test_excludes_archetypes_below_min_tournaments(
+        self, service: MetaService
+    ) -> None:
+        """Should exclude archetypes appearing in fewer than 3 tournaments."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        placements = []
+        # "Rare Deck" appears in only 2 tournaments
+        for tid in [t1, t2]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "Rare Deck"
+            p.tournament_id = tid
+            placements.append(p)
+        # "Common Deck" appears in 3 tournaments
+        for tid in [t1, t2, t3]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "Common Deck"
+            p.tournament_id = tid
+            placements.append(p)
+
+        shares = service._compute_archetype_shares(placements)
+        assert "Rare Deck" not in shares
+        assert "Common Deck" in shares
+
+    def test_keeps_archetypes_at_min_tournaments(self, service: MetaService) -> None:
+        """Should keep archetypes appearing in exactly 3 tournaments."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        placements = []
+        for tid in [t1, t2, t3]:
+            p = MagicMock(spec=TournamentPlacement)
+            p.archetype = "Viable Deck"
+            p.tournament_id = tid
+            placements.append(p)
+
+        shares = service._compute_archetype_shares(placements)
+        assert "Viable Deck" in shares
 
 
 class TestComputeCardUsage:
@@ -394,21 +473,36 @@ class TestComputeMetaSnapshotAsync:
         self, service: MetaService, mock_session: AsyncMock
     ) -> None:
         """Should compute snapshot with archetype shares from placements."""
-        # Create mock tournament
-        mock_tournament = MagicMock(spec=Tournament)
-        mock_tournament.id = uuid4()
+        # Create 3 mock tournaments so archetypes pass the min filter
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        mock_tournaments = []
+        for tid in [t1, t2, t3]:
+            t = MagicMock(spec=Tournament)
+            t.id = tid
+            mock_tournaments.append(t)
 
-        # Create mock placements
+        # Create mock placements spread across 3 tournaments
         mock_placements = []
-        for archetype in ["Charizard ex", "Charizard ex", "Lugia VSTAR"]:
+        for archetype, tid in [
+            ("Charizard ex", t1),
+            ("Charizard ex", t2),
+            ("Charizard ex", t3),
+            ("Charizard ex", t1),
+            ("Charizard ex", t2),
+            ("Charizard ex", t3),
+            ("Lugia VSTAR", t1),
+            ("Lugia VSTAR", t2),
+            ("Lugia VSTAR", t3),
+        ]:
             p = MagicMock(spec=TournamentPlacement)
             p.archetype = archetype
+            p.tournament_id = tid
             p.decklist = None
             mock_placements.append(p)
 
         # Setup execute to return tournaments then placements
         tournament_result = MagicMock()
-        tournament_result.scalars.return_value.all.return_value = [mock_tournament]
+        tournament_result.scalars.return_value.all.return_value = mock_tournaments
 
         placement_result = MagicMock()
         placement_result.scalars.return_value.all.return_value = mock_placements
@@ -422,10 +516,10 @@ class TestComputeMetaSnapshotAsync:
             best_of=3,
         )
 
-        assert snapshot.sample_size == 3
+        assert snapshot.sample_size == 9
         assert "Charizard ex" in snapshot.archetype_shares
-        assert snapshot.archetype_shares["Charizard ex"] == pytest.approx(2 / 3)
-        assert snapshot.archetype_shares["Lugia VSTAR"] == pytest.approx(1 / 3)
+        assert snapshot.archetype_shares["Charizard ex"] == pytest.approx(6 / 9)
+        assert snapshot.archetype_shares["Lugia VSTAR"] == pytest.approx(3 / 9)
 
     @pytest.mark.asyncio
     async def test_returns_empty_snapshot_when_no_placements(

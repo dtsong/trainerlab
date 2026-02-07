@@ -42,6 +42,9 @@ JP_SIGNAL_THRESHOLD = 0.05  # 5% divergence
 # Minimum archetype share to include in snapshots (0.5%)
 MIN_ARCHETYPE_SHARE = 0.005
 
+# Minimum distinct tournaments an archetype must appear in
+MIN_ARCHETYPE_TOURNAMENTS = 3
+
 # Archetype names to exclude from all outputs
 EXCLUDED_ARCHETYPES = frozenset({"Unknown"})
 
@@ -280,12 +283,14 @@ class MetaService:
             return {}
 
         archetype_counts: dict[str, int] = defaultdict(int)
+        archetype_tournaments: dict[str, set] = defaultdict(set)
 
         for placement in placements:
             name = placement.archetype
             if not name or not name.strip():
                 continue
             archetype_counts[name] += 1
+            archetype_tournaments[name].add(placement.tournament_id)
 
         total = sum(archetype_counts.values())
         if total == 0:
@@ -294,10 +299,13 @@ class MetaService:
         shares = {
             archetype: count / total
             for archetype, count in sorted(
-                archetype_counts.items(), key=lambda x: x[1], reverse=True
+                archetype_counts.items(),
+                key=lambda x: x[1],
+                reverse=True,
             )
             if archetype not in EXCLUDED_ARCHETYPES
             and count / total >= MIN_ARCHETYPE_SHARE
+            and len(archetype_tournaments[archetype]) >= MIN_ARCHETYPE_TOURNAMENTS
         }
 
         return shares

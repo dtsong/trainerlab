@@ -10,7 +10,7 @@ set -euo pipefail
 #   ./tl prod snapshot --restore # Import snapshot into local Docker DB
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 SNAPSHOT_DIR="/tmp/trainerlab-snapshot"
 
 # Colors

@@ -10,6 +10,7 @@
 # - translate-pokecabook: 9 AM MWF (Japanese content translation)
 # - sync-jp-adoption: 10 AM TTS (JP card adoption rates)
 # - translate-tier-lists: 10 AM Sunday (weekly tier list consolidation)
+# - reprocess-archetypes: 5 AM 1st of month (fix JP archetype data drift)
 # - monitor-card-reveals: every 6 hours (JP card reveal tracking)
 
 locals {
@@ -83,6 +84,13 @@ locals {
       uri              = "${var.cloud_run_url}/api/v1/pipeline/monitor-card-reveals"
       body             = jsonencode({ dry_run = false })
       attempt_deadline = "300s"
+    }
+    reprocess-archetypes = {
+      description      = "Monthly reprocess of JP archetype labels to fix data drift"
+      schedule         = "0 5 1 * *" # 1st of each month at 5 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/reprocess-archetypes"
+      body             = jsonencode({ dry_run = false, region = "JP", force = true, batch_size = 500 })
+      attempt_deadline = "600s"
     }
     cleanup-exports = {
       description      = "Clean up expired export files from Cloud Storage"

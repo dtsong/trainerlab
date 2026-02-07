@@ -13,9 +13,16 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
+# Cloud Run defaults (same as verify-data.sh)
+PROJECT_ID="trainerlab-prod"
+REGION="us-west1"
+SERVICE_NAME="trainerlab-api"
+
 # Default values
-API_URL="http://localhost:8080"
+API_URL=""
 VERBOSE=false
+LOCAL=false
+TOKEN=""
 
 # Counters
 PASSED=0
@@ -30,13 +37,15 @@ Usage: $0 [OPTIONS]
 Deep validation for Phase 3: meta comparison, format forecast, and tech card insights.
 
 Options:
-    --api-url=URL   Override API URL (default: http://localhost:8080)
+    --local         Use localhost:8080 (no auth)
+    --api-url=URL   Override API URL (default: auto-detect from Cloud Run)
     --verbose       Show response bodies for debugging
     -h, --help      Show this help message
 
 Examples:
-    $0                                    # Run against local API
-    $0 --api-url=https://api.example.com  # Run against production
+    $0                                    # Run against production (auto-detect)
+    $0 --local                            # Run against local API
+    $0 --api-url=https://api.example.com  # Run against specific URL
     $0 --verbose                          # Show all response data
 
 Validation Groups:
@@ -102,7 +111,13 @@ fetch() {
     fi
 
     local raw
-    raw=$(curl -s -w "\n%{http_code}" "$url" 2>/dev/null)
+    if [ -n "$TOKEN" ]; then
+        raw=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "$url" 2>/dev/null)
+    else
+        raw=$(curl -s -w "\n%{http_code}" "$url" 2>/dev/null)
+    fi
 
     RESP_CODE=$(echo "$raw" | tail -n1)
     RESP_BODY=$(echo "$raw" | sed '$d')
@@ -802,6 +817,11 @@ verify_tech_cards() {
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --local)
+            LOCAL=true
+            API_URL="http://localhost:8080"
+            shift
+            ;;
         --api-url=*)
             API_URL="${1#*=}"
             shift
@@ -820,6 +840,37 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ─── API Setup ─────────────────────────────────────────────────────────
+if [ "$LOCAL" = true ]; then
+    TOKEN=""
+    log_info "Target: $API_URL (local, no auth)"
+elif [ -z "$API_URL" ]; then
+    if ! command -v gcloud &> /dev/null; then
+        echo -e "${RED}[FAIL]${NC} gcloud CLI not found. Use --local or install gcloud."
+        exit 1
+    fi
+
+    log_info "Auto-detecting Cloud Run URL..."
+    API_URL=$(gcloud run services describe "$SERVICE_NAME" \
+        --region="$REGION" \
+        --project="$PROJECT_ID" \
+        --format='value(status.url)' 2>/dev/null || echo "")
+
+    if [ -z "$API_URL" ]; then
+        echo -e "${RED}[FAIL]${NC} Failed to get Cloud Run URL. Use --api-url or --local."
+        exit 1
+    fi
+
+    log_info "Detected: $API_URL"
+
+    TOKEN=$(gcloud auth print-identity-token 2>/dev/null || echo "")
+    if [ -z "$TOKEN" ]; then
+        echo -e "${RED}[FAIL]${NC} Failed to get identity token. Run: gcloud auth login"
+        exit 1
+    fi
+    log_info "Authenticated with gcloud identity token"
+fi
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 echo ""
@@ -833,18 +884,21 @@ check_prerequisites
 
 # Pre-flight: verify the API is reachable before running all checks
 log_info "Checking API connectivity at ${API_URL}..."
-if ! curl -sf --max-time 5 "${API_URL}/api/v1/health" > /dev/null 2>&1; then
+CURL_AUTH_ARGS=()
+if [ -n "$TOKEN" ]; then
+    CURL_AUTH_ARGS=(-H "Authorization: Bearer $TOKEN")
+fi
+if ! curl -sf --max-time 5 "${CURL_AUTH_ARGS[@]}" "${API_URL}/api/v1/health" > /dev/null 2>&1; then
     echo ""
     echo -e "${RED}${BOLD}ERROR: API is not reachable at ${API_URL}${NC}"
     echo ""
     echo "  Phase 3 validation requires a running API server."
-    echo "  Start the server first with one of:"
     echo ""
-    echo -e "    ${GREEN}./tl start${NC}      Start Docker + API server"
-    echo -e "    ${GREEN}./tl dev${NC}        Start full dev stack (Docker + API + web)"
+    echo "  For local development:"
+    echo -e "    ${GREEN}./tl start${NC}                  Start Docker + API server"
+    echo -e "    $0 ${GREEN}--local${NC}       Run against localhost:8080"
     echo ""
     echo "  Or point to a different URL:"
-    echo ""
     echo -e "    $0 ${GREEN}--api-url=https://your-api.example.com${NC}"
     echo ""
     exit 1

@@ -135,3 +135,24 @@ jobs:
             exit 1
           fi
           echo "Deployment verified successfully"
+
+      - name: Check pipeline data quality
+        continue-on-error: true
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          TOKEN=$(gcloud auth print-identity-token)
+
+          HEALTH=$(curl -sf --max-time 10 \
+            -H "Authorization: Bearer $TOKEN" \
+            "${SERVICE_URL}/api/v1/health/pipeline" 2>/dev/null || echo "{}")
+
+          ARCH_STATUS=$(echo "$HEALTH" | jq -r '.archetype.status // "unknown"')
+          UNKNOWN_RATE=$(echo "$HEALTH" | jq -r '.archetype.unknown_rate // "N/A"')
+
+          if [ "$ARCH_STATUS" != "ok" ]; then
+            echo "::warning::Archetype data quality is $ARCH_STATUS (unknown_rate=$UNKNOWN_RATE). Consider running: ./tl prod trigger reprocess-archetypes"
+          else
+            echo "Pipeline data quality: OK (unknown_rate=$UNKNOWN_RATE)"
+          fi

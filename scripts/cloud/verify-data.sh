@@ -40,7 +40,7 @@ Deep data quality verification across all API endpoints. Validates response
 shapes, field presence, data ranges, and cross-entity consistency.
 
 Options:
-    --group=NAME    Run specific group (cards, sets, tournaments, meta, japan, format, frontend)
+    --group=NAME    Run specific group (cards, sets, tournaments, meta, japan, archetype, format, frontend)
     --api-url=URL   Override API URL (default: auto-detect from Cloud Run)
     --local         Use localhost:8000 (no auth)
     -h, --help      Show this help message
@@ -51,6 +51,7 @@ Groups:
     tournaments     Tournament listing, JP filter, freshness
     meta            Meta snapshot shape, archetype shares, diversity index
     japan           JP meta, innovation, new archetypes
+    archetype       Archetype detection quality, blocklist, unknown rate
     format          Format config + rotation impact
     frontend        Exact fields that frontend hooks destructure
 
@@ -108,7 +109,7 @@ check_prerequisites() {
 
 setup_api() {
     if [ "$LOCAL" = true ]; then
-        API_URL="http://localhost:8000"
+        API_URL="http://localhost:8080"
         TOKEN=""
         log_info "Target: $API_URL (local, no auth)"
         return
@@ -452,6 +453,91 @@ verify_japan() {
     fi
 }
 
+# ─── Group 5b: Archetype Data Quality ────────────────────────────────
+
+verify_archetype_quality() {
+    log_group "ARCHETYPE" "Detection methods, blocklist, unknown rate"
+
+    # Known bad archetypes that indicate stale/corrupt data
+    local BLOCKLIST="Cinderace EX"
+
+    # 5b-a — Blocklist check: bad archetypes NOT in top JP meta
+    fetch "/api/v1/meta/current?region=JP&best_of=1"
+    if require_200 "GET /api/v1/meta/current?region=JP (blocklist)"; then
+        local blocked_found=""
+        for bad_name in $BLOCKLIST; do
+            local found
+            found=$(echo "$RESP_BODY" | jq -r \
+                --arg name "$bad_name" \
+                '[.archetype_breakdown[].name] | map(select(. == $name)) | length')
+            if [ "$found" -gt 0 ]; then
+                blocked_found="$blocked_found $bad_name"
+            fi
+        done
+
+        if [ -z "$blocked_found" ]; then
+            log_pass "Blocklist: no known-bad archetypes in JP meta"
+        else
+            log_fail "Blocklist: found bad archetypes in JP meta:${blocked_found}"
+        fi
+
+        # 5b-b — JP sample size > 100
+        local sample_size
+        sample_size=$(echo "$RESP_BODY" | jq '[.archetype_breakdown[].count // 0] | add // 0')
+        if [ "$sample_size" -gt 100 ]; then
+            log_pass "JP sample size: $sample_size placements (> 100)"
+        else
+            log_fail "JP sample size: $sample_size placements (<= 100)"
+        fi
+    fi
+
+    # 5b-c — Health endpoint: unknown_rate and detection methods
+    fetch "/api/v1/health/pipeline"
+    if require_200 "GET /api/v1/health/pipeline (archetype quality)"; then
+        # Unknown rate < 0.15
+        local unknown_rate
+        unknown_rate=$(echo "$RESP_BODY" | jq '.archetype.unknown_rate // 1')
+        local rate_ok
+        rate_ok=$(echo "$unknown_rate" | jq '. < 0.15')
+        if [ "$rate_ok" = "true" ]; then
+            log_pass "Unknown rate: $unknown_rate (< 0.15)"
+        else
+            log_fail "Unknown rate: $unknown_rate (>= 0.15)"
+        fi
+
+        # Archetype status
+        local arch_status
+        arch_status=$(echo "$RESP_BODY" | jq -r '.archetype.status // "unknown"')
+        if [ "$arch_status" = "ok" ]; then
+            log_pass "Archetype status: ok"
+        else
+            log_warn "Archetype status: $arch_status"
+        fi
+
+        # Detection method distribution (if available)
+        local has_methods
+        has_methods=$(echo "$RESP_BODY" | jq 'has("archetype") and (.archetype | has("detection_methods"))')
+        if [ "$has_methods" = "true" ]; then
+            local sprite_count
+            sprite_count=$(echo "$RESP_BODY" | jq '.archetype.detection_methods.sprite_lookup // 0')
+            local total_detected
+            total_detected=$(echo "$RESP_BODY" | jq '[.archetype.detection_methods | to_entries[].value] | add // 0')
+
+            if [ "$total_detected" -gt 0 ]; then
+                local sprite_pct
+                sprite_pct=$(echo "$sprite_count $total_detected" | jq -n '[inputs] | .[0] / .[1] * 100 | floor')
+                if [ "$sprite_pct" -ge 50 ]; then
+                    log_pass "Detection methods: sprite_lookup at ${sprite_pct}% (dominates)"
+                else
+                    log_warn "Detection methods: sprite_lookup at ${sprite_pct}% (expected >= 50%)"
+                fi
+            else
+                log_warn "Detection methods: no detection data available"
+            fi
+        fi
+    fi
+}
+
 # ─── Group 6: Format & Rotation ──────────────────────────────────────────────
 
 verify_format() {
@@ -581,6 +667,7 @@ run_group() {
         tournaments) verify_tournaments ;;
         meta)        verify_meta ;;
         japan)       verify_japan ;;
+        archetype)   verify_archetype_quality ;;
         format)      verify_format ;;
         frontend)    verify_frontend ;;
         *)
@@ -598,6 +685,7 @@ else
     verify_tournaments
     verify_meta
     verify_japan
+    verify_archetype_quality
     verify_format
     verify_frontend
 fi

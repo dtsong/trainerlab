@@ -9,6 +9,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+LOCAL_SCRIPTS="$SCRIPTS_DIR/local"
+CLOUD_SCRIPTS="$SCRIPTS_DIR/cloud"
 API_DIR="$SCRIPT_DIR/apps/api"
 
 # ── Colors ──────────────────────────────────────────────────────────
@@ -68,7 +70,7 @@ show_help() {
     fmt_cmd "health"           "Pipeline health check (scrape, meta, archetype)"
     printf "\n"
 
-    printf "${BOLD}${RED}PROD${RESET} — Production access (read-only)\n"
+    printf "${BOLD}${RED}PROD${RESET} — Production access (read-only)                    ${DIM}[cloud]${RESET}\n"
     fmt_cmd "prod db"          "Connect to prod DB via Cloud SQL Proxy"
     fmt_cmd "prod logs"        "Stream Cloud Run logs (--follow to tail)"
     fmt_cmd "prod trigger <p>" "Trigger pipeline dry-run (--execute for real)"
@@ -77,30 +79,31 @@ show_help() {
     printf "\n"
 
     printf "${BOLD}${YELLOW}VERIFY${RESET} — Data quality & endpoint verification\n"
-    fmt_cmd "verify local"     "Verify local Docker environment"
-    fmt_cmd "verify data"      "Verify production data quality"
-    fmt_cmd "verify phase3"    "Deep validate Phase 3 features"
-    fmt_cmd "verify pipelines" "Verify Cloud Scheduler pipelines"
+    fmt_cmd "verify local"     "Verify local Docker environment              [local]"
+    fmt_cmd "verify data"      "Verify production data quality               [cloud]"
+    fmt_cmd "verify phase3"    "Deep validate Phase 3 features               [cloud]"
+    fmt_cmd "verify pipelines" "Verify Cloud Scheduler pipelines             [cloud]"
+    fmt_cmd "verify all-prod"  "Run data + phase3 against production         [cloud]"
     printf "\n"
 
     printf "${BOLD}${YELLOW}TEST${RESET} — Subsystem testing\n"
-    fmt_cmd "test jp-scrape"   "Test JP tournament scraping"
-    fmt_cmd "test production"  "Test production scrapers"
-    fmt_cmd "test jp-pipeline" "Validate JP archetype pipeline"
-    fmt_cmd "test shadow"      "Shadow compare archetype labels"
+    fmt_cmd "test jp-scrape"   "Test JP tournament scraping                  [local]"
+    fmt_cmd "test production"  "Test production scrapers                     [cloud]"
+    fmt_cmd "test jp-pipeline" "Validate JP archetype pipeline               [local]"
+    fmt_cmd "test shadow"      "Shadow compare archetype labels              [local]"
     printf "\n"
 
     printf "${BOLD}${YELLOW}DATA${RESET} — Database & data management\n"
-    fmt_cmd "db [args]"        "Local database access (psql)"
-    fmt_cmd "seed formats"     "Seed format configuration data"
-    fmt_cmd "seed tournaments" "Seed tournament fixture data"
-    fmt_cmd "export [args]"    "Export local data for analysis"
+    fmt_cmd "db [args]"        "Local database access (psql)                 [local]"
+    fmt_cmd "seed formats"     "Seed format configuration data               [local]"
+    fmt_cmd "seed tournaments" "Seed tournament fixture data                 [local]"
+    fmt_cmd "export [args]"    "Export local data for analysis               [local]"
+    fmt_cmd "ingest jp"        "Deep ingest JP City League data              [local]"
     printf "\n"
 
     printf "${BOLD}${YELLOW}SYNC${RESET} — External data synchronization\n"
-    fmt_cmd "sync cards"       "Sync card data from TCGdex"
-    fmt_cmd "sync mappings"    "Sync JP↔EN card ID mappings"
-    fmt_cmd "ingest jp"        "Deep ingest JP City League data"
+    fmt_cmd "sync cards"       "Sync card data from TCGdex                   [local]"
+    fmt_cmd "sync mappings"    "Sync JP↔EN card ID mappings                  [local]"
     printf "\n"
 
     printf "${BOLD}${YELLOW}DOCKER${RESET} — Container maintenance\n"
@@ -114,10 +117,11 @@ show_help() {
 
 show_verify_help() {
     printf "${BOLD}VERIFY${RESET} — Data quality & endpoint verification\n\n"
-    fmt_cmd "verify local"     "verify-local.sh          [curl, jq, docker]"
-    fmt_cmd "verify data"      "verify-data.sh           [gcloud, jq, curl]"
-    fmt_cmd "verify phase3"    "verify-phase3.sh         [curl, jq]"
-    fmt_cmd "verify pipelines" "verify-pipelines.sh      [gcloud, jq]"
+    fmt_cmd "verify local"     "verify-local.sh      [curl, jq, docker]       [local]"
+    fmt_cmd "verify data"      "verify-data.sh       [gcloud, jq, curl]       [cloud]"
+    fmt_cmd "verify phase3"    "verify-phase3.sh     [gcloud, jq, curl]       [cloud]"
+    fmt_cmd "verify pipelines" "verify-pipelines.sh  [gcloud, jq]             [cloud]"
+    fmt_cmd "verify all-prod"  "Run data + phase3 against production          [cloud]"
     printf "\n${DIM}Example: ./tl verify local --group=cards${RESET}\n"
 }
 
@@ -435,28 +439,28 @@ run_check() {
 
     # verify local — needs curl, jq, docker
     if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
-        run_one "verify local" "$SCRIPTS_DIR/verify-local.sh"
+        run_one "verify local" "$LOCAL_SCRIPTS/verify-local.sh"
     else
         skip_one "verify local" "missing: curl/jq/docker"
     fi
 
     # verify data — needs gcloud, jq, curl
     if command -v gcloud >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
-        run_one "verify data" "$SCRIPTS_DIR/verify-data.sh"
+        run_one "verify data" "$CLOUD_SCRIPTS/verify-data.sh"
     else
         skip_one "verify data" "missing: gcloud"
     fi
 
-    # verify phase3 — needs curl, jq
-    if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-        run_one "verify phase3" "$SCRIPTS_DIR/verify-phase3.sh"
+    # verify phase3 — needs gcloud, jq, curl (cloud-first)
+    if command -v gcloud >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+        run_one "verify phase3" "$CLOUD_SCRIPTS/verify-phase3.sh"
     else
-        skip_one "verify phase3" "missing: curl/jq"
+        skip_one "verify phase3" "missing: gcloud/jq/curl"
     fi
 
     # verify pipelines — needs gcloud, jq
     if command -v gcloud >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-        run_one "verify pipelines" "$SCRIPTS_DIR/verify-pipelines.sh"
+        run_one "verify pipelines" "$CLOUD_SCRIPTS/verify-pipelines.sh"
     else
         skip_one "verify pipelines" "missing: gcloud"
     fi
@@ -499,14 +503,14 @@ run_test_all() {
 
     # test jp-scrape — needs curl, jq, docker
     if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
-        run_one "test jp-scrape" "$SCRIPTS_DIR/test-jp-scrape.sh"
+        run_one "test jp-scrape" "$LOCAL_SCRIPTS/test-jp-scrape.sh"
     else
         skip_one "test jp-scrape" "missing: curl/jq/docker"
     fi
 
     # test production — needs gcloud, jq
     if command -v gcloud >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-        run_one "test production" "$SCRIPTS_DIR/test-production-scrapers.sh"
+        run_one "test production" "$CLOUD_SCRIPTS/test-production-scrapers.sh"
     else
         skip_one "test production" "missing: gcloud"
     fi
@@ -542,19 +546,36 @@ dispatch_verify() {
     case "$sub" in
         local)
             require_deps curl jq docker
-            exec "$SCRIPTS_DIR/verify-local.sh" "$@"
+            exec "$LOCAL_SCRIPTS/verify-local.sh" "$@"
             ;;
         data)
             require_deps gcloud jq curl
-            exec "$SCRIPTS_DIR/verify-data.sh" "$@"
+            exec "$CLOUD_SCRIPTS/verify-data.sh" "$@"
             ;;
         phase3)
-            require_deps curl jq
-            exec "$SCRIPTS_DIR/verify-phase3.sh" "$@"
+            require_deps gcloud jq curl
+            exec "$CLOUD_SCRIPTS/verify-phase3.sh" "$@"
             ;;
         pipelines)
             require_deps gcloud jq
-            exec "$SCRIPTS_DIR/verify-pipelines.sh" "$@"
+            exec "$CLOUD_SCRIPTS/verify-pipelines.sh" "$@"
+            ;;
+        all-prod)
+            require_deps gcloud jq curl
+            tl_info "Running all production verification..."
+            local ap_failed=0
+
+            tl_info "=== verify data (production) ==="
+            "$CLOUD_SCRIPTS/verify-data.sh" "$@" || ap_failed=1
+
+            tl_info "=== verify phase3 (production) ==="
+            "$CLOUD_SCRIPTS/verify-phase3.sh" "$@" || ap_failed=1
+
+            if [ "$ap_failed" -gt 0 ]; then
+                tl_error "One or more production checks failed"
+                exit 1
+            fi
+            tl_success "All production checks passed"
             ;;
         ""|--help|-h)
             show_verify_help
@@ -577,11 +598,11 @@ dispatch_test() {
     case "$sub" in
         jp-scrape)
             require_deps curl jq docker
-            exec "$SCRIPTS_DIR/test-jp-scrape.sh" "$@"
+            exec "$LOCAL_SCRIPTS/test-jp-scrape.sh" "$@"
             ;;
         production)
             require_deps gcloud jq
-            exec "$SCRIPTS_DIR/test-production-scrapers.sh" "$@"
+            exec "$CLOUD_SCRIPTS/test-production-scrapers.sh" "$@"
             ;;
         jp-pipeline)
             require_deps uv python3
@@ -869,10 +890,10 @@ dispatch_prod() {
 
             if [ "$restore" = true ]; then
                 require_deps docker psql
-                exec "$SCRIPTS_DIR/snapshot-prod.sh" --restore
+                exec "$CLOUD_SCRIPTS/snapshot-prod.sh" --restore
             else
                 require_deps gcloud cloud-sql-proxy pg_dump
-                exec "$SCRIPTS_DIR/snapshot-prod.sh"
+                exec "$CLOUD_SCRIPTS/snapshot-prod.sh"
             fi
             ;;
 
@@ -998,11 +1019,11 @@ case "$cmd" in
 
     db)
         require_deps docker
-        exec "$SCRIPTS_DIR/db-local.sh" "$@"
+        exec "$LOCAL_SCRIPTS/db-local.sh" "$@"
         ;;
     export)
         require_deps curl docker
-        exec "$SCRIPTS_DIR/export-data.sh" "$@"
+        exec "$LOCAL_SCRIPTS/export-data.sh" "$@"
         ;;
     ingest)
         sub="${1:-}"
@@ -1010,7 +1031,7 @@ case "$cmd" in
         case "$sub" in
             jp)
                 require_deps curl jq docker
-                exec "$SCRIPTS_DIR/ingest-jp-deep.sh" "$@"
+                exec "$LOCAL_SCRIPTS/ingest-jp-deep.sh" "$@"
                 ;;
             ""|--help|-h)
                 printf "${BOLD}INGEST${RESET} — Data ingestion\n\n"

@@ -48,21 +48,48 @@ describe("middleware", () => {
     expect(NextResponse.redirect).not.toHaveBeenCalled();
   });
 
-  it("redirects unauthenticated access to /meta", () => {
+  it("allows unauthenticated access to /meta", () => {
     middleware(makeReq("/meta", false));
-    expect(NextResponse.redirect).toHaveBeenCalled();
-    const url = (NextResponse.redirect as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as URL;
-    expect(url.pathname).toBe("/auth/login");
-    expect(url.searchParams.get("callbackUrl")).toBe("/meta");
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
   });
 
-  it("redirects unauthenticated access to /tournaments/123", () => {
+  it("allows unauthenticated access to /meta/japan", () => {
+    middleware(makeReq("/meta/japan", false));
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("allows unauthenticated access to /tournaments", () => {
+    middleware(makeReq("/tournaments", false));
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("allows unauthenticated access to /tournaments/123", () => {
     middleware(makeReq("/tournaments/123", false));
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("allows unauthenticated access to /evolution", () => {
+    middleware(makeReq("/evolution", false));
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("allows unauthenticated access to /evolution/some-article", () => {
+    middleware(makeReq("/evolution/some-article", false));
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("redirects unauthenticated access to /decks", () => {
+    middleware(makeReq("/decks", false));
     expect(NextResponse.redirect).toHaveBeenCalled();
     const url = (NextResponse.redirect as ReturnType<typeof vi.fn>).mock
       .calls[0][0] as URL;
-    expect(url.searchParams.get("callbackUrl")).toBe("/tournaments/123");
+    expect(url.searchParams.get("callbackUrl")).toBe("/decks");
   });
 
   it("redirects unauthenticated access to /cards", () => {

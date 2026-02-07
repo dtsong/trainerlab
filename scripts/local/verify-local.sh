@@ -121,7 +121,7 @@ ensure_services() {
     # Detect project root (docker-compose.yml location)
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local project_root="${script_dir}/.."
+    local project_root="${script_dir}/../.."
     if [ ! -f "${project_root}/docker-compose.yml" ]; then
         echo -e "${RED}[FAIL]${NC} docker-compose.yml not found at ${project_root}"
         exit 1

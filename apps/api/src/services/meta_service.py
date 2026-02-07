@@ -163,13 +163,8 @@ class MetaService:
     async def save_snapshot(self, snapshot: MetaSnapshot) -> MetaSnapshot:
         """Save a meta snapshot to the database.
 
-        If a snapshot with the same dimensions already exists, only core fields
-        are updated: archetype_shares, card_usage, sample_size, tournaments_included.
-        Enhanced fields (diversity_index, tier_assignments, jp_signals, trends)
-        are NOT updated on existing records - use compute_enhanced_meta_snapshot
-        to recompute the full snapshot.
-
-        Dimensions are: snapshot_date, region, format, and best_of.
+        If a snapshot with the same dimensions already exists, all fields
+        are updated. Dimensions are: snapshot_date, region, format, and best_of.
 
         Args:
             snapshot: The snapshot to save.
@@ -202,6 +197,10 @@ class MetaService:
                 existing.card_usage = snapshot.card_usage
                 existing.sample_size = snapshot.sample_size
                 existing.tournaments_included = snapshot.tournaments_included
+                existing.diversity_index = snapshot.diversity_index
+                existing.tier_assignments = snapshot.tier_assignments
+                existing.jp_signals = snapshot.jp_signals
+                existing.trends = snapshot.trends
                 await self.session.commit()
                 await self.session.refresh(existing)
                 return existing

@@ -715,6 +715,10 @@ class TestSaveSnapshotAsync:
             card_usage=None,
             sample_size=10,
             tournaments_included=["t1", "t2"],
+            diversity_index=Decimal("0.75"),
+            tier_assignments={"Charizard ex": "S"},
+            jp_signals={"rising": ["Charizard ex"]},
+            trends={"Charizard ex": {"direction": "up"}},
         )
 
     @pytest.mark.asyncio
@@ -765,6 +769,10 @@ class TestSaveSnapshotAsync:
         existing.card_usage = None
         existing.sample_size = 5
         existing.tournaments_included = []
+        existing.diversity_index = None
+        existing.tier_assignments = None
+        existing.jp_signals = None
+        existing.trends = None
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = existing
@@ -783,12 +791,16 @@ class TestSaveSnapshotAsync:
         mock_session: AsyncMock,
         sample_snapshot: MetaSnapshot,
     ) -> None:
-        """Should update existing snapshot with same dimensions."""
+        """Should update all fields on existing snapshot."""
         existing = MagicMock(spec=MetaSnapshot)
         existing.archetype_shares = {}
         existing.card_usage = None
         existing.sample_size = 5
         existing.tournaments_included = []
+        existing.diversity_index = None
+        existing.tier_assignments = None
+        existing.jp_signals = None
+        existing.trends = None
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = existing
@@ -800,6 +812,10 @@ class TestSaveSnapshotAsync:
         mock_session.add.assert_not_called()
         assert existing.archetype_shares == sample_snapshot.archetype_shares
         assert existing.sample_size == sample_snapshot.sample_size
+        assert existing.diversity_index == sample_snapshot.diversity_index
+        assert existing.tier_assignments == sample_snapshot.tier_assignments
+        assert existing.jp_signals == sample_snapshot.jp_signals
+        assert existing.trends == sample_snapshot.trends
         mock_session.commit.assert_called_once()
 
     @pytest.mark.asyncio

@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
+from uuid import uuid4
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -76,12 +77,15 @@ async def compute_daily_snapshots(
     target_formats = formats if formats is not None else FORMATS
 
     result = ComputeMetaResult()
+    run_id = str(uuid4())
+    _extra = {"pipeline": "compute-meta", "run_id": run_id}
 
     logger.info(
         "Starting daily meta computation: date=%s, dry_run=%s, lookback=%d",
         snapshot_date,
         dry_run,
         lookback_days,
+        extra=_extra,
     )
 
     async with async_session_factory() as session:
@@ -137,6 +141,7 @@ async def compute_daily_snapshots(
         result.snapshots_saved,
         result.snapshots_skipped,
         len(result.errors),
+        extra=_extra,
     )
 
     return result

@@ -65,6 +65,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 log_cli = true
 log_cli_level = "INFO"
+markers = ["integration: E2E pipeline tests requiring database"]
 
 [tool.coverage.run]
 source = ["src"]

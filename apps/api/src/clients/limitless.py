@@ -1740,10 +1740,57 @@ class LimitlessClient:
             if card:
                 cards.append(card)
 
+        # Fallback: Limitless renders card pages as <a><img class="card"></a>.
+        # The selectors above match the <img> but _parse_card_element can't
+        # extract an ID from a bare image. Parse the parent <a> links instead.
+        if not cards:
+            cards = self._parse_card_links(soup)
+
         if not cards:
             cards = self._parse_card_table(soup)
 
         logger.info("Parsed %d cards from %s", len(cards), source_url)
+        return cards
+
+    def _parse_card_links(self, soup: BeautifulSoup) -> list[LimitlessJPCard]:
+        """Parse cards from <a> links wrapping card images.
+
+        Handles the common Limitless layout:
+            <a href="/cards/jp/SV10/1?translate=en">
+                <img class="card shadow" .../>
+            </a>
+
+        Args:
+            soup: Parsed HTML document.
+
+        Returns:
+            List of parsed JP cards.
+        """
+        cards: list[LimitlessJPCard] = []
+        seen: set[str] = set()
+
+        for link in soup.select("a[href*='/cards/jp/']"):
+            href = str(link.get("href", ""))
+            match = re.search(r"/cards/jp/([A-Za-z0-9]+)/(\d+)", href)
+            if not match:
+                continue
+
+            set_code = match.group(1)
+            number = match.group(2)
+            card_id = f"{set_code}-{number}"
+
+            if card_id in seen:
+                continue
+            seen.add(card_id)
+
+            cards.append(
+                LimitlessJPCard(
+                    card_id=card_id,
+                    name_jp="",
+                    set_id=set_code,
+                )
+            )
+
         return cards
 
     def _parse_card_element(self, elem: Tag) -> LimitlessJPCard | None:
@@ -1982,11 +2029,9 @@ class LimitlessClient:
     def _parse_international_prints(self, soup: BeautifulSoup) -> str | None:
         """Parse the International Prints section from a JP card page.
 
-        The page structure includes a section like:
-        <div class="prints">
-            <h3>Int. Prints</h3>
-            <a href="/cards/SCR/28">SCR 28</a>
-        </div>
+        Limitless renders a table.card-prints-versions with structure:
+            <tr><th>Int. Prints</th><th>USD</th><th>EUR</th></tr>
+            <tr><td><a href="/cards/en/SCR/28">...</a></td>...</tr>
 
         Args:
             soup: Parsed HTML of the card detail page.
@@ -1994,29 +2039,33 @@ class LimitlessClient:
         Returns:
             First EN card ID found (e.g., "SCR-28") or None.
         """
-        prints_sections = soup.select(".prints, .card-prints, [class*='print']")
+        # Primary: find the "Int. Prints" table header row, then
+        # collect all EN card links from subsequent rows.
+        table = soup.select_one("table.card-prints-versions")
+        if table:
+            in_int_section = False
+            for row in table.select("tr"):
+                th = row.select_one("th")
+                if th:
+                    header_text = th.get_text(strip=True).lower()
+                    in_int_section = "int" in header_text or "english" in header_text
+                    continue
+                if not in_int_section:
+                    continue
+                link = row.select_one("a[href*='/cards/en/']")
+                if link:
+                    href = str(link.get("href", ""))
+                    en_match = re.search(r"/cards/en/([A-Z0-9]+)/(\d+)", href)
+                    if en_match:
+                        set_code = en_match.group(1)
+                        number = en_match.group(2)
+                        tcgdex_set = map_set_code(set_code)
+                        return f"{tcgdex_set}-{number}"
 
-        for section in prints_sections:
-            header = section.select_one("h3, h4, .section-title")
-            if header:
-                header_text = header.get_text(strip=True).lower()
-                if "int" in header_text or "english" in header_text:
-                    links = section.select("a[href*='/cards/']")
-                    for link in links:
-                        href = str(link.get("href", ""))
-                        en_match = re.search(r"/cards/([A-Z]+)/(\d+)", href)
-                        if en_match:
-                            set_code = en_match.group(1)
-                            number = en_match.group(2)
-                            tcgdex_set = map_set_code(set_code)
-                            return f"{tcgdex_set}-{number}"
-
-        all_links = soup.select("a[href*='/cards/']")
-        for link in all_links:
+        # Fallback: scan all non-JP card links on the page
+        for link in soup.select("a[href*='/cards/en/']"):
             href = str(link.get("href", ""))
-            if "/cards/jp/" in href:
-                continue
-            en_match = re.search(r"/cards/([A-Z]{2,4})/(\d+)", href)
+            en_match = re.search(r"/cards/en/([A-Z0-9]+)/(\d+)", href)
             if en_match:
                 set_code = en_match.group(1)
                 number = en_match.group(2)

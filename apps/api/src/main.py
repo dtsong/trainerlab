@@ -1,9 +1,12 @@
 """FastAPI application entry point."""
 
+import json
 import logging
 import sys
+import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,14 +39,42 @@ from src.routers import (
 
 settings = get_settings()
 
+# Correlation ID for request tracing (async-safe via contextvars)
+correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
+
+
+class JSONFormatter(logging.Formatter):
+    """Structured JSON log formatter for production."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_entry: dict[str, object] = {
+            "timestamp": self.formatTime(record),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "correlation_id": correlation_id_var.get(""),
+        }
+        if hasattr(record, "pipeline"):
+            log_entry["pipeline"] = record.pipeline  # type: ignore[attr-defined]
+        if hasattr(record, "run_id"):
+            log_entry["run_id"] = record.run_id  # type: ignore[attr-defined]
+        return json.dumps(log_entry)
+
+
 # Configure logging: INFO in production, DEBUG in development.
 # Cloud Run captures stdout as structured logs.
-logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
-    stream=sys.stdout,
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-)
+if settings.is_production:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JSONFormatter())
+    logging.root.handlers = [handler]
+    logging.root.setLevel(logging.INFO)
+else:
+    logging.basicConfig(
+        level=logging.DEBUG if settings.debug else logging.INFO,
+        stream=sys.stdout,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
 # Quiet noisy third-party loggers
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -53,6 +84,17 @@ logger = logging.getLogger(__name__)
 
 # Rate limiter setup
 limiter = Limiter(key_func=get_remote_address)
+
+
+class CorrelationIDMiddleware(BaseHTTPMiddleware):
+    """Generate/propagate X-Correlation-ID for request tracing."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+        correlation_id_var.set(cid)
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = cid
+        return response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -96,6 +138,9 @@ app = FastAPI(
 # Rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+# Correlation ID middleware (outermost — runs first)
+app.add_middleware(CorrelationIDMiddleware)  # type: ignore[arg-type]
 
 # Security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type]

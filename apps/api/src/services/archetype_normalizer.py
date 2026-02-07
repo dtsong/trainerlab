@@ -27,6 +27,14 @@ DetectionMethod = Literal[
     "sprite_lookup", "auto_derive", "signature_card", "text_label"
 ]
 
+# Confidence scores by detection method
+CONFIDENCE_SCORES: dict[str, float] = {
+    "sprite_lookup": 0.95,
+    "auto_derive": 0.85,
+    "signature_card": 0.70,
+    "text_label": 0.40,
+}
+
 # Known sprite-key → canonical archetype name.
 # Keys are lowercase, hyphen-joined Pokemon filenames extracted from sprite
 # URLs (e.g. "charizard-pidgeot").
@@ -225,6 +233,22 @@ class ArchetypeNormalizer:
         Returns:
             Tuple of (archetype, raw_archetype, detection_method).
         """
+        archetype, raw, method, _confidence = self.resolve_with_confidence(
+            sprite_urls, html_archetype, decklist
+        )
+        return archetype, raw, method
+
+    def resolve_with_confidence(
+        self,
+        sprite_urls: list[str],
+        html_archetype: str,
+        decklist: list[dict] | None = None,
+    ) -> tuple[str, str, DetectionMethod, float]:
+        """Resolve archetype with confidence score.
+
+        Returns:
+            Tuple of (archetype, raw_archetype, detection_method, confidence).
+        """
         raw_archetype = html_archetype
         sprite_key = ""
         archetype: str
@@ -245,7 +269,12 @@ class ArchetypeNormalizer:
                         "raw": raw_archetype,
                     },
                 )
-                return archetype, raw_archetype, method
+                return (
+                    archetype,
+                    raw_archetype,
+                    method,
+                    CONFIDENCE_SCORES[method],
+                )
 
             # Priority 2: auto_derive
             if sprite_key:
@@ -260,7 +289,12 @@ class ArchetypeNormalizer:
                             "raw": raw_archetype,
                         },
                     )
-                    return derived, raw_archetype, "auto_derive"
+                    return (
+                        derived,
+                        raw_archetype,
+                        "auto_derive",
+                        CONFIDENCE_SCORES["auto_derive"],
+                    )
 
         # Priority 3: signature_card
         if decklist:
@@ -286,10 +320,18 @@ class ArchetypeNormalizer:
                         "raw": raw_archetype,
                     },
                 )
-                return detected, raw_archetype, "signature_card"
+                return (
+                    detected,
+                    raw_archetype,
+                    "signature_card",
+                    CONFIDENCE_SCORES["signature_card"],
+                )
 
         # Priority 4: text_label
         normalized = normalize_archetype(html_archetype)
+        confidence = CONFIDENCE_SCORES["text_label"]
+        if normalized == "Unknown":
+            confidence = 0.0
         logger.debug(
             "archetype_resolved",
             extra={
@@ -299,7 +341,7 @@ class ArchetypeNormalizer:
                 "raw": raw_archetype,
             },
         )
-        return normalized, raw_archetype, "text_label"
+        return normalized, raw_archetype, "text_label", confidence
 
     @staticmethod
     def build_sprite_key(sprite_urls: list[str]) -> str:

@@ -1,0 +1,38 @@
+name: Pipeline Health Check
+
+on:
+  schedule:
+    # Every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pipeline health
+        id: health
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" "${PRODUCTION_API_URL}/api/v1/health/pipeline" 2>/dev/null)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "$BODY" | jq .
+
+          STATUS=$(echo "$BODY" | jq -r '.status')
+          echo "Pipeline status: $STATUS"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+          if [ "$STATUS" = "unhealthy" ]; then
+            echo "::error::Pipeline is unhealthy"
+            exit 1
+          elif [ "$STATUS" = "degraded" ]; then
+            echo "::warning::Pipeline is degraded"
+          fi

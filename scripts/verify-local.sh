@@ -30,7 +30,7 @@ Usage: $0 [OPTIONS]
 Deep data quality verification across all API endpoints in local environment.
 
 Options:
-    --group=NAME    Run specific group (cards, sets, tournaments, meta, japan, format, frontend, comparison, forecast, techcards)
+    --group=NAME    Run specific group (cards, sets, tournaments, meta, japan, format, frontend, comparison, forecast, techcards, pipeline)
     --api-url=URL   Override API URL (default: http://localhost:8080)
     --no-start      Skip auto-starting docker-compose services
     -h, --help      Show this help message
@@ -50,6 +50,7 @@ Groups:
     comparison      Phase 3: Meta comparison (JP vs Global)
     forecast        Phase 3: Format forecast from JP divergence
     techcards       Phase 3: Tech card insights for archetypes
+    pipeline        Pipeline health (scrape, meta, archetype)
 
 Examples:
     $0                        # Run all groups
@@ -685,6 +686,57 @@ verify_techcards() {
     fi
 }
 
+# ─── Group 11: Pipeline Health ───────────────────────────────────────────────
+
+verify_pipeline() {
+    log_group "PIPELINE" "Pipeline health check (scrape, meta, archetype)"
+
+    fetch "/api/v1/health/pipeline"
+    if require_200 "GET /api/v1/health/pipeline"; then
+        local overall
+        overall=$(echo "$RESP_BODY" | jq -r '.status')
+
+        case "$overall" in
+            healthy)
+                log_pass "Pipeline status: healthy"
+                ;;
+            degraded)
+                log_warn "Pipeline status: degraded"
+                ;;
+            *)
+                log_fail "Pipeline status: $overall"
+                ;;
+        esac
+
+        # Scrape health
+        local scrape_status
+        scrape_status=$(echo "$RESP_BODY" | jq -r '.scrape.status')
+        case "$scrape_status" in
+            ok) log_pass "Scrape: $scrape_status" ;;
+            stale) log_warn "Scrape: $scrape_status" ;;
+            *) log_fail "Scrape: $scrape_status" ;;
+        esac
+
+        # Meta health
+        local meta_status
+        meta_status=$(echo "$RESP_BODY" | jq -r '.meta.status')
+        case "$meta_status" in
+            ok) log_pass "Meta: $meta_status" ;;
+            stale) log_warn "Meta: $meta_status" ;;
+            *) log_fail "Meta: $meta_status" ;;
+        esac
+
+        # Archetype health
+        local arch_status
+        arch_status=$(echo "$RESP_BODY" | jq -r '.archetype.status')
+        case "$arch_status" in
+            ok) log_pass "Archetype: $arch_status" ;;
+            degraded) log_warn "Archetype: $arch_status" ;;
+            *) log_fail "Archetype: $arch_status" ;;
+        esac
+    fi
+}
+
 # ─── Argument Parsing ────────────────────────────────────────────────────────
 
 while [[ $# -gt 0 ]]; do
@@ -735,6 +787,7 @@ run_group() {
         comparison)  verify_comparison ;;
         forecast)    verify_forecast ;;
         techcards)   verify_techcards ;;
+        pipeline)    verify_pipeline ;;
         *)
             echo -e "${RED}[FAIL]${NC} Unknown group: $1"
             exit 1
@@ -755,6 +808,7 @@ else
     verify_comparison
     verify_forecast
     verify_techcards
+    verify_pipeline
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

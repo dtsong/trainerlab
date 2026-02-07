@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Text
+from sqlalchemy import CheckConstraint, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -57,6 +57,7 @@ class TournamentPlacement(Base, TimestampMixin):
         JSONB, nullable=True
     )
     archetype_detection_method: Mapped[str | None] = mapped_column(Text, nullable=True)
+    archetype_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Relationships
     tournament: Mapped["Tournament"] = relationship(

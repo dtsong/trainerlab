@@ -1,9 +1,11 @@
 """Pytest fixtures for API tests."""
 
 from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.main import app
 
@@ -16,3 +18,9 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
         base_url="http://test",
     ) as ac:
         yield ac
+
+
+@pytest.fixture
+def db_session() -> AsyncMock:
+    """Create a mock async database session for unit/integration tests."""
+    return AsyncMock(spec=AsyncSession)

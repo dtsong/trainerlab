@@ -122,5 +122,211 @@
       "detection_method": "auto_derive",
       "sprite_count": 2
     }
+  ],
+  "city_league_nagoya_2025.html": [
+    {
+      "placement": 1,
+      "archetype": "Raging Bolt ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 2,
+      "archetype": "Gardevoir ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 3,
+      "archetype": "Gholdengo ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 4,
+      "archetype": "Terapagos ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 5,
+      "archetype": "Archaludon ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 6,
+      "archetype": "Alakazam ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 7,
+      "archetype": "Chien-Pao ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 8,
+      "archetype": "Snorlax Stall",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 9,
+      "archetype": "Joltik Box",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 10,
+      "archetype": "Greninja ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    }
+  ],
+  "city_league_mega_2025.html": [
+    {
+      "placement": 1,
+      "archetype": "Mega Absol Box",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 2,
+      "archetype": "Mega Mewtwo ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 3,
+      "archetype": "Mega Gengar ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 4,
+      "archetype": "Mega Gardevoir ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 5,
+      "archetype": "Mega Sableye ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 6,
+      "archetype": "Mega Lopunny ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 7,
+      "archetype": "Mega Lucario ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 8,
+      "archetype": "Mega Starmie ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 9,
+      "archetype": "Mega Froslass ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 10,
+      "archetype": "Charizard ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    }
+  ],
+  "city_league_sparse_2025.html": [
+    {
+      "placement": 1,
+      "archetype": "Charizard ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 2,
+      "archetype": "Unknown",
+      "detection_method": "text_label",
+      "sprite_count": 0
+    },
+    {
+      "placement": 3,
+      "archetype": "Dragapult ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 4,
+      "archetype": "Rogue",
+      "detection_method": "text_label",
+      "sprite_count": 0
+    },
+    {
+      "placement": 5,
+      "archetype": "Unknown",
+      "detection_method": "text_label",
+      "sprite_count": 0
+    }
+  ],
+  "city_league_new_format_2025.html": [
+    {
+      "placement": 1,
+      "archetype": "Dipplin Hydrapple",
+      "detection_method": "auto_derive",
+      "sprite_count": 2
+    },
+    {
+      "placement": 2,
+      "archetype": "Charizard ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 3,
+      "archetype": "Pecharunt",
+      "detection_method": "auto_derive",
+      "sprite_count": 1
+    },
+    {
+      "placement": 4,
+      "archetype": "Gardevoir ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 5,
+      "archetype": "Raging Bolt ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 2
+    },
+    {
+      "placement": 6,
+      "archetype": "Tinkaton",
+      "detection_method": "auto_derive",
+      "sprite_count": 1
+    },
+    {
+      "placement": 7,
+      "archetype": "Gholdengo ex",
+      "detection_method": "sprite_lookup",
+      "sprite_count": 1
+    },
+    {
+      "placement": 8,
+      "archetype": "Bloodmoon Ursaluna",
+      "detection_method": "auto_derive",
+      "sprite_count": 1
+    }
   ]
 }

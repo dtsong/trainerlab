@@ -8,6 +8,7 @@ and generates evolution articles.
 import logging
 from dataclasses import dataclass, field
 from datetime import date as date_type
+from uuid import uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -64,6 +65,8 @@ async def compute_evolution_intelligence(
         ComputeEvolutionResult with pipeline statistics.
     """
     result = ComputeEvolutionResult()
+    run_id = str(uuid4())
+    _extra = {"pipeline": "compute-evolution", "run_id": run_id}
 
     try:
         async with ClaudeClient() as claude, async_session_factory() as session:
@@ -101,6 +104,7 @@ async def compute_evolution_intelligence(
         result.predictions_generated,
         result.articles_generated,
         len(result.errors),
+        extra=_extra,
     )
 
     return result
@@ -215,9 +219,7 @@ async def _generate_predictions(
         ArchetypePrediction.target_tournament_id,
     ).where(ArchetypePrediction.target_tournament_id.in_(tournament_ids))
     existing_result = await session.execute(existing_query)
-    existing_predictions = {
-        (row[0], row[1]) for row in existing_result.all()
-    }
+    existing_predictions = {(row[0], row[1]) for row in existing_result.all()}
 
     logger.info(
         "Generating predictions for %d tournaments x %d archetypes "

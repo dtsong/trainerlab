@@ -65,6 +65,15 @@ show_help() {
     fmt_cmd "nuke"             "Teardown all local resources for clean reinstall"
     fmt_cmd "check"            "Run all verification scripts"
     fmt_cmd "test-all"         "Run all test scripts"
+    fmt_cmd "health"           "Pipeline health check (scrape, meta, archetype)"
+    printf "\n"
+
+    printf "${BOLD}${RED}PROD${RESET} — Production access (read-only)\n"
+    fmt_cmd "prod db"          "Connect to prod DB via Cloud SQL Proxy"
+    fmt_cmd "prod logs"        "Stream Cloud Run logs (--follow to tail)"
+    fmt_cmd "prod trigger <p>" "Trigger pipeline dry-run (--execute for real)"
+    fmt_cmd "prod health"      "Hit prod pipeline health endpoint"
+    fmt_cmd "prod snapshot"    "Export prod data to local Postgres (--restore)"
     printf "\n"
 
     printf "${BOLD}${YELLOW}VERIFY${RESET} — Data quality & endpoint verification\n"
@@ -114,10 +123,11 @@ show_verify_help() {
 
 show_test_help() {
     printf "${BOLD}TEST${RESET} — Subsystem testing\n\n"
-    fmt_cmd "test jp-scrape"   "test-jp-scrape.sh              [curl, jq, docker]"
-    fmt_cmd "test production"  "test-production-scrapers.sh    [gcloud, jq]"
-    fmt_cmd "test jp-pipeline" "validate_jp_pipeline.py        [uv, python3]"
-    fmt_cmd "test shadow"      "shadow_compare.py              [uv, python3]"
+    fmt_cmd "test jp-scrape"       "test-jp-scrape.sh              [curl, jq, docker]"
+    fmt_cmd "test production"      "test-production-scrapers.sh    [gcloud, jq]"
+    fmt_cmd "test jp-pipeline"     "validate_jp_pipeline.py        [uv, python3]"
+    fmt_cmd "test shadow"          "shadow_compare.py              [uv, python3]"
+    fmt_cmd "test sprite-coverage" "sprite_coverage_report.py      [uv, python3]"
     printf "\n${DIM}Example: ./tl test jp-pipeline --verbose${RESET}\n"
 }
 
@@ -583,6 +593,11 @@ dispatch_test() {
             cd "$API_DIR"
             exec uv run python "scripts/shadow_compare.py" "$@"
             ;;
+        sprite-coverage)
+            require_deps uv python3
+            cd "$API_DIR"
+            exec uv run python "scripts/sprite_coverage_report.py" "$@"
+            ;;
         ""|--help|-h)
             show_test_help
             ;;
@@ -719,6 +734,247 @@ dispatch_docker() {
     esac
 }
 
+# ── Dispatch: prod ─────────────────────────────────────────────────
+
+show_prod_help() {
+    printf "${BOLD}${RED}PROD${RESET} — Production access (read-only, safe defaults)\n\n"
+    fmt_cmd "prod db"            "Connect to prod DB via Cloud SQL Proxy (read-only)"
+    fmt_cmd "prod logs"          "Stream Cloud Run logs (add --follow to tail)"
+    fmt_cmd "prod trigger <pip>" "Trigger pipeline dry-run (--execute for real run)"
+    fmt_cmd "prod health"        "Hit prod /api/v1/health/pipeline endpoint"
+    fmt_cmd "prod snapshot"      "Export prod tables to local Postgres (--restore)"
+    printf "\n${DIM}Safety: 'prod trigger' defaults to dry-run. Use --execute for real runs.${RESET}\n"
+}
+
+# Project and Cloud Run service defaults
+PROD_PROJECT="${PROD_PROJECT:-trainerlab-prod}"
+PROD_REGION="${PROD_REGION:-us-west1}"
+PROD_INSTANCE="${PROD_INSTANCE:-trainerlab-db}"
+PROD_DB_USER="${PROD_DB_USER:-trainerlab_dev}"
+PROD_SERVICE="${PROD_SERVICE:-trainerlab-api}"
+PROD_OPS_SA="${PROD_OPS_SA:-trainerlab-ops@trainerlab-prod.iam.gserviceaccount.com}"
+
+dispatch_prod() {
+    local sub="${1:-}"
+    [ -n "$sub" ] && shift
+
+    case "$sub" in
+        db)
+            require_deps gcloud cloud-sql-proxy psql
+            tl_info "Connecting to prod DB (read-only) via Cloud SQL Proxy..."
+            tl_info "Starting proxy on localhost:15432..."
+
+            # Start proxy in background
+            cloud-sql-proxy "${PROD_PROJECT}:${PROD_REGION}:${PROD_INSTANCE}" \
+                --port 15432 \
+                --impersonate-service-account="${PROD_OPS_SA}" &
+            local proxy_pid=$!
+            sleep 3
+
+            trap "kill $proxy_pid 2>/dev/null" EXIT
+
+            tl_info "Connecting as ${PROD_DB_USER}..."
+            psql "postgresql://${PROD_DB_USER}@localhost:15432/trainerlab" "$@"
+
+            kill "$proxy_pid" 2>/dev/null
+            ;;
+
+        logs)
+            require_deps gcloud
+            local follow_flag=""
+            for arg in "$@"; do
+                case "$arg" in
+                    --follow|-f) follow_flag="--tail=50" ;;
+                esac
+            done
+
+            tl_info "Streaming Cloud Run logs for ${PROD_SERVICE}..."
+            if [ -n "$follow_flag" ]; then
+                gcloud run services logs tail "${PROD_SERVICE}" \
+                    --project="${PROD_PROJECT}" \
+                    --region="${PROD_REGION}"
+            else
+                gcloud run services logs read "${PROD_SERVICE}" \
+                    --project="${PROD_PROJECT}" \
+                    --region="${PROD_REGION}" \
+                    --limit=100
+            fi
+            ;;
+
+        trigger)
+            require_deps gcloud curl jq
+            local pipeline="${1:-}"
+            [ -n "$pipeline" ] && shift
+
+            if [ -z "$pipeline" ]; then
+                tl_error "Usage: ./tl prod trigger <pipeline> [--execute]"
+                printf "\n  Pipelines: discover-en, discover-jp, compute-meta, compute-evolution\n"
+                printf "             sync-cards, sync-card-mappings, reprocess-archetypes\n"
+                printf "             translate-pokecabook, translate-tier-lists\n"
+                printf "             sync-jp-adoption, monitor-card-reveals\n"
+                printf "\n  ${DIM}Default: dry-run. Add --execute for real run.${RESET}\n"
+                exit 1
+            fi
+
+            local dry_run="true"
+            for arg in "$@"; do
+                case "$arg" in
+                    --execute) dry_run="false" ;;
+                esac
+            done
+
+            if [ "$dry_run" = "true" ]; then
+                tl_info "DRY RUN: ${pipeline} (add --execute for real run)"
+            else
+                printf "${RED}${BOLD}EXECUTING${RESET}: ${pipeline} against production\n"
+            fi
+
+            # Get Cloud Run URL and identity token
+            local url
+            url=$(gcloud run services describe "${PROD_SERVICE}" \
+                --project="${PROD_PROJECT}" \
+                --region="${PROD_REGION}" \
+                --format='value(status.url)')
+            local token
+            token=$(gcloud auth print-identity-token \
+                --impersonate-service-account="${PROD_OPS_SA}" \
+                --audiences="${url}")
+
+            curl -s -X POST \
+                "${url}/api/v1/pipeline/${pipeline}" \
+                -H "Authorization: Bearer ${token}" \
+                -H "Content-Type: application/json" \
+                -d "{\"dry_run\": ${dry_run}}" | jq .
+            ;;
+
+        health)
+            require_deps gcloud curl jq
+            local url
+            url=$(gcloud run services describe "${PROD_SERVICE}" \
+                --project="${PROD_PROJECT}" \
+                --region="${PROD_REGION}" \
+                --format='value(status.url)')
+
+            tl_info "Checking prod pipeline health..."
+            run_health "${url}"
+            ;;
+
+        snapshot)
+            local restore=false
+            for arg in "$@"; do
+                case "$arg" in
+                    --restore) restore=true ;;
+                esac
+            done
+
+            if [ "$restore" = true ]; then
+                require_deps docker psql
+                exec "$SCRIPTS_DIR/snapshot-prod.sh" --restore
+            else
+                require_deps gcloud cloud-sql-proxy pg_dump
+                exec "$SCRIPTS_DIR/snapshot-prod.sh"
+            fi
+            ;;
+
+        ""|--help|-h)
+            show_prod_help
+            ;;
+        *)
+            tl_error "Unknown subcommand: prod $sub"
+            printf "\n"
+            show_prod_help
+            exit 1
+            ;;
+    esac
+}
+
+# ── Health ──────────────────────────────────────────────────────────
+
+run_health() {
+    local api_url="${1:-http://localhost:8080}"
+
+    tl_info "Checking pipeline health at ${api_url}..."
+
+    local raw
+    raw=$(curl -s -w "\n%{http_code}" "${api_url}/api/v1/health/pipeline" 2>/dev/null)
+    local http_code
+    http_code=$(echo "$raw" | tail -n1)
+    local body
+    body=$(echo "$raw" | sed '$d')
+
+    if [ "$http_code" = "000" ]; then
+        tl_error "Cannot reach API at ${api_url}"
+        printf "  Start the stack with: ${GREEN}./tl start${RESET}\n"
+        exit 1
+    fi
+
+    if ! command -v jq >/dev/null 2>&1; then
+        tl_error "jq is required for health check output"
+        exit 1
+    fi
+
+    local overall
+    overall=$(echo "$body" | jq -r '.status')
+
+    printf "\n${BOLD}Pipeline Health${RESET}\n"
+    printf "────────────────────────────────────────\n"
+
+    # Scrape
+    local scrape_status
+    scrape_status=$(echo "$body" | jq -r '.scrape.status')
+    local scrape_days
+    scrape_days=$(echo "$body" | jq -r '.scrape.days_since_scrape // "N/A"')
+    local scrape_count
+    scrape_count=$(echo "$body" | jq -r '.scrape.tournament_count_7d')
+
+    case "$scrape_status" in
+        ok)     printf "  ${GREEN}✓${RESET} Scrape: ${scrape_days}d ago, ${scrape_count} tournaments (7d)\n" ;;
+        stale)  printf "  ${YELLOW}○${RESET} Scrape: ${scrape_days}d ago ${DIM}(stale)${RESET}\n" ;;
+        *)      printf "  ${RED}✗${RESET} Scrape: ${scrape_status}\n" ;;
+    esac
+
+    # Meta
+    local meta_status
+    meta_status=$(echo "$body" | jq -r '.meta.status')
+    local meta_age
+    meta_age=$(echo "$body" | jq -r '.meta.snapshot_age_days // "N/A"')
+    local meta_regions
+    meta_regions=$(echo "$body" | jq -r '.meta.regions | join(", ")')
+
+    case "$meta_status" in
+        ok)     printf "  ${GREEN}✓${RESET} Meta:   ${meta_age}d old, regions: ${meta_regions}\n" ;;
+        stale)  printf "  ${YELLOW}○${RESET} Meta:   ${meta_age}d old ${DIM}(stale)${RESET}\n" ;;
+        *)      printf "  ${RED}✗${RESET} Meta:   ${meta_status}\n" ;;
+    esac
+
+    # Archetype
+    local arch_status
+    arch_status=$(echo "$body" | jq -r '.archetype.status')
+    local unknown_rate
+    unknown_rate=$(echo "$body" | jq -r '.archetype.unknown_rate')
+    local sample_size
+    sample_size=$(echo "$body" | jq -r '.archetype.sample_size')
+
+    case "$arch_status" in
+        ok)       printf "  ${GREEN}✓${RESET} Archetype: ${unknown_rate} unknown rate (${sample_size} placements)\n" ;;
+        degraded) printf "  ${YELLOW}○${RESET} Archetype: ${unknown_rate} unknown rate ${DIM}(degraded)${RESET}\n" ;;
+        *)        printf "  ${RED}✗${RESET} Archetype: ${unknown_rate} unknown rate ${DIM}(poor)${RESET}\n" ;;
+    esac
+
+    # Overall
+    printf "\n"
+    case "$overall" in
+        healthy)   printf "  ${GREEN}${BOLD}Overall: healthy${RESET}\n" ;;
+        degraded)  printf "  ${YELLOW}${BOLD}Overall: degraded${RESET}\n" ;;
+        unhealthy) printf "  ${RED}${BOLD}Overall: unhealthy${RESET}\n" ;;
+    esac
+    printf "\n"
+
+    if [ "$overall" = "unhealthy" ]; then
+        exit 1
+    fi
+}
+
 # ── Main ────────────────────────────────────────────────────────────
 
 cmd="${1:-}"
@@ -732,6 +988,8 @@ case "$cmd" in
     check)     run_check ;;
     test-all)  run_test_all ;;
 
+    health)    run_health "$@" ;;
+    prod)     dispatch_prod "$@" ;;
     verify)   dispatch_verify "$@" ;;
     test)     dispatch_test "$@" ;;
     seed)     dispatch_seed "$@" ;;

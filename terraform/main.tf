@@ -151,6 +151,13 @@ resource "google_project_iam_member" "operations_log_viewer" {
   member  = "serviceAccount:${google_service_account.operations.email}"
 }
 
+# Grant operations SA access to Cloud SQL (for prod DB access via proxy)
+resource "google_project_iam_member" "operations_cloudsql" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.operations.email}"
+}
+
 # =============================================================================
 # Secrets
 # =============================================================================
@@ -265,17 +272,17 @@ module "api" {
   subnet_id             = local.cloudrun_subnet_id
 
   env_vars = {
-    ENVIRONMENT                 = var.environment
-    DATABASE_URL                = "postgresql+asyncpg://trainerlab_app@${module.database.private_ip_address}:5432/trainerlab"
-    TCGDEX_URL                  = var.tcgdex_url
-    CORS_ORIGINS                = var.cors_origins
-    CLOUD_RUN_URL               = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
-    SCHEDULER_SERVICE_ACCOUNT   = google_service_account.scheduler.email
-    OPERATIONS_SERVICE_ACCOUNT  = google_service_account.operations.email
-    CLOUD_TASKS_QUEUE_PATH      = module.cloud_tasks.queue_path
-    CLOUD_TASKS_LOCATION        = var.region
-    API_SERVICE_ACCOUNT         = google_service_account.api.email
-    EXPORTS_BUCKET              = google_storage_bucket.exports.name
+    ENVIRONMENT                = var.environment
+    DATABASE_URL               = "postgresql+asyncpg://trainerlab_app@${module.database.private_ip_address}:5432/trainerlab"
+    TCGDEX_URL                 = var.tcgdex_url
+    CORS_ORIGINS               = var.cors_origins
+    CLOUD_RUN_URL              = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
+    SCHEDULER_SERVICE_ACCOUNT  = google_service_account.scheduler.email
+    OPERATIONS_SERVICE_ACCOUNT = google_service_account.operations.email
+    CLOUD_TASKS_QUEUE_PATH     = module.cloud_tasks.queue_path
+    CLOUD_TASKS_LOCATION       = var.region
+    API_SERVICE_ACCOUNT        = google_service_account.api.email
+    EXPORTS_BUCKET             = google_storage_bucket.exports.name
 
   }
 

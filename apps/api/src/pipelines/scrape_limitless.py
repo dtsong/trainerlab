@@ -11,7 +11,7 @@ Supports two modes:
 import logging
 from dataclasses import dataclass, field
 from datetime import date
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -72,6 +72,8 @@ async def discover_en_tournaments(
     """
     result = DiscoverResult()
     tasks_service = CloudTasksService()
+    run_id = str(uuid4())
+    _extra = {"pipeline": "discover-en", "run_id": run_id}
 
     async with LimitlessClient() as client, async_session_factory() as session:
         service = TournamentScrapeService(session, client)
@@ -97,6 +99,7 @@ async def discover_en_tournaments(
         logger.info(
             "Cloud Tasks not configured, processing %d tournaments synchronously",
             min(len(all_new), max_auto_process),
+            extra=_extra,
         )
 
         for tournament in all_new[:max_auto_process]:
@@ -138,6 +141,7 @@ async def discover_en_tournaments(
         result.tasks_enqueued,
         result.tournaments_skipped,
         len(result.errors),
+        extra=_extra,
     )
     return result
 
@@ -162,6 +166,8 @@ async def discover_jp_tournaments(
     """
     result = DiscoverResult()
     tasks_service = CloudTasksService()
+    run_id = str(uuid4())
+    _extra = {"pipeline": "discover-jp", "run_id": run_id}
 
     async with LimitlessClient() as client, async_session_factory() as session:
         service = TournamentScrapeService(session, client)
@@ -177,6 +183,7 @@ async def discover_jp_tournaments(
         logger.info(
             "Cloud Tasks not configured, processing %d tournaments synchronously",
             min(len(jp_tournaments), max_auto_process),
+            extra=_extra,
         )
 
         for tournament in jp_tournaments[:max_auto_process]:
@@ -217,6 +224,7 @@ async def discover_jp_tournaments(
         result.tasks_enqueued,
         result.tournaments_skipped,
         len(result.errors),
+        extra=_extra,
     )
     return result
 
@@ -234,8 +242,15 @@ async def process_single_tournament(payload: dict) -> ScrapeResult:
     """
     source_url = payload["source_url"]
     tournament_date = date.fromisoformat(payload["tournament_date"])
+    run_id = str(uuid4())
+    _extra = {"pipeline": "process-tournament", "run_id": run_id}
 
-    logger.info("Processing tournament: %s (%s)", payload["name"], source_url)
+    logger.info(
+        "Processing tournament: %s (%s)",
+        payload["name"],
+        source_url,
+        extra=_extra,
+    )
 
     async with LimitlessClient() as client, async_session_factory() as session:
         service = TournamentScrapeService(session, client)
@@ -257,6 +272,7 @@ async def process_single_tournament(payload: dict) -> ScrapeResult:
         result.tournaments_saved,
         result.tournaments_skipped,
         len(result.errors),
+        extra=_extra,
     )
 
     # Trigger evolution snapshot computation for qualifying tournaments

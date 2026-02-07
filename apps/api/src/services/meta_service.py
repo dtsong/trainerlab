@@ -554,7 +554,10 @@ class MetaService:
         return {
             "rising": rising,
             "falling": falling,
-            "divergent": sorted(divergent, key=lambda x: abs(x.diff), reverse=True),
+            "divergent": [
+                d.model_dump()
+                for d in sorted(divergent, key=lambda x: abs(x.diff), reverse=True)
+            ],
         }
 
     async def compute_trends(

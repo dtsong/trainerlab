@@ -168,7 +168,7 @@ class TestComputeMetaComparison:
         )
 
         service._get_latest_snapshot = AsyncMock(side_effect=[jp_snap, global_snap])
-        service.get_snapshot = AsyncMock(return_value=lagged_jp)
+        service._get_latest_snapshot_before = AsyncMock(return_value=lagged_jp)
         service._get_sprite_urls_for_archetypes = AsyncMock(return_value={})
 
         result = await service.compute_meta_comparison(
@@ -290,7 +290,7 @@ class TestComputeMetaComparison:
         en_snap = _make_snapshot(region=None, best_of=3, sample_size=300)
 
         service._get_latest_snapshot = AsyncMock(side_effect=[jp_snap, en_snap])
-        service.get_snapshot = AsyncMock(return_value=None)
+        service._get_latest_snapshot_before = AsyncMock(return_value=None)
         service._get_sprite_urls_for_archetypes = AsyncMock(return_value={})
 
         result = await service.compute_meta_comparison(

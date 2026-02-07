@@ -483,7 +483,7 @@ verify_archetype_quality() {
 
         # 5b-b — JP sample size > 100
         local sample_size
-        sample_size=$(echo "$RESP_BODY" | jq '[.archetype_breakdown[].count // 0] | add // 0')
+        sample_size=$(echo "$RESP_BODY" | jq '.sample_size // 0')
         if [ "$sample_size" -gt 100 ]; then
             log_pass "JP sample size: $sample_size placements (> 100)"
         else

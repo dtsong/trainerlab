@@ -850,15 +850,25 @@ dispatch_prod() {
                 printf "${RED}${BOLD}EXECUTING${RESET}: ${pipeline} against production\n"
             fi
 
-            # Get Cloud Run URL and identity token
+            # Get Cloud Run URL (use CLOUD_RUN_URL env var for correct audience)
             local url
             url=$(gcloud run services describe "${PROD_SERVICE}" \
                 --project="${PROD_PROJECT}" \
                 --region="${PROD_REGION}" \
-                --format='value(status.url)')
+                --format='yaml(spec.template.spec.containers[0].env)' \
+                | grep -A1 'name: CLOUD_RUN_URL' | grep 'value:' \
+                | sed 's/.*value: //')
+            if [ -z "$url" ]; then
+                # Fallback to service status URL
+                url=$(gcloud run services describe "${PROD_SERVICE}" \
+                    --project="${PROD_PROJECT}" \
+                    --region="${PROD_REGION}" \
+                    --format='value(status.url)')
+            fi
             local token
             token=$(gcloud auth print-identity-token \
                 --impersonate-service-account="${PROD_OPS_SA}" \
+                --include-email \
                 --audiences="${url}")
 
             curl -s -X POST \

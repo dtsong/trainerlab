@@ -720,8 +720,8 @@ class MetaService:
         lag = None
         if lag_days > 0:
             lagged_date = today - timedelta(days=lag_days)
-            lagged_snap = await self.get_snapshot(
-                snapshot_date=lagged_date,
+            lagged_snap = await self._get_latest_snapshot_before(
+                before_date=lagged_date,
                 region=region_a,
                 game_format=game_format,
                 best_of=bo_a,
@@ -869,6 +869,41 @@ class MetaService:
         except SQLAlchemyError:
             logger.error(
                 "Failed to get latest snapshot: region=%s, format=%s, best_of=%s",
+                region,
+                game_format,
+                best_of,
+                exc_info=True,
+            )
+            raise
+
+    async def _get_latest_snapshot_before(
+        self,
+        *,
+        before_date: date,
+        region: str | None,
+        game_format: Literal["standard", "expanded"],
+        best_of: Literal[1, 3],
+    ) -> MetaSnapshot | None:
+        """Get the most recent snapshot on or before a given date."""
+        query = select(MetaSnapshot).where(
+            MetaSnapshot.format == game_format,
+            MetaSnapshot.best_of == best_of,
+            MetaSnapshot.snapshot_date <= before_date,
+        )
+        if region is None:
+            query = query.where(MetaSnapshot.region.is_(None))
+        else:
+            query = query.where(MetaSnapshot.region == region)
+
+        query = query.order_by(MetaSnapshot.snapshot_date.desc()).limit(1)
+
+        try:
+            result = await self.session.execute(query)
+            return result.scalar_one_or_none()
+        except SQLAlchemyError:
+            logger.error(
+                "Failed to get snapshot before %s: region=%s, format=%s, best_of=%s",
+                before_date,
                 region,
                 game_format,
                 best_of,

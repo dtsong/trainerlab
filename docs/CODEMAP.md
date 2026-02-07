@@ -9,11 +9,13 @@
 
 ```
 trainerlab/
+├── tl                # Developer CLI (./tl --help)
 ├── apps/
 │   ├── api/          # FastAPI backend (Python)
 │   └── web/          # Next.js frontend (TypeScript)
 ├── packages/
 │   └── shared-types/ # Shared TypeScript types
+├── scripts/          # Bash developer scripts (called via ./tl)
 ├── terraform/        # Infrastructure as code
 └── docs/             # Project documentation
 ```
@@ -604,6 +606,19 @@ S: > 15%, A: 8-15%, B: 3-8%, C: 1-3%, Rogue: < 1%
 | Database migrations      | `apps/api/alembic/versions/`  |
 | Tests (frontend)         | `apps/web/src/**/__tests__/`  |
 | Tests (backend)          | `apps/api/tests/`             |
+
+### Developer CLI
+
+All developer scripts are accessible via `./tl`. Run `./tl --help` for the full command list.
+
+```bash
+./tl setup                 # First-time setup (deps, Docker, migrations, seed)
+./tl dev                   # Start full local stack (Docker + API + web)
+./tl check                 # Run all verification scripts
+./tl test-all              # Run all test scripts
+./tl verify local          # Verify local Docker environment
+./tl sync cards --dry-run  # Sync cards from TCGdex
+```
 
 ### Common Tasks
 

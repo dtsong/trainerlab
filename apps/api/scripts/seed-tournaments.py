@@ -186,6 +186,76 @@ async def seed_tournament(fixture: TournamentFixture, dry_run: bool = False) -> 
         return True
 
 
+async def run_clear_and_seed(
+    fixtures: list[TournamentFixture],
+    clear: bool,
+    dry_run: bool,
+) -> tuple[int, int, int]:
+    """Clear (if requested) and seed all tournaments in one loop.
+
+    Returns:
+        Tuple of (created, skipped, failed) counts.
+    """
+    if clear and not dry_run:
+        console.print("[yellow]Clearing existing tournaments...[/yellow]")
+        try:
+            deleted = await clear_tournaments()
+        except SQLAlchemyError as e:
+            console.print(f"[red]Error:[/red] Failed to clear tournaments: {e}")
+            console.print("Check database connection and try again.")
+            raise typer.Exit(1) from None
+        console.print(f"Deleted {deleted} tournaments.\n")
+
+    created = 0
+    skipped = 0
+    failed = 0
+
+    for fixture in fixtures:
+        try:
+            was_created = await seed_tournament(fixture, dry_run)
+            if was_created:
+                created += 1
+                logger.info("Created: %s (%s)", fixture.name, fixture.region)
+            else:
+                skipped += 1
+                logger.info("Skipped (exists): %s", fixture.name)
+        except IntegrityError as e:
+            console.print(
+                f"[red]Database integrity error for '{fixture.name}':[/red] {e}"
+            )
+            logger.error(
+                "Integrity error seeding %s - check for duplicate "
+                "data or constraint violations: %s",
+                fixture.name,
+                str(e),
+            )
+            console.print("[red]Aborting seed due to integrity error.[/red]")
+            raise typer.Exit(1) from None
+        except SQLAlchemyError as e:
+            failed += 1
+            console.print(f"[red]Database error seeding '{fixture.name}':[/red] {e}")
+            logger.error(
+                "Database error seeding %s: %s",
+                fixture.name,
+                str(e),
+            )
+        except Exception as e:
+            failed += 1
+            error_type = type(e).__name__
+            console.print(
+                f"[red]Unexpected error seeding "
+                f"'{fixture.name}':[/red] {error_type}: {e}"
+            )
+            logger.error(
+                "Unexpected error seeding %s: %s",
+                fixture.name,
+                str(e),
+                exc_info=True,
+            )
+
+    return created, skipped, failed
+
+
 @app.command()
 def seed(
     clear: bool = typer.Option(
@@ -218,57 +288,8 @@ def seed(
     fixtures = load_fixtures()
     console.print(f"Found {len(fixtures)} tournaments in fixtures.\n")
 
-    # Clear if requested
-    if clear and not dry_run:
-        console.print("[yellow]Clearing existing tournaments...[/yellow]")
-        try:
-            deleted = asyncio.run(clear_tournaments())
-        except SQLAlchemyError as e:
-            console.print(f"[red]Error:[/red] Failed to clear tournaments: {e}")
-            console.print("Check database connection and try again.")
-            raise typer.Exit(1) from None
-        console.print(f"Deleted {deleted} tournaments.\n")
-
-    # Seed tournaments
-    created = 0
-    skipped = 0
-    failed = 0
-
-    for fixture in fixtures:
-        try:
-            was_created = asyncio.run(seed_tournament(fixture, dry_run))
-            if was_created:
-                created += 1
-                logger.info("Created: %s (%s)", fixture.name, fixture.region)
-            else:
-                skipped += 1
-                logger.info("Skipped (exists): %s", fixture.name)
-        except IntegrityError as e:
-            console.print(
-                f"[red]Database integrity error for '{fixture.name}':[/red] {e}"
-            )
-            logger.error(
-                "Integrity error seeding %s - check for duplicate data or "
-                "constraint violations: %s",
-                fixture.name,
-                str(e),
-            )
-            console.print("[red]Aborting seed due to integrity error.[/red]")
-            raise typer.Exit(1) from None
-        except SQLAlchemyError as e:
-            failed += 1
-            console.print(f"[red]Database error seeding '{fixture.name}':[/red] {e}")
-            logger.error("Database error seeding %s: %s", fixture.name, str(e))
-        except Exception as e:
-            failed += 1
-            error_type = type(e).__name__
-            console.print(
-                f"[red]Unexpected error seeding '{fixture.name}':[/red] "
-                f"{error_type}: {e}"
-            )
-            logger.error(
-                "Unexpected error seeding %s: %s", fixture.name, str(e), exc_info=True
-            )
+    # Run clear + seed in a single event loop
+    created, skipped, failed = asyncio.run(run_clear_and_seed(fixtures, clear, dry_run))
 
     # Summary
     console.print()

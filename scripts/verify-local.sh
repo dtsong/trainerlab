@@ -15,6 +15,7 @@ NC='\033[0m' # No Color
 # Default values
 API_URL="http://localhost:8080"
 GROUP=""
+NO_START=false
 
 # Counters
 PASSED=0
@@ -31,7 +32,12 @@ Deep data quality verification across all API endpoints in local environment.
 Options:
     --group=NAME    Run specific group (cards, sets, tournaments, meta, japan, format, frontend, comparison, forecast, techcards)
     --api-url=URL   Override API URL (default: http://localhost:8080)
+    --no-start      Skip auto-starting docker-compose services
     -h, --help      Show this help message
+
+Note:
+    By default, the script will auto-start docker-compose services if
+    the API is not reachable. Use --no-start to disable this behavior.
 
 Groups:
     cards           Card listing + search
@@ -87,6 +93,64 @@ check_prerequisites() {
         echo -e "${RED}[FAIL]${NC} jq not found. Please install it first (brew install jq)"
         exit 1
     fi
+}
+
+ensure_services() {
+    # Quick-check: if the API is already healthy, nothing to do
+    if curl -sf "${API_URL}/api/v1/health" > /dev/null 2>&1; then
+        log_info "API is already running at ${API_URL}"
+        return 0
+    fi
+
+    # Services aren't up — if --no-start was passed, bail out
+    if [ "$NO_START" = true ]; then
+        echo -e "${RED}[FAIL]${NC} Services are not running at ${API_URL} and --no-start was specified"
+        exit 1
+    fi
+
+    # Find docker compose command
+    local compose_cmd=""
+    if docker compose version > /dev/null 2>&1; then
+        compose_cmd="docker compose"
+    elif command -v docker-compose > /dev/null 2>&1; then
+        compose_cmd="docker-compose"
+    else
+        echo -e "${RED}[FAIL]${NC} docker compose not found. Please install Docker Desktop or docker-compose."
+        exit 1
+    fi
+
+    # Detect project root (docker-compose.yml location)
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local project_root="${script_dir}/.."
+    if [ ! -f "${project_root}/docker-compose.yml" ]; then
+        echo -e "${RED}[FAIL]${NC} docker-compose.yml not found at ${project_root}"
+        exit 1
+    fi
+
+    log_info "Starting docker-compose services..."
+    (cd "$project_root" && $compose_cmd up -d)
+
+    # Poll the health endpoint with a 120s timeout
+    local timeout=120
+    local interval=5
+    local elapsed=0
+
+    log_info "Waiting for API to become healthy (timeout: ${timeout}s)..."
+    while [ $elapsed -lt $timeout ]; do
+        if curl -sf "${API_URL}/api/v1/health" > /dev/null 2>&1; then
+            log_info "API is healthy after ${elapsed}s"
+            return 0
+        fi
+        sleep $interval
+        elapsed=$((elapsed + interval))
+        echo -ne "\r  Waiting... ${elapsed}s / ${timeout}s"
+    done
+
+    echo ""
+    echo -e "${RED}[FAIL]${NC} API did not become healthy within ${timeout}s"
+    echo -e "${YELLOW}[HINT]${NC} Check logs with: docker compose logs api"
+    exit 1
 }
 
 # Fetch an endpoint and store response body + HTTP status
@@ -635,6 +699,10 @@ while [[ $# -gt 0 ]]; do
             API_URL="${1#*=}"
             shift
             ;;
+        --no-start)
+            NO_START=true
+            shift
+            ;;
         -h|--help)
             usage
             ;;
@@ -655,6 +723,7 @@ echo "╚═══════════════════════�
 echo ""
 
 check_prerequisites
+ensure_services
 
 run_group() {
     case $1 in

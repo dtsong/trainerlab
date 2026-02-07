@@ -40,6 +40,9 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 
+# Claude Code
+.claude/council/sessions/
+
 # Terraform
 .terraform/
 *.tfstate

@@ -144,6 +144,31 @@ async def compute_daily_snapshots(
         extra=_extra,
     )
 
+    # Tail step: compute JP intelligence (non-fatal)
+    if not dry_run:
+        try:
+            from src.pipelines.compute_jp_intelligence import (
+                compute_jp_intelligence,
+            )
+
+            jp_result = await compute_jp_intelligence(dry_run=False)
+            logger.info(
+                "JP intelligence tail step: archetypes=%d/%d, "
+                "innovations=%d/%d, errors=%d",
+                jp_result.new_archetypes_found,
+                jp_result.new_archetypes_removed,
+                jp_result.innovations_found,
+                jp_result.innovations_removed,
+                len(jp_result.errors),
+                extra=_extra,
+            )
+        except Exception:
+            logger.warning(
+                "JP intelligence tail step failed (non-fatal)",
+                exc_info=True,
+                extra=_extra,
+            )
+
     return result
 
 

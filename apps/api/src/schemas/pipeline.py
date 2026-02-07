@@ -285,6 +285,27 @@ class CleanupExportsResult(BaseModel):
     success: bool = Field(description="Whether cleanup completed without errors")
 
 
+class ComputeJPIntelligenceRequest(PipelineRequest):
+    """Request for JP intelligence pipeline."""
+
+    pass
+
+
+class ComputeJPIntelligenceResult(BaseModel):
+    """Result from JP intelligence pipeline."""
+
+    new_archetypes_found: int = Field(ge=0, description="JP-only archetypes found")
+    new_archetypes_removed: int = Field(
+        ge=0, description="Archetypes removed (dropped below threshold)"
+    )
+    innovations_found: int = Field(ge=0, description="Card innovations found")
+    innovations_removed: int = Field(
+        ge=0, description="Innovations removed (adoption dropped)"
+    )
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
 class ReprocessArchetypesRequest(PipelineRequest):
     """Request for archetype reprocess pipeline."""
 

@@ -653,9 +653,14 @@ class MetaService:
             )
             return {}
 
+        from src.services.archetype_normalizer import sprite_key_to_urls
+
         mapping: dict[str, list[str]] = {}
         for sprite in sprites:
-            mapping[sprite.archetype_name] = sprite.sprite_urls or []
+            urls = sprite.sprite_urls or []
+            if not urls and sprite.sprite_key:
+                urls = sprite_key_to_urls(sprite.sprite_key)
+            mapping[sprite.archetype_name] = urls
         return mapping
 
     # --- Comparison ---

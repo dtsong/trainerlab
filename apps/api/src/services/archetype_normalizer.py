@@ -23,6 +23,49 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+LIMITLESS_SPRITE_CDN = "https://r2.limitlesstcg.net/pokemon/gen9"
+
+# Composite sprite keys that map to multiple filenames.
+# Most sprite keys are a single pokemon and the filename is the key itself.
+# These entries are for multi-sprite composites that can't be split on "-"
+# naively because individual pokemon names contain hyphens.
+_COMPOSITE_SPRITE_FILENAMES: dict[str, list[str]] = {
+    "charizard-pidgeot": ["charizard", "pidgeot"],
+    "charizard-dusknoir": ["charizard", "dusknoir"],
+    "dragapult-pidgeot": ["dragapult", "pidgeot"],
+    "ogerpon-raging-bolt": ["ogerpon", "raging-bolt"],
+    "baxcalibur-chien-pao": ["baxcalibur", "chien-pao"],
+    "comfey-giratina": ["comfey", "giratina"],
+    "comfey-sableye": ["comfey", "sableye"],
+    "absol-mega-kangaskhan-mega": ["absol-mega", "kangaskhan-mega"],
+    "noctowl-ogerpon-wellspring": ["noctowl", "ogerpon-wellspring"],
+    "joltik-pikachu": ["joltik", "pikachu"],
+    "armarouge-ho-oh": ["armarouge", "ho-oh"],
+    "froslass-munkidori": ["froslass", "munkidori"],
+    "iron-valiant": ["iron-valiant"],
+    "iron-hands": ["iron-hands"],
+    "raging-bolt": ["raging-bolt"],
+    "roaring-moon": ["roaring-moon"],
+    "chien-pao": ["chien-pao"],
+}
+
+
+def sprite_key_to_filenames(key: str) -> list[str]:
+    """Convert a sprite key to a list of sprite filenames.
+
+    Looks up the composite map first; if not found, returns [key].
+    """
+    if not key:
+        return []
+    return _COMPOSITE_SPRITE_FILENAMES.get(key, [key])
+
+
+def sprite_key_to_urls(key: str) -> list[str]:
+    """Construct CDN URLs from a sprite key."""
+    filenames = sprite_key_to_filenames(key)
+    return [f"{LIMITLESS_SPRITE_CDN}/{fn}.png" for fn in filenames]
+
+
 DetectionMethod = Literal[
     "sprite_lookup", "auto_derive", "signature_card", "text_label"
 ]
@@ -199,13 +242,14 @@ class ArchetypeNormalizer:
         inserted = 0
         for sprite_key, archetype_name in SPRITE_ARCHETYPE_MAP.items():
             if sprite_key not in existing:
+                fnames = sprite_key_to_filenames(sprite_key)
                 session.add(
                     ArchetypeSprite(
                         id=uuid4(),
                         sprite_key=sprite_key,
                         archetype_name=archetype_name,
-                        sprite_urls=[],
-                        pokemon_names=[sprite_key],
+                        sprite_urls=sprite_key_to_urls(sprite_key),
+                        pokemon_names=fnames,
                     )
                 )
                 inserted += 1

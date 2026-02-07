@@ -15,6 +15,12 @@ from src.pipelines.compute_evolution import (
 from src.pipelines.compute_evolution import (
     compute_evolution_intelligence,
 )
+from src.pipelines.compute_jp_intelligence import (
+    ComputeJPIntelligenceResult as ComputeJPIntelligenceResultInternal,
+)
+from src.pipelines.compute_jp_intelligence import (
+    compute_jp_intelligence,
+)
 from src.pipelines.compute_meta import (
     ComputeMetaResult as ComputeMetaResultInternal,
 )
@@ -72,6 +78,8 @@ from src.schemas.pipeline import (
     CleanupExportsResult,
     ComputeEvolutionRequest,
     ComputeEvolutionResult,
+    ComputeJPIntelligenceRequest,
+    ComputeJPIntelligenceResult,
     ComputeMetaRequest,
     ComputeMetaResult,
     DiscoverRequest,
@@ -269,6 +277,52 @@ async def compute_meta_endpoint(
     )
 
     return _convert_meta_result(result)
+
+
+def _convert_jp_intelligence_result(
+    internal: ComputeJPIntelligenceResultInternal,
+) -> ComputeJPIntelligenceResult:
+    """Convert internal ComputeJPIntelligenceResult to API schema."""
+    return ComputeJPIntelligenceResult(
+        new_archetypes_found=internal.new_archetypes_found,
+        new_archetypes_removed=internal.new_archetypes_removed,
+        innovations_found=internal.innovations_found,
+        innovations_removed=internal.innovations_removed,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post(
+    "/compute-jp-intelligence",
+    response_model=ComputeJPIntelligenceResult,
+)
+async def compute_jp_intelligence_endpoint(
+    request: ComputeJPIntelligenceRequest,
+) -> ComputeJPIntelligenceResult:
+    """Compute JP intelligence (new archetypes + card innovations).
+
+    Derives JP-only archetypes and card innovations from existing
+    meta snapshots and adoption rate data. Called as a tail step
+    after compute-meta, or triggered manually.
+    """
+    logger.info(
+        "Starting JP intelligence pipeline: dry_run=%s",
+        request.dry_run,
+    )
+
+    result = await compute_jp_intelligence(dry_run=request.dry_run)
+
+    logger.info(
+        "JP intelligence complete: archetypes=%d/%d, innovations=%d/%d, errors=%d",
+        result.new_archetypes_found,
+        result.new_archetypes_removed,
+        result.innovations_found,
+        result.innovations_removed,
+        len(result.errors),
+    )
+
+    return _convert_jp_intelligence_result(result)
 
 
 @router.post("/sync-cards", response_model=SyncCardsResult)

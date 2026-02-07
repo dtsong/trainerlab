@@ -1,17 +1,36 @@
 """Admin endpoints for placeholder card and archetype sprite management."""
 
 import logging
+from datetime import UTC, date, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
+from src.dependencies.admin import AdminUser
 from src.models.archetype_sprite import ArchetypeSprite
+from src.models.card import Card
+from src.models.jp_card_adoption_rate import JPCardAdoptionRate
+from src.models.jp_new_archetype import JPNewArchetype
+from src.models.meta_snapshot import MetaSnapshot
 from src.models.placeholder_card import PlaceholderCard
+from src.models.set import Set
+from src.models.tournament import Tournament
+from src.models.tournament_placement import TournamentPlacement
+from src.models.user import User
+from src.schemas.admin_data import (
+    DataOverviewResponse,
+    MetaSnapshotDetailResponse,
+    MetaSnapshotListResponse,
+    MetaSnapshotSummary,
+    PipelineHealthItem,
+    PipelineHealthResponse,
+    TableInfo,
+)
 from src.schemas.archetype_sprite import (
     ArchetypeSpriteCreate,
     ArchetypeSpriteListResponse,
@@ -430,3 +449,303 @@ async def seed_archetype_sprites(
             detail="Seed failed due to conflicting data",
         ) from None
     return {"inserted": inserted}
+
+
+# --- Admin Data Dashboard endpoints ---
+
+
+@router.get(
+    "/data/overview",
+    response_model=DataOverviewResponse,
+    summary="Data overview for admin dashboard",
+)
+async def get_data_overview(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> DataOverviewResponse:
+    """Return row counts and freshness for all major tables."""
+    tables: list[TableInfo] = []
+
+    # Tournaments
+    t_count = await db.scalar(select(func.count()).select_from(Tournament))
+    t_max_date = await db.scalar(select(func.max(Tournament.date)))
+    tables.append(
+        TableInfo(
+            name="tournaments",
+            row_count=t_count or 0,
+            latest_date=(str(t_max_date) if t_max_date else None),
+        )
+    )
+
+    # Tournament Placements
+    tp_count = await db.scalar(select(func.count()).select_from(TournamentPlacement))
+    tables.append(
+        TableInfo(
+            name="tournament_placements",
+            row_count=tp_count or 0,
+        )
+    )
+
+    # Meta Snapshots
+    ms_count = await db.scalar(select(func.count()).select_from(MetaSnapshot))
+    ms_max_date = await db.scalar(select(func.max(MetaSnapshot.snapshot_date)))
+    ms_regions_result = await db.execute(select(MetaSnapshot.region).distinct())
+    ms_regions = [r for (r,) in ms_regions_result.all() if r is not None]
+    tables.append(
+        TableInfo(
+            name="meta_snapshots",
+            row_count=ms_count or 0,
+            latest_date=(str(ms_max_date) if ms_max_date else None),
+            detail=f"regions: {', '.join(ms_regions)}",
+        )
+    )
+
+    # Cards
+    c_count = await db.scalar(select(func.count()).select_from(Card))
+    tables.append(TableInfo(name="cards", row_count=c_count or 0))
+
+    # Sets
+    s_count = await db.scalar(select(func.count()).select_from(Set))
+    tables.append(TableInfo(name="sets", row_count=s_count or 0))
+
+    # Users
+    u_count = await db.scalar(select(func.count()).select_from(User))
+    tables.append(TableInfo(name="users", row_count=u_count or 0))
+
+    # Archetype Sprites
+    as_count = await db.scalar(select(func.count()).select_from(ArchetypeSprite))
+    as_with_sprites = await db.scalar(
+        select(func.count())
+        .select_from(ArchetypeSprite)
+        .where(ArchetypeSprite.sprite_urls != None)  # noqa: E711
+        .where(ArchetypeSprite.sprite_urls != "[]")
+    )
+    tables.append(
+        TableInfo(
+            name="archetype_sprites",
+            row_count=as_count or 0,
+            detail=(f"{as_with_sprites or 0} with sprite URLs"),
+        )
+    )
+
+    # JP Card Adoption Rates
+    ja_count = await db.scalar(select(func.count()).select_from(JPCardAdoptionRate))
+    ja_max_date = await db.scalar(select(func.max(JPCardAdoptionRate.period_end)))
+    tables.append(
+        TableInfo(
+            name="jp_card_adoption_rates",
+            row_count=ja_count or 0,
+            latest_date=(str(ja_max_date) if ja_max_date else None),
+        )
+    )
+
+    # JP New Archetypes
+    jna_count = await db.scalar(select(func.count()).select_from(JPNewArchetype))
+    tables.append(
+        TableInfo(
+            name="jp_new_archetypes",
+            row_count=jna_count or 0,
+        )
+    )
+
+    return DataOverviewResponse(
+        tables=tables,
+        generated_at=datetime.now(UTC).isoformat(),
+    )
+
+
+@router.get(
+    "/data/meta-snapshots",
+    response_model=MetaSnapshotListResponse,
+    summary="List meta snapshots",
+)
+async def list_meta_snapshots(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    region: str | None = None,
+    format: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> MetaSnapshotListResponse:
+    """List meta snapshots with optional filtering."""
+    query = select(MetaSnapshot)
+
+    if region is not None:
+        query = query.where(MetaSnapshot.region == region)
+    if format is not None:
+        query = query.where(MetaSnapshot.format == format)
+
+    # Total count
+    count_q = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_q) or 0
+
+    # Paginated results
+    query = (
+        query.order_by(MetaSnapshot.snapshot_date.desc()).offset(offset).limit(limit)
+    )
+    result = await db.execute(query)
+    snapshots = result.scalars().all()
+
+    items = []
+    for snap in snapshots:
+        archetype_count = len(snap.archetype_shares) if snap.archetype_shares else 0
+        items.append(
+            MetaSnapshotSummary(
+                id=str(snap.id),
+                snapshot_date=str(snap.snapshot_date),
+                region=snap.region,
+                format=snap.format,
+                best_of=snap.best_of,
+                sample_size=snap.sample_size,
+                archetype_count=archetype_count,
+                diversity_index=(
+                    float(snap.diversity_index)
+                    if snap.diversity_index is not None
+                    else None
+                ),
+            )
+        )
+
+    return MetaSnapshotListResponse(items=items, total=total)
+
+
+@router.get(
+    "/data/meta-snapshots/{snapshot_id}",
+    response_model=MetaSnapshotDetailResponse,
+    summary="Get meta snapshot detail",
+)
+async def get_meta_snapshot_detail(
+    snapshot_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> MetaSnapshotDetailResponse:
+    """Get full detail for a single meta snapshot."""
+    result = await db.execute(
+        select(MetaSnapshot).where(MetaSnapshot.id == snapshot_id)
+    )
+    snap = result.scalar_one_or_none()
+
+    if not snap:
+        raise HTTPException(
+            status_code=404,
+            detail="Meta snapshot not found",
+        )
+
+    archetype_count = len(snap.archetype_shares) if snap.archetype_shares else 0
+
+    return MetaSnapshotDetailResponse(
+        id=str(snap.id),
+        snapshot_date=str(snap.snapshot_date),
+        region=snap.region,
+        format=snap.format,
+        best_of=snap.best_of,
+        sample_size=snap.sample_size,
+        archetype_count=archetype_count,
+        diversity_index=(
+            float(snap.diversity_index) if snap.diversity_index is not None else None
+        ),
+        archetype_shares=snap.archetype_shares,
+        tier_assignments=snap.tier_assignments,
+        card_usage=snap.card_usage,
+        jp_signals=snap.jp_signals,
+        trends=snap.trends,
+        tournaments_included=snap.tournaments_included,
+    )
+
+
+def _pipeline_status(
+    days: int | None,
+    healthy_threshold: int,
+    stale_threshold: int,
+) -> str:
+    """Determine pipeline health status from days since last run."""
+    if days is None:
+        return "critical"
+    if days <= healthy_threshold:
+        return "healthy"
+    if days <= stale_threshold:
+        return "stale"
+    return "critical"
+
+
+@router.get(
+    "/data/pipeline-health",
+    response_model=PipelineHealthResponse,
+    summary="Pipeline health status",
+)
+async def get_pipeline_health(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> PipelineHealthResponse:
+    """Check freshness of each data pipeline."""
+    today = date.today()
+    pipelines: list[PipelineHealthItem] = []
+
+    # Meta Compute — max snapshot_date (date column)
+    meta_date = await db.scalar(select(func.max(MetaSnapshot.snapshot_date)))
+    meta_days = (today - meta_date).days if meta_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="Meta Compute",
+            status=_pipeline_status(meta_days, 2, 7),
+            last_run=(str(meta_date) if meta_date else None),
+            days_since_run=meta_days,
+        )
+    )
+
+    # JP Scrape — max Tournament.date where region='JP'
+    jp_date = await db.scalar(
+        select(func.max(Tournament.date)).where(Tournament.region == "JP")
+    )
+    jp_days = (today - jp_date).days if jp_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="JP Scrape",
+            status=_pipeline_status(jp_days, 7, 14),
+            last_run=(str(jp_date) if jp_date else None),
+            days_since_run=jp_days,
+        )
+    )
+
+    # JP Intelligence — max JPNewArchetype.updated_at
+    jp_intel_dt = await db.scalar(select(func.max(JPNewArchetype.updated_at)))
+    jp_intel_date = jp_intel_dt.date() if jp_intel_dt else None
+    jp_intel_days = (today - jp_intel_date).days if jp_intel_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="JP Intelligence",
+            status=_pipeline_status(jp_intel_days, 7, 14),
+            last_run=(str(jp_intel_date) if jp_intel_date else None),
+            days_since_run=jp_intel_days,
+        )
+    )
+
+    # Card Sync — max Card.updated_at (datetime)
+    card_dt = await db.scalar(select(func.max(Card.updated_at)))
+    card_date = card_dt.date() if card_dt else None
+    card_days = (today - card_date).days if card_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="Card Sync",
+            status=_pipeline_status(card_days, 7, 14),
+            last_run=(str(card_date) if card_date else None),
+            days_since_run=card_days,
+        )
+    )
+
+    # JP Adoption Rate — max period_end (date)
+    adopt_date = await db.scalar(select(func.max(JPCardAdoptionRate.period_end)))
+    adopt_days = (today - adopt_date).days if adopt_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="JP Adoption Rate",
+            status=_pipeline_status(adopt_days, 14, 30),
+            last_run=(str(adopt_date) if adopt_date else None),
+            days_since_run=adopt_days,
+        )
+    )
+
+    return PipelineHealthResponse(
+        pipelines=pipelines,
+        checked_at=datetime.now(UTC).isoformat(),
+    )

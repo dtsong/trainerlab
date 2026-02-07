@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/meta", label: "Meta" },
   { href: "/admin/cards", label: "Cards" },
   { href: "/admin/lab-notes", label: "Lab Notes" },
+  { href: "/admin/data", label: "Data" },
 ] as const;
 
 export function AdminSidebar() {

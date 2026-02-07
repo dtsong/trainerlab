@@ -1,5 +1,6 @@
 """API routers."""
 
+from src.routers.admin import router as admin_router
 from src.routers.api_keys import router as api_keys_router
 from src.routers.cards import router as cards_router
 from src.routers.decks import router as decks_router
@@ -20,6 +21,7 @@ from src.routers.waitlist import router as waitlist_router
 from src.routers.widgets import router as widgets_router
 
 __all__ = [
+    "admin_router",
     "api_keys_router",
     "cards_router",
     "decks_router",

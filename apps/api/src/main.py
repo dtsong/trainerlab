@@ -17,6 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.config import get_settings
 from src.routers import (
+    admin_router,
     api_keys_router,
     cards_router,
     decks_router,
@@ -155,6 +156,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(admin_router)
 app.include_router(api_keys_router)
 app.include_router(cards_router)
 app.include_router(decks_router)

@@ -64,6 +64,56 @@ import {
   TournamentListResponseSchema,
 } from "./api-validation";
 
+// Admin data dashboard types
+interface AdminTableInfo {
+  name: string;
+  row_count: number;
+  latest_date: string | null;
+  detail: string | null;
+}
+
+interface AdminDataOverview {
+  tables: AdminTableInfo[];
+  generated_at: string;
+}
+
+interface AdminMetaSnapshotSummary {
+  id: string;
+  snapshot_date: string;
+  region: string | null;
+  format: string;
+  best_of: number;
+  sample_size: number;
+  archetype_count: number;
+  diversity_index: number | null;
+}
+
+interface AdminMetaSnapshotList {
+  items: AdminMetaSnapshotSummary[];
+  total: number;
+}
+
+interface AdminMetaSnapshotDetail extends AdminMetaSnapshotSummary {
+  archetype_shares: Record<string, number>;
+  tier_assignments: Record<string, string> | null;
+  card_usage: Record<string, unknown> | null;
+  jp_signals: Record<string, unknown> | null;
+  trends: Record<string, unknown> | null;
+  tournaments_included: string[] | null;
+}
+
+interface AdminPipelineHealthItem {
+  name: string;
+  status: string;
+  last_run: string | null;
+  days_since_run: number | null;
+}
+
+interface AdminPipelineHealth {
+  pipelines: AdminPipelineHealthItem[];
+  checked_at: string;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 class ApiError extends Error {
@@ -752,6 +802,39 @@ export const translationsAdminApi = {
       }
     );
   },
+};
+
+// Admin Data API
+export const adminDataApi = {
+  getOverview: () =>
+    fetchApiAuth<AdminDataOverview>("/api/v1/admin/data/overview"),
+
+  listMetaSnapshots: (
+    params: {
+      region?: string;
+      format?: string;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params.region) searchParams.set("region", params.region);
+    if (params.format) searchParams.set("format", params.format);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+    const query = searchParams.toString();
+    return fetchApiAuth<AdminMetaSnapshotList>(
+      `/api/v1/admin/data/meta-snapshots${query ? `?${query}` : ""}`
+    );
+  },
+
+  getMetaSnapshotDetail: (id: string) =>
+    fetchApiAuth<AdminMetaSnapshotDetail>(
+      `/api/v1/admin/data/meta-snapshots/${id}`
+    ),
+
+  getPipelineHealth: () =>
+    fetchApiAuth<AdminPipelineHealth>("/api/v1/admin/data/pipeline-health"),
 };
 
 export { ApiError, fetchApiAuth, getAuthToken };

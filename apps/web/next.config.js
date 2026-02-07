@@ -16,6 +16,11 @@ const nextConfig = {
         hostname: "assets.tcgdex.net",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "r2.limitlesstcg.net",
+        pathname: "/pokemon/**",
+      },
     ],
   },
   async headers() {
@@ -29,7 +34,7 @@ const nextConfig = {
           "default-src 'self'",
           "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
           "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' https://assets.tcgdex.net https://lh3.googleusercontent.com data:",
+          "img-src 'self' https://assets.tcgdex.net https://lh3.googleusercontent.com https://r2.limitlesstcg.net data:",
           "font-src 'self'",
           "connect-src 'self' https://api.trainerlab.io",
           "frame-ancestors 'none'",

@@ -289,6 +289,10 @@ module "api" {
       secret_id = google_secret_manager_secret.nextauth_secret.secret_id
       version   = "latest"
     }
+    ANTHROPIC_API_KEY = {
+      secret_id = google_secret_manager_secret.anthropic_api_key.secret_id
+      version   = "latest"
+    }
   }
 
   allow_unauthenticated = true

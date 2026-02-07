@@ -313,17 +313,24 @@ async def compute_jp_intelligence(
     result = ComputeJPIntelligenceResult()
 
     async with async_session_factory() as session:
-        # Backfill empty sprite_urls on existing DB rows (idempotent)
+        # Seed missing + backfill empty sprite URLs (idempotent, non-fatal)
         if not dry_run:
             try:
                 from src.services.archetype_normalizer import (
                     ArchetypeNormalizer,
                 )
 
-                await ArchetypeNormalizer.backfill_sprite_urls(session)
+                seeded = await ArchetypeNormalizer.seed_db_sprites(session)
+                backfilled = await ArchetypeNormalizer.backfill_sprite_urls(session)
+                if seeded or backfilled:
+                    logger.info(
+                        "Sprite maintenance: seeded=%d, backfilled=%d",
+                        seeded,
+                        backfilled,
+                    )
             except Exception:
                 logger.warning(
-                    "Sprite URL backfill failed (non-fatal)",
+                    "Sprite maintenance failed (non-fatal)",
                     exc_info=True,
                 )
 

@@ -79,7 +79,9 @@ describe("EvolutionChart", () => {
   });
 
   it("should apply custom className", () => {
-    render(<EvolutionChart snapshots={mockSnapshots} className="custom-class" />);
+    render(
+      <EvolutionChart snapshots={mockSnapshots} className="custom-class" />
+    );
 
     expect(screen.getByTestId("evolution-chart")).toHaveClass("custom-class");
   });
@@ -98,8 +100,8 @@ describe("EvolutionChart", () => {
         id: "invalid",
         archetype_id: "charizard-ex",
         created_at: null,
-        meta_share: 0.20,
-        top_cut_conversion: 0.30,
+        meta_share: 0.2,
+        top_cut_conversion: 0.3,
         sample_size: 100,
       },
     ];
@@ -153,7 +155,7 @@ describe("EvolutionChart", () => {
         archetype_id: "charizard-ex",
         created_at: "2024-06-15T00:00:00Z",
         meta_share: 0.18,
-        top_cut_conversion: 0.30,
+        top_cut_conversion: 0.3,
         sample_size: 100,
       },
       {

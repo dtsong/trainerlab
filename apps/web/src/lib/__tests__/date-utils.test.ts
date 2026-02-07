@@ -76,7 +76,9 @@ describe("safeFormatDate", () => {
   });
 
   it("should handle dates at boundaries", () => {
-    expect(safeFormatDate("2024-01-01", "MMMM d, yyyy")).toBe("January 1, 2024");
+    expect(safeFormatDate("2024-01-01", "MMMM d, yyyy")).toBe(
+      "January 1, 2024"
+    );
     expect(safeFormatDate("2024-12-31", "MMMM d, yyyy")).toBe(
       "December 31, 2024"
     );

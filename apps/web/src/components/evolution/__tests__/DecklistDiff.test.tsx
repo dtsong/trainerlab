@@ -130,9 +130,7 @@ describe("DecklistDiff", () => {
   });
 
   it("should render removed cards before added cards", () => {
-    const cardsAdded: CardChange[] = [
-      { card_id: "add-1", name: "Added Card" },
-    ];
+    const cardsAdded: CardChange[] = [{ card_id: "add-1", name: "Added Card" }];
     const cardsRemoved: CardChange[] = [
       { card_id: "rem-1", name: "Removed Card" },
     ];

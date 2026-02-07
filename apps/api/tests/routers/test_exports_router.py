@@ -196,7 +196,9 @@ class TestGetDownloadUrl:
     """Tests for GET /api/v1/exports/{export_id}/download."""
 
     @pytest.mark.asyncio
-    async def test_gets_download_url(self, mock_session, mock_creator_user, mock_export):
+    async def test_gets_download_url(
+        self, mock_session, mock_creator_user, mock_export
+    ):
         """Test getting download URL for an export."""
         with patch("src.routers.exports.DataExportService") as mock_service_class:
             mock_service = MagicMock()

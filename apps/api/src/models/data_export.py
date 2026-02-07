@@ -21,15 +21,11 @@ class DataExport(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    export_type: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True
-    )
+    export_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
 
     config: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default={})
 
-    format: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="json"
-    )
+    format: Mapped[str] = mapped_column(String(20), nullable=False, default="json")
 
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending", index=True

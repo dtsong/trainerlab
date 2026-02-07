@@ -191,10 +191,9 @@ describe("useLabNote", () => {
   it("should fetch lab note by slug", async () => {
     vi.mocked(labNotesApi.getBySlug).mockResolvedValue(mockLabNote);
 
-    const { result } = renderHook(
-      () => useLabNote("charizard-meta-analysis"),
-      { wrapper: createWrapper() }
-    );
+    const { result } = renderHook(() => useLabNote("charizard-meta-analysis"), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -230,10 +229,9 @@ describe("useLabNote", () => {
   it("should return note with full content", async () => {
     vi.mocked(labNotesApi.getBySlug).mockResolvedValue(mockLabNote);
 
-    const { result } = renderHook(
-      () => useLabNote("charizard-meta-analysis"),
-      { wrapper: createWrapper() }
-    );
+    const { result } = renderHook(() => useLabNote("charizard-meta-analysis"), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -255,10 +253,9 @@ describe("useLabNote", () => {
 
     vi.mocked(labNotesApi.getBySlug).mockResolvedValue(noteWithRelated);
 
-    const { result } = renderHook(
-      () => useLabNote("charizard-meta-analysis"),
-      { wrapper: createWrapper() }
-    );
+    const { result } = renderHook(() => useLabNote("charizard-meta-analysis"), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 

@@ -1,7 +1,11 @@
 """FastAPI dependencies for injection."""
 
 from src.dependencies.admin import AdminUser, require_admin
-from src.dependencies.api_key_auth import ApiKeyAuth, get_api_key_user, record_api_request
+from src.dependencies.api_key_auth import (
+    ApiKeyAuth,
+    get_api_key_user,
+    record_api_request,
+)
 from src.dependencies.auth import (
     CurrentUser,
     OptionalUser,

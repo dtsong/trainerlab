@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AdminHeader } from "@/components/admin";
-import { useTranslationsAdmin, useUpdateTranslation } from "@/hooks/useTranslationsAdmin";
+import {
+  useTranslationsAdmin,
+  useUpdateTranslation,
+} from "@/hooks/useTranslationsAdmin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -95,7 +98,10 @@ export default function TranslationDetailPage() {
           >
             {translation.status}
           </Badge>
-          <Badge variant="outline" className="border-zinc-700 font-mono text-xs text-zinc-400">
+          <Badge
+            variant="outline"
+            className="border-zinc-700 font-mono text-xs text-zinc-400"
+          >
             {translation.content_type}
           </Badge>
         </div>
@@ -113,7 +119,9 @@ export default function TranslationDetailPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
-            <h3 className="mb-2 font-mono text-sm text-zinc-400">Original (Japanese)</h3>
+            <h3 className="mb-2 font-mono text-sm text-zinc-400">
+              Original (Japanese)
+            </h3>
             <div className="max-h-[60vh] overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 p-4">
               <pre className="whitespace-pre-wrap font-mono text-sm text-zinc-300">
                 {translation.original_text || "(No original text)"}
@@ -122,7 +130,9 @@ export default function TranslationDetailPage() {
           </div>
 
           <div>
-            <h3 className="mb-2 font-mono text-sm text-zinc-400">Translation (English)</h3>
+            <h3 className="mb-2 font-mono text-sm text-zinc-400">
+              Translation (English)
+            </h3>
             <Textarea
               value={editedText}
               onChange={(e) => setEditedText(e.target.value)}
@@ -134,7 +144,9 @@ export default function TranslationDetailPage() {
 
         {translation.uncertainties && translation.uncertainties.length > 0 && (
           <div className="mt-4 rounded-lg border border-amber-800 bg-amber-900/20 p-4">
-            <h4 className="mb-2 font-mono text-sm text-amber-400">Translation Uncertainties</h4>
+            <h4 className="mb-2 font-mono text-sm text-amber-400">
+              Translation Uncertainties
+            </h4>
             <ul className="list-inside list-disc text-sm text-amber-300">
               {translation.uncertainties.map((u, i) => (
                 <li key={i}>{u}</li>

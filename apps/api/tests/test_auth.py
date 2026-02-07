@@ -69,7 +69,9 @@ class TestGetCurrentUser:
         mock_verify.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_request, mock_db, authorization="Bearer invalid-token")
+            await get_current_user(
+                mock_request, mock_db, authorization="Bearer invalid-token"
+            )
 
         assert exc_info.value.status_code == 401
         assert "Invalid or expired token" in exc_info.value.detail
@@ -94,7 +96,9 @@ class TestGetCurrentUser:
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute.return_value = mock_result
 
-        result = await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
+        result = await get_current_user(
+            mock_request, mock_db, authorization="Bearer valid-token"
+        )
 
         assert result == mock_user
         mock_db.add.assert_not_called()  # User already exists
@@ -119,7 +123,9 @@ class TestGetCurrentUser:
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
 
-        await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
+        await get_current_user(
+            mock_request, mock_db, authorization="Bearer valid-token"
+        )
 
         # Verify user was created
         mock_db.add.assert_called_once()
@@ -150,7 +156,9 @@ class TestGetCurrentUser:
         mock_db.execute.return_value = mock_result
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
+            await get_current_user(
+                mock_request, mock_db, authorization="Bearer valid-token"
+            )
 
         assert exc_info.value.status_code == 401
         assert "Email required for account creation" in exc_info.value.detail
@@ -167,7 +175,9 @@ class TestGetCurrentUser:
         mock_verify.side_effect = TokenVerificationError("Secret not configured")
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
+            await get_current_user(
+                mock_request, mock_db, authorization="Bearer valid-token"
+            )
 
         assert exc_info.value.status_code == 503
         assert "temporarily unavailable" in exc_info.value.detail
@@ -206,7 +216,9 @@ class TestGetCurrentUser:
             statement="INSERT", params={}, orig=Exception("duplicate key")
         )
 
-        result = await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
+        result = await get_current_user(
+            mock_request, mock_db, authorization="Bearer valid-token"
+        )
 
         # Verify rollback was called
         mock_db.rollback.assert_called_once()
@@ -240,7 +252,9 @@ class TestGetCurrentUser:
         )
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
+            await get_current_user(
+                mock_request, mock_db, authorization="Bearer valid-token"
+            )
 
         assert exc_info.value.status_code == 500
         assert "Account creation failed" in exc_info.value.detail
@@ -256,7 +270,9 @@ class TestGetCurrentUserOptional:
         mock_request = make_mock_request()
         mock_db = AsyncMock()
 
-        result = await get_current_user_optional(mock_request, mock_db, authorization=None)
+        result = await get_current_user_optional(
+            mock_request, mock_db, authorization=None
+        )
 
         assert result is None
 

@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { TierBadge } from "@/components/ui/tier-badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { ApiArchetypePrediction, PredictionTier } from "@trainerlab/shared-types";
+import type {
+  ApiArchetypePrediction,
+  PredictionTier,
+} from "@trainerlab/shared-types";
 
 interface PredictionCardProps {
   prediction: ApiArchetypePrediction;

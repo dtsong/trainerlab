@@ -427,3 +427,20 @@ class WipeDataResult(BaseModel):
     preserved_tables_checked: int = Field(ge=0, description="Preserved tables verified")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether wipe completed without errors")
+
+
+class SyncEventsRequest(PipelineRequest):
+    """Request for event sync pipeline."""
+
+    pass
+
+
+class SyncEventsResult(BaseModel):
+    """Result from event sync pipeline."""
+
+    events_fetched: int = Field(ge=0, description="Events fetched from sources")
+    events_created: int = Field(ge=0, description="New events created")
+    events_updated: int = Field(ge=0, description="Existing events updated")
+    events_skipped: int = Field(ge=0, description="Events unchanged")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")

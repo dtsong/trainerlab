@@ -73,22 +73,20 @@ async def get_jp_adoption_rates(
     """
     cutoff = date.today() - timedelta(days=days)
 
-    query = select(JPCardAdoptionRate).where(
-        JPCardAdoptionRate.period_end >= cutoff
-    )
+    query = select(JPCardAdoptionRate).where(JPCardAdoptionRate.period_end >= cutoff)
 
     if archetype:
         query = query.where(JPCardAdoptionRate.archetype_context == archetype)
 
-    query = query.order_by(
-        JPCardAdoptionRate.inclusion_rate.desc()
-    ).limit(limit)
+    query = query.order_by(JPCardAdoptionRate.inclusion_rate.desc()).limit(limit)
 
     result = await db.execute(query)
     rates = result.scalars().all()
 
-    count_query = select(func.count()).select_from(JPCardAdoptionRate).where(
-        JPCardAdoptionRate.period_end >= cutoff
+    count_query = (
+        select(func.count())
+        .select_from(JPCardAdoptionRate)
+        .where(JPCardAdoptionRate.period_end >= cutoff)
     )
     if archetype:
         count_query = count_query.where(

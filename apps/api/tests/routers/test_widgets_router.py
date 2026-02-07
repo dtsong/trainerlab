@@ -121,7 +121,9 @@ class TestListWidgets:
             mock_service.list_user_widgets = AsyncMock(return_value=paginated)
             mock_service_class.return_value = mock_service
 
-            response = await list_widgets(mock_session, mock_creator_user, page=1, limit=20)
+            response = await list_widgets(
+                mock_session, mock_creator_user, page=1, limit=20
+            )
 
         assert response.total == 1
         assert len(response.items) == 1

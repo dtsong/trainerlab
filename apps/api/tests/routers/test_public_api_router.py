@@ -298,9 +298,7 @@ class TestListTournaments:
     """Tests for GET /api/v1/public/tournaments."""
 
     @pytest.mark.asyncio
-    async def test_lists_tournaments(
-        self, mock_session, mock_api_key, mock_tournament
-    ):
+    async def test_lists_tournaments(self, mock_session, mock_api_key, mock_tournament):
         """Test listing tournaments."""
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = [mock_tournament]
@@ -322,9 +320,7 @@ class TestListTournaments:
         assert response.items[0].participant_count == 500
 
     @pytest.mark.asyncio
-    async def test_filters_by_region(
-        self, mock_session, mock_api_key, mock_tournament
-    ):
+    async def test_filters_by_region(self, mock_session, mock_api_key, mock_tournament):
         """Test filtering tournaments by region."""
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = [mock_tournament]
@@ -344,9 +340,7 @@ class TestListTournaments:
         assert response.total == 1
 
     @pytest.mark.asyncio
-    async def test_filters_by_format(
-        self, mock_session, mock_api_key, mock_tournament
-    ):
+    async def test_filters_by_format(self, mock_session, mock_api_key, mock_tournament):
         """Test filtering tournaments by format."""
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = [mock_tournament]
@@ -366,9 +360,7 @@ class TestListTournaments:
         assert response.total == 1
 
     @pytest.mark.asyncio
-    async def test_returns_empty_when_no_tournaments(
-        self, mock_session, mock_api_key
-    ):
+    async def test_returns_empty_when_no_tournaments(self, mock_session, mock_api_key):
         """Test returning empty list when no tournaments."""
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = []

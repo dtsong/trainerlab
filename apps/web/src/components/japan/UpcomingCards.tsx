@@ -13,9 +13,7 @@ function CardItem({ card }: { card: ApiJPUnreleasedCard }) {
       <div className="flex-1 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h4 className="font-medium">
-              {card.name_en || card.name_jp}
-            </h4>
+            <h4 className="font-medium">{card.name_en || card.name_jp}</h4>
             {card.name_en && (
               <p className="text-sm text-muted-foreground">{card.name_jp}</p>
             )}
@@ -40,9 +38,7 @@ function CardItem({ card }: { card: ApiJPUnreleasedCard }) {
             </Badge>
           )}
           {card.competitive_impact >= 4 && (
-            <Badge className="bg-amber-600 text-xs">
-              High Impact
-            </Badge>
+            <Badge className="bg-amber-600 text-xs">High Impact</Badge>
           )}
         </div>
 

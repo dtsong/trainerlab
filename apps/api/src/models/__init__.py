@@ -29,6 +29,7 @@ from src.models.tournament import Tournament
 from src.models.tournament_placement import TournamentPlacement
 from src.models.translated_content import TranslatedContent
 from src.models.translation_term_override import TranslationTermOverride
+from src.models.trip import Trip, TripEvent
 from src.models.user import User
 from src.models.waitlist import WaitlistEntry
 from src.models.widget import Widget
@@ -62,6 +63,8 @@ __all__ = [
     "Set",
     "Tournament",
     "TournamentPlacement",
+    "Trip",
+    "TripEvent",
     "TranslatedContent",
     "TranslationTermOverride",
     "User",

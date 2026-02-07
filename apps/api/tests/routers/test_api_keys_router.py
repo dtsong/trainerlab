@@ -8,7 +8,12 @@ import pytest
 
 from src.models.api_key import ApiKey
 from src.models.user import User
-from src.routers.api_keys import create_api_key, get_api_key, list_api_keys, revoke_api_key
+from src.routers.api_keys import (
+    create_api_key,
+    get_api_key,
+    list_api_keys,
+    revoke_api_key,
+)
 from src.schemas.api_key import ApiKeyCreate
 
 
@@ -95,7 +100,9 @@ class TestGetApiKey:
             mock_service.get_api_key = AsyncMock(return_value=mock_api_key)
             mock_service_class.return_value = mock_service
 
-            response = await get_api_key(mock_session, mock_creator_user, mock_api_key.id)
+            response = await get_api_key(
+                mock_session, mock_creator_user, mock_api_key.id
+            )
 
         assert response.id == mock_api_key.id
 

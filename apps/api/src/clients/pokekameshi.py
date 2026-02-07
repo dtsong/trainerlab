@@ -255,9 +255,12 @@ class PokekameshiClient:
             text = header.get_text(strip=True).lower()
             if "パワー" in text or "power" in text:
                 col_map["power"] = i
-            elif "デッキ名" in text or "アーキタイプ" in text:
-                col_map["name"] = i
-            elif "デッキ" in text and "name" not in col_map:
+            elif (
+                "デッキ名" in text
+                or "アーキタイプ" in text
+                or "デッキ" in text
+                and "name" not in col_map
+            ):
                 col_map["name"] = i
             elif "tier" in text or "ティア" in text:
                 col_map["tier"] = i
@@ -363,10 +366,7 @@ class PokekameshiClient:
         Returns:
             Meta share report.
         """
-        if event_date:
-            endpoint = f"/meta/{event_date.isoformat()}/"
-        else:
-            endpoint = "/meta/"
+        endpoint = f"/meta/{event_date.isoformat()}/" if event_date else "/meta/"
 
         try:
             html = await self._get(endpoint)

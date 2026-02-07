@@ -121,9 +121,12 @@ describe("useTournaments", () => {
   it("should fetch tournaments with format filter", async () => {
     vi.mocked(tournamentsApi.list).mockResolvedValue(mockListResponse);
 
-    const { result } = renderHook(() => useTournaments({ format: "expanded" }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useTournaments({ format: "expanded" }),
+      {
+        wrapper: createWrapper(),
+      }
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -166,9 +169,12 @@ describe("useTournaments", () => {
       has_prev: true,
     });
 
-    const { result } = renderHook(() => useTournaments({ page: 2, limit: 50 }), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useTournaments({ page: 2, limit: 50 }),
+      {
+        wrapper: createWrapper(),
+      }
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 

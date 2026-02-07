@@ -4,7 +4,7 @@ import csv
 import json
 from datetime import UTC, date, datetime, timedelta
 from io import StringIO
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.data_export import DataExport
 from src.models.meta_snapshot import MetaSnapshot
-from src.models.tournament import Tournament
 from src.models.user import User
 from src.services.data_export_service import (
     CONTENT_TYPES,
@@ -111,7 +110,7 @@ class TestCreateExport:
         mock_session.execute.return_value = mock_result
 
         service = DataExportService(mock_session, mock_storage)
-        export = await service.create_export(
+        await service.create_export(
             mock_user,
             export_type="meta_snapshot",
             config={"region": None},
@@ -136,7 +135,7 @@ class TestCreateExport:
         mock_session.execute.return_value = mock_result
 
         service = DataExportService(mock_session, mock_storage)
-        export = await service.create_export(
+        await service.create_export(
             mock_user,
             export_type="meta_snapshot",
             config={},
@@ -189,7 +188,7 @@ class TestCreateExport:
 
         service = DataExportService(mock_session, mock_storage)
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Upload failed"):  # noqa: B017, PT011
             await service.create_export(
                 mock_user,
                 export_type="meta_snapshot",
@@ -216,7 +215,7 @@ class TestCreateExport:
             config={},
         )
 
-        added_export = mock_session.add.call_args_list[0][0][0]
+        mock_session.add.call_args_list[0][0][0]
         # The expires_at is set after commit, check it was called
 
 
@@ -366,9 +365,7 @@ class TestGenerateContent:
     """Tests for _generate_content method."""
 
     @pytest.mark.asyncio
-    async def test_generates_json_content(
-        self, mock_session: AsyncMock, mock_storage
-    ):
+    async def test_generates_json_content(self, mock_session: AsyncMock, mock_storage):
         """Test generating JSON content."""
         service = DataExportService(mock_session, mock_storage)
         data = [{"col1": "val1", "col2": "val2"}]
@@ -380,9 +377,7 @@ class TestGenerateContent:
         assert columns == ["col1", "col2"]
 
     @pytest.mark.asyncio
-    async def test_generates_csv_content(
-        self, mock_session: AsyncMock, mock_storage
-    ):
+    async def test_generates_csv_content(self, mock_session: AsyncMock, mock_storage):
         """Test generating CSV content."""
         service = DataExportService(mock_session, mock_storage)
         data = [{"col1": "val1", "col2": "val2"}]
@@ -395,9 +390,7 @@ class TestGenerateContent:
         assert rows[0]["col1"] == "val1"
 
     @pytest.mark.asyncio
-    async def test_handles_empty_data_json(
-        self, mock_session: AsyncMock, mock_storage
-    ):
+    async def test_handles_empty_data_json(self, mock_session: AsyncMock, mock_storage):
         """Test handling empty data for JSON format."""
         service = DataExportService(mock_session, mock_storage)
 
@@ -407,9 +400,7 @@ class TestGenerateContent:
         assert columns == []
 
     @pytest.mark.asyncio
-    async def test_handles_empty_data_csv(
-        self, mock_session: AsyncMock, mock_storage
-    ):
+    async def test_handles_empty_data_csv(self, mock_session: AsyncMock, mock_storage):
         """Test handling empty data for CSV format."""
         service = DataExportService(mock_session, mock_storage)
 
@@ -419,9 +410,7 @@ class TestGenerateContent:
         assert columns == []
 
     @pytest.mark.asyncio
-    async def test_generates_xlsx_content(
-        self, mock_session: AsyncMock, mock_storage
-    ):
+    async def test_generates_xlsx_content(self, mock_session: AsyncMock, mock_storage):
         """Test generating XLSX content."""
         service = DataExportService(mock_session, mock_storage)
         data = [{"col1": "val1", "col2": "val2"}]

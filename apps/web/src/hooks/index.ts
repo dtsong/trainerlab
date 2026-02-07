@@ -40,3 +40,15 @@ export {
   useCreateApiKey,
   useRevokeApiKey,
 } from "./useApiKeys";
+export { useEvents, useEvent } from "./useEvents";
+export {
+  useTrips,
+  useTrip,
+  useCreateTrip,
+  useUpdateTrip,
+  useDeleteTrip,
+  useAddTripEvent,
+  useRemoveTripEvent,
+  useSharedTrip,
+  useShareTrip,
+} from "./useTrips";

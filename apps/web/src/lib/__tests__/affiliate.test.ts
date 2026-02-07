@@ -65,7 +65,9 @@ describe("getCardLinks", () => {
     const links = getCardLinks("sv3-125", "Charizard ex");
 
     expect(links.doubleHolo).toContain("https://doubleholo.com/search");
-    expect(links.tcgPlayer).toContain("https://tcgplayer.com/search/pokemon-tcg");
+    expect(links.tcgPlayer).toContain(
+      "https://tcgplayer.com/search/pokemon-tcg"
+    );
   });
 
   it("should include card name in search query", () => {

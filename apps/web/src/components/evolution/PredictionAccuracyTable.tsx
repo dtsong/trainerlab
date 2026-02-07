@@ -12,7 +12,10 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { safeFormatDate } from "@/lib/date-utils";
-import type { ApiArchetypePrediction, PredictionTier } from "@trainerlab/shared-types";
+import type {
+  ApiArchetypePrediction,
+  PredictionTier,
+} from "@trainerlab/shared-types";
 
 interface PredictionAccuracyTableProps {
   predictions: ApiArchetypePrediction[];

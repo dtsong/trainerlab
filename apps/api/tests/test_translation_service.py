@@ -1,7 +1,7 @@
 """Tests for translation service."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -12,7 +12,6 @@ from src.models.translated_content import TranslatedContent
 from src.schemas.translation import (
     ArticleTranslationRequest,
     BatchTranslationItem,
-    ContentType,
 )
 from src.services.translation_service import TranslationError, TranslationService
 
@@ -86,9 +85,7 @@ class TestLayer2TournamentStandings:
         assert result.standings[0].deck_name_en == "Charizard ex"
         assert result.standings[0].record == "4-0-1"
 
-    def test_returns_none_when_no_standings(
-        self, service: TranslationService
-    ) -> None:
+    def test_returns_none_when_no_standings(self, service: TranslationService) -> None:
         glossary = {}
         text = "This is just regular text without standings."
 
@@ -119,9 +116,7 @@ class TestIsFullyTranslated:
     def service(self, mock_session: AsyncMock) -> TranslationService:
         return TranslationService(mock_session)
 
-    def test_returns_true_for_mostly_english(
-        self, service: TranslationService
-    ) -> None:
+    def test_returns_true_for_mostly_english(self, service: TranslationService) -> None:
         text = "This is mostly English with just a few words"
         assert service._is_fully_translated(text) is True
 
@@ -195,9 +190,7 @@ class TestTranslate:
         assert "Claude client not available" in result.uncertainties[0]
 
     @pytest.mark.asyncio
-    async def test_uses_claude_for_complex_text(
-        self, mock_session: AsyncMock
-    ) -> None:
+    async def test_uses_claude_for_complex_text(self, mock_session: AsyncMock) -> None:
         mock_claude = AsyncMock(spec=ClaudeClient)
         mock_claude.translate.return_value = TranslationResult(
             translated_text="This is a translated article",
@@ -275,9 +268,7 @@ class TestTranslateArticle:
         mock_session.commit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_creates_new_translation(
-        self, mock_session: AsyncMock
-    ) -> None:
+    async def test_creates_new_translation(self, mock_session: AsyncMock) -> None:
         mock_existing_result = MagicMock()
         mock_existing_result.scalar_one_or_none.return_value = None
 
@@ -337,9 +328,7 @@ class TestBatchTranslate:
         return TranslationService(mock_session)
 
     @pytest.mark.asyncio
-    async def test_translates_multiple_items(
-        self, service: TranslationService
-    ) -> None:
+    async def test_translates_multiple_items(self, service: TranslationService) -> None:
         items = [
             BatchTranslationItem(id="1", text="Hello world", content_type="article"),
             BatchTranslationItem(id="2", text="Testing", content_type="article"),

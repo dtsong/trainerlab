@@ -261,6 +261,45 @@ class ArchetypeNormalizer:
         )
         return inserted
 
+    @staticmethod
+    async def backfill_sprite_urls(session: AsyncSession) -> int:
+        """Backfill empty sprite_urls on existing archetype_sprites rows.
+
+        Updates rows where sprite_urls is empty ([]) by constructing
+        URLs from the sprite_key. Idempotent — skips rows that already
+        have URLs populated.
+
+        Returns:
+            Number of rows updated.
+        """
+        from sqlalchemy import select
+
+        from src.models.archetype_sprite import ArchetypeSprite
+
+        result = await session.execute(select(ArchetypeSprite))
+        rows = result.scalars().all()
+
+        updated = 0
+        for sprite in rows:
+            changed = False
+            fnames = sprite_key_to_filenames(sprite.sprite_key)
+            if not sprite.sprite_urls:
+                sprite.sprite_urls = sprite_key_to_urls(sprite.sprite_key)
+                changed = True
+            if sprite.pokemon_names != fnames:
+                sprite.pokemon_names = fnames
+                changed = True
+            if changed:
+                updated += 1
+
+        if updated:
+            await session.flush()
+        logger.info(
+            "backfilled_sprite_urls",
+            extra={"updated": updated, "total": len(rows)},
+        )
+        return updated
+
     def resolve(
         self,
         sprite_urls: list[str],

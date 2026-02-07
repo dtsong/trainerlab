@@ -160,3 +160,81 @@ class TestMetaServiceSpriteUrlFallback:
         mapping = await service._get_sprite_urls_for_archetypes(["Charizard ex"])
 
         assert len(mapping["Charizard ex"]) == 2
+
+
+class TestBackfillSpriteUrls:
+    """Tests for ArchetypeNormalizer.backfill_sprite_urls."""
+
+    @pytest.mark.asyncio
+    async def test_updates_empty_sprite_urls(self) -> None:
+        """Should populate sprite_urls when empty."""
+        from types import SimpleNamespace
+
+        from src.services.archetype_normalizer import ArchetypeNormalizer
+
+        mock_session = AsyncMock()
+
+        sprite = SimpleNamespace(
+            sprite_key="charizard",
+            sprite_urls=[],
+            pokemon_names=["charizard"],
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sprite]
+        mock_session.execute.return_value = mock_result
+
+        updated = await ArchetypeNormalizer.backfill_sprite_urls(mock_session)
+
+        assert updated == 1
+        assert len(sprite.sprite_urls) == 1
+        assert sprite.sprite_urls[0].endswith("/charizard.png")
+
+    @pytest.mark.asyncio
+    async def test_fixes_pokemon_names_placeholder(self) -> None:
+        """Should fix pokemon_names when it's just [sprite_key]."""
+        from types import SimpleNamespace
+
+        from src.services.archetype_normalizer import ArchetypeNormalizer
+
+        mock_session = AsyncMock()
+
+        sprite = SimpleNamespace(
+            sprite_key="charizard-pidgeot",
+            sprite_urls=[],
+            pokemon_names=["charizard-pidgeot"],
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sprite]
+        mock_session.execute.return_value = mock_result
+
+        updated = await ArchetypeNormalizer.backfill_sprite_urls(mock_session)
+
+        assert updated == 1
+        assert sprite.pokemon_names == ["charizard", "pidgeot"]
+        assert len(sprite.sprite_urls) == 2
+
+    @pytest.mark.asyncio
+    async def test_skips_already_populated(self) -> None:
+        """Should not touch rows that already have URLs."""
+        from types import SimpleNamespace
+
+        from src.services.archetype_normalizer import ArchetypeNormalizer
+
+        mock_session = AsyncMock()
+
+        sprite = SimpleNamespace(
+            sprite_key="charizard",
+            sprite_urls=["https://example.com/charizard.png"],
+            pokemon_names=["charizard"],
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [sprite]
+        mock_session.execute.return_value = mock_result
+
+        updated = await ArchetypeNormalizer.backfill_sprite_urls(mock_session)
+
+        assert updated == 0
+        mock_session.flush.assert_not_called()

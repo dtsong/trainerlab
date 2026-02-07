@@ -313,6 +313,20 @@ async def compute_jp_intelligence(
     result = ComputeJPIntelligenceResult()
 
     async with async_session_factory() as session:
+        # Backfill empty sprite_urls on existing DB rows (idempotent)
+        if not dry_run:
+            try:
+                from src.services.archetype_normalizer import (
+                    ArchetypeNormalizer,
+                )
+
+                await ArchetypeNormalizer.backfill_sprite_urls(session)
+            except Exception:
+                logger.warning(
+                    "Sprite URL backfill failed (non-fatal)",
+                    exc_info=True,
+                )
+
         try:
             found, removed = await compute_new_archetypes(session, dry_run=dry_run)
             result.new_archetypes_found = found

@@ -145,13 +145,13 @@ class TestResolve:
     def test_priority2_auto_derive(self, normalizer: ArchetypeNormalizer) -> None:
         """Should auto-derive when sprites exist but key not in map."""
         urls = [
-            "https://example.com/grimmsnarl.png",
-            "https://example.com/froslass.png",
+            "https://example.com/weezing.png",
+            "https://example.com/slowking.png",
         ]
         archetype, raw, method = normalizer.resolve(urls, "Unknown", None)
 
-        # Sorted: froslass < grimmsnarl, so key is "froslass-grimmsnarl"
-        assert archetype == "Froslass Grimmsnarl"
+        # Sorted: slowking < weezing, so key is "slowking-weezing"
+        assert archetype == "Slowking Weezing"
         assert method == "auto_derive"
 
     def test_priority3_signature_card(self) -> None:

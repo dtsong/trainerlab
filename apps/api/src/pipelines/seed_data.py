@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
@@ -50,13 +51,15 @@ async def seed_reference_data(*, dry_run: bool = False) -> SeedDataResult:
                     continue
 
                 if not dry_run:
+                    start = item.get("start_date")
+                    end = item.get("end_date")
                     fmt = FormatConfig(
                         id=uuid4(),
                         name=item["name"],
                         display_name=item["display_name"],
                         legal_sets=item["legal_sets"],
-                        start_date=item.get("start_date"),
-                        end_date=item.get("end_date"),
+                        start_date=date.fromisoformat(start) if start else None,
+                        end_date=date.fromisoformat(end) if end else None,
                         is_current=item.get("is_current", False),
                         is_upcoming=item.get("is_upcoming", False),
                         rotation_details=item.get("rotation_details"),

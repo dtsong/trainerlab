@@ -26,7 +26,7 @@ locals {
       description      = "Discover new JP tournaments and enqueue for processing"
       schedule         = "0 7 * * *" # Daily at 7 AM
       uri              = "${var.cloud_run_url}/api/v1/pipeline/discover-jp"
-      body             = jsonencode({ dry_run = false, lookback_days = 90 })
+      body             = jsonencode({ dry_run = false, lookback_days = 90, min_date = "2026-01-23" })
       attempt_deadline = "120s" # Discovery is fast (<30s)
     }
     compute-meta = {

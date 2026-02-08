@@ -150,6 +150,7 @@ async def discover_jp_tournaments(
     lookback_days: int = 90,
     auto_process: bool = False,
     max_auto_process: int = 50,
+    min_date: date | None = None,
 ) -> DiscoverResult:
     """Discover new JP tournaments and enqueue them for processing.
 
@@ -160,6 +161,7 @@ async def discover_jp_tournaments(
         auto_process: Process synchronously if Cloud Tasks
             not configured.
         max_auto_process: Maximum tournaments to process synchronously.
+        min_date: Only discover tournaments on or after this date.
 
     Returns:
         DiscoverResult with discovery statistics.
@@ -174,6 +176,7 @@ async def discover_jp_tournaments(
 
         jp_tournaments = await service.discover_jp_city_leagues(
             lookback_days=lookback_days,
+            min_date=min_date,
         )
 
     result.tournaments_discovered = len(jp_tournaments)

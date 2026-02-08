@@ -1001,11 +1001,13 @@ class TournamentScrapeService:
     async def discover_jp_city_leagues(
         self,
         lookback_days: int = 30,
+        min_date: date | None = None,
     ) -> list[LimitlessTournament]:
         """Discover new JP City League tournaments without processing them.
 
         Args:
             lookback_days: Only include tournaments from last N days.
+            min_date: Only include tournaments on or after this date.
 
         Returns:
             List of new LimitlessTournament metadata.
@@ -1019,14 +1021,19 @@ class TournamentScrapeService:
             return []
 
         new_tournaments = []
+        skipped_before_min = 0
         for t in all_tournaments:
+            if min_date and t.tournament_date < min_date:
+                skipped_before_min += 1
+                continue
             if not await self.tournament_exists(t.source_url):
                 new_tournaments.append(t)
 
         logger.info(
-            "JP discovery complete: found=%d, new=%d",
+            "JP discovery complete: found=%d, new=%d, skipped_before_min=%d",
             len(all_tournaments),
             len(new_tournaments),
+            skipped_before_min,
         )
         return new_tournaments
 

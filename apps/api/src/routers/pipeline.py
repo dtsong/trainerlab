@@ -227,8 +227,9 @@ async def discover_jp_endpoint(
     synchronously without Cloud Tasks.
     """
     logger.info(
-        "Starting JP discovery: lookback=%d, auto_process=%s",
+        "Starting JP discovery: lookback=%d, min_date=%s, auto_process=%s",
         request.lookback_days,
+        request.min_date,
         request.auto_process,
     )
 
@@ -236,6 +237,7 @@ async def discover_jp_endpoint(
         lookback_days=request.lookback_days,
         auto_process=request.auto_process,
         max_auto_process=request.max_auto_process,
+        min_date=request.min_date,
     )
 
     logger.info(

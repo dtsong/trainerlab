@@ -92,6 +92,10 @@ class DiscoverRequest(PipelineRequest):
         le=365,
         description="Number of days to look back for tournaments",
     )
+    min_date: date | None = Field(
+        default=None,
+        description="Only discover tournaments on or after this date",
+    )
     game_format: Literal["standard", "expanded"] = Field(
         default="standard",
         description="Game format to discover",

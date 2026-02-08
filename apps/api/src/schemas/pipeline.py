@@ -370,6 +370,28 @@ class ReprocessArchetypesResult(BaseModel):
     success: bool = Field(description="Whether pipeline succeeded")
 
 
+class PruneTournamentsRequest(PipelineRequest):
+    """Request for tournament pruning pipeline."""
+
+    before_date: date = Field(
+        description="Delete tournaments before this date (exclusive)",
+    )
+    region: str | None = Field(
+        default=None,
+        description="Filter by region (e.g. JP). None = all regions.",
+    )
+
+
+class PruneTournamentsResult(BaseModel):
+    """Result from tournament pruning pipeline."""
+
+    tournaments_deleted: int = Field(ge=0, description="Tournaments deleted")
+    placements_deleted: int = Field(ge=0, description="Placements deleted")
+    tournaments_remaining: int = Field(ge=0, description="Tournaments remaining")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether prune completed without errors")
+
+
 class SeedDataRequest(PipelineRequest):
     """Request for reference data seeding pipeline."""
 

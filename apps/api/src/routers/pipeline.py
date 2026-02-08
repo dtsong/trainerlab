@@ -33,6 +33,12 @@ from src.pipelines.monitor_card_reveals import (
 from src.pipelines.monitor_card_reveals import (
     check_card_reveals,
 )
+from src.pipelines.prune_tournaments import (
+    PruneTournamentsResult as PruneTournamentsResultInternal,
+)
+from src.pipelines.prune_tournaments import (
+    prune_tournaments,
+)
 from src.pipelines.reprocess_archetypes import (
     ReprocessArchetypesResult as ReprocessArchetypesResultInternal,
 )
@@ -103,6 +109,8 @@ from src.schemas.pipeline import (
     MonitorCardRevealsRequest,
     MonitorCardRevealsResult,
     ProcessTournamentRequest,
+    PruneTournamentsRequest,
+    PruneTournamentsResult,
     ReprocessArchetypesRequest,
     ReprocessArchetypesResult,
     RescrapeJPRequest,
@@ -822,6 +830,54 @@ async def seed_data_endpoint(
     )
 
     return _convert_seed_result(result)
+
+
+# Prune tournaments pipeline
+
+
+def _convert_prune_result(
+    internal: PruneTournamentsResultInternal,
+) -> PruneTournamentsResult:
+    """Convert internal PruneTournamentsResult to API schema."""
+    return PruneTournamentsResult(
+        tournaments_deleted=internal.tournaments_deleted,
+        placements_deleted=internal.placements_deleted,
+        tournaments_remaining=internal.tournaments_remaining,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post("/prune-tournaments", response_model=PruneTournamentsResult)
+async def prune_tournaments_endpoint(
+    request: PruneTournamentsRequest,
+) -> PruneTournamentsResult:
+    """Delete tournaments before a cutoff date.
+
+    Removes tournaments and their placements that fall before
+    the specified date. Optionally filter by region.
+    """
+    logger.warning(
+        "Starting prune-tournaments: before=%s, region=%s, dry_run=%s",
+        request.before_date,
+        request.region,
+        request.dry_run,
+    )
+
+    result = await prune_tournaments(
+        before_date=request.before_date,
+        region=request.region,
+        dry_run=request.dry_run,
+    )
+
+    logger.warning(
+        "Prune complete: deleted=%d tournaments, %d placements, %d remaining",
+        result.tournaments_deleted,
+        result.placements_deleted,
+        result.tournaments_remaining,
+    )
+
+    return _convert_prune_result(result)
 
 
 # Data wipe pipeline

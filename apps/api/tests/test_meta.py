@@ -603,10 +603,15 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_card_enrich_result = MagicMock()
         mock_card_enrich_result.all.return_value = []
 
+        # Card ID mapping fallback (no mappings found)
+        mock_mapping_result = MagicMock()
+        mock_mapping_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_enrich_result,
+            mock_mapping_result,
             mock_tournament_result,
         ]
 
@@ -724,10 +729,15 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_card_enrich_result = MagicMock()
         mock_card_enrich_result.all.return_value = []
 
+        # Card ID mapping fallback (no mappings found)
+        mock_mapping_result = MagicMock()
+        mock_mapping_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_enrich_result,
+            mock_mapping_result,
             SQLAlchemyError("Tournament query failed"),
         ]
 
@@ -864,10 +874,15 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_card_enrich_result = MagicMock()
         mock_card_enrich_result.all.return_value = []
 
+        # Card ID mapping fallback (no mappings found)
+        mock_mapping_result = MagicMock()
+        mock_mapping_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_enrich_result,
+            mock_mapping_result,
             mock_tournament_result,
         ]
 
@@ -927,10 +942,15 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_card_enrich_result = MagicMock()
         mock_card_enrich_result.all.return_value = []
 
+        # Card ID mapping fallback (no mappings found)
+        mock_mapping_result = MagicMock()
+        mock_mapping_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_enrich_result,
+            mock_mapping_result,
             mock_tournament_result,
         ]
 

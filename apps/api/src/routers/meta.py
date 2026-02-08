@@ -17,6 +17,7 @@ from src.db.database import get_db
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
 from src.models.archetype_sprite import ArchetypeSprite
 from src.models.card import Card
+from src.models.card_id_mapping import CardIdMapping
 from src.schemas import (
     ArchetypeDetailResponse,
     ArchetypeHistoryPoint,
@@ -604,18 +605,61 @@ async def _batch_lookup_cards(
     """Batch lookup card names and images from the cards table.
 
     Returns dict of card_id -> (card_name, image_small).
+    Falls back to card_id_mappings for JP card IDs not found directly.
     """
     if not card_ids:
         return {}
     try:
+        # Step 1: Direct lookup in cards table
         query = select(Card.id, Card.name, Card.japanese_name, Card.image_small).where(
             Card.id.in_(card_ids)
         )
         result = await db.execute(query)
-        return {
+        card_info: dict[str, tuple[str | None, str | None]] = {
             row.id: (row.name or row.japanese_name, row.image_small)
             for row in result.all()
         }
+
+        # Step 2: For missing IDs, check card_id_mappings
+        missing_ids = [cid for cid in card_ids if cid not in card_info]
+        if not missing_ids:
+            return card_info
+
+        mapping_query = select(
+            CardIdMapping.jp_card_id,
+            CardIdMapping.en_card_id,
+            CardIdMapping.card_name_en,
+        ).where(CardIdMapping.jp_card_id.in_(missing_ids))
+        mapping_result = await db.execute(mapping_query)
+        mappings = mapping_result.all()
+
+        if not mappings:
+            return card_info
+
+        # Step 3: Look up EN cards and map back to JP IDs
+        jp_to_en = {m.jp_card_id: m for m in mappings}
+        en_ids = [m.en_card_id for m in mappings]
+
+        en_query = select(
+            Card.id,
+            Card.name,
+            Card.japanese_name,
+            Card.image_small,
+        ).where(Card.id.in_(en_ids))
+        en_result = await db.execute(en_query)
+        en_cards = {row.id: row for row in en_result.all()}
+
+        for jp_id, mapping in jp_to_en.items():
+            en_card = en_cards.get(mapping.en_card_id)
+            if en_card:
+                card_info[jp_id] = (
+                    en_card.name or en_card.japanese_name,
+                    en_card.image_small,
+                )
+            else:
+                card_info[jp_id] = (mapping.card_name_en, None)
+
+        return card_info
     except SQLAlchemyError:
         logger.warning("Failed to batch lookup cards", exc_info=True)
         return {}

@@ -107,6 +107,146 @@ class TestBatchLookupCards:
 
         assert result == {}
 
+    @pytest.mark.asyncio
+    async def test_falls_back_to_card_id_mapping(self) -> None:
+        """Test JP card not in cards table resolves via mapping."""
+        from src.routers.meta import _batch_lookup_cards
+
+        db = AsyncMock()
+
+        # Step 1: Direct lookup returns empty
+        mock_direct = MagicMock()
+        mock_direct.all.return_value = []
+
+        # Step 2: Mapping lookup returns a JP->EN mapping
+        mapping_row = MagicMock()
+        mapping_row.jp_card_id = "sv09-97"
+        mapping_row.en_card_id = "JTG-097"
+        mapping_row.card_name_en = "Hydrapple ex"
+        mock_mapping = MagicMock()
+        mock_mapping.all.return_value = [mapping_row]
+
+        # Step 3: EN card lookup returns the card
+        en_row = MagicMock()
+        en_row.id = "JTG-097"
+        en_row.name = "Hydrapple ex"
+        en_row.japanese_name = None
+        en_row.image_small = "https://img.example.com/JTG-097.png"
+        mock_en = MagicMock()
+        mock_en.all.return_value = [en_row]
+
+        db.execute.side_effect = [mock_direct, mock_mapping, mock_en]
+
+        result = await _batch_lookup_cards(["sv09-97"], db)
+
+        assert result["sv09-97"] == (
+            "Hydrapple ex",
+            "https://img.example.com/JTG-097.png",
+        )
+
+    @pytest.mark.asyncio
+    async def test_mapping_fallback_uses_card_name_when_en_card_missing(
+        self,
+    ) -> None:
+        """Test mapping exists but EN card not in DB returns name only."""
+        from src.routers.meta import _batch_lookup_cards
+
+        db = AsyncMock()
+
+        # Step 1: Direct lookup returns empty
+        mock_direct = MagicMock()
+        mock_direct.all.return_value = []
+
+        # Step 2: Mapping exists
+        mapping_row = MagicMock()
+        mapping_row.jp_card_id = "sv09-50"
+        mapping_row.en_card_id = "JTG-050"
+        mapping_row.card_name_en = "Raichu ex"
+        mock_mapping = MagicMock()
+        mock_mapping.all.return_value = [mapping_row]
+
+        # Step 3: EN card not found
+        mock_en = MagicMock()
+        mock_en.all.return_value = []
+
+        db.execute.side_effect = [mock_direct, mock_mapping, mock_en]
+
+        result = await _batch_lookup_cards(["sv09-50"], db)
+
+        assert result["sv09-50"] == ("Raichu ex", None)
+
+    @pytest.mark.asyncio
+    async def test_no_mapping_query_when_all_cards_found(self) -> None:
+        """Test no fallback query when all cards found directly."""
+        from src.routers.meta import _batch_lookup_cards
+
+        db = AsyncMock()
+
+        row = MagicMock()
+        row.id = "sv4-6"
+        row.name = "Pikachu"
+        row.japanese_name = None
+        row.image_small = "https://img.example.com/sv4-6.png"
+
+        mock_result = MagicMock()
+        mock_result.all.return_value = [row]
+        db.execute.return_value = mock_result
+
+        result = await _batch_lookup_cards(["sv4-6"], db)
+
+        assert result["sv4-6"] == (
+            "Pikachu",
+            "https://img.example.com/sv4-6.png",
+        )
+        # Only one query (direct lookup), no mapping fallback
+        assert db.execute.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_mixed_direct_and_mapped_cards(self) -> None:
+        """Test some cards found directly, others via mapping."""
+        from src.routers.meta import _batch_lookup_cards
+
+        db = AsyncMock()
+
+        # Step 1: Direct lookup finds sv4-6 but not sv09-97
+        en_row = MagicMock()
+        en_row.id = "sv4-6"
+        en_row.name = "Pikachu"
+        en_row.japanese_name = None
+        en_row.image_small = "https://img.example.com/sv4-6.png"
+        mock_direct = MagicMock()
+        mock_direct.all.return_value = [en_row]
+
+        # Step 2: Mapping for sv09-97
+        mapping_row = MagicMock()
+        mapping_row.jp_card_id = "sv09-97"
+        mapping_row.en_card_id = "JTG-097"
+        mapping_row.card_name_en = "Hydrapple ex"
+        mock_mapping = MagicMock()
+        mock_mapping.all.return_value = [mapping_row]
+
+        # Step 3: EN card found
+        mapped_row = MagicMock()
+        mapped_row.id = "JTG-097"
+        mapped_row.name = "Hydrapple ex"
+        mapped_row.japanese_name = None
+        mapped_row.image_small = "https://img.example.com/JTG-097.png"
+        mock_en = MagicMock()
+        mock_en.all.return_value = [mapped_row]
+
+        db.execute.side_effect = [mock_direct, mock_mapping, mock_en]
+
+        result = await _batch_lookup_cards(["sv4-6", "sv09-97"], db)
+
+        assert result["sv4-6"] == (
+            "Pikachu",
+            "https://img.example.com/sv4-6.png",
+        )
+        assert result["sv09-97"] == (
+            "Hydrapple ex",
+            "https://img.example.com/JTG-097.png",
+        )
+
 
 class TestEnrichKeyCards:
     """Unit tests for _enrich_key_cards helper."""
@@ -528,9 +668,13 @@ class TestArchetypeDetailKeyCardEnrichment:
         mock_placement_result.scalars.return_value.all.return_value = [placement]
 
         # Mock: _enrich_key_cards -> _batch_lookup_cards
-        # (card not found)
+        # (card not found in direct lookup)
         mock_card_result = MagicMock()
         mock_card_result.all.return_value = []
+
+        # Mock: card_id_mappings fallback (no mapping found)
+        mock_mapping_result = MagicMock()
+        mock_mapping_result.all.return_value = []
 
         # Mock: tournament lookup
         mock_tournament_result = MagicMock()
@@ -540,6 +684,7 @@ class TestArchetypeDetailKeyCardEnrichment:
             mock_snapshot_result,
             mock_placement_result,
             mock_card_result,
+            mock_mapping_result,
             mock_tournament_result,
         ]
 

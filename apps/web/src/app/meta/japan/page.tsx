@@ -24,7 +24,6 @@ import {
 } from "@/components/meta";
 import {
   CityLeagueResultsFeed,
-  MetaDivergenceComparison,
   CardCountEvolutionSection,
   CardAdoptionRates,
   UpcomingCards,
@@ -337,11 +336,6 @@ function JapanMetaPageContent() {
           </section>
 
           {/* Trend Chart (already in pie/trends above) */}
-
-          {/* JP vs International Divergence */}
-          <section>
-            <MetaDivergenceComparison />
-          </section>
 
           {/* Tech Card Insights */}
           {top5Archetypes.length > 0 && (

@@ -41,7 +41,7 @@ locals {
       schedule         = "0 9 * * *" # Daily at 9 AM (after compute-meta at 8 AM)
       uri              = "${var.cloud_run_url}/api/v1/pipeline/compute-evolution"
       body             = jsonencode({ dry_run = false })
-      attempt_deadline = "600s"
+      attempt_deadline = "1200s"
     }
     sync-cards = {
       description      = "Sync card data from TCGdex"

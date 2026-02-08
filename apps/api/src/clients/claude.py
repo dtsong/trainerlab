@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import secrets
 from dataclasses import dataclass, field
 from typing import Any, Self
 
@@ -13,8 +14,8 @@ from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-MODEL_SONNET = "claude-sonnet-4-20250514"
-MODEL_HAIKU = "claude-haiku-3-5-20241022"
+MODEL_SONNET = "claude-sonnet-4-5-20250929"
+MODEL_HAIKU = "claude-haiku-4-5-20251001"
 
 
 class ClaudeError(Exception):
@@ -47,8 +48,8 @@ class ClaudeClient:
 
     def __init__(
         self,
-        max_retries: int = 3,
-        retry_delay: float = 1.0,
+        max_retries: int = 5,
+        retry_delay: float = 5.0,
         timeout: float = 60.0,
     ):
         settings = get_settings()
@@ -118,7 +119,8 @@ class ClaudeClient:
                 return text, usage
 
             except RateLimitError as e:
-                delay = self._retry_delay * (2**attempt)
+                jitter = secrets.randbelow(int(self._retry_delay * 1000)) / 1000
+                delay = self._retry_delay * (2**attempt) + jitter
                 logger.warning(
                     "Claude rate limited, retrying in %.1fs (attempt %d/%d)",
                     delay,
@@ -129,7 +131,8 @@ class ClaudeClient:
                 last_error = e
 
             except APIConnectionError as e:
-                delay = self._retry_delay * (2**attempt)
+                jitter = secrets.randbelow(int(self._retry_delay * 1000)) / 1000
+                delay = self._retry_delay * (2**attempt) + jitter
                 logger.warning(
                     "Claude connection error, retrying in %.1fs (attempt %d/%d): %s",
                     delay,

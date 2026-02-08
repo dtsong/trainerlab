@@ -55,6 +55,7 @@ class TestMetaEndpoints:
         snapshot.tier_assignments = None
         snapshot.jp_signals = None
         snapshot.trends = None
+        snapshot.era_label = None
         return snapshot
 
 
@@ -171,6 +172,7 @@ class TestGetMetaHistory(TestMetaEndpoints):
         snapshot2.tier_assignments = None
         snapshot2.jp_signals = None
         snapshot2.trends = None
+        snapshot2.era_label = None
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [
@@ -487,6 +489,7 @@ class TestJapanBO1Meta(TestMetaEndpoints):
         snapshot.tier_assignments = None
         snapshot.jp_signals = None
         snapshot.trends = None
+        snapshot.era_label = None
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [snapshot]

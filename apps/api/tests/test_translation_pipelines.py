@@ -2,7 +2,6 @@
 
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import pytest
 
@@ -222,10 +221,12 @@ class TestTranslatePokecabookPipeline:
             mock_pokecabook = AsyncMock()
             mock_pokecabook.fetch_recent_articles = AsyncMock(return_value=[])
             mock_pokecabook.fetch_tier_list = AsyncMock(return_value=mock_tier_list)
-            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_pokecabook)
+            mock_client.return_value.__aenter__ = AsyncMock(
+                return_value=mock_pokecabook
+            )
             mock_client.return_value.__aexit__ = AsyncMock()
 
-            result = await translate_pokecabook_content(lookback_days=7, dry_run=True)
+            result = await translate_pokecabook_content(lookback_days=0, dry_run=True)
 
             assert isinstance(result, TranslatePokecabookResult)
             assert result.success
@@ -240,10 +241,14 @@ class TestSyncAdoptionRatesPipeline:
         mock_adoption = MagicMock()
         mock_adoption.entries = []
 
-        with patch("src.pipelines.sync_jp_adoption_rates.PokecabookClient") as mock_client:
+        with patch(
+            "src.pipelines.sync_jp_adoption_rates.PokecabookClient"
+        ) as mock_client:
             mock_pokecabook = AsyncMock()
             mock_pokecabook.fetch_adoption_rates = AsyncMock(return_value=mock_adoption)
-            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_pokecabook)
+            mock_client.return_value.__aenter__ = AsyncMock(
+                return_value=mock_pokecabook
+            )
             mock_client.return_value.__aexit__ = AsyncMock()
 
             result = await sync_adoption_rates(dry_run=True)

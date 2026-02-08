@@ -9,9 +9,11 @@ from datetime import date
 from typing import Literal
 from uuid import uuid4
 
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.db.database import async_session_factory
+from src.models import FormatConfig
 from src.services.meta_service import MetaService
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,7 @@ async def compute_daily_snapshots(
     lookback_days: int = 90,
     regions: list[str | None] | None = None,
     formats: list[Literal["standard", "expanded"]] | None = None,
+    start_date_floor: date | None = None,
 ) -> ComputeMetaResult:
     """Compute and save daily meta snapshots for all combinations.
 
@@ -94,6 +97,41 @@ async def compute_daily_snapshots(
         for region in target_regions:
             best_of_options = REGION_BEST_OF.get(region, [3])
 
+            # Auto-derive start_date_floor for JP
+            region_floor = start_date_floor
+            region_era = None
+            if region == "JP" and region_floor is None:
+                try:
+                    floor_cutoff = date.fromordinal(
+                        snapshot_date.toordinal() - lookback_days
+                    )
+                    fc_query = (
+                        select(FormatConfig)
+                        .where(
+                            FormatConfig.is_current.is_(True),
+                            FormatConfig.start_date >= floor_cutoff,
+                            FormatConfig.start_date <= snapshot_date,
+                        )
+                        .order_by(FormatConfig.start_date.desc())
+                        .limit(1)
+                    )
+                    fc_result = await session.execute(fc_query)
+                    fc = fc_result.scalar_one_or_none()
+                    if fc:
+                        region_floor = fc.start_date
+                        region_era = f"post-{fc.name}"
+                        logger.info(
+                            "JP floor derived from FormatConfig: %s (start=%s, era=%s)",
+                            fc.name,
+                            fc.start_date,
+                            region_era,
+                        )
+                except Exception:
+                    logger.warning(
+                        "Failed to derive JP floor from FormatConfig",
+                        exc_info=True,
+                    )
+
             for game_format in target_formats:
                 for best_of in best_of_options:
                     combo = f"{region or 'global'}/{game_format}/BO{best_of}"
@@ -107,6 +145,8 @@ async def compute_daily_snapshots(
                             game_format=game_format,
                             best_of=best_of,
                             lookback_days=lookback_days,
+                            start_date_floor=region_floor,
+                            era_label=region_era,
                         )
 
                         result.snapshots_computed += 1
@@ -179,6 +219,8 @@ async def compute_single_snapshot(
     best_of: Literal[1, 3],
     dry_run: bool = False,
     lookback_days: int = 90,
+    start_date_floor: date | None = None,
+    era_label: str | None = None,
 ) -> ComputeMetaResult:
     """Compute a single meta snapshot.
 
@@ -215,6 +257,8 @@ async def compute_single_snapshot(
                 game_format=game_format,
                 best_of=best_of,
                 lookback_days=lookback_days,
+                start_date_floor=start_date_floor,
+                era_label=era_label,
             )
 
             result.snapshots_computed = 1

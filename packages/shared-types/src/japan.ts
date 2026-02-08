@@ -163,3 +163,25 @@ export interface ApiCardCountEvolutionResponse {
   cards: ApiCardCountEvolution[];
   tournaments_analyzed: number;
 }
+
+// JP Content API types
+export interface ApiJPContentItem {
+  id: string;
+  source_url: string;
+  content_type: string;
+  title_en: string | null;
+  title_jp: string | null;
+  translated_text: string | null;
+  published_date: string | null;
+  source_name: string | null;
+  tags: string[] | null;
+  archetype_refs: string[] | null;
+  era_label: string | null;
+  review_status: string;
+  translated_at: string | null;
+}
+
+export interface ApiJPContentList {
+  items: ApiJPContentItem[];
+  total: number;
+}

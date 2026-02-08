@@ -119,6 +119,7 @@ def _snapshot_to_response(
         tier_assignments=snapshot.tier_assignments,
         jp_signals=jp_signals,
         trends=trends,
+        era_label=snapshot.era_label,
     )
 
 
@@ -139,6 +140,10 @@ async def get_current_meta(
         BestOf,
         Query(description="Match format (1 for Japan BO1, 3 for international BO3)"),
     ] = BestOf.BO3,
+    era: Annotated[
+        str | None,
+        Query(description="Filter by era label (e.g., 'post-nihil-zero')"),
+    ] = None,
 ) -> MetaSnapshotResponse:
     """Get the current (latest) meta snapshot.
 
@@ -154,6 +159,9 @@ async def get_current_meta(
         query = query.where(MetaSnapshot.region.is_(None))
     else:
         query = query.where(MetaSnapshot.region == region)
+
+    if era:
+        query = query.where(MetaSnapshot.era_label == era)
 
     query = query.order_by(MetaSnapshot.snapshot_date.desc()).limit(1)
 
@@ -204,15 +212,30 @@ async def get_meta_history(
     ] = BestOf.BO3,
     days: Annotated[
         int,
-        Query(ge=1, le=365, description="Number of days of history to return"),
+        Query(
+            ge=1,
+            le=365,
+            description="Number of days of history to return",
+        ),
     ] = 90,
+    era: Annotated[
+        str | None,
+        Query(description="Filter by era label (e.g., 'post-nihil-zero')"),
+    ] = None,
+    start_date_param: Annotated[
+        date | None,
+        Query(
+            alias="start_date",
+            description="Absolute start date (overrides days param)",
+        ),
+    ] = None,
 ) -> MetaHistoryResponse:
     """Get historical meta snapshots.
 
     Returns meta snapshots within the specified date range,
     ordered by snapshot date descending (newest first).
     """
-    start_date = date.today() - timedelta(days=days)
+    start_date = start_date_param or date.today() - timedelta(days=days)
 
     query = select(MetaSnapshot).where(
         MetaSnapshot.format == format,
@@ -224,6 +247,9 @@ async def get_meta_history(
         query = query.where(MetaSnapshot.region.is_(None))
     else:
         query = query.where(MetaSnapshot.region == region)
+
+    if era:
+        query = query.where(MetaSnapshot.era_label == era)
 
     query = query.order_by(MetaSnapshot.snapshot_date.desc())
 

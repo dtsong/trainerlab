@@ -50,6 +50,7 @@ import type {
   ApiGlossaryTermOverrideList,
   ApiGlossaryTermCreateRequest,
   ContentType,
+  ApiJPContentList,
 } from "@trainerlab/shared-types";
 import type { z } from "zod";
 
@@ -515,6 +516,13 @@ export interface CardCountEvolutionParams {
   top_cards?: number;
 }
 
+export interface JapanContentParams {
+  source?: string;
+  content_type?: string;
+  era?: string;
+  limit?: number;
+}
+
 // Japan API
 export const japanApi = {
   listInnovations: (params: JapanInnovationParams = {}) => {
@@ -582,6 +590,20 @@ export const japanApi = {
 
     return fetchApi<ApiCardCountEvolutionResponse>(
       `/api/v1/japan/card-count-evolution?${searchParams.toString()}`
+    );
+  },
+
+  getContent: (params: JapanContentParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.source) searchParams.set("source", params.source);
+    if (params.content_type)
+      searchParams.set("content_type", params.content_type);
+    if (params.era) searchParams.set("era", params.era);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiJPContentList>(
+      `/api/v1/japan/content${query ? `?${query}` : ""}`
     );
   },
 };

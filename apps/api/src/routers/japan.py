@@ -19,6 +19,7 @@ from src.models import (
     Prediction,
     Tournament,
     TournamentPlacement,
+    TranslatedContent,
 )
 from src.schemas.japan import (
     CardCountDataPoint,
@@ -28,6 +29,8 @@ from src.schemas.japan import (
     JPCardInnovationDetailResponse,
     JPCardInnovationListResponse,
     JPCardInnovationResponse,
+    JPContentItem,
+    JPContentListResponse,
     JPNewArchetypeListResponse,
     JPNewArchetypeResponse,
     JPSetImpactListResponse,
@@ -566,4 +569,92 @@ async def get_card_count_evolution(
         archetype=archetype,
         cards=cards,
         tournaments_analyzed=len(tournament_ids),
+    )
+
+
+@router.get("/content")
+async def list_jp_content(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    source: Annotated[str | None, Query(description="Filter by source name")] = None,
+    content_type: Annotated[
+        str | None,
+        Query(description="Filter by content type"),
+    ] = None,
+    era: Annotated[str | None, Query(description="Filter by era label")] = None,
+    limit: Annotated[int, Query(ge=1, le=100, description="Page size")] = 20,
+) -> JPContentListResponse:
+    """Get translated JP content (articles, tier lists).
+
+    Returns translated content from Japanese sources like Pokecabook
+    and Pokekameshi, ordered by publication date descending.
+    """
+    query = select(TranslatedContent).where(
+        TranslatedContent.status == "translated",
+    )
+
+    if source:
+        query = query.where(TranslatedContent.source_name == source)
+    if content_type:
+        query = query.where(TranslatedContent.content_type == content_type)
+    if era:
+        query = query.where(TranslatedContent.era_label == era)
+
+    # Order by published_date, fall back to translated_at
+    query = query.order_by(
+        TranslatedContent.published_date.desc().nulls_last(),
+        TranslatedContent.translated_at.desc().nulls_last(),
+    ).limit(limit)
+
+    # Count query
+    count_query = select(func.count(TranslatedContent.id)).where(
+        TranslatedContent.status == "translated",
+    )
+    if source:
+        count_query = count_query.where(TranslatedContent.source_name == source)
+    if content_type:
+        count_query = count_query.where(TranslatedContent.content_type == content_type)
+    if era:
+        count_query = count_query.where(TranslatedContent.era_label == era)
+
+    try:
+        result = await db.execute(query)
+        items = result.scalars().all()
+        count_result = await db.execute(count_query)
+        total = count_result.scalar() or 0
+    except SQLAlchemyError:
+        logger.error(
+            "Database error fetching JP content",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=("Unable to retrieve JP content. Please try again later."),
+        ) from None
+
+    return JPContentListResponse(
+        items=[
+            JPContentItem(
+                id=str(item.id),
+                source_url=item.source_url,
+                content_type=item.content_type,
+                title_en=getattr(item, "title_en", None),
+                title_jp=getattr(item, "title_jp", None),
+                translated_text=(
+                    item.translated_text[:500] if item.translated_text else None
+                ),
+                published_date=getattr(item, "published_date", None),
+                source_name=getattr(item, "source_name", None),
+                tags=getattr(item, "tags", None),
+                archetype_refs=getattr(item, "archetype_refs", None),
+                era_label=getattr(item, "era_label", None),
+                review_status=getattr(
+                    item,
+                    "review_status",
+                    "auto_approved",
+                ),
+                translated_at=item.translated_at,
+            )
+            for item in items
+        ],
+        total=total,
     )

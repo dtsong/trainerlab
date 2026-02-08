@@ -211,10 +211,22 @@ class ClaudeClient:
         text: str,
         context: str,
         glossary: dict[str, str] | None = None,
-        model: str = MODEL_SONNET,
+        model: str | None = None,
         max_tokens: int = 2048,
+        content_type: str | None = None,
     ) -> TranslationResult:
         """Translate Japanese text to English with domain glossary.
+
+        Args:
+            text: Japanese text to translate.
+            context: Context for the translation.
+            glossary: Optional {jp: en} glossary dict.
+            model: Claude model to use. Auto-selected from
+                content_type if None.
+            max_tokens: Max response tokens.
+            content_type: "tier_list" or "article" for
+                content-specific instructions and model
+                selection.
 
         Returns:
             TranslationResult with translated text and metadata.
@@ -222,17 +234,38 @@ class ClaudeClient:
         Raises:
             ClaudeError: On API or parse error.
         """
+        # Auto-select model from content_type when not
+        # explicitly provided
+        if model is None:
+            model = MODEL_HAIKU if content_type == "tier_list" else MODEL_SONNET
+
+        content_instruction = ""
+        if content_type == "tier_list":
+            content_instruction = (
+                " Preserve tier designations (S/A/B/C),"
+                " numerical data, and percentage values"
+                " exactly as written."
+            )
+        elif content_type == "article":
+            content_instruction = (
+                " Preserve strategic reasoning and analysis structure."
+            )
+
         glossary_section = ""
         if glossary:
             terms = "\n".join(f"- {jp} \u2192 {en}" for jp, en in glossary.items())
             glossary_section = f"\n\nGlossary (use these exact translations):\n{terms}"
 
         system_prompt = (
-            "You are a Japanese-to-English translator specializing in "
-            "Pokemon TCG content. Translate accurately, preserving game "
-            "terminology. Return JSON with keys: translated_text (string), "
-            "glossary_terms_used (list of glossary terms you applied), "
-            f'confidence ("high", "medium", or "low").{glossary_section}'
+            "You are a Japanese-to-English translator"
+            " specializing in Pokemon TCG content."
+            " Translate accurately, preserving game"
+            " terminology. Return JSON with keys:"
+            " translated_text (string),"
+            " glossary_terms_used (list of glossary"
+            " terms you applied), confidence"
+            ' ("high", "medium", or "low").'
+            f"{content_instruction}{glossary_section}"
         )
 
         user_prompt = f"Context: {context}\n\nTranslate:\n{text}"

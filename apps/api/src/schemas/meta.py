@@ -105,7 +105,8 @@ class MetaSnapshotResponse(BaseModel):
 
     snapshot_date: date = Field(description="Date of the snapshot")
     region: str | None = Field(
-        default=None, description="Region (NA, EU, JP, etc.) or null for global"
+        default=None,
+        description="Region (NA, EU, JP, etc.) or null for global",
     )
     format: Literal["standard", "expanded"] = Field(description="Game format")
     best_of: int = Field(description="Match format (1 for BO1, 3 for BO3)")
@@ -117,7 +118,8 @@ class MetaSnapshotResponse(BaseModel):
     )
     sample_size: int = Field(ge=0, description="Number of placements in sample")
     tournaments_included: list[str] | None = Field(
-        default=None, description="Tournament IDs included in the snapshot"
+        default=None,
+        description="Tournament IDs included in the snapshot",
     )
     format_notes: FormatNotes | None = Field(
         default=None,
@@ -128,17 +130,23 @@ class MetaSnapshotResponse(BaseModel):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Simpson's diversity index (0-1, higher = more diverse meta)",
+        description=("Simpson's diversity index (0-1, higher = more diverse meta)"),
     )
     tier_assignments: dict[str, str] | None = Field(
         default=None,
-        description="Archetype tier mapping: {archetype: tier} (S/A/B/C/Rogue)",
+        description=("Archetype tier mapping: {archetype: tier} (S/A/B/C/Rogue)"),
     )
     jp_signals: JPSignals | None = Field(
-        default=None, description="JP vs EN meta divergence signals"
+        default=None,
+        description="JP vs EN meta divergence signals",
     )
     trends: dict[str, TrendInfo] | None = Field(
-        default=None, description="Week-over-week trends per archetype"
+        default=None,
+        description="Week-over-week trends per archetype",
+    )
+    era_label: str | None = Field(
+        default=None,
+        description="Era tag (e.g., 'post-nihil-zero')",
     )
 
 

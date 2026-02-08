@@ -72,3 +72,7 @@ class MetaSnapshot(Base, TimestampMixin):
 
     # Week-over-week trends: {"Charizard ex": {"change": 0.02, "direction": "up"}, ...}
     trends: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Era label for tagging snapshots (e.g., "post-nihil-zero")
+    # Metadata only — does NOT participate in the unique constraint
+    era_label: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)

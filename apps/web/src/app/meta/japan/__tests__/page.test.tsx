@@ -8,9 +8,12 @@ import type {
   ApiArchetypeDetailResponse,
 } from "@trainerlab/shared-types";
 
+// Capture the push mock so we can assert on it
+const mockPush = vi.fn();
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockPush }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -33,6 +36,59 @@ vi.mock("@/components/japan", () => ({
   CardCountEvolutionSection: () => <div data-testid="card-count-evo" />,
   CardAdoptionRates: () => <div data-testid="card-adoption" />,
   UpcomingCards: () => <div data-testid="upcoming-cards" />,
+  RotationBriefingHeader: ({ phase }: { phase: string }) => (
+    <div data-testid="rotation-briefing-header" data-phase={phase} />
+  ),
+  JPAnalysisTab: ({ era }: { era?: string }) => (
+    <div data-testid="jp-analysis-tab" data-era={era} />
+  ),
+}));
+
+// Capture Tabs onValueChange so TabsTrigger can call it
+let tabsOnValueChange: ((v: string) => void) | undefined;
+
+// Mock shadcn/ui Tabs so we can test tab switching without Radix
+vi.mock("@/components/ui/tabs", () => ({
+  Tabs: ({
+    children,
+    value,
+    onValueChange,
+  }: {
+    children: React.ReactNode;
+    value: string;
+    onValueChange: (v: string) => void;
+  }) => {
+    tabsOnValueChange = onValueChange;
+    return (
+      <div data-testid="tabs" data-value={value}>
+        {children}
+      </div>
+    );
+  },
+  TabsList: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="tabs-list">{children}</div>
+  ),
+  TabsTrigger: ({
+    children,
+    value,
+  }: {
+    children: React.ReactNode;
+    value: string;
+  }) => (
+    <button
+      data-testid={`tab-${value}`}
+      onClick={() => tabsOnValueChange?.(value)}
+    >
+      {children}
+    </button>
+  ),
+  TabsContent: ({
+    children,
+    value,
+  }: {
+    children: React.ReactNode;
+    value: string;
+  }) => <div data-testid={`tab-content-${value}`}>{children}</div>,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -108,21 +164,21 @@ function createWrapper() {
 describe("JapanMetaPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tabsOnValueChange = undefined;
     vi.mocked(metaApi.getHistory).mockResolvedValue({ snapshots: [] });
     vi.mocked(metaApi.getArchetypeDetail).mockResolvedValue(
       mockArchetypeDetail
     );
   });
 
-  it("should render persistent BO1 context strip", async () => {
+  it("should render BO1 context banner", async () => {
     vi.mocked(metaApi.getCurrent).mockResolvedValue(mockSnapshot);
 
     render(<JapanMetaPage />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByTestId("bo1-context-strip")).toBeInTheDocument();
+      expect(screen.getByTestId("bo1-context-banner")).toBeInTheDocument();
     });
-    expect(screen.getByText(/Best-of-1/)).toBeInTheDocument();
   });
 
   it("should render confidence badge when data loads", async () => {
@@ -193,5 +249,118 @@ describe("JapanMetaPage", () => {
         expect.objectContaining({ region: "JP", best_of: 1 })
       );
     });
+  });
+
+  it("should render rotation briefing header with post-rotation phase", async () => {
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(mockSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      const header = screen.getByTestId("rotation-briefing-header");
+      expect(header).toBeInTheDocument();
+      expect(header).toHaveAttribute("data-phase", "post-rotation");
+    });
+  });
+
+  it("should have tabbed layout with Meta Overview and JP Analysis tabs", async () => {
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(mockSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tabs")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("tab-overview")).toHaveTextContent(
+      "Meta Overview"
+    );
+    expect(screen.getByTestId("tab-analysis")).toHaveTextContent("JP Analysis");
+  });
+
+  it("should render overview tab content by default", async () => {
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(mockSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tab-content-overview")).toBeInTheDocument();
+    });
+
+    // Overview tab should contain meta charts and child components
+    expect(screen.getByTestId("meta-divergence")).toBeInTheDocument();
+    expect(screen.getByTestId("city-league-feed")).toBeInTheDocument();
+    expect(screen.getByTestId("card-adoption")).toBeInTheDocument();
+    expect(screen.getByTestId("upcoming-cards")).toBeInTheDocument();
+    expect(screen.getByTestId("card-count-evo")).toBeInTheDocument();
+  });
+
+  it("should render JP Analysis tab content", async () => {
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(mockSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tab-content-analysis")).toBeInTheDocument();
+    });
+
+    const analysisTab = screen.getByTestId("jp-analysis-tab");
+    expect(analysisTab).toBeInTheDocument();
+    expect(analysisTab).toHaveAttribute("data-era", "post-nihil-zero");
+  });
+
+  it("should call router.push on tab switch", async () => {
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(mockSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tab-analysis")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("tab-analysis"));
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.stringContaining("tab=analysis")
+      );
+    });
+  });
+
+  it("should show data freshness warning when data is stale (>48h)", async () => {
+    const staleSnapshot: ApiMetaSnapshot = {
+      ...mockSnapshot,
+      // Set snapshot_date to 4 days ago
+      snapshot_date: "2026-02-01",
+    };
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(staleSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("data-freshness-warning")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Data may be stale/)).toBeInTheDocument();
+  });
+
+  it("should not show data freshness warning when data is fresh", async () => {
+    const freshSnapshot: ApiMetaSnapshot = {
+      ...mockSnapshot,
+      // Use today's date so it's definitely < 48h old
+      snapshot_date: new Date().toISOString().split("T")[0],
+    };
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(freshSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    // Wait for data to load
+    await waitFor(() => {
+      expect(screen.getByTestId("confidence-badge")).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByTestId("data-freshness-warning")
+    ).not.toBeInTheDocument();
   });
 });

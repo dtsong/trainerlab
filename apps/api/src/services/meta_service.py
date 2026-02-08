@@ -63,6 +63,8 @@ class MetaService:
         game_format: Literal["standard", "expanded"] = "standard",
         best_of: Literal[1, 3] = 3,
         lookback_days: int = 90,
+        start_date_floor: date | None = None,
+        era_label: str | None = None,
     ) -> MetaSnapshot:
         """Compute a meta snapshot from tournament placements.
 
@@ -77,6 +79,8 @@ class MetaService:
             game_format: Game format (standard, expanded).
             best_of: Match format (1 for Japan BO1, 3 for international BO3).
             lookback_days: Number of days to look back for tournament data.
+            start_date_floor: If provided, clamp start_date to be no earlier.
+            era_label: Optional era tag for the snapshot.
 
         Returns:
             MetaSnapshot with computed stats.
@@ -85,6 +89,8 @@ class MetaService:
             SQLAlchemyError: If database query fails.
         """
         start_date = date.fromordinal(snapshot_date.toordinal() - lookback_days)
+        if start_date_floor and start_date < start_date_floor:
+            start_date = start_date_floor
 
         try:
             tournament_query = select(Tournament).where(
@@ -117,7 +123,11 @@ class MetaService:
                 best_of,
             )
             return self._create_empty_snapshot(
-                snapshot_date, region, game_format, best_of
+                snapshot_date,
+                region,
+                game_format,
+                best_of,
+                era_label=era_label,
             )
 
         tournament_ids = [t.id for t in tournaments]
@@ -140,10 +150,22 @@ class MetaService:
         if not placements:
             logger.warning("No placements found for tournaments: %s", tournament_ids)
             return self._create_empty_snapshot(
-                snapshot_date, region, game_format, best_of
+                snapshot_date,
+                region,
+                game_format,
+                best_of,
+                era_label=era_label,
             )
 
-        archetype_shares = self._compute_archetype_shares(placements)
+        # Lower min tournament threshold for short post-rotation windows
+        effective_window = (snapshot_date - start_date).days
+        min_tournaments = MIN_ARCHETYPE_TOURNAMENTS
+        if start_date_floor and effective_window < 45:
+            min_tournaments = 2
+
+        archetype_shares = self._compute_archetype_shares(
+            placements, min_tournaments=min_tournaments
+        )
         card_usage = self._compute_card_usage(placements)
 
         snapshot = MetaSnapshot(
@@ -156,6 +178,7 @@ class MetaService:
             card_usage=card_usage if card_usage else None,
             sample_size=len(placements),
             tournaments_included=tournament_names,
+            era_label=era_label,
         )
 
         return snapshot
@@ -201,6 +224,7 @@ class MetaService:
                 existing.tier_assignments = snapshot.tier_assignments
                 existing.jp_signals = snapshot.jp_signals
                 existing.trends = snapshot.trends
+                existing.era_label = snapshot.era_label
                 await self.session.commit()
                 await self.session.refresh(existing)
                 return existing
@@ -268,12 +292,16 @@ class MetaService:
             raise
 
     def _compute_archetype_shares(
-        self, placements: Sequence[TournamentPlacement]
+        self,
+        placements: Sequence[TournamentPlacement],
+        min_tournaments: int = MIN_ARCHETYPE_TOURNAMENTS,
     ) -> dict[str, float]:
         """Compute archetype share percentages from placements.
 
         Args:
             placements: Sequence of tournament placements.
+            min_tournaments: Minimum distinct tournaments an archetype
+                must appear in. Defaults to MIN_ARCHETYPE_TOURNAMENTS.
 
         Returns:
             Dict mapping archetype name to share percentage (0.0-1.0).
@@ -304,7 +332,7 @@ class MetaService:
             )
             if archetype not in EXCLUDED_ARCHETYPES
             and count / total >= MIN_ARCHETYPE_SHARE
-            and len(archetype_tournaments[archetype]) >= MIN_ARCHETYPE_TOURNAMENTS
+            and len(archetype_tournaments[archetype]) >= min_tournaments
         }
 
         return shares
@@ -402,6 +430,7 @@ class MetaService:
         region: str | None,
         game_format: str,
         best_of: int,
+        era_label: str | None = None,
     ) -> MetaSnapshot:
         """Create an empty snapshot when no data is available."""
         return MetaSnapshot(
@@ -418,6 +447,7 @@ class MetaService:
             tier_assignments=None,
             jp_signals=None,
             trends=None,
+            era_label=era_label,
         )
 
     def compute_diversity_index(self, shares: dict[str, float]) -> Decimal | None:
@@ -982,6 +1012,8 @@ class MetaService:
         game_format: Literal["standard", "expanded"] = "standard",
         best_of: Literal[1, 3] = 3,
         lookback_days: int = 90,
+        start_date_floor: date | None = None,
+        era_label: str | None = None,
     ) -> MetaSnapshot:
         """Compute an enhanced meta snapshot with diversity, tiers, and trends.
 
@@ -997,6 +1029,8 @@ class MetaService:
             game_format: Game format.
             best_of: Match format.
             lookback_days: Days to look back for tournament data.
+            start_date_floor: If provided, clamp start_date.
+            era_label: Optional era tag for the snapshot.
 
         Returns:
             MetaSnapshot with all enhanced fields populated.
@@ -1008,6 +1042,8 @@ class MetaService:
             game_format=game_format,
             best_of=best_of,
             lookback_days=lookback_days,
+            start_date_floor=start_date_floor,
+            era_label=era_label,
         )
 
         if snapshot.sample_size == 0:

@@ -71,6 +71,7 @@ class TestGlossaryEntryFields:
             "tournament_term",
             "meta_term",
             "strategic_term",
+            "archetype_name",
         }
         for key, entry in TCG_GLOSSARY.items():
             assert entry.category in valid_categories, (

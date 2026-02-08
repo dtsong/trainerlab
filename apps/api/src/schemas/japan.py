@@ -227,3 +227,40 @@ class CardCountEvolutionResponse(BaseModel):
     tournaments_analyzed: int = Field(
         ge=0, description="Number of tournaments analyzed"
     )
+
+
+class JPContentItem(BaseModel):
+    """Translated JP content item."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str = Field(description="Content ID (UUID)")
+    source_url: str = Field(description="Original source URL")
+    content_type: str = Field(description="Content type (article, tier_list)")
+    title_en: str | None = Field(default=None, description="English title")
+    title_jp: str | None = Field(default=None, description="Japanese title")
+    translated_text: str | None = Field(
+        default=None, description="Translated content (excerpt)"
+    )
+    published_date: date_type | None = Field(
+        default=None, description="Publication date"
+    )
+    source_name: str | None = Field(default=None, description="Source name")
+    tags: list[str] | None = Field(default=None, description="Content tags")
+    archetype_refs: list[str] | None = Field(
+        default=None, description="Referenced archetypes"
+    )
+    era_label: str | None = Field(default=None, description="Era label")
+    review_status: str = Field(default="auto_approved", description="Review status")
+    translated_at: datetime | None = Field(
+        default=None, description="Translation timestamp"
+    )
+
+
+class JPContentListResponse(BaseModel):
+    """List of translated JP content."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    items: list[JPContentItem] = Field(description="Content items")
+    total: int = Field(description="Total count")

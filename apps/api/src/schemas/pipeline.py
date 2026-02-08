@@ -368,3 +368,21 @@ class ReprocessArchetypesResult(BaseModel):
     )
     total_remaining: int = Field(ge=0, default=0, description="Approximate remaining")
     success: bool = Field(description="Whether pipeline succeeded")
+
+
+class WipeDataRequest(PipelineRequest):
+    """Request for data wipe pipeline."""
+
+    pass
+
+
+class WipeDataResult(BaseModel):
+    """Result from data wipe pipeline."""
+
+    tables_truncated: int = Field(ge=0, description="Tables truncated")
+    tables_verified_empty: int = Field(
+        ge=0, description="Tables verified empty after truncation"
+    )
+    preserved_tables_checked: int = Field(ge=0, description="Preserved tables verified")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether wipe completed without errors")

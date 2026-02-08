@@ -77,6 +77,12 @@ from src.pipelines.translate_tier_lists import (
 from src.pipelines.translate_tier_lists import (
     translate_tier_lists,
 )
+from src.pipelines.wipe_data import (
+    WipeDataResult as WipeDataResultInternal,
+)
+from src.pipelines.wipe_data import (
+    wipe_data,
+)
 from src.schemas.pipeline import (
     CleanupExportsRequest,
     CleanupExportsResult,
@@ -106,6 +112,8 @@ from src.schemas.pipeline import (
     TranslatePokecabookResult,
     TranslateTierListsRequest,
     TranslateTierListsResult,
+    WipeDataRequest,
+    WipeDataResult,
 )
 from src.services.storage_service import StorageService
 from src.services.tournament_scrape import ScrapeResult as ScrapeResultInternal
@@ -768,3 +776,43 @@ async def rescrape_jp_endpoint(
     )
 
     return _convert_rescrape_result(result)
+
+
+# Data wipe pipeline
+
+
+def _convert_wipe_result(
+    internal: WipeDataResultInternal,
+) -> WipeDataResult:
+    """Convert internal WipeDataResult to API schema."""
+    return WipeDataResult(
+        tables_truncated=internal.tables_truncated,
+        tables_verified_empty=internal.tables_verified_empty,
+        preserved_tables_checked=internal.preserved_tables_checked,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post("/wipe-data", response_model=WipeDataResult)
+async def wipe_data_endpoint(
+    request: WipeDataRequest,
+) -> WipeDataResult:
+    """Wipe all tournament, meta, card, and reference data.
+
+    Preserves user tables (users, decks, waitlist, api_keys, etc.).
+    Use dry_run=True to preview what would be truncated.
+    """
+    logger.warning("Starting data wipe pipeline: dry_run=%s", request.dry_run)
+
+    result = await wipe_data(dry_run=request.dry_run)
+
+    logger.warning(
+        "Data wipe complete: truncated=%d, verified=%d, preserved=%d, errors=%d",
+        result.tables_truncated,
+        result.tables_verified_empty,
+        result.preserved_tables_checked,
+        len(result.errors),
+    )
+
+    return _convert_wipe_result(result)

@@ -103,6 +103,26 @@ class TestDeriveNameFromKey:
         result = ArchetypeNormalizer.derive_name_from_key("chien-pao-baxcalibur")
         assert result == "Chien Pao Baxcalibur"
 
+    def test_mega_prefix_single(self) -> None:
+        """Should put Mega as a prefix for single Mega Pokemon."""
+        assert (
+            ArchetypeNormalizer.derive_name_from_key("lucario-mega") == "Mega Lucario"
+        )
+
+    def test_mega_prefix_composite(self) -> None:
+        """Mega Pokemon should be first with Mega prefix."""
+        assert (
+            ArchetypeNormalizer.derive_name_from_key("hariyama-lucario-mega")
+            == "Mega Lucario Hariyama"
+        )
+
+    def test_mega_prefix_dual_mega(self) -> None:
+        """Both Mega Pokemon should have Mega prefix."""
+        assert (
+            ArchetypeNormalizer.derive_name_from_key("froslass-mega-starmie-mega")
+            == "Mega Froslass Mega Starmie"
+        )
+
 
 class TestResolve:
     """Tests for ArchetypeNormalizer.resolve priority chain."""
@@ -385,12 +405,12 @@ class TestLoadDbSprites:
         """DB entries should override in-code entries."""
         from collections import namedtuple
 
-        row = namedtuple("Row", ["sprite_key", "archetype_name"])
+        row = namedtuple("Row", ["sprite_key", "archetype_name", "display_name"])
         mock_session = AsyncMock()
         mock_result = MagicMock()
         mock_result.all.return_value = [
-            row("charizard", "DB Charizard Override"),
-            row("new-db-key", "New DB Archetype"),
+            row("charizard", "DB Charizard Override", None),
+            row("new-db-key", "New DB Archetype", None),
         ]
         mock_session.execute.return_value = mock_result
 
@@ -403,6 +423,26 @@ class TestLoadDbSprites:
         # Original entries still present
         assert "dragapult" in normalizer.sprite_map
         assert normalizer._db_loaded is True
+
+    @pytest.mark.asyncio
+    async def test_load_prefers_display_name(self) -> None:
+        """display_name should take priority over archetype_name."""
+        from collections import namedtuple
+
+        row = namedtuple("Row", ["sprite_key", "archetype_name", "display_name"])
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.all.return_value = [
+            row("charizard", "Charizard ex", "Zard"),
+            row("gardevoir", "Gardevoir ex", None),
+        ]
+        mock_session.execute.return_value = mock_result
+
+        normalizer = ArchetypeNormalizer()
+        await normalizer.load_db_sprites(mock_session)
+
+        assert normalizer.sprite_map["charizard"] == "Zard"
+        assert normalizer.sprite_map["gardevoir"] == "Gardevoir ex"
 
     @pytest.mark.asyncio
     async def test_load_empty_db(self) -> None:

@@ -93,14 +93,14 @@ describe("groupArchetypes", () => {
     expect(result.other!.share).toBeCloseTo(0.2);
   });
 
-  it("should default topN to 8", () => {
-    const data: Archetype[] = Array.from({ length: 10 }, (_, i) => ({
+  it("should default topN to 15", () => {
+    const data: Archetype[] = Array.from({ length: 18 }, (_, i) => ({
       name: `Arch ${i}`,
       share: 0.1,
     }));
     const result = groupArchetypes(data);
-    expect(result.displayed).toHaveLength(8);
-    expect(result.other!.count).toBe(2);
+    expect(result.displayed).toHaveLength(15);
+    expect(result.other!.count).toBe(3);
   });
 
   it("should handle empty array", () => {

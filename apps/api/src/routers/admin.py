@@ -405,7 +405,10 @@ async def update_archetype_sprite(
     sprite = result.scalar_one_or_none()
     if not sprite:
         raise HTTPException(status_code=404, detail="Sprite mapping not found")
-    sprite.archetype_name = data.archetype_name
+    if data.archetype_name is not None:
+        sprite.archetype_name = data.archetype_name
+    if data.display_name is not None:
+        sprite.display_name = data.display_name or None
     await db.commit()
     await db.refresh(sprite)
     return ArchetypeSpriteResponse.model_validate(sprite)

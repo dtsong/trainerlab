@@ -13,6 +13,11 @@ class ArchetypeSpriteCreate(BaseModel):
 
     sprite_key: str = Field(min_length=1, max_length=255)
     archetype_name: str = Field(min_length=1, max_length=255)
+    display_name: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Custom display name (overrides archetype_name in UI)",
+    )
 
     @field_validator("sprite_key")
     @classmethod
@@ -30,7 +35,12 @@ class ArchetypeSpriteCreate(BaseModel):
 class ArchetypeSpriteUpdate(BaseModel):
     """Schema for updating an archetype sprite mapping."""
 
-    archetype_name: str = Field(min_length=1, max_length=255)
+    archetype_name: str | None = Field(default=None, min_length=1, max_length=255)
+    display_name: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Custom display name (overrides archetype_name in UI)",
+    )
 
 
 class ArchetypeSpriteResponse(BaseModel):
@@ -41,6 +51,7 @@ class ArchetypeSpriteResponse(BaseModel):
     id: UUID
     sprite_key: str
     archetype_name: str
+    display_name: str | None = None
 
 
 class ArchetypeSpriteListResponse(BaseModel):

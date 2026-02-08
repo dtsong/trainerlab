@@ -167,6 +167,38 @@ SPRITE_ARCHETYPE_MAP: dict[str, str] = {
 _FILENAME_RE = re.compile(r"/([a-zA-Z0-9_-]+)\.png")
 
 
+def _split_mega_aware(sprite_key: str) -> list[str]:
+    """Split an unknown composite sprite key using ``-mega`` as a boundary.
+
+    Limitless sprite filenames for Mega Pokémon end with ``-mega``
+    (e.g. ``lucario-mega``).  When two sprites are joined into a
+    single key we can use the ``mega`` token to find where one
+    filename ends and the next begins.
+
+    Examples:
+        "hariyama-lucario-mega"
+            → ["hariyama", "lucario-mega"]
+        "froslass-mega-starmie-mega"
+            → ["froslass-mega", "starmie-mega"]
+        "raging-bolt"  (no mega, returns as-is)
+            → ["raging-bolt"]
+    """
+    parts = sprite_key.split("-")
+    if "mega" not in parts:
+        return [sprite_key]
+
+    filenames: list[str] = []
+    i = 0
+    while i < len(parts):
+        if i + 1 < len(parts) and parts[i + 1] == "mega":
+            filenames.append(f"{parts[i]}-mega")
+            i += 2
+        else:
+            filenames.append(parts[i])
+            i += 1
+    return filenames
+
+
 class ArchetypeNormalizer:
     """Resolves archetype labels through a priority chain."""
 
@@ -203,6 +235,7 @@ class ArchetypeNormalizer:
                 select(
                     ArchetypeSprite.sprite_key,
                     ArchetypeSprite.archetype_name,
+                    ArchetypeSprite.display_name,
                 )
             )
         except Exception:
@@ -212,8 +245,8 @@ class ArchetypeNormalizer:
             )
             return 0
         rows = result.all()
-        for sprite_key, archetype_name in rows:
-            self.sprite_map[sprite_key] = archetype_name
+        for sprite_key, archetype_name, display_name in rows:
+            self.sprite_map[sprite_key] = display_name or archetype_name
         self._db_loaded = True
         logger.info(
             "loaded_db_sprites",
@@ -461,13 +494,38 @@ class ArchetypeNormalizer:
     def derive_name_from_key(sprite_key: str) -> str:
         """Derive a human-readable archetype name from a sprite key.
 
-        Splits on hyphens, capitalizes each part, and joins with spaces.
+        Uses the composite sprite map when available. Recognises the
+        ``-mega`` filename suffix so Mega Pokémon are displayed with a
+        "Mega" prefix and listed first (e.g. "Mega Lucario Hariyama").
 
         Examples:
             "charizard" → "Charizard"
             "dragapult-pidgeot" → "Dragapult Pidgeot"
+            "lucario-mega" → "Mega Lucario"
+            "hariyama-lucario-mega" → "Mega Lucario Hariyama"
+            "froslass-mega-starmie-mega" → "Mega Froslass Mega Starmie"
         """
         if not sprite_key:
             return ""
-        parts = sprite_key.split("-")
-        return " ".join(p.capitalize() for p in parts if p)
+
+        filenames = sprite_key_to_filenames(sprite_key)
+
+        # If not a known composite, try to decompose using -mega
+        # boundaries so that e.g. "hariyama-lucario-mega" splits
+        # into ["hariyama", "lucario-mega"] rather than three tokens.
+        if len(filenames) == 1 and filenames[0] == sprite_key:
+            filenames = _split_mega_aware(sprite_key)
+
+        mega_names: list[str] = []
+        regular_names: list[str] = []
+        for fn in filenames:
+            if fn.endswith("-mega"):
+                base = fn[:-5]
+                name = " ".join(p.capitalize() for p in base.split("-"))
+                mega_names.append(f"Mega {name}")
+            else:
+                name = " ".join(p.capitalize() for p in fn.split("-"))
+                regular_names.append(name)
+
+        # Mega Pokémon first — they're typically the flagship.
+        return " ".join(mega_names + regular_names)

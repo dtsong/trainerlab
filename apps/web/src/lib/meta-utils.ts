@@ -130,20 +130,35 @@ export interface GroupedArchetypes {
 }
 
 /**
- * Group archetypes into the top N by share, with the rest bucketed as "Other".
- * Returns `other: null` when the total count is <= topN.
+ * Group archetypes into displayed + "Other".
+ *
+ * When `minShare` is provided, only archetypes meeting the threshold are
+ * displayed (up to `topN`). Otherwise falls back to a simple top-N split.
  */
 export function groupArchetypes(
   archetypes: Archetype[],
-  { topN = 8 }: { topN?: number } = {}
+  { topN = 15, minShare }: { topN?: number; minShare?: number } = {}
 ): GroupedArchetypes {
-  if (archetypes.length <= topN) {
-    return { displayed: archetypes, other: null };
+  const sorted = [...archetypes].sort((a, b) => b.share - a.share);
+
+  let displayed: Archetype[];
+  let rest: Archetype[];
+
+  if (minShare !== undefined) {
+    const aboveThreshold = sorted.filter((a) => a.share >= minShare);
+    displayed = aboveThreshold.slice(0, topN);
+    rest = sorted.filter((a) => !displayed.includes(a));
+  } else {
+    if (sorted.length <= topN) {
+      return { displayed: sorted, other: null };
+    }
+    displayed = sorted.slice(0, topN);
+    rest = sorted.slice(topN);
   }
 
-  const sorted = [...archetypes].sort((a, b) => b.share - a.share);
-  const displayed = sorted.slice(0, topN);
-  const rest = sorted.slice(topN);
+  if (rest.length === 0) {
+    return { displayed, other: null };
+  }
 
   const otherShare = rest.reduce((sum, a) => sum + a.share, 0);
 

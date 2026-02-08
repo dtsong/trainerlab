@@ -673,7 +673,7 @@ class MetaService:
             confidence=level,
         )
 
-    # --- Sprite URL helper ---
+    # --- Sprite URL & display name helpers ---
 
     async def _get_sprite_urls_for_archetypes(
         self, archetype_names: list[str]
@@ -702,6 +702,30 @@ class MetaService:
                 urls = sprite_key_to_urls(sprite.sprite_key)
             mapping[sprite.archetype_name] = urls
         return mapping
+
+    async def get_display_name_overrides(self) -> dict[str, str]:
+        """Load archetype display_name overrides.
+
+        Returns a mapping from archetype_name → display_name for
+        all sprites that have a custom display_name set.
+        """
+        try:
+            query = select(
+                ArchetypeSprite.archetype_name,
+                ArchetypeSprite.display_name,
+            ).where(ArchetypeSprite.display_name.is_not(None))
+            result = await self.session.execute(query)
+            return {
+                row.archetype_name: row.display_name
+                for row in result.all()
+                if row.display_name
+            }
+        except SQLAlchemyError:
+            logger.warning(
+                "Failed to fetch display name overrides",
+                exc_info=True,
+            )
+            return {}
 
     # --- Comparison ---
 

@@ -692,6 +692,7 @@ def _make_sprite(**overrides) -> MagicMock:
         "id": uuid4(),
         "sprite_key": "charizard",
         "archetype_name": "Charizard ex",
+        "display_name": None,
         "sprite_urls": [],
         "pokemon_names": ["charizard"],
     }

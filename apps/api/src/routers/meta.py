@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
+from src.models.archetype_sprite import ArchetypeSprite
 from src.schemas import (
     ArchetypeDetailResponse,
     ArchetypeHistoryPoint,
@@ -64,13 +65,39 @@ def _get_format_notes(best_of: int, region: str | None) -> FormatNotes | None:
     return None
 
 
+async def _load_display_overrides(
+    db: AsyncSession,
+) -> dict[str, str]:
+    """Load archetype display_name overrides from the DB."""
+    try:
+        result = await db.execute(
+            select(
+                ArchetypeSprite.archetype_name,
+                ArchetypeSprite.display_name,
+            ).where(ArchetypeSprite.display_name.is_not(None))
+        )
+        return {
+            row.archetype_name: row.display_name
+            for row in result.all()
+            if row.display_name
+        }
+    except SQLAlchemyError:
+        logger.warning("Failed to load display overrides", exc_info=True)
+        return {}
+
+
 def _snapshot_to_response(
     snapshot: MetaSnapshot,
     include_format_notes: bool = True,
+    display_overrides: dict[str, str] | None = None,
 ) -> MetaSnapshotResponse:
     """Convert a MetaSnapshot model to response schema."""
+    overrides = display_overrides or {}
     archetype_breakdown = [
-        ArchetypeResponse(name=name, share=share)
+        ArchetypeResponse(
+            name=overrides.get(name, name),
+            share=share,
+        )
         for name, share in (snapshot.archetype_shares or {}).items()
     ]
 
@@ -190,7 +217,8 @@ async def get_current_meta(
             ),
         )
 
-    return _snapshot_to_response(snapshot)
+    overrides = await _load_display_overrides(db)
+    return _snapshot_to_response(snapshot, display_overrides=overrides)
 
 
 @router.get("/history")
@@ -271,7 +299,12 @@ async def get_meta_history(
             detail="Unable to retrieve meta history. Please try again later.",
         ) from None
 
-    return MetaHistoryResponse(snapshots=[_snapshot_to_response(s) for s in snapshots])
+    overrides = await _load_display_overrides(db)
+    return MetaHistoryResponse(
+        snapshots=[
+            _snapshot_to_response(s, display_overrides=overrides) for s in snapshots
+        ]
+    )
 
 
 @router.get("/archetypes")

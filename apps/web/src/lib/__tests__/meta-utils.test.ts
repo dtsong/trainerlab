@@ -420,17 +420,50 @@ describe("meta-utils", () => {
       expect(result.other).toBeNull();
     });
 
-    it("should use default topN of 8", () => {
-      const archetypes = Array.from({ length: 10 }, (_, i) =>
-        makeArchetype(`Deck ${i + 1}`, (10 - i) / 100)
+    it("should use default topN of 15", () => {
+      const archetypes = Array.from({ length: 18 }, (_, i) =>
+        makeArchetype(`Deck ${i + 1}`, (18 - i) / 100)
       );
 
       const result = groupArchetypes(archetypes);
 
-      expect(result.displayed).toHaveLength(8);
+      expect(result.displayed).toHaveLength(15);
+      expect(result.other).not.toBeNull();
+      expect(result.other!.count).toBe(3);
+    });
+
+    it("should filter by minShare threshold", () => {
+      const archetypes = [
+        makeArchetype("Top Deck", 0.25),
+        makeArchetype("Mid Deck", 0.1),
+        makeArchetype("Low Deck", 0.03),
+        makeArchetype("Below Threshold", 0.015),
+        makeArchetype("Tiny Deck", 0.005),
+      ];
+
+      const result = groupArchetypes(archetypes, { minShare: 0.02 });
+
+      expect(result.displayed).toHaveLength(3);
+      expect(result.displayed.map((a) => a.name)).toEqual([
+        "Top Deck",
+        "Mid Deck",
+        "Low Deck",
+      ]);
       expect(result.other).not.toBeNull();
       expect(result.other!.count).toBe(2);
-      expect(result.other!.share).toBeCloseTo(0.01 + 0.02);
+      expect(result.other!.share).toBeCloseTo(0.02);
+    });
+
+    it("should respect topN cap even with minShare", () => {
+      const archetypes = Array.from({ length: 10 }, (_, i) =>
+        makeArchetype(`Deck ${i + 1}`, 0.1)
+      );
+
+      const result = groupArchetypes(archetypes, { topN: 3, minShare: 0.05 });
+
+      expect(result.displayed).toHaveLength(3);
+      expect(result.other).not.toBeNull();
+      expect(result.other!.count).toBe(7);
     });
   });
 });

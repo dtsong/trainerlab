@@ -55,7 +55,7 @@ export function MetaPieChart({ data, topN = 8, className }: MetaPieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [isOtherExpanded, setIsOtherExpanded] = useState(false);
 
-  const { displayed, other } = groupArchetypes(data, { topN });
+  const { displayed, other } = groupArchetypes(data, { topN, minShare: 0.02 });
 
   const slices: SliceData[] = displayed.map((archetype, i) => ({
     name: archetype.name,

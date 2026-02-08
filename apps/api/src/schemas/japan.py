@@ -68,6 +68,16 @@ class CityLeagueResult(BaseModel):
     placements: list[int] = Field(description="Placements achieved")
 
 
+class JPKeyCardInfo(BaseModel):
+    """Enriched key card info for JP archetypes."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    card_id: str = Field(description="Card ID or name string")
+    card_name: str | None = Field(default=None, description="Resolved card name")
+    image_small: str | None = Field(default=None, description="Small card image URL")
+
+
 class JPNewArchetypeResponse(BaseModel):
     """JP-only archetype response."""
 
@@ -79,6 +89,10 @@ class JPNewArchetypeResponse(BaseModel):
     name_jp: str | None = Field(default=None, description="Archetype name (JP)")
     key_cards: list[str] | None = Field(
         default=None, description="Key card IDs defining this archetype"
+    )
+    key_card_details: list[JPKeyCardInfo] | None = Field(
+        default=None,
+        description="Enriched key card info with names and images",
     )
     enabled_by_set: str | None = Field(
         default=None, description="Set that enabled this archetype"

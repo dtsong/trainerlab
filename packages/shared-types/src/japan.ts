@@ -48,6 +48,15 @@ export interface ApiCityLeagueResult {
 }
 
 /**
+ * Enriched key card info for JP archetypes.
+ */
+export interface ApiJPKeyCardInfo {
+  card_id: string;
+  card_name?: string | null;
+  image_small?: string | null;
+}
+
+/**
  * JP-only archetype not in EN meta.
  */
 export interface ApiJPNewArchetype {
@@ -56,6 +65,7 @@ export interface ApiJPNewArchetype {
   name: string;
   name_jp?: string | null;
   key_cards?: string[] | null;
+  key_card_details?: ApiJPKeyCardInfo[] | null;
   enabled_by_set?: string | null;
   jp_meta_share: number;
   jp_trend?: AdoptionTrend | null;

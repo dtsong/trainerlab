@@ -1,6 +1,6 @@
 """Tests for Japan intelligence endpoints."""
 
-from datetime import date, datetime, UTC
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -73,9 +73,7 @@ class TestListCardInnovations:
         assert len(data["items"]) == 1
         assert data["items"][0]["card_id"] == "sv6-123"
 
-    def test_filters_by_set_code(
-        self, client: TestClient, mock_db: AsyncMock
-    ) -> None:
+    def test_filters_by_set_code(self, client: TestClient, mock_db: AsyncMock) -> None:
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
 
@@ -91,9 +89,7 @@ class TestListCardInnovations:
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_filters_by_en_legal(
-        self, client: TestClient, mock_db: AsyncMock
-    ) -> None:
+    def test_filters_by_en_legal(self, client: TestClient, mock_db: AsyncMock) -> None:
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
 
@@ -217,7 +213,15 @@ class TestListNewArchetypes:
         mock_count_result = MagicMock()
         mock_count_result.scalar.return_value = 1
 
-        mock_db.execute.side_effect = [mock_result, mock_count_result]
+        # Card enrichment query (returns no matching cards)
+        mock_card_enrich_result = MagicMock()
+        mock_card_enrich_result.all.return_value = []
+
+        mock_db.execute.side_effect = [
+            mock_result,
+            mock_count_result,
+            mock_card_enrich_result,
+        ]
 
         response = client.get("/api/v1/japan/archetypes/new")
 
@@ -243,9 +247,7 @@ class TestListSetImpacts:
         yield TestClient(app)
         app.dependency_overrides.clear()
 
-    def test_returns_set_impacts(
-        self, client: TestClient, mock_db: AsyncMock
-    ) -> None:
+    def test_returns_set_impacts(self, client: TestClient, mock_db: AsyncMock) -> None:
         impact = JPSetImpact(
             id=uuid4(),
             set_code="sv6",
@@ -313,10 +315,10 @@ class TestListPredictions:
 
         mock_count_results = [MagicMock() for _ in range(5)]
         mock_count_results[0].scalar.return_value = 10  # total
-        mock_count_results[1].scalar.return_value = 8   # resolved
-        mock_count_results[2].scalar.return_value = 6   # correct
-        mock_count_results[3].scalar.return_value = 1   # partial
-        mock_count_results[4].scalar.return_value = 1   # incorrect
+        mock_count_results[1].scalar.return_value = 8  # resolved
+        mock_count_results[2].scalar.return_value = 6  # correct
+        mock_count_results[3].scalar.return_value = 1  # partial
+        mock_count_results[4].scalar.return_value = 1  # incorrect
 
         mock_db.execute.side_effect = [
             mock_pred_result,
@@ -348,6 +350,7 @@ class TestCardCountEvolution:
     @pytest.fixture
     def client(self, mock_db: AsyncMock) -> TestClient:
         """Create test client with mocked database."""
+
         async def override_get_db():
             yield mock_db
 

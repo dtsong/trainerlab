@@ -599,9 +599,14 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_tournament_result = MagicMock()
         mock_tournament_result.scalars.return_value.all.return_value = [tournament]
 
+        # Card enrichment query (returns no matching cards)
+        mock_card_enrich_result = MagicMock()
+        mock_card_enrich_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
+            mock_card_enrich_result,
             mock_tournament_result,
         ]
 
@@ -715,9 +720,14 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_placement_result = MagicMock()
         mock_placement_result.scalars.return_value.all.return_value = [placement]
 
+        # Card enrichment query (returns no matching cards)
+        mock_card_enrich_result = MagicMock()
+        mock_card_enrich_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
+            mock_card_enrich_result,
             SQLAlchemyError("Tournament query failed"),
         ]
 
@@ -850,9 +860,14 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_tournament_result = MagicMock()
         mock_tournament_result.scalars.return_value.all.return_value = [tournament]
 
+        # Card enrichment query (returns no matching cards)
+        mock_card_enrich_result = MagicMock()
+        mock_card_enrich_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
+            mock_card_enrich_result,
             mock_tournament_result,
         ]
 
@@ -908,9 +923,14 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_tournament_result = MagicMock()
         mock_tournament_result.scalars.return_value.all.return_value = [tournament]
 
+        # Card enrichment query (returns no matching cards)
+        mock_card_enrich_result = MagicMock()
+        mock_card_enrich_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
+            mock_card_enrich_result,
             mock_tournament_result,
         ]
 

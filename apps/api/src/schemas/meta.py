@@ -27,6 +27,8 @@ class CardUsageSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     card_id: str = Field(description="Card ID")
+    card_name: str | None = Field(default=None, description="Card name (EN or JP)")
+    image_small: str | None = Field(default=None, description="Small card image URL")
     inclusion_rate: float = Field(
         ge=0.0, le=1.0, description="Rate of decks including this card (0.0-1.0)"
     )
@@ -176,6 +178,8 @@ class KeyCardResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     card_id: str = Field(description="Card ID")
+    card_name: str | None = Field(default=None, description="Card name (EN or JP)")
+    image_small: str | None = Field(default=None, description="Small card image URL")
     inclusion_rate: float = Field(
         ge=0.0, le=1.0, description="Rate of archetype decks including this card"
     )

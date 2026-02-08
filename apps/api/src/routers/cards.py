@@ -158,6 +158,28 @@ async def search_cards(
     )
 
 
+@router.get("/batch")
+@limiter.limit("60/minute")
+async def get_cards_batch(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    ids: Annotated[
+        str,
+        Query(description="Comma-separated card IDs (max 50)"),
+    ],
+) -> list[CardSummaryResponse]:
+    """Get multiple cards by IDs in a single request.
+
+    Accepts a comma-separated list of card IDs (max 50).
+    Returns matching card summaries. Unknown IDs are silently skipped.
+    """
+    card_ids = [cid.strip() for cid in ids.split(",") if cid.strip()][:50]
+    if not card_ids:
+        return []
+    service = CardService(db)
+    return await service.get_cards_batch(card_ids)
+
+
 @router.get("/{card_id}")
 @limiter.limit("100/minute")
 async def get_card(

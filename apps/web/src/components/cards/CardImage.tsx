@@ -5,22 +5,25 @@ import { memo, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type CardImageSize = "thumbnail" | "small" | "large";
+
 interface CardImageProps {
   src: string | null | undefined;
   alt: string;
-  size?: "small" | "large";
+  size?: CardImageSize;
   className?: string;
   priority?: boolean;
 }
 
 // Card aspect ratio is roughly 2.5:3.5 (poker card)
 const SIZES = {
+  thumbnail: { width: 80, height: 112 },
   small: { width: 160, height: 224 },
   large: { width: 320, height: 448 },
 } as const;
 
-function Placeholder({ size }: { size: "small" | "large" }) {
-  const iconSize = size === "large" ? 48 : 24;
+function Placeholder({ size }: { size: CardImageSize }) {
+  const iconSize = size === "large" ? 48 : size === "small" ? 24 : 16;
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-muted">
       <ImageOff className="text-muted-foreground" size={iconSize} />

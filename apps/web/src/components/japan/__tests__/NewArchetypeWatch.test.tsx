@@ -129,7 +129,10 @@ describe("NewArchetypeWatch", () => {
     // "Raging Bolt ex" appears as both name and key card badge
     await screen.findAllByText("Raging Bolt ex");
     expect(screen.getByText("Key Cards")).toBeInTheDocument();
-    expect(screen.getByText("Ogerpon ex")).toBeInTheDocument();
+    // "Ogerpon ex" appears as both card name and card_id sub-label
+    // in CardReference (since key_cards has name strings, not IDs)
+    const ogerponMatches = screen.getAllByText("Ogerpon ex");
+    expect(ogerponMatches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("should display enabled by set", async () => {
@@ -189,6 +192,7 @@ describe("NewArchetypeWatch", () => {
     const noKeyCards: ApiJPNewArchetype = {
       ...mockArchetype,
       key_cards: null,
+      key_card_details: null,
     };
 
     mockJapanApi.listNewArchetypes.mockResolvedValue({
@@ -200,6 +204,40 @@ describe("NewArchetypeWatch", () => {
 
     await screen.findByText("Raging Bolt ex");
     expect(screen.queryByText("Key Cards")).not.toBeInTheDocument();
+  });
+
+  it("should render enriched key_card_details when available", async () => {
+    const enrichedArchetype: ApiJPNewArchetype = {
+      ...mockArchetype,
+      key_card_details: [
+        {
+          card_id: "sv7-18",
+          card_name: "Raging Bolt ex",
+          image_small: "https://example.com/sv7-18.png",
+        },
+        {
+          card_id: "sv5-22",
+          card_name: "Ogerpon ex",
+          image_small: null,
+        },
+      ],
+    };
+
+    mockJapanApi.listNewArchetypes.mockResolvedValue({
+      items: [enrichedArchetype],
+      total: 1,
+    });
+
+    render(<NewArchetypeWatch />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText("Key Cards")).toBeInTheDocument();
+    // CardReference renders card names
+    const ragingBoltMatches = await screen.findAllByText("Raging Bolt ex");
+    expect(ragingBoltMatches.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Ogerpon ex")).toBeInTheDocument();
+    // Card IDs shown as sub-labels
+    expect(screen.getByText("sv7-18")).toBeInTheDocument();
+    expect(screen.getByText("sv5-22")).toBeInTheDocument();
   });
 
   it("should not render estimated date when null", async () => {

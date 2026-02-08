@@ -40,6 +40,7 @@ import {
 } from "@/lib/meta-utils";
 import { useArchetypeDetail } from "@/hooks/useMeta";
 import { Button } from "@/components/ui/button";
+import { CardReference } from "@/components/cards/CardReference";
 import type { MetaSnapshot, Archetype } from "@trainerlab/shared-types";
 
 /** JP Nihil Zero rotation date — all post-rotation data starts here. */
@@ -390,9 +391,13 @@ function JapanMetaPageContent() {
                                   key={card.card_id}
                                   className="flex items-center justify-between rounded-md px-3 py-1.5 text-sm odd:bg-muted/50"
                                 >
-                                  <span className="font-medium">
-                                    {card.card_id}
-                                  </span>
+                                  <CardReference
+                                    cardId={card.card_id}
+                                    cardName={card.card_name}
+                                    imageSmall={card.image_small}
+                                    variant="inline"
+                                    showThumbnail
+                                  />
                                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                     <span>
                                       {(card.inclusion_rate * 100).toFixed(0)}%
@@ -423,9 +428,13 @@ function JapanMetaPageContent() {
                                   key={card.card_id}
                                   className="flex items-center justify-between rounded-md px-3 py-1.5 text-sm odd:bg-muted/50"
                                 >
-                                  <span className="font-medium">
-                                    {card.card_id}
-                                  </span>
+                                  <CardReference
+                                    cardId={card.card_id}
+                                    cardName={card.card_name}
+                                    imageSmall={card.image_small}
+                                    variant="inline"
+                                    showThumbnail
+                                  />
                                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                     <span>
                                       {(card.inclusion_rate * 100).toFixed(0)}%

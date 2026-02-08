@@ -31,6 +31,7 @@ from src.schemas.japan import (
     JPCardInnovationResponse,
     JPContentItem,
     JPContentListResponse,
+    JPKeyCardInfo,
     JPNewArchetypeListResponse,
     JPNewArchetypeResponse,
     JPSetImpactListResponse,
@@ -90,7 +91,10 @@ def _innovation_to_detail(
     )
 
 
-def _archetype_to_response(archetype: JPNewArchetype) -> JPNewArchetypeResponse:
+def _archetype_to_response(
+    archetype: JPNewArchetype,
+    card_info: dict[str, tuple[str | None, str | None]] | None = None,
+) -> JPNewArchetypeResponse:
     """Convert archetype model to response."""
     city_league_results = None
     if archetype.city_league_results:
@@ -103,12 +107,28 @@ def _archetype_to_response(archetype: JPNewArchetype) -> JPNewArchetypeResponse:
             for r in archetype.city_league_results
         ]
 
+    # Build enriched key_card_details from card_info lookup
+    key_card_details = None
+    if archetype.key_cards:
+        ci = card_info or {}
+        key_card_details = []
+        for card_key in archetype.key_cards:
+            info = ci.get(card_key)
+            key_card_details.append(
+                JPKeyCardInfo(
+                    card_id=card_key,
+                    card_name=info[0] if info else None,
+                    image_small=info[1] if info else None,
+                )
+            )
+
     return JPNewArchetypeResponse(
         id=str(archetype.id),
         archetype_id=archetype.archetype_id,
         name=archetype.name,
         name_jp=archetype.name_jp,
         key_cards=list(archetype.key_cards) if archetype.key_cards else None,
+        key_card_details=key_card_details,
         enabled_by_set=archetype.enabled_by_set,
         jp_meta_share=float(archetype.jp_meta_share),
         jp_trend=archetype.jp_trend,  # type: ignore[arg-type]
@@ -286,8 +306,31 @@ async def list_new_archetypes(
             detail="Unable to retrieve new archetypes. Please try again later.",
         ) from None
 
+    # Batch lookup card info for all key_cards across archetypes
+    all_card_ids: set[str] = set()
+    for a in archetypes:
+        if a.key_cards:
+            all_card_ids.update(a.key_cards)
+
+    card_info: dict[str, tuple[str | None, str | None]] = {}
+    if all_card_ids:
+        try:
+            card_query = select(
+                Card.id, Card.name, Card.japanese_name, Card.image_small
+            ).where(Card.id.in_(list(all_card_ids)))
+            card_result = await db.execute(card_query)
+            card_info = {
+                row.id: (row.name or row.japanese_name, row.image_small)
+                for row in card_result.all()
+            }
+        except SQLAlchemyError:
+            logger.warning(
+                "Failed to lookup card info for archetypes",
+                exc_info=True,
+            )
+
     return JPNewArchetypeListResponse(
-        items=[_archetype_to_response(a) for a in archetypes],
+        items=[_archetype_to_response(a, card_info=card_info) for a in archetypes],
         total=total,
     )
 

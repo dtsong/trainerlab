@@ -147,6 +147,22 @@ class CardService:
             return None
         return CardResponse.model_validate(card)
 
+    async def get_cards_batch(self, card_ids: list[str]) -> list[CardSummaryResponse]:
+        """Get multiple cards by ID.
+
+        Args:
+            card_ids: List of card IDs (max 50)
+
+        Returns:
+            List of card summaries for found IDs
+        """
+        if not card_ids:
+            return []
+        query = select(Card).where(Card.id.in_(card_ids))
+        result = await self.session.execute(query)
+        cards = result.scalars().all()
+        return [CardSummaryResponse.model_validate(card) for card in cards]
+
     async def search_cards(
         self,
         *,

@@ -12,6 +12,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardReference } from "@/components/cards/CardReference";
 import { useJPNewArchetypes } from "@/hooks/useJapan";
 import type { ApiJPNewArchetype } from "@trainerlab/shared-types";
 
@@ -57,16 +58,29 @@ function ArchetypeCard({ archetype }: { archetype: ApiJPNewArchetype }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Key cards */}
-        {archetype.key_cards && archetype.key_cards.length > 0 && (
+        {(archetype.key_card_details ?? archetype.key_cards) && (
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1">
               Key Cards
             </p>
             <div className="flex flex-wrap gap-1">
-              {archetype.key_cards.map((card) => (
-                <Badge key={card} variant="outline" className="text-xs">
-                  {card}
-                </Badge>
+              {(
+                archetype.key_card_details ??
+                archetype.key_cards?.map((c) => ({
+                  card_id: c,
+                  card_name: c,
+                })) ??
+                []
+              ).map((card) => (
+                <CardReference
+                  key={card.card_id}
+                  cardId={card.card_id}
+                  cardName={card.card_name}
+                  imageSmall={
+                    "image_small" in card ? card.image_small : undefined
+                  }
+                  variant="badge"
+                />
               ))}
             </div>
           </div>

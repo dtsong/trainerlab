@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import get_db
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
 from src.models.archetype_sprite import ArchetypeSprite
+from src.models.card import Card
 from src.schemas import (
     ArchetypeDetailResponse,
     ArchetypeHistoryPoint,
@@ -90,6 +91,7 @@ def _snapshot_to_response(
     snapshot: MetaSnapshot,
     include_format_notes: bool = True,
     display_overrides: dict[str, str] | None = None,
+    card_info: dict[str, tuple[str | None, str | None]] | None = None,
 ) -> MetaSnapshotResponse:
     """Convert a MetaSnapshot model to response schema."""
     overrides = display_overrides or {}
@@ -101,12 +103,16 @@ def _snapshot_to_response(
         for name, share in (snapshot.archetype_shares or {}).items()
     ]
 
+    card_info_map = card_info or {}
     card_usage = []
     if snapshot.card_usage:
         for card_id, usage_data in snapshot.card_usage.items():
+            ci = card_info_map.get(card_id)
             card_usage.append(
                 CardUsageSummary(
                     card_id=card_id,
+                    card_name=ci[0] if ci else None,
+                    image_small=ci[1] if ci else None,
                     inclusion_rate=usage_data.get("inclusion_rate", 0.0),
                     avg_copies=usage_data.get("avg_count", 0.0),
                 )
@@ -218,7 +224,12 @@ async def get_current_meta(
         )
 
     overrides = await _load_display_overrides(db)
-    return _snapshot_to_response(snapshot, display_overrides=overrides)
+
+    # Batch lookup card info for card_usage enrichment
+    card_ids = list((snapshot.card_usage or {}).keys())
+    ci = await _batch_lookup_cards(card_ids, db)
+
+    return _snapshot_to_response(snapshot, display_overrides=overrides, card_info=ci)
 
 
 @router.get("/history")
@@ -300,9 +311,17 @@ async def get_meta_history(
         ) from None
 
     overrides = await _load_display_overrides(db)
+
+    # Batch lookup card info for all snapshots' card_usage
+    all_card_ids: set[str] = set()
+    for s in snapshots:
+        all_card_ids.update((s.card_usage or {}).keys())
+    ci = await _batch_lookup_cards(list(all_card_ids), db)
+
     return MetaHistoryResponse(
         snapshots=[
-            _snapshot_to_response(s, display_overrides=overrides) for s in snapshots
+            _snapshot_to_response(s, display_overrides=overrides, card_info=ci)
+            for s in snapshots
         ]
     )
 
@@ -510,6 +529,9 @@ async def get_archetype_detail(
     # Compute key cards from placements with decklists
     key_cards = _compute_key_cards(placements)
 
+    # Enrich key cards with names and images
+    await _enrich_key_cards(key_cards, db)
+
     # Build sample decks from top placements
     sample_decks = await _build_sample_decks(placements[:10], db)
 
@@ -573,6 +595,44 @@ def _compute_key_cards(
     # Sort by inclusion rate descending
     key_cards.sort(key=lambda c: c.inclusion_rate, reverse=True)
     return key_cards[:20]  # Return top 20 key cards
+
+
+async def _batch_lookup_cards(
+    card_ids: list[str],
+    db: AsyncSession,
+) -> dict[str, tuple[str | None, str | None]]:
+    """Batch lookup card names and images from the cards table.
+
+    Returns dict of card_id -> (card_name, image_small).
+    """
+    if not card_ids:
+        return {}
+    try:
+        query = select(Card.id, Card.name, Card.japanese_name, Card.image_small).where(
+            Card.id.in_(card_ids)
+        )
+        result = await db.execute(query)
+        return {
+            row.id: (row.name or row.japanese_name, row.image_small)
+            for row in result.all()
+        }
+    except SQLAlchemyError:
+        logger.warning("Failed to batch lookup cards", exc_info=True)
+        return {}
+
+
+async def _enrich_key_cards(
+    key_cards: list[KeyCardResponse],
+    db: AsyncSession,
+) -> None:
+    """Enrich key cards in-place with card names and images."""
+    card_ids = [kc.card_id for kc in key_cards]
+    card_info = await _batch_lookup_cards(card_ids, db)
+    for kc in key_cards:
+        info = card_info.get(kc.card_id)
+        if info:
+            kc.card_name = info[0]
+            kc.image_small = info[1]
 
 
 async def _build_sample_decks(

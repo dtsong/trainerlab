@@ -10,6 +10,8 @@ export interface ApiArchetype {
 
 export interface ApiCardUsageSummary {
   card_id: string;
+  card_name?: string | null;
+  image_small?: string | null;
   inclusion_rate: number;
   avg_copies: number;
 }
@@ -70,6 +72,8 @@ export interface MetaFilters {
 
 export interface ApiKeyCardResponse {
   card_id: string;
+  card_name?: string | null;
+  image_small?: string | null;
   inclusion_rate: number;
   avg_copies: number;
 }

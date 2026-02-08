@@ -187,8 +187,15 @@ export default function AdminMetaPage() {
                           key={card.card_id}
                           className="flex items-center gap-3 rounded border border-zinc-800 bg-zinc-900/50 px-4 py-2"
                         >
-                          <div className="flex-1 font-mono text-sm text-zinc-200">
-                            {card.card_id}
+                          <div className="flex-1 text-sm text-zinc-200">
+                            <span className="font-sans font-medium">
+                              {card.card_name || card.card_id}
+                            </span>
+                            {card.card_name && (
+                              <span className="ml-2 font-mono text-xs text-zinc-500">
+                                {card.card_id}
+                              </span>
+                            )}
                           </div>
                           <div className="font-mono text-xs text-zinc-400">
                             {(card.inclusion_rate * 100).toFixed(1)}% inclusion

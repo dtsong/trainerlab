@@ -256,6 +256,12 @@ export const cardsApi = {
   getById: (id: string) => {
     return fetchApi<ApiCard>(`/api/v1/cards/${encodeURIComponent(id)}`);
   },
+
+  getBatch: (ids: string[]) => {
+    return fetchApi<ApiCardSummary[]>(
+      `/api/v1/cards/batch?ids=${ids.map(encodeURIComponent).join(",")}`
+    );
+  },
 };
 
 // Sets API

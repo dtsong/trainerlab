@@ -19,15 +19,6 @@ export interface JPDivergenceResult {
   message: string;
 }
 
-export interface JPComparison {
-  rank: number;
-  jpName: string;
-  jpShare: number;
-  enName: string;
-  enShare: number;
-  divergence: number;
-}
-
 export interface HeroStats {
   tournamentCount: string;
   decklistCount: string;
@@ -200,51 +191,6 @@ export function computeJPDivergence(
     hasSignificantDivergence: true,
     message: `Japan's meta is diverging: ${archNames} showing significant differences from the global meta.`,
   };
-}
-
-/**
- * Build side-by-side JP vs Global comparison rows.
- */
-export function buildJPComparisons(
-  globalMeta: ApiMetaSnapshot | undefined,
-  jpMeta: ApiMetaSnapshot | undefined,
-  limit: number = 3
-): JPComparison[] {
-  if (
-    !globalMeta?.archetype_breakdown?.length ||
-    !jpMeta?.archetype_breakdown?.length
-  ) {
-    return [];
-  }
-
-  const globalTop = globalMeta.archetype_breakdown.slice(0, limit);
-  const jpTop = jpMeta.archetype_breakdown.slice(0, limit);
-
-  const globalMap = new Map<string, number>();
-  for (const arch of globalMeta.archetype_breakdown) {
-    globalMap.set(arch.name, arch.share * 100);
-  }
-
-  return jpTop.map((jpArch, index) => {
-    const globalArch = globalTop[index];
-    const jpShare = jpArch.share * 100;
-    const globalShareForJpArch = globalMap.get(jpArch.name) ?? 0;
-    const divergence =
-      globalShareForJpArch > 0
-        ? Math.round(
-            ((jpShare - globalShareForJpArch) / globalShareForJpArch) * 100
-          )
-        : 100;
-
-    return {
-      rank: index + 1,
-      jpName: jpArch.name,
-      jpShare,
-      enName: globalArch?.name ?? "—",
-      enShare: (globalArch?.share ?? 0) * 100,
-      divergence: Math.abs(divergence),
-    };
-  });
 }
 
 /**

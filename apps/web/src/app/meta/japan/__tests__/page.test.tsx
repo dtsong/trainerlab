@@ -32,7 +32,6 @@ vi.mock("@/components/japan", () => ({
   CardInnovationTracker: () => <div data-testid="card-innovation" />,
   NewArchetypeWatch: () => <div data-testid="new-archetype-watch" />,
   CityLeagueResultsFeed: () => <div data-testid="city-league-feed" />,
-  MetaDivergenceComparison: () => <div data-testid="meta-divergence" />,
   CardCountEvolutionSection: () => <div data-testid="card-count-evo" />,
   CardAdoptionRates: () => <div data-testid="card-adoption" />,
   UpcomingCards: () => <div data-testid="upcoming-cards" />,
@@ -288,7 +287,6 @@ describe("JapanMetaPage", () => {
     });
 
     // Overview tab should contain meta charts and child components
-    expect(screen.getByTestId("meta-divergence")).toBeInTheDocument();
     expect(screen.getByTestId("city-league-feed")).toBeInTheDocument();
     expect(screen.getByTestId("card-adoption")).toBeInTheDocument();
     expect(screen.getByTestId("upcoming-cards")).toBeInTheDocument();

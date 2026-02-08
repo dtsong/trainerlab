@@ -6,7 +6,6 @@ import type {
 import {
   computeTrends,
   computeJPDivergence,
-  buildJPComparisons,
   computeHeroStats,
   computeMetaMovers,
 } from "../home-utils";
@@ -336,70 +335,6 @@ describe("computeJPDivergence", () => {
     const result = computeJPDivergence(global, jp);
 
     expect(result.hasSignificantDivergence).toBe(false);
-  });
-});
-
-describe("buildJPComparisons", () => {
-  it("should return empty array when data is undefined", () => {
-    expect(buildJPComparisons(undefined, undefined)).toEqual([]);
-  });
-
-  it("should return empty when global has no archetypes", () => {
-    const jp = makeSnapshot([{ name: "A", share: 0.2 }]);
-    expect(buildJPComparisons(makeSnapshot([]), jp)).toEqual([]);
-  });
-
-  it("should return empty when JP has no archetypes", () => {
-    const global = makeSnapshot([{ name: "A", share: 0.2 }]);
-    expect(buildJPComparisons(global, makeSnapshot([]))).toEqual([]);
-  });
-
-  it("should build correct comparisons", () => {
-    const global = makeSnapshot([
-      { name: "Charizard ex", share: 0.185 },
-      { name: "Lugia VSTAR", share: 0.142 },
-    ]);
-    const jp = makeSnapshot([
-      { name: "Raging Bolt ex", share: 0.221 },
-      { name: "Charizard ex", share: 0.158 },
-    ]);
-
-    const result = buildJPComparisons(global, jp, 2);
-
-    expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({
-      rank: 1,
-      jpName: "Raging Bolt ex",
-      jpShare: 22.1,
-      enName: "Charizard ex",
-      enShare: 18.5,
-      divergence: 100, // Not in global, so 100% divergence
-    });
-    expect(result[1].jpName).toBe("Charizard ex");
-    expect(result[1].enName).toBe("Lugia VSTAR");
-  });
-
-  it("should respect limit parameter", () => {
-    const global = makeSnapshot([
-      { name: "A", share: 0.2 },
-      { name: "B", share: 0.15 },
-      { name: "C", share: 0.1 },
-    ]);
-    const jp = makeSnapshot([
-      { name: "X", share: 0.22 },
-      { name: "Y", share: 0.18 },
-      { name: "Z", share: 0.12 },
-    ]);
-
-    expect(buildJPComparisons(global, jp, 2)).toHaveLength(2);
-  });
-
-  it("should handle fewer archetypes than limit", () => {
-    const global = makeSnapshot([{ name: "A", share: 0.2 }]);
-    const jp = makeSnapshot([{ name: "X", share: 0.22 }]);
-
-    const result = buildJPComparisons(global, jp, 3);
-    expect(result).toHaveLength(1);
   });
 });
 

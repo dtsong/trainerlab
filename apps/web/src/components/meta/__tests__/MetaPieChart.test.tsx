@@ -292,55 +292,56 @@ describe("MetaPieChart", () => {
     }));
 
     it("should show Other bucket with count", () => {
-      render(<MetaPieChart data={manyArchetypes} topN={8} />);
-      expect(screen.getByText("Other (12)")).toBeInTheDocument();
+      // 20 archetypes all above 2%, but topN defaults to 15 safety cap
+      render(<MetaPieChart data={manyArchetypes} />);
+      expect(screen.getByText("Other (5)")).toBeInTheDocument();
     });
 
-    it("should render only topN + 1 legend entries", () => {
-      render(<MetaPieChart data={manyArchetypes} topN={8} />);
+    it("should render 15 + Other legend entries (safety cap)", () => {
+      render(<MetaPieChart data={manyArchetypes} />);
       const legend = screen.getByTestId("pie-legend");
       const buttons = within(legend).getAllByRole("button");
-      expect(buttons).toHaveLength(9); // 8 + Other
+      expect(buttons).toHaveLength(16); // 15 + Other
     });
 
     it("should expand Other detail on click", async () => {
       const user = userEvent.setup();
-      render(<MetaPieChart data={manyArchetypes} topN={8} />);
+      render(<MetaPieChart data={manyArchetypes} />);
 
       expect(screen.queryByTestId("other-detail")).not.toBeInTheDocument();
 
-      await user.click(screen.getByText("Other (12)"));
+      await user.click(screen.getByText("Other (5)"));
 
       const detail = screen.getByTestId("other-detail");
       expect(detail).toBeInTheDocument();
-      // Should contain one of the grouped archetypes
-      expect(within(detail).getByText("Archetype 9")).toBeInTheDocument();
+      // Should contain one of the grouped archetypes (16th onward)
+      expect(within(detail).getByText("Archetype 16")).toBeInTheDocument();
     });
 
     it("should collapse Other detail on second click", async () => {
       const user = userEvent.setup();
-      render(<MetaPieChart data={manyArchetypes} topN={8} />);
+      render(<MetaPieChart data={manyArchetypes} />);
 
-      await user.click(screen.getByText("Other (12)"));
+      await user.click(screen.getByText("Other (5)"));
       expect(screen.getByTestId("other-detail")).toBeInTheDocument();
 
-      await user.click(screen.getByText("Other (12)"));
+      await user.click(screen.getByText("Other (5)"));
       expect(screen.queryByTestId("other-detail")).not.toBeInTheDocument();
     });
 
     it("should sort Other detail by share descending", async () => {
       const user = userEvent.setup();
-      render(<MetaPieChart data={manyArchetypes} topN={8} />);
+      render(<MetaPieChart data={manyArchetypes} />);
 
-      await user.click(screen.getByText("Other (12)"));
+      await user.click(screen.getByText("Other (5)"));
       const detail = screen.getByTestId("other-detail");
 
       // The Other detail should show archetypes sorted by share desc
-      // Archetype 9 has higher share than Archetype 20
+      // Archetype 16 has higher share than Archetype 20
       const detailText = detail.textContent || "";
-      const idx9 = detailText.indexOf("Archetype 9");
+      const idx16 = detailText.indexOf("Archetype 16");
       const idx20 = detailText.indexOf("Archetype 20");
-      expect(idx9).toBeLessThan(idx20);
+      expect(idx16).toBeLessThan(idx20);
     });
   });
 

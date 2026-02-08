@@ -11,7 +11,6 @@ import { ArchetypeSprites } from "./ArchetypeSprites";
 
 interface MetaPieChartProps {
   data: Archetype[];
-  topN?: number;
   className?: string;
 }
 
@@ -51,11 +50,11 @@ function CustomTooltip({
   return null;
 }
 
-export function MetaPieChart({ data, topN = 8, className }: MetaPieChartProps) {
+export function MetaPieChart({ data, className }: MetaPieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [isOtherExpanded, setIsOtherExpanded] = useState(false);
 
-  const { displayed, other } = groupArchetypes(data, { topN, minShare: 0.02 });
+  const { displayed, other } = groupArchetypes(data, { minShare: 0.02 });
 
   const slices: SliceData[] = displayed.map((archetype, i) => ({
     name: archetype.name,

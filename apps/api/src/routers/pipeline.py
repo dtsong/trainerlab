@@ -51,6 +51,12 @@ from src.pipelines.scrape_limitless import (
     process_single_tournament,
     rescrape_jp_tournaments,
 )
+from src.pipelines.seed_data import (
+    SeedDataResult as SeedDataResultInternal,
+)
+from src.pipelines.seed_data import (
+    seed_reference_data,
+)
 from src.pipelines.sync_card_mappings import (
     SyncMappingsResult as SyncMappingsResultInternal,
 )
@@ -102,6 +108,8 @@ from src.schemas.pipeline import (
     RescrapeJPRequest,
     RescrapeJPResult,
     ScrapeResult,
+    SeedDataRequest,
+    SeedDataResult,
     SyncCardMappingsRequest,
     SyncCardMappingsResult,
     SyncCardsRequest,
@@ -776,6 +784,44 @@ async def rescrape_jp_endpoint(
     )
 
     return _convert_rescrape_result(result)
+
+
+# Seed reference data pipeline
+
+
+def _convert_seed_result(
+    internal: SeedDataResultInternal,
+) -> SeedDataResult:
+    """Convert internal SeedDataResult to API schema."""
+    return SeedDataResult(
+        formats_seeded=internal.formats_seeded,
+        sprites_seeded=internal.sprites_seeded,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post("/seed-data", response_model=SeedDataResult)
+async def seed_data_endpoint(
+    request: SeedDataRequest,
+) -> SeedDataResult:
+    """Seed format configs and archetype sprites.
+
+    Seeds format configurations from fixtures/formats.json and
+    archetype sprites from SPRITE_ARCHETYPE_MAP in code.
+    """
+    logger.info("Starting seed-data pipeline: dry_run=%s", request.dry_run)
+
+    result = await seed_reference_data(dry_run=request.dry_run)
+
+    logger.info(
+        "Seed-data complete: formats=%d, sprites=%d, errors=%d",
+        result.formats_seeded,
+        result.sprites_seeded,
+        len(result.errors),
+    )
+
+    return _convert_seed_result(result)
 
 
 # Data wipe pipeline

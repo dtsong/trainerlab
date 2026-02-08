@@ -370,6 +370,21 @@ class ReprocessArchetypesResult(BaseModel):
     success: bool = Field(description="Whether pipeline succeeded")
 
 
+class SeedDataRequest(PipelineRequest):
+    """Request for reference data seeding pipeline."""
+
+    pass
+
+
+class SeedDataResult(BaseModel):
+    """Result from reference data seeding pipeline."""
+
+    formats_seeded: int = Field(ge=0, description="Format configs seeded")
+    sprites_seeded: int = Field(ge=0, description="Archetype sprites seeded")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether seeding completed without errors")
+
+
 class WipeDataRequest(PipelineRequest):
     """Request for data wipe pipeline."""
 

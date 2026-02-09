@@ -51,6 +51,20 @@ import type {
   ApiGlossaryTermCreateRequest,
   ContentType,
   ApiJPContentList,
+  ApiWidgetCreate,
+  ApiWidgetUpdate,
+  ApiWidgetResponse,
+  ApiWidgetDataResponse,
+  ApiWidgetEmbedCodeResponse,
+  ApiWidgetListResponse,
+  ApiExportCreate,
+  ApiExportResponse,
+  ApiExportDownloadResponse,
+  ApiExportListResponse,
+  ApiApiKeyCreate,
+  ApiApiKeyResponse,
+  ApiApiKeyCreatedResponse,
+  ApiApiKeyListResponse,
 } from "@trainerlab/shared-types";
 import type { z } from "zod";
 
@@ -865,4 +879,128 @@ export const adminDataApi = {
     fetchApiAuth<AdminPipelineHealth>("/api/v1/admin/data/pipeline-health"),
 };
 
-export { ApiError, fetchApiAuth, getAuthToken };
+// Widget search parameters
+export interface WidgetSearchParams {
+  page?: number;
+  limit?: number;
+}
+
+// Widgets API
+export const widgetsApi = {
+  create: (data: ApiWidgetCreate) => {
+    return fetchApiAuth<ApiWidgetResponse>("/api/v1/widgets", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  list: (params: WidgetSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return fetchApiAuth<ApiWidgetListResponse>(
+      `/api/v1/widgets${query ? `?${query}` : ""}`
+    );
+  },
+
+  getById: (id: string) => {
+    return fetchApiAuth<ApiWidgetResponse>(
+      `/api/v1/widgets/${encodeURIComponent(id)}`
+    );
+  },
+
+  update: (id: string, data: ApiWidgetUpdate) => {
+    return fetchApiAuth<ApiWidgetResponse>(
+      `/api/v1/widgets/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  delete: (id: string) => {
+    return fetchApiAuth<void>(`/api/v1/widgets/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  },
+
+  getData: (id: string) => {
+    return fetchApi<ApiWidgetDataResponse>(
+      `/api/v1/widgets/${encodeURIComponent(id)}/data`
+    );
+  },
+
+  getEmbedCode: (id: string) => {
+    return fetchApiAuth<ApiWidgetEmbedCodeResponse>(
+      `/api/v1/widgets/${encodeURIComponent(id)}/embed-code`
+    );
+  },
+};
+
+// Export search parameters
+export interface ExportSearchParams {
+  page?: number;
+  limit?: number;
+}
+
+// Exports API
+export const exportsApi = {
+  create: (data: ApiExportCreate) => {
+    return fetchApiAuth<ApiExportResponse>("/api/v1/exports", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  list: (params: ExportSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return fetchApiAuth<ApiExportListResponse>(
+      `/api/v1/exports${query ? `?${query}` : ""}`
+    );
+  },
+
+  getById: (id: string) => {
+    return fetchApiAuth<ApiExportResponse>(
+      `/api/v1/exports/${encodeURIComponent(id)}`
+    );
+  },
+
+  getDownloadUrl: (id: string) => {
+    return fetchApiAuth<ApiExportDownloadResponse>(
+      `/api/v1/exports/${encodeURIComponent(id)}/download`
+    );
+  },
+};
+
+// API Keys API
+export const apiKeysApi = {
+  create: (data: ApiApiKeyCreate) => {
+    return fetchApiAuth<ApiApiKeyCreatedResponse>("/api/v1/api-keys", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  list: () => {
+    return fetchApiAuth<ApiApiKeyListResponse>("/api/v1/api-keys");
+  },
+
+  getById: (id: string) => {
+    return fetchApiAuth<ApiApiKeyResponse>(
+      `/api/v1/api-keys/${encodeURIComponent(id)}`
+    );
+  },
+
+  revoke: (id: string) => {
+    return fetchApiAuth<void>(`/api/v1/api-keys/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+export { ApiError, fetchApi, fetchApiAuth, getAuthToken };

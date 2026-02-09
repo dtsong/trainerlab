@@ -9,6 +9,7 @@ export * from "./lab-note";
 export * from "./japan";
 export * from "./evolution";
 export * from "./translation";
+export * from "./creator";
 
 // Frontend types (camelCase, for deck builder etc.)
 // These match the original shared-types naming conventions

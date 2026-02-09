@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Footer, MobileNav, ScrollToTop, TopNav } from "@/components/layout";
+import { LayoutChrome } from "@/components/layout";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -38,21 +38,7 @@ export default function RootLayout({
         className={`${playfair.variable} ${dmSans.variable} ${jetbrainsMono.variable} font-sans`}
       >
         <Providers>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:text-teal-600 focus:underline"
-          >
-            Skip to main content
-          </a>
-          <ScrollToTop />
-          <TopNav />
-          <div className="flex min-h-screen flex-col pt-16 pb-14 md:pb-0">
-            <main id="main-content" className="flex-1">
-              {children}
-            </main>
-            <Footer />
-          </div>
-          <MobileNav />
+          <LayoutChrome>{children}</LayoutChrome>
         </Providers>
       </body>
     </html>

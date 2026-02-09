@@ -19,3 +19,24 @@ export {
   useGlossaryTerms,
   useCreateGlossaryTerm,
 } from "./useTranslationsAdmin";
+export {
+  useWidgets,
+  useWidget,
+  useWidgetData,
+  useCreateWidget,
+  useUpdateWidget,
+  useDeleteWidget,
+  useWidgetEmbedCode,
+} from "./useWidgets";
+export {
+  useExports,
+  useExport,
+  useCreateExport,
+  useExportDownloadUrl,
+} from "./useExports";
+export {
+  useApiKeys,
+  useApiKey,
+  useCreateApiKey,
+  useRevokeApiKey,
+} from "./useApiKeys";

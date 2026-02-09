@@ -5,6 +5,7 @@ const PUBLIC_PATHS = new Set(["/", "/auth/login"]);
 const PUBLIC_PREFIXES = [
   "/api/",
   "/auth/",
+  "/embed",
   "/meta",
   "/tournaments",
   "/evolution",

@@ -311,6 +311,7 @@ export interface MetaSearchParams {
   format?: "standard" | "expanded";
   best_of?: 1 | 3;
   days?: number;
+  era?: string;
 }
 
 export interface MetaCompareParams {
@@ -333,6 +334,7 @@ export const metaApi = {
     if (params.region) searchParams.set("region", params.region);
     if (params.format) searchParams.set("format", params.format);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
+    if (params.era) searchParams.set("era", params.era);
 
     const query = searchParams.toString();
     return fetchApiValidated<ApiMetaSnapshot, unknown>(
@@ -347,6 +349,7 @@ export const metaApi = {
     if (params.format) searchParams.set("format", params.format);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
     if (params.days) searchParams.set("days", String(params.days));
+    if (params.era) searchParams.set("era", params.era);
 
     const query = searchParams.toString();
     return fetchApiValidated<ApiMetaHistoryResponse, unknown>(

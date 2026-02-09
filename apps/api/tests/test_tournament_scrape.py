@@ -1360,6 +1360,641 @@ class TestCreatePlacementJpMapping:
         assert not any("Unmapped JP card IDs" in r.message for r in caplog.records)
 
 
+class TestCardIdVariants:
+    """Tests for _card_id_variants static method."""
+
+    def test_empty_string(self) -> None:
+        result = TournamentScrapeService._card_id_variants("")
+        assert result == set()
+
+    def test_whitespace_only(self) -> None:
+        result = TournamentScrapeService._card_id_variants("  ")
+        assert result == set()
+
+    def test_no_hyphen(self) -> None:
+        result = TournamentScrapeService._card_id_variants("SV7")
+        assert "SV7" in result
+        assert "sv7" in result
+        assert "SV7" in result
+
+    def test_standard_card_id(self) -> None:
+        result = TournamentScrapeService._card_id_variants("SV7-018")
+        assert "sv7-18" in result
+        assert "SV7-018" in result
+        assert "sv7-018" in result
+        assert "SV7-18" in result
+
+    def test_zero_padding_variants(self) -> None:
+        result = TournamentScrapeService._card_id_variants("SV9-5")
+        assert "sv9-5" in result
+        assert "sv9-05" in result
+        assert "sv9-005" in result
+        assert "SV9-5" in result
+
+    def test_case_variants(self) -> None:
+        result = TournamentScrapeService._card_id_variants("SV8a-001")
+        # Set part case variants
+        assert any("sv8a-" in v for v in result)
+        assert any("SV8A-" in v for v in result)
+        assert any("SV8a-" in v for v in result)
+
+    def test_letter_prefix_in_num_part(self) -> None:
+        """Card IDs like 'SV2D-TG01' with letter prefix."""
+        result = TournamentScrapeService._card_id_variants("SV2-TG01")
+        assert "SV2-TG01" in result
+        assert "sv2-tg1" in result
+        assert "sv2-TG1" in result
+
+
+class TestGetJpToEnMapping:
+    """Tests for _get_jp_to_en_mapping caching and expansion."""
+
+    @pytest.mark.asyncio
+    async def test_loads_and_caches_mapping(
+        self, service: TournamentScrapeService, mock_session: AsyncMock
+    ) -> None:
+        """First call queries DB, second returns cached."""
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(
+            return_value=iter(
+                [
+                    MagicMock(jp_card_id="SV9-001", en_card_id="sv09-1"),
+                ]
+            )
+        )
+        mock_session.execute.return_value = mock_result
+
+        mapping1 = await service._get_jp_to_en_mapping()
+        mapping2 = await service._get_jp_to_en_mapping()
+
+        # Only one DB query (cached on second call)
+        assert mock_session.execute.call_count == 1
+        assert mapping1 is mapping2
+        # Variants should be expanded
+        assert "sv9-1" in mapping1 or "sv9-001" in mapping1
+
+    @pytest.mark.asyncio
+    async def test_empty_mapping(
+        self, service: TournamentScrapeService, mock_session: AsyncMock
+    ) -> None:
+        """Empty DB returns empty mapping."""
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_session.execute.return_value = mock_result
+
+        mapping = await service._get_jp_to_en_mapping()
+        assert mapping == {}
+
+
+class TestGetDetectorForRegion:
+    """Tests for _get_detector_for_region."""
+
+    def test_returns_default_for_non_jp(
+        self, service: TournamentScrapeService, mock_detector: MagicMock
+    ) -> None:
+        result = service._get_detector_for_region("NA")
+        assert result is mock_detector
+
+    def test_returns_default_when_no_jp_mapping(
+        self, service: TournamentScrapeService, mock_detector: MagicMock
+    ) -> None:
+        """JP region without loaded mapping returns default detector."""
+        service._jp_to_en_mapping = None
+        result = service._get_detector_for_region("JP")
+        assert result is mock_detector
+
+    def test_returns_jp_detector_with_mapping(
+        self, service: TournamentScrapeService
+    ) -> None:
+        """JP region with mapping returns new detector."""
+        service._jp_to_en_mapping = {"sv9-1": "sv09-1"}
+        result = service._get_detector_for_region("JP")
+        assert isinstance(result, ArchetypeDetector)
+
+
+class TestScrapeOfficialTournaments:
+    """Tests for scrape_official_tournaments."""
+
+    @pytest.mark.asyncio
+    async def test_happy_path(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Scrapes and saves official tournaments."""
+        tournament = LimitlessTournament(
+            name="Portland Regional",
+            tournament_date=date.today() - timedelta(days=5),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            participant_count=500,
+            source_url="https://limitlesstcg.com/tournament/1",
+            placements=[],
+        )
+        mock_client.fetch_official_tournament_listings.return_value = [tournament]
+        mock_client.fetch_official_tournament_placements.return_value = [
+            sample_placement
+        ]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.scrape_official_tournaments(
+            lookback_days=30, fetch_decklists=False
+        )
+
+        assert result.tournaments_scraped == 1
+        assert result.tournaments_saved == 1
+        assert result.placements_saved == 1
+
+    @pytest.mark.asyncio
+    async def test_listing_fetch_error(
+        self,
+        service: TournamentScrapeService,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Returns early with error on listing fetch failure."""
+        mock_client.fetch_official_tournament_listings.side_effect = LimitlessError(
+            "Network error"
+        )
+
+        result = await service.scrape_official_tournaments()
+
+        assert result.tournaments_scraped == 0
+        assert len(result.errors) == 1
+        assert "Error fetching official" in result.errors[0]
+
+    @pytest.mark.asyncio
+    async def test_skips_existing(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Skips tournaments that already exist."""
+        tournament = LimitlessTournament(
+            name="Existing Regional",
+            tournament_date=date.today() - timedelta(days=5),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            participant_count=300,
+            source_url="https://limitlesstcg.com/tournament/existing",
+            placements=[],
+        )
+        mock_client.fetch_official_tournament_listings.return_value = [tournament]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = MagicMock()  # exists
+        mock_session.execute.return_value = mock_result
+
+        result = await service.scrape_official_tournaments(lookback_days=30)
+
+        assert result.tournaments_skipped == 1
+        assert result.tournaments_saved == 0
+
+    @pytest.mark.asyncio
+    async def test_processing_error_continues(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Processing error is recorded but scrape continues."""
+        tournament = LimitlessTournament(
+            name="Bad Regional",
+            tournament_date=date.today() - timedelta(days=5),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            participant_count=300,
+            source_url="https://limitlesstcg.com/tournament/bad",
+            placements=[],
+        )
+        mock_client.fetch_official_tournament_listings.return_value = [tournament]
+        mock_client.fetch_official_tournament_placements.side_effect = LimitlessError(
+            "Parse error"
+        )
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await service.scrape_official_tournaments(lookback_days=30)
+
+        assert len(result.errors) == 1
+        assert "Error processing official" in result.errors[0]
+
+
+class TestScrapeJPCityLeagues:
+    """Tests for scrape_jp_city_leagues."""
+
+    @pytest.mark.asyncio
+    async def test_happy_path(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Scrapes and saves JP City Leagues."""
+        tournament = LimitlessTournament(
+            name="Tokyo City League",
+            tournament_date=date.today() - timedelta(days=3),
+            region="JP",
+            game_format="standard",
+            best_of=1,
+            participant_count=64,
+            source_url="https://limitlesstcg.com/tournaments/jp/1",
+            placements=[],
+        )
+        mock_client.fetch_jp_city_league_listings.return_value = [tournament]
+        mock_client.fetch_jp_city_league_placements.return_value = [sample_placement]
+
+        # Mock: no existing, empty mapping, empty sprites DB
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_result.all = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await service.scrape_jp_city_leagues(
+            lookback_days=30, fetch_decklists=False
+        )
+
+        assert result.tournaments_scraped == 1
+        assert result.tournaments_saved == 1
+
+    @pytest.mark.asyncio
+    async def test_listing_fetch_error(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Returns early with error on listing failure."""
+        # Need mock for _get_jp_to_en_mapping DB call
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_session.execute.return_value = mock_result
+
+        mock_client.fetch_jp_city_league_listings.side_effect = LimitlessError(
+            "Network error"
+        )
+
+        result = await service.scrape_jp_city_leagues()
+
+        assert len(result.errors) == 1
+        assert "Error fetching JP City League" in result.errors[0]
+
+    @pytest.mark.asyncio
+    async def test_skips_existing(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Skips existing JP tournaments."""
+        tournament = LimitlessTournament(
+            name="Existing CL",
+            tournament_date=date.today() - timedelta(days=3),
+            region="JP",
+            game_format="standard",
+            best_of=1,
+            participant_count=64,
+            source_url="https://limitlesstcg.com/tournaments/jp/x",
+            placements=[],
+        )
+        mock_client.fetch_jp_city_league_listings.return_value = [tournament]
+
+        # First call: mapping query (returns iter), second: exists check
+        call_count = 0
+
+        def execute_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock = MagicMock()
+            if call_count == 1:
+                # JP mapping query
+                mock.__iter__ = MagicMock(return_value=iter([]))
+                return mock
+            # Exists check — tournament found
+            mock.first.return_value = MagicMock()
+            return mock
+
+        mock_session.execute = AsyncMock(side_effect=execute_side_effect)
+
+        result = await service.scrape_jp_city_leagues(lookback_days=30)
+
+        assert result.tournaments_skipped == 1
+        assert result.tournaments_saved == 0
+
+
+class TestRescrapeTournament:
+    """Tests for rescrape_tournament."""
+
+    @pytest.mark.asyncio
+    async def test_rescrape_jp_city_league(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Rescrapes JP city league by URL pattern."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+        tournament.name = "Tokyo CL"
+        tournament.region = "JP"
+        tournament.source_url = "https://play.limitlesstcg.com/tournaments/jp/123"
+
+        mock_client.fetch_jp_city_league_placements.return_value = [sample_placement]
+
+        # Mock mapping + sprites DB queries
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_result.all = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        count = await service.rescrape_tournament(tournament, fetch_decklists=False)
+
+        assert count == 1
+        mock_client.fetch_jp_city_league_placements.assert_called_once()
+        mock_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_rescrape_official_tournament(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Rescrapes official tournament by URL pattern."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+        tournament.name = "Portland Regional"
+        tournament.region = "NA"
+        tournament.source_url = "https://limitlesstcg.com/tournament/12345"
+
+        mock_client.fetch_official_tournament_placements.return_value = [
+            sample_placement
+        ]
+
+        count = await service.rescrape_tournament(tournament, fetch_decklists=False)
+
+        assert count == 1
+        mock_client.fetch_official_tournament_placements.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_rescrape_standard_tournament(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Rescrapes standard tournament (fallback URL)."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+        tournament.name = "Local Event"
+        tournament.region = "NA"
+        tournament.source_url = "https://play.limitlesstcg.com/other/99999"
+
+        mock_client.fetch_tournament_placements.return_value = [sample_placement]
+
+        count = await service.rescrape_tournament(tournament, fetch_decklists=False)
+
+        assert count == 1
+        mock_client.fetch_tournament_placements.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_rescrape_no_source_url(
+        self,
+        service: TournamentScrapeService,
+    ) -> None:
+        """Returns 0 when tournament has no source_url."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.name = "No URL"
+        tournament.source_url = None
+
+        count = await service.rescrape_tournament(tournament)
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_rescrape_empty_source_url(
+        self,
+        service: TournamentScrapeService,
+    ) -> None:
+        """Returns 0 when tournament has empty source_url."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.name = "Empty URL"
+        tournament.source_url = ""
+
+        count = await service.rescrape_tournament(tournament)
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_rescrape_deletes_old_placements(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+    ) -> None:
+        """Old placements are deleted before re-fetch."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+        tournament.name = "Tournament"
+        tournament.region = "NA"
+        tournament.source_url = "https://play.limitlesstcg.com/tournament/123"
+
+        mock_client.fetch_tournament_placements.return_value = []
+
+        await service.rescrape_tournament(tournament, fetch_decklists=False)
+
+        # First execute call should be the delete
+        assert mock_session.execute.call_count >= 1
+
+
+class TestFindTournamentsNeedingRescrape:
+    """Tests for find_tournaments_needing_rescrape."""
+
+    @pytest.mark.asyncio
+    async def test_finds_tournaments_over_50pct_empty(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+    ) -> None:
+        """Returns tournaments with >50% empty archetypes."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+
+        # First query: get all tournaments
+        tournaments_result = MagicMock()
+        tournaments_result.scalars.return_value.all.return_value = [tournament]
+
+        # Second query: placement counts (60% empty)
+        counts_result = MagicMock()
+        count_row = MagicMock()
+        count_row.total = 10
+        count_row.non_empty = 4  # 60% empty
+        counts_result.one.return_value = count_row
+
+        mock_session.execute = AsyncMock(
+            side_effect=[tournaments_result, counts_result]
+        )
+
+        result = await service.find_tournaments_needing_rescrape()
+
+        assert len(result) == 1
+        assert result[0] is tournament
+
+    @pytest.mark.asyncio
+    async def test_excludes_tournaments_under_50pct_empty(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+    ) -> None:
+        """Excludes tournaments with <=50% empty archetypes."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+
+        tournaments_result = MagicMock()
+        tournaments_result.scalars.return_value.all.return_value = [tournament]
+
+        counts_result = MagicMock()
+        count_row = MagicMock()
+        count_row.total = 10
+        count_row.non_empty = 8  # 20% empty
+        counts_result.one.return_value = count_row
+
+        mock_session.execute = AsyncMock(
+            side_effect=[tournaments_result, counts_result]
+        )
+
+        result = await service.find_tournaments_needing_rescrape()
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    async def test_skips_tournaments_with_no_placements(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+    ) -> None:
+        """Skips tournaments with 0 placements."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+
+        tournaments_result = MagicMock()
+        tournaments_result.scalars.return_value.all.return_value = [tournament]
+
+        counts_result = MagicMock()
+        count_row = MagicMock()
+        count_row.total = 0
+        count_row.non_empty = 0
+        counts_result.one.return_value = count_row
+
+        mock_session.execute = AsyncMock(
+            side_effect=[tournaments_result, counts_result]
+        )
+
+        result = await service.find_tournaments_needing_rescrape()
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    async def test_empty_result(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+    ) -> None:
+        """Returns empty list when no tournaments found."""
+        tournaments_result = MagicMock()
+        tournaments_result.scalars.return_value.all.return_value = []
+        mock_session.execute = AsyncMock(return_value=tournaments_result)
+
+        result = await service.find_tournaments_needing_rescrape()
+
+        assert result == []
+
+
+class TestCreatePlacementEdgeCases:
+    """Edge case tests for _create_placement."""
+
+    def test_skips_cards_without_card_id(
+        self,
+        service: TournamentScrapeService,
+    ) -> None:
+        """Cards without card_id should be skipped in decklist."""
+        placement = LimitlessPlacement(
+            placement=1,
+            player_name="Player",
+            country="US",
+            archetype="Charizard ex",
+            decklist=LimitlessDecklist(
+                cards=[
+                    {"card_id": "sv3-125", "quantity": 2},
+                    {"card_id": "", "quantity": 1},  # empty
+                    {"card_id": None, "quantity": 1},  # None
+                    {"quantity": 1},  # missing
+                ],
+                source_url="https://example.com/deck",
+            ),
+        )
+
+        result = service._create_placement(placement, uuid4())
+
+        # Only the valid card should be included
+        assert result.decklist is not None
+        assert len(result.decklist) == 1
+        assert result.decklist[0]["card_id"] == "sv3-125"
+
+    def test_decklist_with_no_valid_cards(
+        self,
+        service: TournamentScrapeService,
+    ) -> None:
+        """Decklist with all invalid cards still creates placement."""
+        placement = LimitlessPlacement(
+            placement=1,
+            player_name="Player",
+            country="US",
+            archetype="Unknown",
+            decklist=LimitlessDecklist(
+                cards=[{"quantity": 1}],
+                source_url="https://example.com/deck",
+            ),
+        )
+
+        result = service._create_placement(placement, uuid4())
+
+        assert result.decklist is not None
+        assert len(result.decklist) == 0
+
+    def test_invalid_decklist_treated_as_none(
+        self,
+        service: TournamentScrapeService,
+    ) -> None:
+        """Invalid decklist (is_valid=False) treated as no decklist."""
+        decklist = MagicMock()
+        decklist.is_valid = False
+        placement = LimitlessPlacement(
+            placement=1,
+            player_name="Player",
+            country="US",
+            archetype="Unknown",
+            decklist=decklist,
+        )
+
+        result = service._create_placement(placement, uuid4())
+
+        assert result.decklist is None
+
+
 class TestCardIdMappingConfidence:
     """Tests for confidence column on CardIdMapping model."""
 

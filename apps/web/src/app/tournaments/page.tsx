@@ -1,128 +1,114 @@
 "use client";
 
-import { AlertCircle, RefreshCw, Trophy } from "lucide-react";
+import { Suspense, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Flag, Trophy, Users } from "lucide-react";
+
+import { TournamentFilters, TournamentList } from "@/components/tournaments";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BO1ContextBanner } from "@/components/meta";
 import { useState } from "react";
+import type { TournamentSearchParams } from "@/lib/api";
 
-import { TournamentCard, TournamentFilters } from "@/components/tournaments";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useTournaments } from "@/hooks/useTournaments";
+type TabCategory = "tpci" | "japan" | "grassroots";
 
-export default function TournamentsPage() {
-  const [region, setRegion] = useState<string>("all");
+function TournamentsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const VALID_TABS: TabCategory[] = ["tpci", "japan", "grassroots"];
+  const rawCategory = searchParams.get("category");
+  const activeTab: TabCategory = VALID_TABS.includes(rawCategory as TabCategory)
+    ? (rawCategory as TabCategory)
+    : "tpci";
   const [format, setFormat] = useState<"standard" | "expanded" | "all">("all");
-  const [tier, setTier] = useState<"major" | "grassroots">("major");
-  const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError, refetch } = useTournaments({
-    region: region === "all" ? undefined : region,
-    format: format === "all" ? undefined : format,
-    tier,
-    page,
-    limit: 20,
-  });
-
-  const handleFilterChange = () => {
-    setPage(1);
+  const handleTabChange = (value: string) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    if (value === "tpci") {
+      sp.delete("category");
+    } else {
+      sp.set("category", value);
+    }
+    const query = sp.toString();
+    router.push(`/tournaments${query ? `?${query}` : ""}`, {
+      scroll: false,
+    });
   };
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-8">Tournaments</h1>
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 w-96 bg-muted rounded" />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-48 bg-muted rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const formatParam = format === "all" ? undefined : format;
 
-  if (isError) {
-    return (
-      <div className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-8">Tournaments</h1>
-        <Card className="border-destructive">
-          <CardContent className="py-8 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
-            <p className="text-destructive mb-4">Failed to load tournaments</p>
-            <Button onClick={() => refetch()} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const tpciParams: TournamentSearchParams = useMemo(
+    () => ({ tier: "major", format: formatParam }),
+    [formatParam]
+  );
+
+  const japanParams: TournamentSearchParams = useMemo(
+    () => ({ region: "JP", best_of: 1, format: formatParam }),
+    [formatParam]
+  );
+
+  const grassrootsParams: TournamentSearchParams = useMemo(
+    () => ({ tier: "grassroots", format: formatParam }),
+    [formatParam]
+  );
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 className="text-3xl font-bold">Tournaments</h1>
-        <TournamentFilters
-          region={region}
-          format={format}
-          tier={tier}
-          onRegionChange={(v) => {
-            setRegion(v);
-            handleFilterChange();
-          }}
-          onFormatChange={(v) => {
-            setFormat(v);
-            handleFilterChange();
-          }}
-          onTierChange={(v) => {
-            setTier(v);
-            handleFilterChange();
-          }}
-        />
+        <TournamentFilters format={format} onFormatChange={setFormat} />
       </div>
 
-      {data?.items.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              No tournaments found matching your filters.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data?.items.map((tournament) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
-            ))}
-          </div>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="tpci" className="gap-1.5">
+            <Trophy className="h-4 w-4" />
+            TPCI
+          </TabsTrigger>
+          <TabsTrigger value="japan" className="gap-1.5">
+            <Flag className="h-4 w-4" />
+            Japan
+          </TabsTrigger>
+          <TabsTrigger value="grassroots" className="gap-1.5">
+            <Users className="h-4 w-4" />
+            Grassroots
+          </TabsTrigger>
+        </TabsList>
 
-          {data && (data.has_prev || data.has_next) && (
-            <div className="flex items-center justify-center gap-4 mt-8">
-              <Button
-                variant="outline"
-                disabled={!data.has_prev}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {data.page} of {Math.ceil(data.total / data.limit)}
-              </span>
-              <Button
-                variant="outline"
-                disabled={!data.has_next}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+        <TabsContent value="tpci">
+          <TournamentList apiParams={tpciParams} />
+        </TabsContent>
+
+        <TabsContent value="japan">
+          <BO1ContextBanner className="mb-4" />
+          <TournamentList apiParams={japanParams} showRegion={false} />
+        </TabsContent>
+
+        <TabsContent value="grassroots">
+          <TournamentList apiParams={grassrootsParams} />
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function TournamentsPageLoading() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <h1 className="text-3xl font-bold mb-6">Tournaments</h1>
+      <div className="animate-pulse space-y-4">
+        <div className="h-10 w-72 bg-muted rounded" />
+        <div className="h-64 bg-muted rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+export default function TournamentsPage() {
+  return (
+    <Suspense fallback={<TournamentsPageLoading />}>
+      <TournamentsPageContent />
+    </Suspense>
   );
 }

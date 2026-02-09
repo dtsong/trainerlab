@@ -27,6 +27,7 @@ from src.schemas.meta import (
     MetaComparisonResponse,
 )
 from src.services.data_quality import validate_snapshot
+from src.services.pipeline_resilience import retry_commit
 
 logger = logging.getLogger(__name__)
 
@@ -235,12 +236,12 @@ class MetaService:
                 existing.jp_signals = snapshot.jp_signals
                 existing.trends = snapshot.trends
                 existing.era_label = snapshot.era_label
-                await self.session.commit()
+                await retry_commit(self.session, context="save-snapshot-update")
                 await self.session.refresh(existing)
                 return existing
             else:
                 self.session.add(snapshot)
-                await self.session.commit()
+                await retry_commit(self.session, context="save-snapshot-insert")
                 await self.session.refresh(snapshot)
                 return snapshot
         except SQLAlchemyError:

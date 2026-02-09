@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.clients.tcgdex import TCGdexCard, TCGdexClient, TCGdexError, TCGdexSet
 from src.models.card import Card
 from src.models.set import Set
+from src.services.pipeline_resilience import retry_commit
 
 logger = logging.getLogger(__name__)
 
@@ -274,7 +275,7 @@ class CardSyncService:
         for i, summary in enumerate(set_summaries, 1):
             logger.info(f"Processing set {i}/{len(set_summaries)}: {summary.name}")
             await self.sync_set(summary.id, language="en")
-            await self._session.commit()
+            await retry_commit(self._session, context=f"sync-en-set-{summary.id}")
 
         logger.info(
             f"English sync complete. "
@@ -406,7 +407,7 @@ class CardSyncService:
                 tcgdex_set_id,
             )
             await self.sync_jp_set(tcgdex_set_id)
-            await self._session.commit()
+            await retry_commit(self._session, context=f"sync-jp-set-{tcgdex_set_id}")
 
         logger.info(
             "Japanese sync complete. "

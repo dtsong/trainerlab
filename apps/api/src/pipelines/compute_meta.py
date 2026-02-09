@@ -15,6 +15,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.db.database import async_session_factory
 from src.models import FormatConfig
 from src.services.meta_service import MetaService
+from src.services.pipeline_resilience import with_timeout
+
+SNAPSHOT_TIMEOUT = 60  # seconds per snapshot compute + save
 
 logger = logging.getLogger(__name__)
 
@@ -139,14 +142,19 @@ async def compute_daily_snapshots(
                     try:
                         logger.info("Computing snapshot: %s", combo)
 
-                        snapshot = await service.compute_enhanced_meta_snapshot(
-                            snapshot_date=snapshot_date,
-                            region=region,
-                            game_format=game_format,
-                            best_of=best_of,
-                            lookback_days=lookback_days,
-                            start_date_floor=region_floor,
-                            era_label=region_era,
+                        snapshot = await with_timeout(
+                            service.compute_enhanced_meta_snapshot(
+                                snapshot_date=snapshot_date,
+                                region=region,
+                                game_format=game_format,
+                                best_of=best_of,
+                                lookback_days=lookback_days,
+                                start_date_floor=region_floor,
+                                era_label=region_era,
+                            ),
+                            SNAPSHOT_TIMEOUT,
+                            pipeline="compute-meta",
+                            step=f"compute-{combo}",
                         )
 
                         result.snapshots_computed += 1
@@ -170,7 +178,7 @@ async def compute_daily_snapshots(
                         else:
                             logger.info("DRY RUN - would save snapshot: %s", combo)
 
-                    except (SQLAlchemyError, ValueError, TypeError) as e:
+                    except (SQLAlchemyError, ValueError, TypeError, TimeoutError) as e:
                         error_msg = f"Error computing {combo}: {e}"
                         logger.error(error_msg, exc_info=True)
                         result.errors.append(error_msg)

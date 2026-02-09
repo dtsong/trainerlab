@@ -14,6 +14,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.clients.pokecabook import PokecabookClient, PokecabookError
 from src.db.database import async_session_factory
 from src.models.jp_card_adoption_rate import JPCardAdoptionRate
+from src.services.pipeline_resilience import retry_commit, with_timeout
+
+FETCH_TIMEOUT = 30  # seconds for external HTTP call
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +56,12 @@ async def sync_adoption_rates(
 
     try:
         async with PokecabookClient() as pokecabook:
-            adoption_data = await pokecabook.fetch_adoption_rates()
+            adoption_data = await with_timeout(
+                pokecabook.fetch_adoption_rates(),
+                FETCH_TIMEOUT,
+                pipeline="sync-jp-adoption-rates",
+                step="fetch-adoption-rates",
+            )
 
             result.rates_fetched = len(adoption_data.entries)
             logger.info("Fetched %d adoption rate entries", len(adoption_data.entries))
@@ -114,7 +122,7 @@ async def sync_adoption_rates(
                         logger.warning(error_msg)
                         result.errors.append(error_msg)
 
-                await session.commit()
+                await retry_commit(session, context="sync-adoption-rates")
 
     except PokecabookError as e:
         error_msg = f"Error fetching adoption rates: {e}"

@@ -27,7 +27,11 @@ from src.services.evolution_article_generator import (
     ArticleGeneratorError,
     EvolutionArticleGenerator,
 )
+from src.services.pipeline_resilience import retry_commit, with_timeout
 from src.services.prediction_engine import PredictionEngine, PredictionEngineError
+
+# Timeout for individual Claude API calls (seconds)
+CLAUDE_CALL_TIMEOUT = 60
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +132,14 @@ async def _classify_adaptations(
     for adaptation in adaptations:
         try:
             if not dry_run:
-                await classifier.classify(adaptation)
+                await with_timeout(
+                    classifier.classify(adaptation),
+                    CLAUDE_CALL_TIMEOUT,
+                    pipeline="compute-evolution",
+                    step=f"classify-adaptation-{adaptation.id}",
+                )
             result.adaptations_classified += 1
-        except (AdaptationClassifierError, ClaudeError) as e:
+        except (AdaptationClassifierError, ClaudeError, TimeoutError) as e:
             logger.warning(
                 "Failed to classify adaptation %s: %s",
                 adaptation.id,
@@ -142,7 +151,7 @@ async def _classify_adaptations(
             )
 
     if not dry_run and adaptations:
-        await session.commit()
+        await retry_commit(session, context="classify-adaptations")
 
 
 async def _generate_meta_contexts(
@@ -163,12 +172,17 @@ async def _generate_meta_contexts(
     for snapshot in snapshots:
         try:
             if not dry_run:
-                context = await classifier.classify_and_contextualize(snapshot.id)
+                context = await with_timeout(
+                    classifier.classify_and_contextualize(snapshot.id),
+                    CLAUDE_CALL_TIMEOUT,
+                    pipeline="compute-evolution",
+                    step=f"contextualize-{snapshot.id}",
+                )
                 if context:
                     result.contexts_generated += 1
             else:
                 result.contexts_generated += 1
-        except (AdaptationClassifierError, ClaudeError) as e:
+        except (AdaptationClassifierError, ClaudeError, TimeoutError) as e:
             logger.warning(
                 "Failed to generate context for snapshot %s: %s",
                 snapshot.id,
@@ -236,10 +250,15 @@ async def _generate_predictions(
 
             try:
                 if not dry_run:
-                    prediction = await engine.predict(archetype, tournament.id)
+                    prediction = await with_timeout(
+                        engine.predict(archetype, tournament.id),
+                        CLAUDE_CALL_TIMEOUT,
+                        pipeline="compute-evolution",
+                        step=f"predict-{archetype}",
+                    )
                     session.add(prediction)
                 result.predictions_generated += 1
-            except (PredictionEngineError, ClaudeError) as e:
+            except (PredictionEngineError, ClaudeError, TimeoutError) as e:
                 logger.warning(
                     "Failed to predict %s at tournament %s: %s",
                     archetype,
@@ -252,7 +271,7 @@ async def _generate_predictions(
                 )
 
     if not dry_run:
-        await session.commit()
+        await retry_commit(session, context="generate-predictions")
 
 
 async def _generate_articles(
@@ -281,7 +300,12 @@ async def _generate_articles(
     for archetype in archetypes:
         try:
             if not dry_run:
-                article = await generator.generate_article(archetype)
+                article = await with_timeout(
+                    generator.generate_article(archetype),
+                    CLAUDE_CALL_TIMEOUT,
+                    pipeline="compute-evolution",
+                    step=f"generate-article-{archetype}",
+                )
                 session.add(article)
 
                 # Link snapshots
@@ -302,7 +326,7 @@ async def _generate_articles(
                     session.add(link)
 
             result.articles_generated += 1
-        except (ArticleGeneratorError, ClaudeError) as e:
+        except (ArticleGeneratorError, ClaudeError, TimeoutError) as e:
             logger.warning(
                 "Failed to generate article for %s: %s",
                 archetype,
@@ -312,4 +336,4 @@ async def _generate_articles(
             result.errors.append(f"Article generation failed for {archetype}: {e}")
 
     if not dry_run:
-        await session.commit()
+        await retry_commit(session, context="generate-articles")

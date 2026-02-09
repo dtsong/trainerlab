@@ -35,9 +35,8 @@ TCGDEX_JP_TO_LIMITLESS_SET: dict[str, str] = {
     "SV1a": "sv1",
     "SV1S": "sv1",
     "SV1V": "sv1",
-    "SVME1": "me01",
-    "SVME2": "me02",
-    "SVMEE": "mee",
+    # ME block (me01, me02, mee) excluded — TCGdex JP locale doesn't
+    # have these sets; they're already synced via EN card sync.
 }
 
 # JP sets to sync (modern SV-era sets appearing in current JP decklists)
@@ -63,9 +62,6 @@ JP_SETS_TO_SYNC: list[str] = [
     "SV1a",
     "SV1S",
     "SV1V",
-    "SVME1",
-    "SVME2",
-    "SVMEE",
 ]
 
 

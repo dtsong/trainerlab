@@ -336,15 +336,10 @@ class TestNormalizeJpCardId:
         """Unknown set ID returns None."""
         assert normalize_jp_card_id("XY1-001", "XY1") is None
 
-    def test_me_set(self):
-        """SVME1-010 -> me01-10."""
-        result = normalize_jp_card_id("SVME1-010", "SVME1")
-        assert result == "me01-10"
-
-    def test_mee_set(self):
-        """SVMEE-007 -> mee-7."""
-        result = normalize_jp_card_id("SVMEE-007", "SVMEE")
-        assert result == "mee-7"
+    def test_me_sets_not_mapped(self):
+        """ME block sets excluded (synced via EN pipeline)."""
+        assert normalize_jp_card_id("SVME1-010", "SVME1") is None
+        assert normalize_jp_card_id("SVMEE-007", "SVMEE") is None
 
 
 class TestSyncJpSet:

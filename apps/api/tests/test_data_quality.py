@@ -4,6 +4,7 @@ These tests encode data quality expectations discovered from production data ana
 Each test targets a specific issue found in the live dataset.
 """
 
+from datetime import date, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -470,3 +471,160 @@ class TestValidatePlacement:
         warnings = validate_placement(p)
         assert len(warnings) == 1
         assert "low_confidence" in warnings[0]
+
+
+# ---------------------------------------------------------------------------
+# Issue 6: validate_snapshot() output validation
+# ---------------------------------------------------------------------------
+
+
+class TestValidateSnapshot:
+    """Tests for src.services.data_quality.validate_snapshot()."""
+
+    def _make_snapshot(self, **overrides: object) -> MagicMock:
+        defaults = {
+            "archetype_shares": {"Charizard ex": 0.6, "Lugia VSTAR": 0.4},
+            "sample_size": 100,
+            "snapshot_date": date.today(),
+            "tier_assignments": {"Charizard ex": "S", "Lugia VSTAR": "A"},
+            "trends": {
+                "Charizard ex": {"change": 0.02, "direction": "up"},
+            },
+            "region": None,
+        }
+        defaults.update(overrides)
+        snap = MagicMock()
+        for k, v in defaults.items():
+            setattr(snap, k, v)
+        return snap
+
+    def test_valid_snapshot_no_warnings(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot()
+        assert validate_snapshot(snap) == []
+
+    def test_shares_sum_off(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(archetype_shares={"A": 0.3, "B": 0.3})
+        warnings = validate_snapshot(snap)
+        assert any("shares_sum_off" in w for w in warnings)
+
+    def test_shares_sum_within_tolerance(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(archetype_shares={"A": 0.52, "B": 0.50})
+        warnings = validate_snapshot(snap)
+        # 1.02 is within 0.05 tolerance
+        assert not any("shares_sum_off" in w for w in warnings)
+
+    def test_negative_share(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(archetype_shares={"A": -0.1, "B": 1.1})
+        warnings = validate_snapshot(snap)
+        assert any("share_out_of_range" in w for w in warnings)
+
+    def test_share_above_one(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(archetype_shares={"A": 1.5})
+        warnings = validate_snapshot(snap)
+        assert any("share_out_of_range" in w for w in warnings)
+
+    def test_empty_archetype_name(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(archetype_shares={"": 0.5, "A": 0.5})
+        warnings = validate_snapshot(snap)
+        assert any("empty_archetype_name" in w for w in warnings)
+
+    def test_negative_sample_size(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(sample_size=-5)
+        warnings = validate_snapshot(snap)
+        assert any("negative_sample_size" in w for w in warnings)
+
+    def test_future_snapshot_date(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(snapshot_date=date.today() + timedelta(days=5))
+        warnings = validate_snapshot(snap)
+        assert any("future_snapshot_date" in w for w in warnings)
+
+    def test_today_snapshot_date_ok(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(snapshot_date=date.today())
+        warnings = validate_snapshot(snap)
+        assert not any("future_snapshot_date" in w for w in warnings)
+
+    def test_invalid_tier(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(tier_assignments={"A": "S", "B": "X-tier"})
+        warnings = validate_snapshot(snap)
+        assert any("invalid_tier" in w for w in warnings)
+
+    def test_valid_tiers(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(
+            tier_assignments={
+                "A": "S",
+                "B": "A",
+                "C": "B",
+                "D": "C",
+                "E": "Rogue",
+            }
+        )
+        warnings = validate_snapshot(snap)
+        assert not any("invalid_tier" in w for w in warnings)
+
+    def test_invalid_trend_direction(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(
+            trends={"A": {"change": 0.1, "direction": "sideways"}}
+        )
+        warnings = validate_snapshot(snap)
+        assert any("invalid_trend_direction" in w for w in warnings)
+
+    def test_valid_trend_directions(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(
+            trends={
+                "A": {"change": 0.1, "direction": "up"},
+                "B": {"change": -0.05, "direction": "down"},
+                "C": {"change": 0.0, "direction": "stable"},
+            }
+        )
+        warnings = validate_snapshot(snap)
+        assert not any("invalid_trend_direction" in w for w in warnings)
+
+    def test_none_fields_no_warnings(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(
+            tier_assignments=None,
+            trends=None,
+            archetype_shares={"A": 0.5, "B": 0.5},
+        )
+        assert validate_snapshot(snap) == []
+
+    def test_fail_open_on_bad_input(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        assert validate_snapshot(None) == []
+        assert validate_snapshot(42) == []
+        assert validate_snapshot("not a snapshot") == []
+
+    def test_non_numeric_share(self) -> None:
+        from src.services.data_quality import validate_snapshot
+
+        snap = self._make_snapshot(archetype_shares={"A": "not_a_number"})
+        warnings = validate_snapshot(snap)
+        assert any("non_numeric_share" in w for w in warnings)

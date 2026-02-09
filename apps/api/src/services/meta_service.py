@@ -26,6 +26,7 @@ from src.schemas.meta import (
     LagAnalysis,
     MetaComparisonResponse,
 )
+from src.services.data_quality import validate_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,15 @@ class MetaService:
         Raises:
             SQLAlchemyError: If database operation fails.
         """
+        # Validate before persisting — log warnings, never block
+        snapshot_warnings = validate_snapshot(snapshot)
+        if snapshot_warnings:
+            logger.warning(
+                "Saving snapshot with %d quality warnings: %s",
+                len(snapshot_warnings),
+                snapshot_warnings,
+            )
+
         try:
             existing_query = select(MetaSnapshot).where(
                 MetaSnapshot.snapshot_date == snapshot.snapshot_date,

@@ -12,6 +12,88 @@ from src.models.set import Set
 
 logger = logging.getLogger(__name__)
 
+# TCGdex JP set ID -> Limitless-normalized set ID
+TCGDEX_JP_TO_LIMITLESS_SET: dict[str, str] = {
+    "SV9": "sv09",
+    "SV8a": "sv08.5",
+    "SV8": "sv08",
+    "SV7a": "sv7",
+    "SV7": "sv7",
+    "SV6a": "sv6pt5",
+    "SV6": "sv6",
+    "SV5a": "sv5",
+    "SV5K": "sv5",
+    "SV5M": "sv5",
+    "SV4a": "sv4",
+    "SV4K": "sv4",
+    "SV4M": "sv4",
+    "SV3a": "sv3",
+    "SV3": "sv3",
+    "SV2a": "sv2",
+    "SV2D": "sv2",
+    "SV2P": "sv2",
+    "SV1a": "sv1",
+    "SV1S": "sv1",
+    "SV1V": "sv1",
+    "SVME1": "me01",
+    "SVME2": "me02",
+    "SVMEE": "mee",
+}
+
+# JP sets to sync (modern SV-era sets appearing in current JP decklists)
+JP_SETS_TO_SYNC: list[str] = [
+    "SV9",
+    "SV8a",
+    "SV8",
+    "SV7a",
+    "SV7",
+    "SV6a",
+    "SV6",
+    "SV5a",
+    "SV5K",
+    "SV5M",
+    "SV4a",
+    "SV4K",
+    "SV4M",
+    "SV3a",
+    "SV3",
+    "SV2a",
+    "SV2D",
+    "SV2P",
+    "SV1a",
+    "SV1S",
+    "SV1V",
+    "SVME1",
+    "SVME2",
+    "SVMEE",
+]
+
+
+def normalize_jp_card_id(tcgdex_id: str, tcgdex_set_id: str) -> str | None:
+    """Convert TCGdex JP card ID to Limitless-normalized format.
+
+    Examples:
+        SV9-097 -> sv09-97
+        SV6a-042 -> sv6pt5-42
+
+    Args:
+        tcgdex_id: TCGdex card ID (e.g., "SV9-097").
+        tcgdex_set_id: TCGdex set ID (e.g., "SV9").
+
+    Returns:
+        Limitless-normalized card ID, or None if set is unknown.
+    """
+    limitless_set = TCGDEX_JP_TO_LIMITLESS_SET.get(tcgdex_set_id)
+    if not limitless_set:
+        return None
+    local_id = tcgdex_id.split("-", 1)[-1]
+    try:
+        card_number = str(int(local_id))
+    except ValueError:
+        # Non-numeric local ID (e.g., promo suffixes)
+        card_number = local_id.lstrip("0") or "0"
+    return f"{limitless_set}-{card_number}"
+
 
 def tcgdex_set_to_db_set(tcgdex_set: TCGdexSet) -> Set:
     """Convert TCGdex set to database set model.
@@ -205,6 +287,143 @@ class CardSyncService:
             f"{self.result.sets_updated} updated. "
             f"Cards: {self.result.cards_processed} processed. "
             f"Errors: {len(self.result.errors)}"
+        )
+        return self.result
+
+    async def sync_jp_set(self, tcgdex_set_id: str) -> None:
+        """Sync a single JP set from TCGdex.
+
+        Fetches JP cards, normalizes IDs to Limitless format, and
+        inserts new cards or backfills japanese_name on existing ones.
+
+        Args:
+            tcgdex_set_id: TCGdex JP set ID (e.g., "SV9").
+        """
+        limitless_set_id = TCGDEX_JP_TO_LIMITLESS_SET.get(tcgdex_set_id)
+        if not limitless_set_id:
+            error = f"Unknown JP set: {tcgdex_set_id}"
+            logger.warning(error)
+            self.result.errors.append(error)
+            return
+
+        logger.info(
+            "Syncing JP set %s -> %s...",
+            tcgdex_set_id,
+            limitless_set_id,
+        )
+
+        try:
+            tcgdex_set = await self._client.fetch_set(tcgdex_set_id, language="ja")
+
+            # Upsert the set using Limitless-normalized ID
+            db_set = Set(
+                id=limitless_set_id,
+                name=tcgdex_set.name,
+                series=tcgdex_set.series_name,
+                release_date=tcgdex_set.release_date,
+                card_count=tcgdex_set.card_count_official,
+                logo_url=tcgdex_set.logo,
+                symbol_url=tcgdex_set.symbol,
+            )
+            await self.upsert_set(db_set)
+            self.result.sets_processed += 1
+
+            # Fetch all cards for this set
+            tcgdex_cards = await self._client.fetch_cards_for_set(
+                tcgdex_set_id, language="ja"
+            )
+
+            for tc in tcgdex_cards:
+                norm_id = normalize_jp_card_id(tc.id, tcgdex_set_id)
+                if not norm_id:
+                    continue
+
+                existing = await self._session.get(Card, norm_id)
+                if existing:
+                    # Only backfill japanese_name if missing
+                    if not existing.japanese_name:
+                        existing.japanese_name = tc.name
+                    self.result.cards_updated += 1
+                else:
+                    # Insert new JP-only card
+                    db_card = Card(
+                        id=norm_id,
+                        local_id=tc.local_id,
+                        name=tc.name,
+                        japanese_name=tc.name,
+                        supertype=tc.supertype,
+                        subtypes=tc.subtypes,
+                        types=tc.types,
+                        hp=tc.hp,
+                        stage=tc.stage,
+                        evolves_from=tc.evolves_from,
+                        evolves_to=tc.evolves_to,
+                        attacks=tc.attacks,
+                        abilities=tc.abilities,
+                        weaknesses=tc.weaknesses,
+                        resistances=tc.resistances,
+                        retreat_cost=tc.retreat_cost,
+                        rules=tc.rules,
+                        set_id=limitless_set_id,
+                        rarity=tc.rarity,
+                        number=tc.number,
+                        image_small=tc.image_small,
+                        image_large=tc.image_large,
+                        regulation_mark=tc.regulation_mark,
+                    )
+                    self._session.add(db_card)
+                    self.result.cards_inserted += 1
+
+                self.result.cards_processed += 1
+
+            await self._session.flush()
+
+            logger.info(
+                "JP set %s: %d cards synced (inserted: %d, updated: %d)",
+                tcgdex_set_id,
+                len(tcgdex_cards),
+                self.result.cards_inserted,
+                self.result.cards_updated,
+            )
+        except (
+            TCGdexError,
+            httpx.RequestError,
+            httpx.HTTPStatusError,
+        ) as e:
+            error_msg = f"Error syncing JP set {tcgdex_set_id}: {e}"
+            logger.error(error_msg)
+            self.result.errors.append(error_msg)
+
+    async def sync_all_japanese(self) -> SyncResult:
+        """Sync all JP sets and cards from TCGdex.
+
+        Returns:
+            Sync result summary.
+        """
+        logger.info("Starting Japanese card sync...")
+
+        for i, tcgdex_set_id in enumerate(JP_SETS_TO_SYNC, 1):
+            logger.info(
+                "Processing JP set %d/%d: %s",
+                i,
+                len(JP_SETS_TO_SYNC),
+                tcgdex_set_id,
+            )
+            await self.sync_jp_set(tcgdex_set_id)
+            await self._session.commit()
+
+        logger.info(
+            "Japanese sync complete. "
+            "Sets: %d processed, %d inserted, %d updated. "
+            "Cards: %d processed, %d inserted, %d updated. "
+            "Errors: %d",
+            self.result.sets_processed,
+            self.result.sets_inserted,
+            self.result.sets_updated,
+            self.result.cards_processed,
+            self.result.cards_inserted,
+            self.result.cards_updated,
+            len(self.result.errors),
         )
         return self.result
 

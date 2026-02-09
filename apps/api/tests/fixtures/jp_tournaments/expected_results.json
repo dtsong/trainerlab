@@ -39,7 +39,7 @@
     {
       "placement": 7,
       "archetype": "Froslass Grimmsnarl",
-      "detection_method": "auto_derive",
+      "detection_method": "sprite_lookup",
       "sprite_count": 2
     },
     {

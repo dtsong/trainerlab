@@ -142,6 +142,50 @@ class TestSyncJapaneseNames:
             assert result == 1
 
 
+class TestSyncJapaneseCards:
+    """Tests for sync_japanese_cards."""
+
+    @pytest.mark.asyncio
+    async def test_dry_run_returns_empty_result(self) -> None:
+        """Should return empty SyncResult on dry_run."""
+        from src.pipelines.sync_cards import sync_japanese_cards
+
+        result = await sync_japanese_cards(dry_run=True)
+        assert isinstance(result, SyncResult)
+        assert result.sets_processed == 0
+        assert result.cards_processed == 0
+
+    @pytest.mark.asyncio
+    async def test_runs_sync(self) -> None:
+        """Should call sync_all_japanese when not dry_run."""
+        from src.pipelines.sync_cards import sync_japanese_cards
+
+        mock_sync_result = SyncResult(sets_processed=5, cards_inserted=100)
+
+        with (
+            patch("src.pipelines.sync_cards.TCGdexClient") as mock_client_cls,
+            patch("src.pipelines.sync_cards.async_session_factory") as mock_sf,
+            patch("src.pipelines.sync_cards.CardSyncService") as mock_svc_cls,
+        ):
+            mock_client = AsyncMock()
+            mock_client_cls.return_value.__aenter__ = AsyncMock(
+                return_value=mock_client
+            )
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session = AsyncMock()
+            mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            mock_svc = AsyncMock()
+            mock_svc.sync_all_japanese.return_value = mock_sync_result
+            mock_svc_cls.return_value = mock_svc
+
+            result = await sync_japanese_cards(dry_run=False)
+            assert result is mock_sync_result
+            mock_svc.sync_all_japanese.assert_called_once()
+
+
 class TestSyncAll:
     """Tests for sync_all."""
 

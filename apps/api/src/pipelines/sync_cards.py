@@ -90,6 +90,31 @@ async def sync_japanese_names(dry_run: bool = False) -> int:
     return updated_count
 
 
+async def sync_japanese_cards(dry_run: bool = False) -> SyncResult:
+    """Sync JP-only cards from TCGdex.
+
+    Fetches Japanese card data, normalizes IDs to Limitless format,
+    and inserts into the cards table so the enrichment pipeline can
+    resolve card names and images for JP decklists.
+
+    Args:
+        dry_run: If True, don't actually commit to database.
+
+    Returns:
+        Sync result summary.
+    """
+    logger.info(f"Starting Japanese card sync (dry_run={dry_run})...")
+
+    if dry_run:
+        logger.info("DRY RUN - no changes will be committed")
+        return SyncResult()
+
+    async with TCGdexClient() as client, async_session_factory() as session:
+        service = CardSyncService(session, client)
+        result = await service.sync_all_japanese()
+        return result
+
+
 async def sync_all(dry_run: bool = False) -> tuple[SyncResult, int]:
     """Sync both English cards and Japanese names.
 

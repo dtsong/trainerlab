@@ -70,7 +70,7 @@ from src.pipelines.sync_card_mappings import (
     sync_all_card_mappings,
     sync_recent_jp_sets,
 )
-from src.pipelines.sync_cards import sync_english_cards
+from src.pipelines.sync_cards import sync_english_cards, sync_japanese_cards
 from src.pipelines.sync_jp_adoption_rates import (
     SyncAdoptionRatesResult as SyncAdoptionRatesResultInternal,
 )
@@ -374,6 +374,40 @@ async def sync_cards_endpoint(
         "Card sync complete: sets=%d, cards=%d, updated=%d",
         result.sets_processed,
         result.cards_processed,
+        result.cards_updated,
+    )
+
+    return SyncCardsResult(
+        sets_synced=result.sets_processed,
+        cards_synced=result.cards_processed,
+        cards_updated=result.cards_updated,
+        errors=result.errors,
+        success=len(result.errors) == 0,
+    )
+
+
+@router.post("/sync-jp-cards", response_model=SyncCardsResult)
+async def sync_jp_cards_endpoint(
+    request: SyncCardsRequest,
+) -> SyncCardsResult:
+    """Sync Japanese card data from TCGdex.
+
+    Fetches JP-only cards, normalizes IDs to Limitless format,
+    and inserts into cards table so enrichment pipeline can resolve
+    card names and images for JP decklists.
+    """
+    logger.info(
+        "Starting JP card sync pipeline: dry_run=%s",
+        request.dry_run,
+    )
+
+    result = await sync_japanese_cards(dry_run=request.dry_run)
+
+    logger.info(
+        "JP card sync complete: sets=%d, cards=%d, inserted=%d, updated=%d",
+        result.sets_processed,
+        result.cards_processed,
+        result.cards_inserted,
         result.cards_updated,
     )
 

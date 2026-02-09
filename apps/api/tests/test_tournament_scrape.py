@@ -1062,12 +1062,12 @@ class TestCreatePlacementWithNormalizer:
             "https://r2.limitlesstcg.net/pokemon/gen9/charizard.png"
         ]
 
-    def test_normalizer_with_unknown_sprites(
+    def test_normalizer_with_known_sprite_combo(
         self,
         service: TournamentScrapeService,
         normalizer: ArchetypeNormalizer,
     ) -> None:
-        """Should auto-derive archetype for unknown sprite combos."""
+        """Should resolve archetype via sprite_lookup for known combos."""
         placement = LimitlessPlacement(
             placement=2,
             player_name="Player",
@@ -1087,7 +1087,7 @@ class TestCreatePlacementWithNormalizer:
         )
 
         assert result.archetype == "Froslass Grimmsnarl"
-        assert result.archetype_detection_method == "auto_derive"
+        assert result.archetype_detection_method == "sprite_lookup"
         assert len(result.raw_archetype_sprites) == 2
 
     def test_legacy_path_without_normalizer(

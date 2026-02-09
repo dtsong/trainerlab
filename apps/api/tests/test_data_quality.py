@@ -313,3 +313,160 @@ class TestTournamentTierClassification:
         assert result is not None, (
             "JP tournaments with 0 participants still need a tier"
         )
+
+
+# ---------------------------------------------------------------------------
+# Issue 5: validate_placement() fail-open quality checks
+# ---------------------------------------------------------------------------
+
+
+class TestValidatePlacement:
+    """Tests for src.services.data_quality.validate_placement()."""
+
+    def _make_placement(
+        self,
+        archetype: str = "Charizard ex",
+        raw_archetype_sprites: list[str] | None = None,
+        archetype_confidence: float | None = None,
+        archetype_detection_method: str | None = None,
+    ) -> MagicMock:
+        p = MagicMock()
+        p.archetype = archetype
+        p.raw_archetype_sprites = raw_archetype_sprites
+        p.archetype_confidence = archetype_confidence
+        p.archetype_detection_method = archetype_detection_method
+        return p
+
+    def test_clean_placement_returns_no_warnings(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(
+            archetype="Charizard ex",
+            archetype_confidence=0.9,
+            archetype_detection_method="sprite_lookup",
+        )
+        assert validate_placement(p) == []
+
+    def test_sprites_present_but_unknown(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(
+            archetype="Unknown",
+            raw_archetype_sprites=["charizard", "pidgeot"],
+        )
+        warnings = validate_placement(p)
+        assert len(warnings) == 1
+        assert "sprites_present_but_unknown" in warnings[0]
+
+    def test_low_confidence(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(archetype_confidence=0.3)
+        warnings = validate_placement(p)
+        assert len(warnings) == 1
+        assert "low_confidence" in warnings[0]
+        assert "0.3" in warnings[0]
+
+    def test_text_label_with_sprites(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(
+            archetype_detection_method="text_label",
+            raw_archetype_sprites=["gardevoir"],
+        )
+        warnings = validate_placement(p)
+        assert len(warnings) == 1
+        assert "text_label_with_sprites" in warnings[0]
+
+    def test_multiple_warnings_combined(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(
+            archetype="Unknown",
+            raw_archetype_sprites=["charizard"],
+            archetype_confidence=0.2,
+            archetype_detection_method="text_label",
+        )
+        warnings = validate_placement(p)
+        assert len(warnings) == 3
+        types = {w.split(":")[0] for w in warnings}
+        assert types == {
+            "sprites_present_but_unknown",
+            "low_confidence",
+            "text_label_with_sprites",
+        }
+
+    def test_confidence_exactly_half_no_warning(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(archetype_confidence=0.5)
+        assert validate_placement(p) == []
+
+    def test_confidence_just_below_half_warns(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(archetype_confidence=0.49)
+        warnings = validate_placement(p)
+        assert len(warnings) == 1
+        assert "low_confidence" in warnings[0]
+
+    def test_none_confidence_no_warning(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(archetype_confidence=None)
+        assert validate_placement(p) == []
+
+    def test_unknown_without_sprites_no_warning(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(archetype="Unknown", raw_archetype_sprites=None)
+        assert validate_placement(p) == []
+
+    def test_text_label_without_sprites_no_warning(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(
+            archetype_detection_method="text_label",
+            raw_archetype_sprites=None,
+        )
+        assert validate_placement(p) == []
+
+    def test_fail_open_on_none_input(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        assert validate_placement(None) == []
+
+    def test_fail_open_on_non_object_input(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        assert validate_placement(42) == []
+
+    def test_fail_open_on_string_input(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        assert validate_placement("not a placement") == []
+
+    def test_empty_sprites_list_no_warning(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(archetype="Unknown", raw_archetype_sprites=[])
+        assert validate_placement(p) == []
+
+    def test_sprite_lookup_method_no_warning(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(
+            archetype="Charizard ex",
+            raw_archetype_sprites=["charizard"],
+            archetype_confidence=0.95,
+            archetype_detection_method="sprite_lookup",
+        )
+        assert validate_placement(p) == []
+
+    def test_negative_confidence_warns(self) -> None:
+        from src.services.data_quality import validate_placement
+
+        p = self._make_placement(archetype_confidence=-0.1)
+        warnings = validate_placement(p)
+        assert len(warnings) == 1
+        assert "low_confidence" in warnings[0]

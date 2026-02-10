@@ -1,3 +1,4 @@
+import type { NextAuthConfig } from "next-auth";
 import { describe, it, expect, vi } from "vitest";
 
 // Mock next-auth and jose before importing auth module
@@ -72,7 +73,7 @@ describe("auth module", () => {
 
   it("should use Google as the auth provider", async () => {
     const NextAuth = (await import("next-auth")).default;
-    const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+    const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
 
     expect(callArgs).toHaveProperty("providers");
     expect(callArgs.providers).toBeDefined();
@@ -82,14 +83,14 @@ describe("auth module", () => {
 
   it("should set sign-in page to /auth/login", async () => {
     const NextAuth = (await import("next-auth")).default;
-    const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+    const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
 
     expect(callArgs.pages?.signIn).toBe("/auth/login");
   });
 
   it("should use JWT session strategy", async () => {
     const NextAuth = (await import("next-auth")).default;
-    const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+    const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
 
     expect(callArgs.session?.strategy).toBe("jwt");
   });
@@ -97,12 +98,12 @@ describe("auth module", () => {
   describe("JWT encode/decode", () => {
     it("should have encode function that handles empty token", async () => {
       const NextAuth = (await import("next-auth")).default;
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const encode = callArgs.jwt?.encode;
 
       if (encode) {
         const result = await encode({
-          token: null,
+          token: undefined,
           salt: "",
           secret: "test-secret",
         });
@@ -112,7 +113,7 @@ describe("auth module", () => {
 
     it("should have decode function that handles empty token", async () => {
       const NextAuth = (await import("next-auth")).default;
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const decode = callArgs.jwt?.decode;
 
       if (decode) {
@@ -128,7 +129,7 @@ describe("auth module", () => {
     it("should encode a valid token using jose SignJWT", async () => {
       const NextAuth = (await import("next-auth")).default;
       const jose = await import("jose");
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const encode = callArgs.jwt?.encode;
 
       if (encode) {
@@ -145,7 +146,7 @@ describe("auth module", () => {
     it("should decode a valid token using jose jwtVerify", async () => {
       const NextAuth = (await import("next-auth")).default;
       const jose = await import("jose");
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const decode = callArgs.jwt?.decode;
 
       if (decode) {
@@ -165,7 +166,7 @@ describe("auth module", () => {
     it("should return null when decode encounters an error", async () => {
       const NextAuth = (await import("next-auth")).default;
       const jose = await import("jose");
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const decode = callArgs.jwt?.decode;
 
       // Make jwtVerify throw an error
@@ -187,7 +188,7 @@ describe("auth module", () => {
   describe("callbacks", () => {
     it("should have jwt callback that sets user info on first sign-in", async () => {
       const NextAuth = (await import("next-auth")).default;
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const jwtCallback = callArgs.callbacks?.jwt;
 
       if (jwtCallback) {
@@ -214,7 +215,7 @@ describe("auth module", () => {
 
     it("should have jwt callback that preserves token on subsequent calls", async () => {
       const NextAuth = (await import("next-auth")).default;
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const jwtCallback = callArgs.callbacks?.jwt;
 
       if (jwtCallback) {
@@ -238,7 +239,7 @@ describe("auth module", () => {
 
     it("should have session callback that populates user fields", async () => {
       const NextAuth = (await import("next-auth")).default;
-      const callArgs = vi.mocked(NextAuth).mock.calls[0][0];
+      const callArgs = vi.mocked(NextAuth).mock.calls[0][0] as NextAuthConfig;
       const sessionCallback = callArgs.callbacks?.session;
 
       if (sessionCallback) {

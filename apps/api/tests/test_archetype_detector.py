@@ -273,9 +273,6 @@ class TestJPCardIdTranslation:
         }
         detector = ArchetypeDetector(jp_to_en_mapping=jp_to_en)
 
-        decklist = [
-            {"card_id": "SV7-18", "quantity": 2},  # JP ID that maps to sv7-28
-        ]
         assert detector._translate_card_id("SV7-18") == "sv7-28"
 
     def test_preserves_unmapped_card_ids(self) -> None:

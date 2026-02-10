@@ -30,20 +30,32 @@ export interface ApiEventSummary {
   format: string;
   tier?: string | null;
   status: EventStatus;
+  venue_name?: string | null;
   registration_opens_at?: string | null;
   registration_closes_at?: string | null;
   registration_url?: string | null;
   participant_count?: number | null;
-  event_source?: string | null;
+  days_until?: number | null;
 }
 
 /**
  * Full event detail with venue info.
  */
 export interface ApiEventDetail extends ApiEventSummary {
-  venue_name?: string | null;
   venue_address?: string | null;
+  event_source?: string | null;
   source_url?: string | null;
+  best_of?: number;
+  top_placements?: Array<{
+    placement: number;
+    player_name?: string | null;
+    archetype: string;
+  }>;
+  meta_breakdown?: Array<{
+    archetype: string;
+    count: number;
+    share: number;
+  }>;
 }
 
 /**
@@ -154,20 +166,22 @@ export interface EventSummary {
   format: string;
   tier?: string;
   status: EventStatus;
+  venueName?: string;
   registrationOpensAt?: string;
   registrationClosesAt?: string;
   registrationUrl?: string;
   participantCount?: number;
-  eventSource?: string;
+  daysUntil?: number;
 }
 
 /**
  * Full event detail (frontend).
  */
 export interface EventDetail extends EventSummary {
-  venueName?: string;
   venueAddress?: string;
+  eventSource?: string;
   sourceUrl?: string;
+  bestOf?: number;
 }
 
 /**

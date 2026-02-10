@@ -1,8 +1,9 @@
 """Event discovery endpoints for the travel companion."""
 
 import logging
+import re
 from collections import Counter
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -23,16 +24,25 @@ from src.schemas.tournament import (
     TopPlacement,
     TournamentTier,
 )
+from src.utils.dates import days_until
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/events", tags=["events"])
 
 
-def _days_until(event_date: date) -> int | None:
-    """Compute days until an event, or None if past."""
-    delta = (event_date - date.today()).days
-    return delta if delta >= 0 else None
+def _escape_ics_text(text: str) -> str:
+    """Escape text per RFC 5545 §3.3.11."""
+    text = text.replace("\\", "\\\\")
+    text = text.replace(";", "\\;")
+    text = text.replace(",", "\\,")
+    text = text.replace("\n", "\\n")
+    return text
+
+
+def _sanitize_filename(name: str) -> str:
+    """Remove characters unsafe for filenames."""
+    return re.sub(r"[^\w\-]", "_", name)
 
 
 def _build_event_summary(t: Tournament) -> EventSummary:
@@ -51,7 +61,7 @@ def _build_event_summary(t: Tournament) -> EventSummary:
         registration_opens_at=t.registration_opens_at,
         registration_closes_at=t.registration_closes_at,
         participant_count=t.participant_count,
-        days_until=_days_until(t.date),
+        days_until=days_until(t.date),
     )
 
 
@@ -87,10 +97,10 @@ async def list_events(
     """List upcoming events with optional filters."""
     query = select(Tournament)
 
-    if not include_completed:
-        query = query.where(Tournament.status != "completed")
     if status_filter:
         query = query.where(Tournament.status == status_filter)
+    elif not include_completed:
+        query = query.where(Tournament.status != "completed")
     if region:
         query = query.where(Tournament.region == region)
     if format:
@@ -211,7 +221,7 @@ async def get_event(
         registration_opens_at=tournament.registration_opens_at,
         registration_closes_at=tournament.registration_closes_at,
         participant_count=tournament.participant_count,
-        days_until=_days_until(tournament.date),
+        days_until=days_until(tournament.date),
         event_source=tournament.event_source,
         source_url=tournament.source_url,
         best_of=tournament.best_of,
@@ -261,6 +271,9 @@ async def get_event_calendar(
         location_parts.append(tournament.country)
     location = ", ".join(location_parts)
 
+    summary = _escape_ics_text(tournament.name)
+    loc_escaped = _escape_ics_text(location)
+
     ics = (
         "BEGIN:VCALENDAR\r\n"
         "VERSION:2.0\r\n"
@@ -269,15 +282,15 @@ async def get_event_calendar(
         f"UID:{tournament.id}@trainerlab.gg\r\n"
         f"DTSTAMP:{now}\r\n"
         f"DTSTART;VALUE=DATE:{event_date}\r\n"
-        f"SUMMARY:{tournament.name}\r\n"
+        f"SUMMARY:{summary}\r\n"
     )
-    if location:
-        ics += f"LOCATION:{location}\r\n"
+    if loc_escaped:
+        ics += f"LOCATION:{loc_escaped}\r\n"
     if tournament.registration_url:
         ics += f"URL:{tournament.registration_url}\r\n"
     ics += "END:VEVENT\r\nEND:VCALENDAR\r\n"
 
-    filename = f"{tournament.name.replace(' ', '_')}.ics"
+    filename = f"{_sanitize_filename(tournament.name)}.ics"
 
     return Response(
         content=ics,

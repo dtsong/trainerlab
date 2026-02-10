@@ -670,8 +670,6 @@ class RK9Client:
             "%B %d %Y",
             "%b %d, %Y",
             "%b %d %Y",
-            "%m/%d/%Y",
-            "%d/%m/%Y",
         ]
 
         for fmt in formats:
@@ -679,5 +677,16 @@ class RK9Client:
                 return datetime.strptime(date_str, fmt).date()
             except ValueError:
                 continue
+
+        # Handle ambiguous slash-separated dates.
+        # Prefer %m/%d/%Y (US format, typical for Pokemon events).
+        # Fall back to %d/%m/%Y when month value exceeds 12.
+        slash_match = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})$", date_str)
+        if slash_match:
+            a, b = int(slash_match.group(1)), int(slash_match.group(2))
+            if a <= 12:
+                return datetime.strptime(date_str, "%m/%d/%Y").date()
+            if b <= 12:
+                return datetime.strptime(date_str, "%d/%m/%Y").date()
 
         raise ValueError(f"Could not parse date '{date_str}'")

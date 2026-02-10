@@ -958,8 +958,6 @@ export interface EventSearchParams {
   format?: "standard" | "expanded";
   tier?: string;
   status?: EventStatus;
-  date_from?: string;
-  date_to?: string;
   page?: number;
   limit?: number;
 }
@@ -972,8 +970,6 @@ export const eventsApi = {
     if (params.format) searchParams.set("format", params.format);
     if (params.tier) searchParams.set("tier", params.tier);
     if (params.status) searchParams.set("status", params.status);
-    if (params.date_from) searchParams.set("date_from", params.date_from);
-    if (params.date_to) searchParams.set("date_to", params.date_to);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
 

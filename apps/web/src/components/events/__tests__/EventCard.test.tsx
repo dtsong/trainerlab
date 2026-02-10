@@ -30,7 +30,6 @@ describe("EventCard", () => {
     registration_closes_at: "2026-06-01T23:59:00Z",
     registration_url: "https://rk9.gg/event/naic2026",
     participant_count: 2048,
-    event_source: "rk9",
   };
 
   it("should render event name", () => {

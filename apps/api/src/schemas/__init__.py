@@ -108,8 +108,11 @@ from src.schemas.trip import (
     TripDetail,
     TripEventAdd,
     TripEventDetail,
+    TripEventRole,
+    TripStatus,
     TripSummary,
     TripUpdate,
+    TripVisibility,
 )
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
 from src.schemas.user import UserPreferencesUpdate, UserResponse
@@ -201,8 +204,11 @@ __all__ = [
     "TripDetail",
     "TripEventAdd",
     "TripEventDetail",
+    "TripEventRole",
+    "TripStatus",
     "TripSummary",
     "TripUpdate",
+    "TripVisibility",
     "ArchetypeMeta",
     "DecklistCardResponse",
     "DecklistResponse",

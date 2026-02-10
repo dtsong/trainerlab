@@ -3,8 +3,13 @@
 from datetime import date as date_type
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+TripStatus = Literal["planning", "upcoming", "active", "completed"]
+TripVisibility = Literal["private", "shared"]
+TripEventRole = Literal["attendee", "competitor", "judge", "spectator"]
 
 
 class TripCreate(BaseModel):
@@ -28,10 +33,8 @@ class TripUpdate(BaseModel):
         max_length=2000,
         description="Trip notes",
     )
-    status: Literal["planning", "upcoming", "active", "completed"] | None = Field(
-        default=None, description="Trip status"
-    )
-    visibility: Literal["private", "shared"] | None = Field(
+    status: TripStatus | None = Field(default=None, description="Trip status")
+    visibility: TripVisibility | None = Field(
         default=None, description="Trip visibility"
     )
 
@@ -39,10 +42,8 @@ class TripUpdate(BaseModel):
 class TripEventAdd(BaseModel):
     """Request to add an event to a trip."""
 
-    tournament_id: str = Field(description="Tournament/event ID")
-    role: Literal["attendee", "competitor", "judge", "spectator"] = Field(
-        default="competitor", description="Role at event"
-    )
+    tournament_id: UUID = Field(description="Tournament/event ID")
+    role: TripEventRole = Field(default="competitor", description="Role at event")
     notes: str | None = Field(
         default=None,
         max_length=1000,
@@ -62,7 +63,7 @@ class TripEventDetail(BaseModel):
     tournament_region: str = Field(description="Region")
     tournament_city: str | None = Field(default=None, description="City")
     tournament_status: str = Field(description="Event status")
-    role: str = Field(description="Role at event")
+    role: TripEventRole = Field(description="Role at event")
     notes: str | None = Field(default=None, description="Notes")
     days_until: int | None = Field(default=None, description="Days until event")
 
@@ -74,7 +75,7 @@ class TripSummary(BaseModel):
 
     id: str = Field(description="Trip ID")
     name: str = Field(description="Trip name")
-    status: str = Field(description="Trip status")
+    status: TripStatus = Field(description="Trip status")
     event_count: int = Field(description="Number of events")
     next_event_date: date_type | None = Field(
         default=None, description="Date of next upcoming event"
@@ -89,8 +90,8 @@ class TripDetail(BaseModel):
 
     id: str = Field(description="Trip ID")
     name: str = Field(description="Trip name")
-    status: str = Field(description="Trip status")
-    visibility: str = Field(description="Visibility")
+    status: TripStatus = Field(description="Trip status")
+    visibility: TripVisibility = Field(description="Visibility")
     notes: str | None = Field(default=None, description="Trip notes")
     share_token: str | None = Field(default=None, description="Share token")
     events: list[TripEventDetail] = Field(

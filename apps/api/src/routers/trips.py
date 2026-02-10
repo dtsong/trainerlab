@@ -25,17 +25,13 @@ from src.schemas.trip import (
     TripSummary,
     TripUpdate,
 )
+from src.utils.dates import days_until
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/trips", tags=["trips"])
 
 MAX_FREE_TRIPS = 5
-
-
-def _days_until(event_date: date) -> int | None:
-    delta = (event_date - date.today()).days
-    return delta if delta >= 0 else None
 
 
 def _build_trip_event_detail(
@@ -50,9 +46,9 @@ def _build_trip_event_detail(
         tournament_region=t.region,
         tournament_city=t.city,
         tournament_status=t.status,
-        role=te.role,
+        role=te.role,  # type: ignore[arg-type]
         notes=te.notes,
-        days_until=_days_until(t.date),
+        days_until=days_until(t.date),
     )
 
 
@@ -100,8 +96,8 @@ def _build_trip_detail(trip: Trip) -> TripDetail:
     return TripDetail(
         id=str(trip.id),
         name=trip.name,
-        status=trip.status,
-        visibility=trip.visibility,
+        status=trip.status,  # type: ignore[arg-type]
+        visibility=trip.visibility,  # type: ignore[arg-type]
         notes=trip.notes,
         share_token=trip.share_token,
         events=events,
@@ -189,7 +185,7 @@ async def list_trips(
             TripSummary(
                 id=str(trip.id),
                 name=trip.name,
-                status=trip.status,
+                status=trip.status,  # type: ignore[arg-type]
                 event_count=len(trip.trip_events),
                 next_event_date=next_event_date,
                 created_at=trip.created_at,
@@ -271,7 +267,7 @@ async def update_trip(
 
     if body.name is not None:
         trip.name = body.name
-    if body.notes is not None:
+    if "notes" in body.model_fields_set:
         trip.notes = body.notes
     if body.status is not None:
         trip.status = body.status
@@ -327,8 +323,7 @@ async def add_event_to_trip(
     trip = await _get_trip_or_404(trip_id, user, db)
 
     # Verify tournament exists
-    tournament_uuid = UUID(body.tournament_id)
-    t_query = select(Tournament).where(Tournament.id == tournament_uuid)
+    t_query = select(Tournament).where(Tournament.id == body.tournament_id)
     try:
         t_result = await db.execute(t_query)
         tournament = t_result.scalar_one_or_none()
@@ -351,7 +346,7 @@ async def add_event_to_trip(
     trip_event = TripEvent(
         id=uuid4(),
         trip_id=trip.id,
-        tournament_id=tournament_uuid,
+        tournament_id=body.tournament_id,
         role=body.role,
         notes=body.notes,
     )

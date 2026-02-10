@@ -32,7 +32,6 @@ const mockEventSummary: ApiEventSummary = {
   registration_closes_at: "2026-06-01T23:59:00Z",
   registration_url: "https://rk9.gg/event/naic2026",
   participant_count: 2048,
-  event_source: "rk9",
 };
 
 const mockListResponse: ApiEventListResponse = {
@@ -48,6 +47,7 @@ const mockEventDetail: ApiEventDetail = {
   ...mockEventSummary,
   venue_name: "Greater Columbus Convention Center",
   venue_address: "400 N High St, Columbus, OH 43215",
+  event_source: "rk9",
   source_url: "https://pokemon.com/naic2026",
 };
 
@@ -114,12 +114,11 @@ describe("useEvents", () => {
     });
   });
 
-  it("should fetch events with date range", async () => {
+  it("should fetch events with status filter", async () => {
     vi.mocked(eventsApi.list).mockResolvedValue(mockListResponse);
 
     const params = {
-      date_from: "2026-03-01",
-      date_to: "2026-12-31",
+      status: "registration_open" as const,
     };
 
     const { result } = renderHook(() => useEvents(params), {

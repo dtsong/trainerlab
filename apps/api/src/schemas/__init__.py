@@ -26,6 +26,7 @@ from src.schemas.deck import (
     UnmatchedCard,
     UserSummary,
 )
+from src.schemas.event import EventDetail, EventStatus, EventSummary
 from src.schemas.evolution import (
     AdaptationResponse,
     EvolutionArticleListItem,
@@ -101,6 +102,18 @@ from src.schemas.tournament import (
     TournamentSummary,
     TournamentTier,
 )
+from src.schemas.trip import (
+    SharedTripView,
+    TripCreate,
+    TripDetail,
+    TripEventAdd,
+    TripEventDetail,
+    TripEventRole,
+    TripStatus,
+    TripSummary,
+    TripUpdate,
+    TripVisibility,
+)
 from src.schemas.usage import CardUsageResponse, UsageTrendPoint
 from src.schemas.user import UserPreferencesUpdate, UserResponse
 from src.schemas.widget import (
@@ -113,6 +126,9 @@ from src.schemas.widget import (
 )
 
 __all__ = [
+    "EventDetail",
+    "EventStatus",
+    "EventSummary",
     "ApiKeyCreate",
     "ApiKeyCreatedResponse",
     "ApiKeyListResponse",
@@ -183,6 +199,16 @@ __all__ = [
     "SetSummaryResponse",
     "SyncCardsRequest",
     "SyncCardsResult",
+    "SharedTripView",
+    "TripCreate",
+    "TripDetail",
+    "TripEventAdd",
+    "TripEventDetail",
+    "TripEventRole",
+    "TripStatus",
+    "TripSummary",
+    "TripUpdate",
+    "TripVisibility",
     "ArchetypeMeta",
     "DecklistCardResponse",
     "DecklistResponse",

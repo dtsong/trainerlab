@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminHeader, DataTable } from "@/components/admin";
 import type { Column } from "@/components/admin";
-import { useGlossaryTerms, useCreateGlossaryTerm } from "@/hooks/useTranslationsAdmin";
+import {
+  useGlossaryTerms,
+  useCreateGlossaryTerm,
+} from "@/hooks/useTranslationsAdmin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +32,7 @@ const columns: Column<ApiGlossaryTermOverride>[] = [
     key: "context",
     header: "Context",
     render: (row) => (
-      <span className="text-zinc-400">
-        {row.context || "-"}
-      </span>
+      <span className="text-zinc-400">{row.context || "-"}</span>
     ),
   },
   {
@@ -130,14 +131,19 @@ export default function GlossaryPage() {
             />
             <Button
               onClick={handleCreate}
-              disabled={!newTermJp.trim() || !newTermEn.trim() || createMutation.isPending}
+              disabled={
+                !newTermJp.trim() ||
+                !newTermEn.trim() ||
+                createMutation.isPending
+              }
               className="bg-teal-600 font-mono text-xs text-white hover:bg-teal-500"
             >
               {createMutation.isPending ? "Adding..." : "Add Term"}
             </Button>
           </div>
           <p className="mt-2 text-xs text-zinc-500">
-            Term overrides take precedence over the static glossary. If a term already exists, it will be updated.
+            Term overrides take precedence over the static glossary. If a term
+            already exists, it will be updated.
           </p>
         </div>
 

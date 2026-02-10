@@ -1,6 +1,5 @@
 """Tests for Pokekameshi scraper client."""
 
-from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -174,11 +173,15 @@ class TestPokekameshiClientErrors:
             import httpx
 
             response = httpx.Response(404, request=httpx.Request("GET", "/test"))
-            raise httpx.HTTPStatusError("Not Found", request=response.request, response=response)
+            raise httpx.HTTPStatusError(
+                "Not Found", request=response.request, response=response
+            )
 
-        with patch.object(client._client, "get", side_effect=mock_get_404):
-            with pytest.raises(PokekameshiError, match="Not found"):
-                await client._get("/nonexistent")
+        with (
+            patch.object(client._client, "get", side_effect=mock_get_404),
+            pytest.raises(PokekameshiError, match="Not found"),
+        ):
+            await client._get("/nonexistent")
 
         await client.close()
 

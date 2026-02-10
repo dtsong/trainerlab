@@ -23,13 +23,17 @@ import {
 } from "../useTranslationsAdmin";
 
 const mockTranslationList = {
-  items: [
+  content: [
     {
       id: "trans-1",
+      source_id: "src-1",
       source_url: "https://example.com/article",
-      status: "pending",
       content_type: "article",
-      title: "JP Meta Report",
+      original_text: "Original text",
+      translated_text: null,
+      status: "pending" as const,
+      translated_at: null,
+      uncertainties: null,
     },
   ],
   total: 1,
@@ -37,20 +41,25 @@ const mockTranslationList = {
 
 const mockTranslation = {
   id: "trans-1",
+  source_id: "src-1",
   source_url: "https://example.com/article",
-  status: "completed",
   content_type: "article",
-  title: "JP Meta Report",
-  translated_content: "Translated text",
+  original_text: "Original text",
+  translated_text: "Translated text",
+  status: "completed" as const,
+  translated_at: "2024-01-02T00:00:00Z",
+  uncertainties: null,
 };
 
 const mockGlossaryTerms = {
-  items: [
+  terms: [
     {
       id: "term-1",
-      japanese_term: "ex",
-      english_term: "ex",
-      active: true,
+      term_jp: "ex",
+      term_en: "ex",
+      context: null,
+      source: null,
+      is_active: true,
     },
   ],
   total: 1,
@@ -58,9 +67,11 @@ const mockGlossaryTerms = {
 
 const mockGlossaryTerm = {
   id: "term-2",
-  japanese_term: "pokemon",
-  english_term: "Pokemon",
-  active: true,
+  term_jp: "pokemon",
+  term_en: "Pokemon",
+  context: null,
+  source: null,
+  is_active: true,
 };
 
 function createWrapper() {
@@ -142,14 +153,16 @@ describe("useSubmitTranslation", () => {
 
     await act(async () => {
       result.current.mutate({
-        source_url: "https://example.com/article",
+        url: "https://example.com/article",
+        content_type: "article",
       } as Parameters<typeof translationsAdminApi.submit>[0]);
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(translationsAdminApi.submit).toHaveBeenCalledWith({
-      source_url: "https://example.com/article",
+      url: "https://example.com/article",
+      content_type: "article",
     });
   });
 
@@ -164,7 +177,8 @@ describe("useSubmitTranslation", () => {
 
     await act(async () => {
       result.current.mutate({
-        source_url: "bad-url",
+        url: "bad-url",
+        content_type: "article",
       } as Parameters<typeof translationsAdminApi.submit>[0]);
     });
 
@@ -182,7 +196,7 @@ describe("useUpdateTranslation", () => {
   it("should update a translation", async () => {
     vi.mocked(translationsAdminApi.update).mockResolvedValue({
       ...mockTranslation,
-      status: "reviewed",
+      status: "completed" as const,
     });
 
     const { result } = renderHook(() => useUpdateTranslation(), {
@@ -192,7 +206,7 @@ describe("useUpdateTranslation", () => {
     await act(async () => {
       result.current.mutate({
         id: "trans-1",
-        data: { status: "reviewed" } as Parameters<
+        data: { status: "completed" } as Parameters<
           typeof translationsAdminApi.update
         >[1],
       });
@@ -201,7 +215,7 @@ describe("useUpdateTranslation", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(translationsAdminApi.update).toHaveBeenCalledWith("trans-1", {
-      status: "reviewed",
+      status: "completed",
     });
   });
 
@@ -217,7 +231,7 @@ describe("useUpdateTranslation", () => {
     await act(async () => {
       result.current.mutate({
         id: "trans-1",
-        data: { status: "reviewed" } as Parameters<
+        data: { status: "completed" } as Parameters<
           typeof translationsAdminApi.update
         >[1],
       });
@@ -294,16 +308,16 @@ describe("useCreateGlossaryTerm", () => {
 
     await act(async () => {
       result.current.mutate({
-        japanese_term: "pokemon",
-        english_term: "Pokemon",
+        term_jp: "pokemon",
+        term_en: "Pokemon",
       } as Parameters<typeof translationsAdminApi.createGlossaryTerm>[0]);
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(translationsAdminApi.createGlossaryTerm).toHaveBeenCalledWith({
-      japanese_term: "pokemon",
-      english_term: "Pokemon",
+      term_jp: "pokemon",
+      term_en: "Pokemon",
     });
   });
 
@@ -318,8 +332,8 @@ describe("useCreateGlossaryTerm", () => {
 
     await act(async () => {
       result.current.mutate({
-        japanese_term: "ex",
-        english_term: "ex",
+        term_jp: "ex",
+        term_en: "ex",
       } as Parameters<typeof translationsAdminApi.createGlossaryTerm>[0]);
     });
 

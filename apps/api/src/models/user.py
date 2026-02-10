@@ -12,6 +12,7 @@ from src.db.base import Base, TimestampMixin
 if TYPE_CHECKING:
     from src.models.api_key import ApiKey
     from src.models.deck import Deck
+    from src.models.trip import Trip
     from src.models.widget import Widget
 
 
@@ -46,6 +47,9 @@ class User(Base, TimestampMixin):
         default=False, server_default=text("false"), nullable=False, index=True
     )
 
+    # Persona for UX personalization (grinder, first_timer, parent)
+    persona: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     # Relationships
     decks: Mapped[list["Deck"]] = relationship(
         "Deck", back_populates="user", cascade="all, delete-orphan"
@@ -55,4 +59,7 @@ class User(Base, TimestampMixin):
     )
     api_keys: Mapped[list["ApiKey"]] = relationship(
         "ApiKey", back_populates="user", cascade="all, delete-orphan"
+    )
+    trips: Mapped[list["Trip"]] = relationship(
+        "Trip", back_populates="user", cascade="all, delete-orphan"
     )

@@ -140,7 +140,9 @@ describe("useEvolutionArticles", () => {
   });
 
   it("should fetch evolution articles", async () => {
-    vi.mocked(evolutionApi.listArticles).mockResolvedValue([mockArticleListItem]);
+    vi.mocked(evolutionApi.listArticles).mockResolvedValue([
+      mockArticleListItem,
+    ]);
 
     const { result } = renderHook(() => useEvolutionArticles({ limit: 20 }), {
       wrapper: createWrapper(),
@@ -153,7 +155,9 @@ describe("useEvolutionArticles", () => {
   });
 
   it("should handle API errors", async () => {
-    vi.mocked(evolutionApi.listArticles).mockRejectedValue(new Error("API Error"));
+    vi.mocked(evolutionApi.listArticles).mockRejectedValue(
+      new Error("API Error")
+    );
 
     const { result } = renderHook(() => useEvolutionArticles(), {
       wrapper: createWrapper(),
@@ -165,7 +169,9 @@ describe("useEvolutionArticles", () => {
   });
 
   it("should pass pagination parameters including offset", async () => {
-    vi.mocked(evolutionApi.listArticles).mockResolvedValue([mockArticleListItem]);
+    vi.mocked(evolutionApi.listArticles).mockResolvedValue([
+      mockArticleListItem,
+    ]);
 
     const { result } = renderHook(
       () => useEvolutionArticles({ limit: 10, offset: 20 }),
@@ -234,7 +240,9 @@ describe("useArchetypeEvolution", () => {
   });
 
   it("should fetch archetype evolution timeline", async () => {
-    vi.mocked(evolutionApi.getArchetypeEvolution).mockResolvedValue(mockTimeline);
+    vi.mocked(evolutionApi.getArchetypeEvolution).mockResolvedValue(
+      mockTimeline
+    );
 
     const { result } = renderHook(
       () => useArchetypeEvolution("charizard-ex", 10),
@@ -342,7 +350,9 @@ describe("usePredictionAccuracy", () => {
   });
 
   it("should handle API errors", async () => {
-    vi.mocked(evolutionApi.getAccuracy).mockRejectedValue(new Error("API Error"));
+    vi.mocked(evolutionApi.getAccuracy).mockRejectedValue(
+      new Error("API Error")
+    );
 
     const { result } = renderHook(() => usePredictionAccuracy(), {
       wrapper: createWrapper(),

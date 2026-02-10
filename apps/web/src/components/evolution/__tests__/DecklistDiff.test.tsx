@@ -23,9 +23,7 @@ describe("DecklistDiff", () => {
   });
 
   it("should render added cards with green styling", () => {
-    const cardsAdded: CardChange[] = [
-      { card_id: "sv3-125", name: "Charizard ex", count: 2 },
-    ];
+    const cardsAdded: CardChange[] = [{ name: "Charizard ex", count: 2 }];
 
     render(<DecklistDiff cardsAdded={cardsAdded} cardsRemoved={[]} />);
 
@@ -34,9 +32,7 @@ describe("DecklistDiff", () => {
   });
 
   it("should render removed cards with red styling", () => {
-    const cardsRemoved: CardChange[] = [
-      { card_id: "sv1-166", name: "Arven", count: 4 },
-    ];
+    const cardsRemoved: CardChange[] = [{ name: "Arven", count: 4 }];
 
     render(<DecklistDiff cardsAdded={[]} cardsRemoved={cardsRemoved} />);
 
@@ -45,12 +41,8 @@ describe("DecklistDiff", () => {
   });
 
   it("should render both added and removed cards", () => {
-    const cardsAdded: CardChange[] = [
-      { card_id: "sv3-125", name: "Charizard ex", count: 1 },
-    ];
-    const cardsRemoved: CardChange[] = [
-      { card_id: "sv1-166", name: "Arven", count: 2 },
-    ];
+    const cardsAdded: CardChange[] = [{ name: "Charizard ex", count: 1 }];
+    const cardsRemoved: CardChange[] = [{ name: "Arven", count: 2 }];
 
     render(
       <DecklistDiff cardsAdded={cardsAdded} cardsRemoved={cardsRemoved} />
@@ -61,9 +53,7 @@ describe("DecklistDiff", () => {
   });
 
   it("should not show count prefix when count is 1", () => {
-    const cardsAdded: CardChange[] = [
-      { card_id: "sv3-125", name: "Test Card", count: 1 },
-    ];
+    const cardsAdded: CardChange[] = [{ name: "Test Card", count: 1 }];
 
     render(<DecklistDiff cardsAdded={cardsAdded} cardsRemoved={[]} />);
 
@@ -72,9 +62,7 @@ describe("DecklistDiff", () => {
   });
 
   it("should not show count prefix when count is undefined", () => {
-    const cardsAdded: CardChange[] = [
-      { card_id: "sv3-125", name: "Test Card" },
-    ];
+    const cardsAdded: CardChange[] = [{ name: "Test Card" }];
 
     render(<DecklistDiff cardsAdded={cardsAdded} cardsRemoved={[]} />);
 
@@ -84,9 +72,9 @@ describe("DecklistDiff", () => {
 
   it("should handle multiple cards of same type", () => {
     const cardsAdded: CardChange[] = [
-      { card_id: "sv3-125", name: "Card A", count: 2 },
-      { card_id: "sv3-126", name: "Card B", count: 3 },
-      { card_id: "sv3-127", name: "Card C", count: 1 },
+      { name: "Card A", count: 2 },
+      { name: "Card B", count: 3 },
+      { name: "Card C", count: 1 },
     ];
 
     render(<DecklistDiff cardsAdded={cardsAdded} cardsRemoved={[]} />);
@@ -98,17 +86,14 @@ describe("DecklistDiff", () => {
 
   it("should apply custom className", () => {
     const { container } = render(
-      <DecklistDiff
-        cardsAdded={[{ card_id: "1", name: "Test" }]}
-        className="custom-class"
-      />
+      <DecklistDiff cardsAdded={[{ name: "Test" }]} className="custom-class" />
     );
 
     expect(container.firstChild).toHaveClass("custom-class");
   });
 
   it("should show changes when only cardsAdded has items", () => {
-    const cardsAdded: CardChange[] = [{ card_id: "1", name: "New Card" }];
+    const cardsAdded: CardChange[] = [{ name: "New Card" }];
 
     render(<DecklistDiff cardsAdded={cardsAdded} cardsRemoved={null} />);
 
@@ -119,7 +104,7 @@ describe("DecklistDiff", () => {
   });
 
   it("should show changes when only cardsRemoved has items", () => {
-    const cardsRemoved: CardChange[] = [{ card_id: "1", name: "Old Card" }];
+    const cardsRemoved: CardChange[] = [{ name: "Old Card" }];
 
     render(<DecklistDiff cardsAdded={null} cardsRemoved={cardsRemoved} />);
 
@@ -130,12 +115,8 @@ describe("DecklistDiff", () => {
   });
 
   it("should render removed cards before added cards", () => {
-    const cardsAdded: CardChange[] = [
-      { card_id: "add-1", name: "Added Card" },
-    ];
-    const cardsRemoved: CardChange[] = [
-      { card_id: "rem-1", name: "Removed Card" },
-    ];
+    const cardsAdded: CardChange[] = [{ name: "Added Card" }];
+    const cardsRemoved: CardChange[] = [{ name: "Removed Card" }];
 
     render(
       <DecklistDiff cardsAdded={cardsAdded} cardsRemoved={cardsRemoved} />

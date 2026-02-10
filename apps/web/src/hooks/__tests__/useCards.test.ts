@@ -34,21 +34,23 @@ const mockPaginatedResponse: ApiPaginatedResponse<ApiCardSummary> = {
   limit: 20,
   has_next: true,
   has_prev: false,
+  total_pages: 5,
 };
 
 const mockCard: ApiCard = {
   ...mockCardSummary,
+  local_id: "125",
   image_large: "https://example.com/charizard-large.jpg",
   subtypes: ["Stage 2", "ex"],
   rules: [],
   attacks: [],
   weaknesses: [],
   resistances: [],
-  retreat_cost: ["Colorless", "Colorless"],
-  hp: "330",
+  retreat_cost: 2,
+  hp: 330,
   rarity: "Double Rare",
-  artist: "Test Artist",
-  set_name: "Obsidian Flames",
+  created_at: "2023-08-01T00:00:00Z",
+  updated_at: "2023-08-01T00:00:00Z",
 };
 
 function createWrapper() {

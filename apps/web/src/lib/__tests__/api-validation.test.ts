@@ -14,7 +14,7 @@ import {
 
 describe("ValidationError", () => {
   it("should create error with message and issues", () => {
-    const issues: z.ZodIssue[] = [
+    const issues = [
       {
         code: "invalid_type",
         expected: "string",
@@ -22,7 +22,7 @@ describe("ValidationError", () => {
         path: ["name"],
         message: "Expected string, received number",
       },
-    ];
+    ] as unknown as z.ZodIssue[];
 
     const error = new ValidationError("Validation failed", issues);
 
@@ -79,10 +79,12 @@ describe("validateApiResponse", () => {
     const originalNodeEnv = process.env.NODE_ENV;
 
     beforeEach(() => {
+      // @ts-expect-error - NODE_ENV reassignment for testing
       process.env.NODE_ENV = "development";
     });
 
     afterEach(() => {
+      // @ts-expect-error - NODE_ENV reassignment for testing
       process.env.NODE_ENV = originalNodeEnv;
     });
 
@@ -135,10 +137,12 @@ describe("validateApiResponse", () => {
     const originalNodeEnv = process.env.NODE_ENV;
 
     beforeEach(() => {
+      // @ts-expect-error - NODE_ENV reassignment for testing
       process.env.NODE_ENV = "production";
     });
 
     afterEach(() => {
+      // @ts-expect-error - NODE_ENV reassignment for testing
       process.env.NODE_ENV = originalNodeEnv;
     });
 

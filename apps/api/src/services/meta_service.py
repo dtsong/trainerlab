@@ -5,12 +5,13 @@ card inclusion rates, and other meta statistics.
 """
 
 import logging
+import math
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -49,6 +50,10 @@ MIN_ARCHETYPE_TOURNAMENTS = 3
 
 # Archetype names to exclude from all outputs
 EXCLUDED_ARCHETYPES = frozenset({"Unknown"})
+
+# Recency weighting: half-life in days for exponential decay.
+# Tournaments 30 days old get ~50% weight; 60 days old get ~25%.
+RECENCY_HALF_LIFE_DAYS = 30
 
 
 class MetaService:
@@ -134,6 +139,7 @@ class MetaService:
 
         tournament_ids = [t.id for t in tournaments]
         tournament_names = [str(t.id) for t in tournaments]
+        tournament_dates = {t.id: t.date for t in tournaments}
 
         try:
             placement_query = select(TournamentPlacement).where(
@@ -166,7 +172,10 @@ class MetaService:
             min_tournaments = 2
 
         archetype_shares = self._compute_archetype_shares(
-            placements, min_tournaments=min_tournaments
+            placements,
+            min_tournaments=min_tournaments,
+            tournament_dates=tournament_dates,
+            reference_date=snapshot_date,
         )
         card_usage = self._compute_card_usage(placements)
 
@@ -302,17 +311,41 @@ class MetaService:
             )
             raise
 
+    @staticmethod
+    def _recency_weight(
+        days_ago: int,
+        half_life: int = RECENCY_HALF_LIFE_DAYS,
+    ) -> float:
+        """Compute exponential decay weight for a tournament.
+
+        Weight = 2^(-days_ago / half_life).
+        At 0 days ago weight is 1.0, at half_life weight is 0.5.
+        """
+        if days_ago <= 0:
+            return 1.0
+        return math.pow(2, -days_ago / half_life)
+
     def _compute_archetype_shares(
         self,
         placements: Sequence[TournamentPlacement],
         min_tournaments: int = MIN_ARCHETYPE_TOURNAMENTS,
+        tournament_dates: dict[UUID, date] | None = None,
+        reference_date: date | None = None,
     ) -> dict[str, float]:
         """Compute archetype share percentages from placements.
+
+        When tournament_dates and reference_date are provided, each
+        placement is weighted by recency: recent tournaments count more
+        than older ones using exponential decay.
 
         Args:
             placements: Sequence of tournament placements.
             min_tournaments: Minimum distinct tournaments an archetype
                 must appear in. Defaults to MIN_ARCHETYPE_TOURNAMENTS.
+            tournament_dates: Mapping of tournament_id → date. When
+                provided with reference_date, enables recency weighting.
+            reference_date: The snapshot date used as "today" for
+                computing how old each tournament is.
 
         Returns:
             Dict mapping archetype name to share percentage (0.0-1.0).
@@ -320,29 +353,41 @@ class MetaService:
         if not placements:
             return {}
 
-        archetype_counts: dict[str, int] = defaultdict(int)
+        use_weighting = bool(tournament_dates and reference_date)
+        archetype_weights: dict[str, float] = defaultdict(float)
         archetype_tournaments: dict[str, set] = defaultdict(set)
 
         for placement in placements:
             name = placement.archetype
             if not name or not name.strip():
                 continue
-            archetype_counts[name] += 1
+
+            if use_weighting:
+                t_date = tournament_dates.get(placement.tournament_id)
+                if t_date and reference_date:
+                    days_ago = (reference_date - t_date).days
+                    weight = self._recency_weight(days_ago)
+                else:
+                    weight = 1.0
+            else:
+                weight = 1.0
+
+            archetype_weights[name] += weight
             archetype_tournaments[name].add(placement.tournament_id)
 
-        total = sum(archetype_counts.values())
+        total = sum(archetype_weights.values())
         if total == 0:
             return {}
 
         shares = {
-            archetype: count / total
-            for archetype, count in sorted(
-                archetype_counts.items(),
+            archetype: weighted / total
+            for archetype, weighted in sorted(
+                archetype_weights.items(),
                 key=lambda x: x[1],
                 reverse=True,
             )
             if archetype not in EXCLUDED_ARCHETYPES
-            and count / total >= MIN_ARCHETYPE_SHARE
+            and weighted / total >= MIN_ARCHETYPE_SHARE
             and len(archetype_tournaments[archetype]) >= min_tournaments
         }
 

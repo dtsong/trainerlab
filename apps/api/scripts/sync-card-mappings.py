@@ -101,9 +101,7 @@ def sync(
         console.print("[yellow]DRY RUN[/yellow] - No changes will be committed.\n")
 
     if sets and recent:
-        console.print(
-            "[red]Error:[/red] Cannot use --sets and --recent together."
-        )
+        console.print("[red]Error:[/red] Cannot use --sets and --recent together.")
         raise typer.Exit(1)
 
     asyncio.run(_run_sync(sets, recent, lookback, dry_run))

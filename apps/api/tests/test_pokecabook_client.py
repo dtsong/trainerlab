@@ -8,7 +8,6 @@ import pytest
 
 from src.clients.pokecabook import (
     PokecabookAdoptionRates,
-    PokecabookArticle,
     PokecabookClient,
     PokecabookError,
     PokecabookTierList,
@@ -103,9 +102,7 @@ class TestPokecabookArticles:
 
         assert len(result) >= 2
 
-        charizard_guide = next(
-            (a for a in result if "リザードン" in a.title), None
-        )
+        charizard_guide = next((a for a in result if "リザードン" in a.title), None)
         assert charizard_guide is not None
         assert charizard_guide.published_date == date(2026, 2, 1)
         assert charizard_guide.category == "デッキ解説"
@@ -200,10 +197,14 @@ class TestPokecabookClientErrors:
             import httpx
 
             response = httpx.Response(404, request=httpx.Request("GET", "/test"))
-            raise httpx.HTTPStatusError("Not Found", request=response.request, response=response)
+            raise httpx.HTTPStatusError(
+                "Not Found", request=response.request, response=response
+            )
 
-        with patch.object(client._client, "get", side_effect=mock_get_404):
-            with pytest.raises(PokecabookError, match="Not found"):
-                await client._get("/nonexistent")
+        with (
+            patch.object(client._client, "get", side_effect=mock_get_404),
+            pytest.raises(PokecabookError, match="Not found"),
+        ):
+            await client._get("/nonexistent")
 
         await client.close()

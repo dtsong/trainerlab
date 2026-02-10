@@ -71,6 +71,12 @@ from src.pipelines.sync_card_mappings import (
     sync_recent_jp_sets,
 )
 from src.pipelines.sync_cards import sync_english_cards, sync_japanese_cards
+from src.pipelines.sync_events import (
+    SyncEventsResult as SyncEventsResultInternal,
+)
+from src.pipelines.sync_events import (
+    sync_events,
+)
 from src.pipelines.sync_jp_adoption_rates import (
     SyncAdoptionRatesResult as SyncAdoptionRatesResultInternal,
 )
@@ -122,6 +128,8 @@ from src.schemas.pipeline import (
     SyncCardMappingsResult,
     SyncCardsRequest,
     SyncCardsResult,
+    SyncEventsRequest,
+    SyncEventsResult,
     SyncJPAdoptionRequest,
     SyncJPAdoptionResult,
     TranslatePokecabookRequest,
@@ -794,6 +802,23 @@ def _convert_rescrape_result(
     )
 
 
+# Event sync pipeline
+
+
+def _convert_sync_events_result(
+    internal: SyncEventsResultInternal,
+) -> SyncEventsResult:
+    """Convert internal SyncEventsResult to API schema."""
+    return SyncEventsResult(
+        events_fetched=internal.events_fetched,
+        events_created=internal.events_created,
+        events_updated=internal.events_updated,
+        events_skipped=internal.events_skipped,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
 @router.post(
     "/rescrape-jp",
     response_model=RescrapeJPResult,
@@ -954,3 +979,29 @@ async def wipe_data_endpoint(
     )
 
     return _convert_wipe_result(result)
+
+
+@router.post("/sync-events", response_model=SyncEventsResult)
+async def sync_events_endpoint(
+    request: SyncEventsRequest,
+) -> SyncEventsResult:
+    """Sync upcoming events from RK9 and Pokemon Events.
+
+    Called by Cloud Scheduler weekly to discover and update
+    upcoming Pokemon TCG championship events.
+    """
+    logger.info("Starting event sync: dry_run=%s", request.dry_run)
+
+    result = await sync_events(dry_run=request.dry_run)
+
+    logger.info(
+        "Event sync complete: fetched=%d, created=%d, "
+        "updated=%d, skipped=%d, errors=%d",
+        result.events_fetched,
+        result.events_created,
+        result.events_updated,
+        result.events_skipped,
+        len(result.errors),
+    )
+
+    return _convert_sync_events_result(result)

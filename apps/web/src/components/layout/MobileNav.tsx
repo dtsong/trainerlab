@@ -8,6 +8,7 @@ import {
   BarChart3,
   Flag,
   Calendar,
+  CalendarDays,
   Menu,
   FileText,
   Settings,
@@ -29,10 +30,11 @@ const tabs = [
   { href: "/", label: "Home", icon: Home },
   { href: "/meta", label: "Meta", icon: BarChart3 },
   { href: "/meta/japan", label: "JP", icon: Flag },
-  { href: "/tournaments", label: "Events", icon: Calendar },
+  { href: "/events", label: "Events", icon: CalendarDays },
 ];
 
 const drawerLinks = [
+  { href: "/tournaments", label: "Tournaments", icon: Calendar },
   { href: "/lab-notes", label: "Lab Notes", icon: FileText },
   { href: "/investigate", label: "Investigate", icon: Search },
   { href: "/settings", label: "Settings", icon: Settings },

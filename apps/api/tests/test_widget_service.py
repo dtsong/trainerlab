@@ -64,7 +64,7 @@ class TestCreateWidget:
             mock_resolver.return_value = MagicMock()
             with patch("src.services.widget_service.generate_widget_id") as mock_gen:
                 mock_gen.return_value = "w_test12"
-                widget = await service.create_widget(
+                await service.create_widget(
                     mock_user,
                     widget_type="meta_snapshot",
                     config={"region": None},
@@ -293,9 +293,7 @@ class TestListUserWidgets:
         assert result.has_prev is False
 
     @pytest.mark.asyncio
-    async def test_pagination_has_next(
-        self, mock_session: AsyncMock, mock_user: User
-    ):
+    async def test_pagination_has_next(self, mock_session: AsyncMock, mock_user: User):
         """Test pagination has_next flag."""
         mock_widgets = [MagicMock(spec=Widget)]
 
@@ -348,7 +346,7 @@ class TestUpdateWidget:
         mock_session.execute.return_value = mock_result
 
         service = WidgetService(mock_session)
-        result = await service.update_widget("w_abc123", mock_user, theme="light")
+        await service.update_widget("w_abc123", mock_user, theme="light")
 
         assert mock_widget.theme == "light"
 

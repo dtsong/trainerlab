@@ -1105,16 +1105,14 @@ describe("translationsAdminApi", () => {
   });
 
   it("should submit a translation", async () => {
-    const submitData = {
-      content_type: "card",
-      source_text: "Japanese text",
+    const submitData: ApiSubmitTranslationRequest = {
+      url: "https://example.com/article",
+      content_type: "article",
     };
     const mockData = { id: "trans-1", ...submitData };
     mockAuthAndResponse(mockData);
 
-    const result = await translationsAdminApi.submit(
-      submitData as ApiSubmitTranslationRequest
-    );
+    const result = await translationsAdminApi.submit(submitData);
 
     expect(result).toEqual(mockData);
     const calledUrl = mockFetch.mock.calls[1][0] as string;
@@ -1180,16 +1178,14 @@ describe("translationsAdminApi", () => {
   });
 
   it("should create a glossary term", async () => {
-    const createData = {
-      jp_term: "Japanese term",
-      en_term: "English term",
+    const createData: ApiGlossaryTermCreateRequest = {
+      term_jp: "Japanese term",
+      term_en: "English term",
     };
     const mockData = { id: "gloss-1", ...createData };
     mockAuthAndResponse(mockData);
 
-    const result = await translationsAdminApi.createGlossaryTerm(
-      createData as ApiGlossaryTermCreateRequest
-    );
+    const result = await translationsAdminApi.createGlossaryTerm(createData);
 
     expect(result).toEqual(mockData);
     const calledUrl = mockFetch.mock.calls[1][0] as string;

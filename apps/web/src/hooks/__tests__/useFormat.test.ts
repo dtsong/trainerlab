@@ -66,7 +66,7 @@ const mockRotationImpactList: ApiRotationImpactList = {
       format_transition: "svi-tef-to-svi-por",
       archetype_id: "charizard-ex",
       archetype_name: "Charizard ex",
-      survival_rating: "stable",
+      survival_rating: "adapts",
       rotating_cards: [
         {
           card_name: "Arven",
@@ -89,7 +89,7 @@ const mockArchetypeImpact: ApiRotationImpact = {
   format_transition: "svi-tef-to-svi-por",
   archetype_id: "charizard-ex",
   archetype_name: "Charizard ex",
-  survival_rating: "stable",
+  survival_rating: "adapts",
   rotating_cards: [],
   analysis: "Detailed analysis",
   jp_evidence: "JP evidence",

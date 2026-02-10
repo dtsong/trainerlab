@@ -15,7 +15,13 @@ const TRANSLATIONS_STALE_TIME = 1000 * 60 * 15;
  */
 export function useJPAdoptionRates(params: JPAdoptionRatesParams = {}) {
   return useQuery({
-    queryKey: ["translations", "adoption-rates", params.days, params.archetype, params.limit],
+    queryKey: [
+      "translations",
+      "adoption-rates",
+      params.days,
+      params.archetype,
+      params.limit,
+    ],
     queryFn: () => translationsApi.getAdoptionRates(params),
     staleTime: TRANSLATIONS_STALE_TIME,
   });

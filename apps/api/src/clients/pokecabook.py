@@ -217,10 +217,7 @@ class PokecabookClient:
         Returns:
             List of article metadata.
         """
-        if category:
-            endpoint = f"/category/{category}/"
-        else:
-            endpoint = "/category/pokeca-article/"
+        endpoint = f"/category/{category}/" if category else "/category/pokeca-article/"
 
         html = await self._get(endpoint)
         soup = BeautifulSoup(html, "lxml")
@@ -328,10 +325,7 @@ class PokecabookClient:
         Returns:
             Article with raw_html populated.
         """
-        if url.startswith(self.BASE_URL):
-            endpoint = url[len(self.BASE_URL) :]
-        else:
-            endpoint = url
+        endpoint = url[len(self.BASE_URL) :] if url.startswith(self.BASE_URL) else url
 
         html = await self._get(endpoint)
         soup = BeautifulSoup(html, "lxml")
@@ -477,10 +471,7 @@ class PokecabookClient:
         Returns:
             Adoption rate data.
         """
-        if deck_type:
-            endpoint = f"/adoption/{deck_type}/"
-        else:
-            endpoint = "/adoption/"
+        endpoint = f"/adoption/{deck_type}/" if deck_type else "/adoption/"
 
         try:
             html = await self._get(endpoint)

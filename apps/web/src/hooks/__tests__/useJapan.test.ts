@@ -27,29 +27,37 @@ import {
 const mockInnovationList = {
   items: [
     {
+      id: "inno-1",
       card_id: "sv5-101",
       card_name: "Dragapult ex",
       set_code: "sv5",
-      impact_score: 8.5,
+      is_legal_en: false,
+      adoption_rate: 0.85,
+      competitive_impact_rating: 8.5,
+      sample_size: 50,
     },
   ],
   total: 1,
 };
 
 const mockInnovationDetail = {
+  id: "inno-1",
   card_id: "sv5-101",
   card_name: "Dragapult ex",
   set_code: "sv5",
-  impact_score: 8.5,
-  usage_history: [],
+  is_legal_en: false,
+  adoption_rate: 0.85,
+  competitive_impact_rating: 8.5,
+  sample_size: 50,
 };
 
 const mockArchetypeList = {
   items: [
     {
+      id: "arch-1",
+      archetype_id: "dragapult-ex",
       name: "Dragapult ex",
-      set_code: "sv5",
-      meta_share: 12.5,
+      jp_meta_share: 12.5,
     },
   ],
   total: 1,
@@ -58,9 +66,10 @@ const mockArchetypeList = {
 const mockSetImpactList = {
   items: [
     {
+      id: "si-1",
       set_code: "sv5",
       set_name: "Temporal Forces",
-      impact_score: 7.2,
+      jp_release_date: "2024-01-26",
     },
   ],
   total: 1,
@@ -70,22 +79,37 @@ const mockPredictionList = {
   items: [
     {
       id: "pred-1",
-      category: "archetype",
-      prediction: "Dragapult will rise",
-      resolved: false,
+      prediction_text: "Dragapult will rise",
+      target_event: "Regional",
+      created_at: "2024-01-01T00:00:00Z",
     },
   ],
   total: 1,
+  resolved: 0,
+  correct: 0,
+  partial: 0,
+  incorrect: 0,
 };
 
 const mockCardCountEvolution = {
   archetype: "Dragapult ex",
-  evolution: [
+  cards: [
     {
-      date: "2024-01-01",
-      cards: { "sv5-101": 4, "sv5-102": 2 },
+      card_id: "sv5-101",
+      card_name: "Dragapult ex",
+      data_points: [
+        {
+          snapshot_date: "2024-01-01",
+          avg_copies: 4,
+          inclusion_rate: 0.95,
+          sample_size: 20,
+        },
+      ],
+      total_change: 0,
+      current_avg: 4,
     },
   ],
+  tournaments_analyzed: 5,
 };
 
 function createWrapper() {

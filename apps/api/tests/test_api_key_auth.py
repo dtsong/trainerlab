@@ -134,9 +134,7 @@ class TestGetApiKeyUser:
 
         with patch("src.dependencies.api_key_auth.hash_api_key") as mock_hash:
             mock_hash.return_value = "hashed_key"
-            await get_api_key_user(
-                mock_request, mock_session, x_api_key="tl_test123"
-            )
+            await get_api_key_user(mock_request, mock_session, x_api_key="tl_test123")
 
         # Counter should be reset to 0, then incremented to 1
         assert mock_api_key.requests_this_month == 1
@@ -156,9 +154,7 @@ class TestGetApiKeyUser:
 
         with patch("src.dependencies.api_key_auth.hash_api_key") as mock_hash:
             mock_hash.return_value = "hashed_key"
-            await get_api_key_user(
-                mock_request, mock_session, x_api_key="tl_test123"
-            )
+            await get_api_key_user(mock_request, mock_session, x_api_key="tl_test123")
 
         assert mock_api_key.requests_this_month == 1
 

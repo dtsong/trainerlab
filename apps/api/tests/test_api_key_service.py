@@ -77,7 +77,9 @@ class TestCreateApiKey:
             mock_gen.return_value = "tl_test123456789abcdef"
             with patch("src.services.api_key_service.hash_api_key") as mock_hash:
                 mock_hash.return_value = "hashed_key"
-                with patch("src.services.api_key_service.get_key_prefix") as mock_prefix:
+                with patch(
+                    "src.services.api_key_service.get_key_prefix"
+                ) as mock_prefix:
                     mock_prefix.return_value = "tl_test12"
                     await service.create_api_key(mock_user, "My API Key")
 

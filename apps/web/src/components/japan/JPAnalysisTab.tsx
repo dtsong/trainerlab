@@ -1,9 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Languages } from "lucide-react";
 import { japanApi } from "@/lib/api";
 import { JPContentCard } from "./JPContentCard";
 import { CardInnovationTracker, NewArchetypeWatch } from "@/components/japan";
+import { Badge } from "@/components/ui/badge";
 
 interface JPAnalysisTabProps {
   era?: string;
@@ -32,8 +34,33 @@ export function JPAnalysisTab({ era }: JPAnalysisTabProps) {
     staleTime: 1000 * 60 * 15,
   });
 
+  const totalItems =
+    (tierLists?.items.length ?? 0) + (articles?.items.length ?? 0);
+
   return (
     <div className="space-y-10">
+      {/* Era context banner */}
+      {era && (
+        <div
+          className="flex items-center gap-2 rounded-md border border-teal-500/20 bg-teal-500/5 px-3 py-2"
+          data-testid="era-context-banner"
+        >
+          <Languages className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
+          <span className="text-xs text-muted-foreground">
+            Showing translated content for the{" "}
+            <Badge variant="outline" className="mx-0.5 text-[10px]">
+              {era}
+            </Badge>{" "}
+            era
+            {totalItems > 0 && (
+              <span className="ml-1 text-foreground/70">
+                ({totalItems} {totalItems === 1 ? "item" : "items"})
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Translated Tier Lists */}
       <section>
         <h2 className="mb-4 text-xl font-semibold">Translated Tier Lists</h2>
@@ -100,7 +127,7 @@ export function JPAnalysisTab({ era }: JPAnalysisTabProps) {
         )}
       </section>
 
-      {/* Moved from Meta Overview tab */}
+      {/* New Archetypes + Innovation */}
       <section>
         <NewArchetypeWatch limit={9} />
       </section>

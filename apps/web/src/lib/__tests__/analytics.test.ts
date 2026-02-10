@@ -18,14 +18,14 @@ describe("trackEvent", () => {
   afterEach(() => {
     // Clean up gtag from window
     if ("gtag" in window) {
-      delete (window as Record<string, unknown>).gtag;
+      delete (window as unknown as Record<string, unknown>).gtag;
     }
     vi.restoreAllMocks();
-    process.env.NODE_ENV = originalNodeEnv;
+    (process.env as { NODE_ENV: string }).NODE_ENV = originalNodeEnv!;
   });
 
   it("should call window.gtag when available", () => {
-    (window as Record<string, unknown>).gtag = mockGtag;
+    (window as unknown as Record<string, unknown>).gtag = mockGtag;
 
     trackEvent({
       category: "commerce",
@@ -51,7 +51,7 @@ describe("trackEvent", () => {
   });
 
   it("should log to console in development mode", () => {
-    process.env.NODE_ENV = "development";
+    (process.env as { NODE_ENV: string }).NODE_ENV = "development";
 
     trackEvent({
       category: "search",
@@ -68,7 +68,7 @@ describe("trackEvent", () => {
   });
 
   it("should handle event without optional label and value", () => {
-    (window as Record<string, unknown>).gtag = mockGtag;
+    (window as unknown as Record<string, unknown>).gtag = mockGtag;
 
     trackEvent({
       category: "meta",
@@ -83,8 +83,8 @@ describe("trackEvent", () => {
   });
 
   it("should call gtag and log in development mode", () => {
-    process.env.NODE_ENV = "development";
-    (window as Record<string, unknown>).gtag = mockGtag;
+    (process.env as { NODE_ENV: string }).NODE_ENV = "development";
+    (window as unknown as Record<string, unknown>).gtag = mockGtag;
 
     trackEvent({
       category: "deck_builder",
@@ -103,12 +103,12 @@ describe("trackAffiliateClick", () => {
 
   beforeEach(() => {
     mockGtag = vi.fn();
-    (window as Record<string, unknown>).gtag = mockGtag;
+    (window as unknown as Record<string, unknown>).gtag = mockGtag;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    delete (window as Record<string, unknown>).gtag;
+    delete (window as unknown as Record<string, unknown>).gtag;
     vi.restoreAllMocks();
   });
 
@@ -160,12 +160,12 @@ describe("trackBuildDeckCTA", () => {
 
   beforeEach(() => {
     mockGtag = vi.fn();
-    (window as Record<string, unknown>).gtag = mockGtag;
+    (window as unknown as Record<string, unknown>).gtag = mockGtag;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    delete (window as Record<string, unknown>).gtag;
+    delete (window as unknown as Record<string, unknown>).gtag;
     vi.restoreAllMocks();
   });
 

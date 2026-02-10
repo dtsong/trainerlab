@@ -4,7 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { AdminHeader, DataTable } from "@/components/admin";
 import type { Column } from "@/components/admin";
-import { useTranslationsAdmin, useSubmitTranslation } from "@/hooks/useTranslationsAdmin";
+import {
+  useTranslationsAdmin,
+  useSubmitTranslation,
+} from "@/hooks/useTranslationsAdmin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +99,9 @@ const columns: Column<ApiTranslatedContent>[] = [
 
 export default function AdminTranslationsPage() {
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<TranslationStatus | null>(null);
+  const [statusFilter, setStatusFilter] = useState<TranslationStatus | null>(
+    null
+  );
   const [submitUrl, setSubmitUrl] = useState("");
   const [submitType, setSubmitType] = useState<ContentType>("article");
 

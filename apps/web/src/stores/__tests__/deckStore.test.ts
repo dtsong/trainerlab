@@ -603,7 +603,7 @@ describe("deckStore", () => {
         const storage = getStorage();
         // Should not throw
         storage.setItem("deck-builder-storage", {
-          state: { cards: [] },
+          state: { cards: [], name: "", description: "", format: "standard" },
           version: 0,
         });
 
@@ -660,7 +660,12 @@ describe("deckStore", () => {
           // Should not throw
           expect(() =>
             storage.setItem("deck-builder-storage", {
-              state: { cards: [] },
+              state: {
+                cards: [],
+                name: "",
+                description: "",
+                format: "standard",
+              },
               version: 0,
             })
           ).not.toThrow();
@@ -695,7 +700,7 @@ describe("deckStore", () => {
           useDeckStore.persist.getOptions().onRehydrateStorage;
 
         // onRehydrateStorage returns a callback that receives (state, error)
-        const callback = onRehydrate!();
+        const callback = onRehydrate!(useDeckStore.getState());
         const rehydrationError = new Error("Rehydration failed");
         callback!(undefined, rehydrationError);
 
@@ -712,7 +717,7 @@ describe("deckStore", () => {
         const onRehydrate =
           useDeckStore.persist.getOptions().onRehydrateStorage;
 
-        const callback = onRehydrate!();
+        const callback = onRehydrate!(useDeckStore.getState());
         // Successful rehydration: state is present, error is undefined
         callback!(useDeckStore.getState(), undefined);
 

@@ -21,6 +21,7 @@ from src.routers import (
     api_keys_router,
     cards_router,
     decks_router,
+    events_router,
     evolution_router,
     exports_router,
     format_router,
@@ -33,6 +34,7 @@ from src.routers import (
     sets_router,
     tournaments_router,
     translations_router,
+    trips_router,
     users_router,
     waitlist_router,
     widgets_router,
@@ -160,6 +162,7 @@ app.include_router(admin_router)
 app.include_router(api_keys_router)
 app.include_router(cards_router)
 app.include_router(decks_router)
+app.include_router(events_router)
 app.include_router(evolution_router)
 app.include_router(exports_router)
 app.include_router(format_router)
@@ -172,6 +175,7 @@ app.include_router(public_api_router)
 app.include_router(sets_router)
 app.include_router(tournaments_router)
 app.include_router(translations_router)
+app.include_router(trips_router)
 app.include_router(users_router)
 app.include_router(waitlist_router)
 app.include_router(widgets_router)

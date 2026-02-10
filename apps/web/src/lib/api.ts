@@ -65,6 +65,16 @@ import type {
   ApiApiKeyResponse,
   ApiApiKeyCreatedResponse,
   ApiApiKeyListResponse,
+  ApiEventSummary,
+  ApiEventDetail,
+  ApiEventListResponse,
+  ApiTripCreate,
+  ApiTripUpdate,
+  ApiTripEventAdd,
+  ApiTripSummary,
+  ApiTripDetail,
+  ApiSharedTripView,
+  EventStatus,
 } from "@trainerlab/shared-types";
 import type { z } from "zod";
 
@@ -301,6 +311,7 @@ export interface MetaSearchParams {
   format?: "standard" | "expanded";
   best_of?: 1 | 3;
   days?: number;
+  era?: string;
 }
 
 export interface MetaCompareParams {
@@ -323,6 +334,7 @@ export const metaApi = {
     if (params.region) searchParams.set("region", params.region);
     if (params.format) searchParams.set("format", params.format);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
+    if (params.era) searchParams.set("era", params.era);
 
     const query = searchParams.toString();
     return fetchApiValidated<ApiMetaSnapshot, unknown>(
@@ -337,6 +349,7 @@ export const metaApi = {
     if (params.format) searchParams.set("format", params.format);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
     if (params.days) searchParams.set("days", String(params.days));
+    if (params.era) searchParams.set("era", params.era);
 
     const query = searchParams.toString();
     return fetchApiValidated<ApiMetaHistoryResponse, unknown>(
@@ -935,6 +948,119 @@ export const widgetsApi = {
   getEmbedCode: (id: string) => {
     return fetchApiAuth<ApiWidgetEmbedCodeResponse>(
       `/api/v1/widgets/${encodeURIComponent(id)}/embed-code`
+    );
+  },
+};
+
+// Event search parameters
+export interface EventSearchParams {
+  region?: string;
+  format?: "standard" | "expanded";
+  tier?: string;
+  status?: EventStatus;
+  page?: number;
+  limit?: number;
+}
+
+// Events API (upcoming event calendar)
+export const eventsApi = {
+  list: (params: EventSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.region) searchParams.set("region", params.region);
+    if (params.format) searchParams.set("format", params.format);
+    if (params.tier) searchParams.set("tier", params.tier);
+    if (params.status) searchParams.set("status", params.status);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApi<ApiEventListResponse>(
+      `/api/v1/events${query ? `?${query}` : ""}`
+    );
+  },
+
+  getById: (id: string) => {
+    return fetchApi<ApiEventDetail>(`/api/v1/events/${encodeURIComponent(id)}`);
+  },
+};
+
+// Trip search parameters
+export interface TripSearchParams {
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Trips API (authenticated user trip management)
+export const tripsApi = {
+  list: (params: TripSearchParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.status) searchParams.set("status", params.status);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+
+    const query = searchParams.toString();
+    return fetchApiAuth<ApiTripSummary[]>(
+      `/api/v1/trips${query ? `?${query}` : ""}`
+    );
+  },
+
+  create: (data: ApiTripCreate) => {
+    return fetchApiAuth<ApiTripDetail>("/api/v1/trips", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  getById: (id: string) => {
+    return fetchApiAuth<ApiTripDetail>(
+      `/api/v1/trips/${encodeURIComponent(id)}`
+    );
+  },
+
+  update: (id: string, data: ApiTripUpdate) => {
+    return fetchApiAuth<ApiTripDetail>(
+      `/api/v1/trips/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  delete: (id: string) => {
+    return fetchApiAuth<void>(`/api/v1/trips/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  },
+
+  addEvent: (tripId: string, data: ApiTripEventAdd) => {
+    return fetchApiAuth<ApiTripDetail>(
+      `/api/v1/trips/${encodeURIComponent(tripId)}/events`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  removeEvent: (tripId: string, eventId: string) => {
+    return fetchApiAuth<void>(
+      `/api/v1/trips/${encodeURIComponent(tripId)}/events/${encodeURIComponent(eventId)}`,
+      { method: "DELETE" }
+    );
+  },
+
+  getShared: (token: string) => {
+    return fetchApi<ApiSharedTripView>(
+      `/api/v1/trips/shared/${encodeURIComponent(token)}`
+    );
+  },
+
+  share: (id: string) => {
+    return fetchApiAuth<ApiTripDetail>(
+      `/api/v1/trips/${encodeURIComponent(id)}/share`,
+      { method: "POST" }
     );
   },
 };

@@ -38,7 +38,9 @@ class TestBetaTesterFlag:
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
 
-        await get_current_user(mock_request, mock_db, authorization="Bearer valid-token")
+        await get_current_user(
+            mock_request, mock_db, authorization="Bearer valid-token"
+        )
 
         created_user = mock_db.add.call_args[0][0]
         assert created_user.is_beta_tester is True

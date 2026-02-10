@@ -325,13 +325,13 @@ describe("DeckExportModal", () => {
 
   it("should use 'deck' as fallback name when no name is provided", () => {
     // Override the store mock to return empty name
-    vi.mocked(useDeckStore).mockImplementation(
-      (selector: (state: Record<string, unknown>) => unknown) =>
-        selector({
-          cards: [],
-          name: "",
-        })
-    );
+    vi.mocked(useDeckStore).mockImplementation(((
+      selector: (state: Record<string, unknown>) => unknown
+    ) =>
+      selector({
+        cards: [],
+        name: "",
+      })) as typeof useDeckStore);
 
     render(<DeckExportModal open={true} onOpenChange={mockOnOpenChange} />);
 

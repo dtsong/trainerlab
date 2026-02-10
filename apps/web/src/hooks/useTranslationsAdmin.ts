@@ -3,10 +3,7 @@
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import {
-  translationsAdminApi,
-  AdminTranslationsParams,
-} from "@/lib/api";
+import { translationsAdminApi, AdminTranslationsParams } from "@/lib/api";
 import type {
   ApiSubmitTranslationRequest,
   ApiUpdateTranslationRequest,
@@ -55,8 +52,13 @@ export function useUpdateTranslation() {
   }, [queryClient]);
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ApiUpdateTranslationRequest }) =>
-      translationsAdminApi.update(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: ApiUpdateTranslationRequest;
+    }) => translationsAdminApi.update(id, data),
     onSuccess,
   });
 }

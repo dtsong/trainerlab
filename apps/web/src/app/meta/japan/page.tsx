@@ -107,36 +107,41 @@ function JapanMetaPageContent() {
     updateUrl({ tab: value });
   };
 
-  // Fetch current Japan meta snapshot (BO1)
+  // Era label for post-rotation JP data scoping
+  const era = "post-nihil-zero";
+
+  // Fetch current Japan meta snapshot (BO1, era-scoped)
   const {
     data: currentMeta,
     isLoading: isLoadingCurrent,
     error: currentError,
     refetch: refetchCurrent,
   } = useQuery({
-    queryKey: ["meta", "current", "JP", 1],
+    queryKey: ["meta", "current", "JP", 1, era],
     queryFn: () =>
       metaApi.getCurrent({
         region: "JP",
         format: "standard",
         best_of: 1,
+        era,
       }),
   });
 
-  // Fetch Japan meta history for trends (BO1)
+  // Fetch Japan meta history for trends (BO1, era-scoped)
   const {
     data: metaHistory,
     isLoading: isLoadingHistory,
     error: historyError,
     refetch: refetchHistory,
   } = useQuery({
-    queryKey: ["meta", "history", "JP", 1, days],
+    queryKey: ["meta", "history", "JP", 1, days, era],
     queryFn: () =>
       metaApi.getHistory({
         region: "JP",
         format: "standard",
         best_of: 1,
         days,
+        era,
       }),
   });
 

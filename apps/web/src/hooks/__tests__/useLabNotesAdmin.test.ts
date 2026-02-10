@@ -45,8 +45,10 @@ const mockLabNoteList = {
       id: "note-1",
       title: "Meta Analysis",
       slug: "meta-analysis",
-      note_type: "analysis",
-      status: "published",
+      note_type: "set_analysis" as const,
+      status: "published" as const,
+      is_published: true,
+      is_premium: false,
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-02T00:00:00Z",
     },
@@ -62,8 +64,11 @@ const mockLabNote = {
   id: "note-1",
   title: "Meta Analysis",
   slug: "meta-analysis",
-  note_type: "analysis",
-  status: "published",
+  note_type: "set_analysis" as const,
+  status: "published" as const,
+  version: 1,
+  is_published: true,
+  is_premium: false,
   content: "Some content here",
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-02T00:00:00Z",
@@ -73,6 +78,8 @@ const mockRevisions = [
   {
     id: "rev-1",
     lab_note_id: "note-1",
+    version: 1,
+    title: "Meta Analysis",
     content: "Revision content",
     created_at: "2024-01-01T00:00:00Z",
   },
@@ -201,7 +208,7 @@ describe("useCreateLabNote", () => {
       result.current.mutate({
         title: "New Note",
         content: "Content",
-        note_type: "analysis",
+        note_type: "set_analysis",
       } as Parameters<typeof labNotesAdminApi.create>[0]);
     });
 
@@ -210,7 +217,7 @@ describe("useCreateLabNote", () => {
     expect(labNotesAdminApi.create).toHaveBeenCalledWith({
       title: "New Note",
       content: "Content",
-      note_type: "analysis",
+      note_type: "set_analysis",
     });
   });
 
@@ -227,7 +234,7 @@ describe("useCreateLabNote", () => {
       result.current.mutate({
         title: "",
         content: "",
-        note_type: "analysis",
+        note_type: "set_analysis",
       } as Parameters<typeof labNotesAdminApi.create>[0]);
     });
 

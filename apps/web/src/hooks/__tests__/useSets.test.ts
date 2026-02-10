@@ -23,10 +23,12 @@ const mockSet: ApiSet = {
   id: "sv3",
   name: "Obsidian Flames",
   series: "Scarlet & Violet",
-  total: 230,
+  card_count: 230,
   release_date: "2023-08-11",
   symbol_url: "https://example.com/sv3-symbol.png",
   logo_url: "https://example.com/sv3-logo.png",
+  created_at: "2023-08-01T00:00:00Z",
+  updated_at: "2023-08-01T00:00:00Z",
 };
 
 const mockSets: ApiSet[] = [
@@ -35,10 +37,12 @@ const mockSets: ApiSet[] = [
     id: "sv4",
     name: "Paradox Rift",
     series: "Scarlet & Violet",
-    total: 182,
+    card_count: 182,
     release_date: "2023-11-03",
     symbol_url: "https://example.com/sv4-symbol.png",
     logo_url: "https://example.com/sv4-logo.png",
+    created_at: "2023-11-01T00:00:00Z",
+    updated_at: "2023-11-01T00:00:00Z",
   },
 ];
 
@@ -58,6 +62,7 @@ const mockPaginatedCards: ApiPaginatedResponse<ApiCardSummary> = {
   limit: 20,
   has_next: true,
   has_prev: false,
+  total_pages: 12,
 };
 
 function createWrapper() {

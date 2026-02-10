@@ -1,6 +1,6 @@
 """Tests for meta snapshot service."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -475,10 +475,12 @@ class TestComputeMetaSnapshotAsync:
         """Should compute snapshot with archetype shares from placements."""
         # Create 3 mock tournaments so archetypes pass the min filter
         t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        snapshot_date = date(2024, 6, 15)
         mock_tournaments = []
         for tid in [t1, t2, t3]:
             t = MagicMock(spec=Tournament)
             t.id = tid
+            t.date = snapshot_date
             mock_tournaments.append(t)
 
         # Create mock placements spread across 3 tournaments
@@ -528,6 +530,7 @@ class TestComputeMetaSnapshotAsync:
         """Should return empty snapshot when no placements found."""
         mock_tournament = MagicMock(spec=Tournament)
         mock_tournament.id = uuid4()
+        mock_tournament.date = date(2024, 6, 15)
 
         tournament_result = MagicMock()
         tournament_result.scalars.return_value.all.return_value = [mock_tournament]
@@ -569,6 +572,7 @@ class TestComputeMetaSnapshotAsync:
         """Should raise SQLAlchemyError when placement query fails."""
         mock_tournament = MagicMock(spec=Tournament)
         mock_tournament.id = uuid4()
+        mock_tournament.date = date(2024, 6, 15)
 
         tournament_result = MagicMock()
         tournament_result.scalars.return_value.all.return_value = [mock_tournament]
@@ -593,6 +597,7 @@ class TestComputeMetaSnapshotAsync:
         """Should compute card usage when placements have decklists."""
         mock_tournament = MagicMock(spec=Tournament)
         mock_tournament.id = uuid4()
+        mock_tournament.date = date(2024, 6, 15)
 
         # Create placements with decklists
         p1 = MagicMock(spec=TournamentPlacement)
@@ -632,8 +637,10 @@ class TestComputeMetaSnapshotAsync:
         """Should populate tournaments_included with tournament IDs."""
         t1 = MagicMock(spec=Tournament)
         t1.id = uuid4()
+        t1.date = date(2024, 6, 15)
         t2 = MagicMock(spec=Tournament)
         t2.id = uuid4()
+        t2.date = date(2024, 6, 15)
 
         p1 = MagicMock(spec=TournamentPlacement)
         p1.archetype = "Charizard ex"
@@ -665,6 +672,7 @@ class TestComputeMetaSnapshotAsync:
         """Should compute snapshot for global (region=None)."""
         mock_tournament = MagicMock(spec=Tournament)
         mock_tournament.id = uuid4()
+        mock_tournament.date = date(2024, 6, 15)
 
         p1 = MagicMock(spec=TournamentPlacement)
         p1.archetype = "Charizard ex"
@@ -1352,3 +1360,220 @@ class TestComputeTrends:
         assert trends is not None
         assert trends["B"]["direction"] == "down"
         assert trends["B"]["change"] == -0.10
+
+
+class TestRecencyWeight:
+    """Tests for the static _recency_weight method."""
+
+    def test_weight_at_zero_days(self) -> None:
+        """Weight at 0 days ago should be 1.0."""
+        assert MetaService._recency_weight(0) == 1.0
+
+    def test_weight_at_half_life(self) -> None:
+        """Weight at exactly half_life days should be 0.5."""
+        assert MetaService._recency_weight(30, half_life=30) == pytest.approx(0.5)
+
+    def test_weight_at_two_half_lives(self) -> None:
+        """Weight at 2x half_life should be 0.25."""
+        assert MetaService._recency_weight(60, half_life=30) == pytest.approx(0.25)
+
+    def test_weight_decays_monotonically(self) -> None:
+        """Weights should decrease as days_ago increases."""
+        weights = [MetaService._recency_weight(d) for d in range(0, 91, 10)]
+        for i in range(len(weights) - 1):
+            assert weights[i] > weights[i + 1]
+
+    def test_weight_negative_days_returns_one(self) -> None:
+        """Negative days_ago (future) should return 1.0."""
+        assert MetaService._recency_weight(-5) == 1.0
+
+    def test_weight_never_reaches_zero(self) -> None:
+        """Weight should be positive even at very large days_ago."""
+        assert MetaService._recency_weight(365) > 0
+
+
+class TestRecencyWeightedShares:
+    """Tests for recency weighting in _compute_archetype_shares."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    def _make_placement(self, archetype: str, tournament_id) -> MagicMock:
+        p = MagicMock(spec=TournamentPlacement)
+        p.archetype = archetype
+        p.tournament_id = tournament_id
+        return p
+
+    def test_recent_tournament_weighted_higher(self, service: MetaService) -> None:
+        """Archetype in recent tournaments should get higher share."""
+        t_recent, t_old1, t_old2, t_old3 = (
+            uuid4(),
+            uuid4(),
+            uuid4(),
+            uuid4(),
+        )
+        ref_date = date(2026, 2, 9)
+        tournament_dates = {
+            t_recent: ref_date,  # Today: weight ~1.0
+            t_old1: ref_date - timedelta(days=60),  # weight ~0.25
+            t_old2: ref_date - timedelta(days=60),
+            t_old3: ref_date - timedelta(days=60),
+        }
+
+        placements = []
+        # "Recent" deck: 3 placements in today's tournament
+        for _ in range(3):
+            placements.append(self._make_placement("Recent Deck", t_recent))
+        # Also need Recent Deck in 3 tournaments for min filter
+        placements.append(self._make_placement("Recent Deck", t_old1))
+        placements.append(self._make_placement("Recent Deck", t_old2))
+
+        # "Old" deck: 3 placements spread across old tournaments
+        placements.append(self._make_placement("Old Deck", t_old1))
+        placements.append(self._make_placement("Old Deck", t_old2))
+        placements.append(self._make_placement("Old Deck", t_old3))
+
+        shares_weighted = service._compute_archetype_shares(
+            placements,
+            min_tournaments=3,
+            tournament_dates=tournament_dates,
+            reference_date=ref_date,
+        )
+
+        shares_unweighted = service._compute_archetype_shares(
+            placements, min_tournaments=3
+        )
+
+        # With equal counts, unweighted should be roughly equal
+        # With weighting, Recent Deck should dominate
+        assert shares_weighted["Recent Deck"] > shares_unweighted.get("Recent Deck", 0)
+
+    def test_old_archetype_share_decays(self, service: MetaService) -> None:
+        """Archetype only in old tournaments should have reduced share."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        ref_date = date(2026, 2, 9)
+        # All tournaments are 60 days old
+        tournament_dates = {
+            t1: ref_date - timedelta(days=60),
+            t2: ref_date - timedelta(days=60),
+            t3: ref_date - timedelta(days=60),
+        }
+
+        placements = [
+            self._make_placement("Old Deck", t1),
+            self._make_placement("Old Deck", t2),
+            self._make_placement("Old Deck", t3),
+        ]
+
+        shares = service._compute_archetype_shares(
+            placements,
+            min_tournaments=3,
+            tournament_dates=tournament_dates,
+            reference_date=ref_date,
+        )
+
+        # Should still appear (it's the only deck, so 100%)
+        assert shares.get("Old Deck") == pytest.approx(1.0)
+
+    def test_without_dates_falls_back_to_equal_weight(
+        self, service: MetaService
+    ) -> None:
+        """Without tournament_dates, all placements weighted equally."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        placements = []
+        for archetype, tids in {
+            "A": [t1, t2, t3, t1, t2, t3],
+            "B": [t1, t2, t3],
+        }.items():
+            for tid in tids:
+                placements.append(self._make_placement(archetype, tid))
+
+        shares = service._compute_archetype_shares(placements, min_tournaments=3)
+
+        assert shares["A"] == pytest.approx(6 / 9)
+        assert shares["B"] == pytest.approx(3 / 9)
+
+    def test_same_date_tournaments_equal_weight(self, service: MetaService) -> None:
+        """Tournaments on the same date should have equal weight."""
+        t1, t2, t3 = uuid4(), uuid4(), uuid4()
+        ref_date = date(2026, 2, 9)
+        tournament_dates = {
+            t1: ref_date,
+            t2: ref_date,
+            t3: ref_date,
+        }
+
+        placements = []
+        for archetype, tids in {
+            "A": [t1, t2, t3, t1, t2, t3],
+            "B": [t1, t2, t3],
+        }.items():
+            for tid in tids:
+                placements.append(self._make_placement(archetype, tid))
+
+        shares = service._compute_archetype_shares(
+            placements,
+            min_tournaments=3,
+            tournament_dates=tournament_dates,
+            reference_date=ref_date,
+        )
+
+        # All weight=1.0, so same as unweighted
+        assert shares["A"] == pytest.approx(6 / 9)
+        assert shares["B"] == pytest.approx(3 / 9)
+
+    def test_cinderace_scenario(self, service: MetaService) -> None:
+        """Archetype popular months ago but absent recently should decay.
+
+        This is the specific Cinderace ex scenario from #318: high
+        historical share should drop substantially with recency weighting
+        when the archetype has no recent tournament appearances.
+        """
+        t_old1, t_old2, t_old3 = uuid4(), uuid4(), uuid4()
+        t_new1, t_new2, t_new3 = uuid4(), uuid4(), uuid4()
+        ref_date = date(2026, 2, 9)
+        tournament_dates = {
+            t_old1: ref_date - timedelta(days=80),
+            t_old2: ref_date - timedelta(days=75),
+            t_old3: ref_date - timedelta(days=70),
+            t_new1: ref_date - timedelta(days=3),
+            t_new2: ref_date - timedelta(days=5),
+            t_new3: ref_date - timedelta(days=7),
+        }
+
+        placements = []
+        # Cinderace: popular in old tournaments
+        for _ in range(10):
+            placements.append(self._make_placement("Cinderace ex", t_old1))
+        for _ in range(8):
+            placements.append(self._make_placement("Cinderace ex", t_old2))
+        for _ in range(7):
+            placements.append(self._make_placement("Cinderace ex", t_old3))
+
+        # Dragapult: popular in new tournaments
+        for _ in range(10):
+            placements.append(self._make_placement("Dragapult ex", t_new1))
+        for _ in range(8):
+            placements.append(self._make_placement("Dragapult ex", t_new2))
+        for _ in range(7):
+            placements.append(self._make_placement("Dragapult ex", t_new3))
+
+        # Without weighting: both should be ~50%
+        shares_flat = service._compute_archetype_shares(placements, min_tournaments=3)
+        assert shares_flat["Cinderace ex"] == pytest.approx(0.5)
+        assert shares_flat["Dragapult ex"] == pytest.approx(0.5)
+
+        # With weighting: Dragapult should dominate
+        shares_weighted = service._compute_archetype_shares(
+            placements,
+            min_tournaments=3,
+            tournament_dates=tournament_dates,
+            reference_date=ref_date,
+        )
+        assert shares_weighted["Dragapult ex"] > 0.7
+        assert shares_weighted["Cinderace ex"] < 0.3

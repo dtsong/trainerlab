@@ -14,25 +14,37 @@ import { translationsApi } from "@/lib/api";
 import { useJPAdoptionRates, useJPUpcomingCards } from "../useTranslations";
 
 const mockAdoptionRates = {
-  items: [
+  rates: [
     {
+      id: "ar-1",
       card_id: "sv5-101",
-      card_name: "Dragapult ex",
-      adoption_rate: 0.85,
-      archetype: "Dragapult ex",
+      card_name_jp: "ドラパルトex",
+      card_name_en: "Dragapult ex",
+      inclusion_rate: 0.85,
+      avg_copies: null,
+      archetype_context: "Dragapult ex",
+      period_start: "2024-01-01",
+      period_end: "2024-01-31",
+      source: null,
     },
   ],
   total: 1,
 };
 
 const mockUpcomingCards = {
-  items: [
+  cards: [
     {
-      card_id: "sv6-050",
-      card_name: "Upcoming Card",
-      set_code: "sv6",
-      impact_score: 7.5,
-      released_in_en: false,
+      id: "uc-1",
+      jp_card_id: "sv6-050",
+      jp_set_id: "sv6",
+      name_jp: "Upcoming Card",
+      name_en: null,
+      card_type: "Pokemon",
+      competitive_impact: 7.5,
+      affected_archetypes: null,
+      notes: null,
+      expected_release_set: null,
+      is_released: false,
     },
   ],
   total: 1,

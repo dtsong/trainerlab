@@ -18,9 +18,7 @@ describe("RotationBriefingHeader", () => {
     render(<RotationBriefingHeader phase="post-rotation" />);
 
     expect(screen.getByText(/SV9\+ format/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/January 23 when Nihil Zero released/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/January 23/)).toBeInTheDocument();
   });
 
   it("should show days of post-rotation data pill", () => {
@@ -32,19 +30,27 @@ describe("RotationBriefingHeader", () => {
     ).toBeInTheDocument();
   });
 
-  it("should show days until international rotation pill", () => {
+  it("should mention the April 10 rotation date", () => {
     render(<RotationBriefingHeader phase="post-rotation" />);
 
+    expect(screen.getByText("April 10")).toBeInTheDocument();
+  });
+
+  it("should show countdown box with days until rotation", () => {
+    render(<RotationBriefingHeader phase="post-rotation" />);
+
+    const countdown = screen.getByTestId("rotation-countdown");
+    expect(countdown).toBeInTheDocument();
     // differenceInDays(2026-04-10, 2026-02-07T12:00:00Z) = 61
-    expect(
-      screen.getByText(/61 days until international rotation/)
-    ).toBeInTheDocument();
+    expect(countdown).toHaveTextContent("61");
+    expect(countdown).toHaveTextContent(/days until/);
+    expect(countdown).toHaveTextContent(/EN rotation/);
   });
 
   it("should show source attribution", () => {
     render(<RotationBriefingHeader phase="post-rotation" />);
 
-    expect(screen.getByText(/Limitless TCG tournaments/)).toBeInTheDocument();
+    expect(screen.getByText(/Limitless TCG/)).toBeInTheDocument();
     expect(screen.getByText(/Pokecabook/)).toBeInTheDocument();
     expect(screen.getByText(/Pokekameshi/)).toBeInTheDocument();
   });
@@ -62,14 +68,35 @@ describe("RotationBriefingHeader", () => {
     expect(screen.getByText(/SV9\+ format/)).toBeInTheDocument();
   });
 
-  it("should hide international rotation pill when date has passed", () => {
+  it("should show unified badge when rotation date has passed", () => {
     // Set time to after the EN_ROTATION_DATE (2026-04-10)
     vi.setSystemTime(new Date("2026-05-01T12:00:00Z"));
 
     render(<RotationBriefingHeader phase="post-rotation" />);
 
-    expect(
-      screen.queryByText(/days until international rotation/)
-    ).not.toBeInTheDocument();
+    const unified = screen.getByTestId("rotation-unified");
+    expect(unified).toBeInTheDocument();
+    expect(unified).toHaveTextContent(/Formats Unified/);
+    // No countdown should be visible
+    expect(screen.queryByTestId("rotation-countdown")).not.toBeInTheDocument();
+  });
+
+  it("should use amber styling when within 14 days of rotation", () => {
+    // Set time to 10 days before rotation
+    vi.setSystemTime(new Date("2026-03-31T12:00:00Z"));
+
+    render(<RotationBriefingHeader phase="post-rotation" />);
+
+    const countdown = screen.getByTestId("rotation-countdown");
+    // Should have amber border styling for urgency
+    expect(countdown.className).toContain("amber");
+  });
+
+  it("should use teal styling when more than 14 days away", () => {
+    render(<RotationBriefingHeader phase="post-rotation" />);
+
+    const countdown = screen.getByTestId("rotation-countdown");
+    // Should have teal border styling (not urgent)
+    expect(countdown.className).toContain("teal");
   });
 });

@@ -210,7 +210,7 @@ describe("ErrorBoundary", () => {
   });
 
   it("should not display error message in UI when error has no message", () => {
-    function NoMessageError() {
+    function NoMessageError(): React.ReactNode {
       throw new Error("");
     }
 

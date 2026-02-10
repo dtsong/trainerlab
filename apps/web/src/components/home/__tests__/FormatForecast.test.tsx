@@ -67,6 +67,10 @@ describe("FormatForecast", () => {
     vi.mocked(japanApi.listPredictions).mockResolvedValue({
       items: [],
       total: 0,
+      resolved: 0,
+      correct: 0,
+      partial: 0,
+      incorrect: 0,
     });
   });
 

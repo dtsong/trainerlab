@@ -33,6 +33,7 @@ const mockTournamentSummary: ApiTournamentSummary = {
   best_of: 3,
   participant_count: 256,
   tier: "major",
+  top_placements: [],
 };
 
 const mockListResponse: ApiTournamentListResponse = {
@@ -56,16 +57,20 @@ const mockTournamentDetail: ApiTournamentDetail = {
       has_decklist: true,
     },
   ],
+  meta_breakdown: [],
 };
 
 const mockDecklist: ApiDecklistResponse = {
   placement_id: "placement-1",
   player_name: "Champion Player",
   archetype: "Charizard ex",
+  tournament_name: "Regional Championship",
+  tournament_date: "2024-06-15",
   cards: [
     { card_id: "sv3-125", card_name: "Charizard ex", quantity: 2 },
     { card_id: "sv3-46", card_name: "Charmander", quantity: 4 },
   ],
+  total_cards: 6,
   source_url: "https://example.com/decklist",
 };
 

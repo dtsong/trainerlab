@@ -21,7 +21,7 @@ import { useLabNotes, useLabNote } from "../useLabNotes";
 const mockLabNoteSummary: ApiLabNoteSummary = {
   id: "note-123",
   slug: "charizard-meta-analysis",
-  note_type: "analysis",
+  note_type: "set_analysis",
   title: "Charizard ex Meta Analysis",
   summary: "Deep dive into the Charizard ex archetype",
   author_name: "Test Author",
@@ -93,13 +93,15 @@ describe("useLabNotes", () => {
     vi.mocked(labNotesApi.list).mockResolvedValue(mockListResponse);
 
     const { result } = renderHook(
-      () => useLabNotes({ note_type: "analysis" }),
+      () => useLabNotes({ note_type: "set_analysis" }),
       { wrapper: createWrapper() }
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(labNotesApi.list).toHaveBeenCalledWith({ note_type: "analysis" });
+    expect(labNotesApi.list).toHaveBeenCalledWith({
+      note_type: "set_analysis",
+    });
   });
 
   it("should fetch lab notes with tag filter", async () => {
@@ -135,7 +137,7 @@ describe("useLabNotes", () => {
     vi.mocked(labNotesApi.list).mockResolvedValue(mockListResponse);
 
     const params = {
-      note_type: "analysis" as const,
+      note_type: "set_analysis" as const,
       tag: "meta",
       page: 1,
       limit: 20,

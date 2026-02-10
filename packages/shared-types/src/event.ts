@@ -7,11 +7,11 @@ export type EventStatus =
   | "active"
   | "completed";
 
-export type TripStatus = "planning" | "confirmed" | "completed" | "cancelled";
+export type TripStatus = "planning" | "upcoming" | "active" | "completed";
 
-export type TripVisibility = "private" | "link_only" | "public";
+export type TripVisibility = "private" | "shared";
 
-export type TripEventRole = "player" | "spectator" | "judge" | "coach";
+export type TripEventRole = "attendee" | "competitor" | "judge" | "spectator";
 
 // ---------------------------------------------------------------------------
 // API types (snake_case, matching backend Pydantic schemas)
@@ -92,11 +92,9 @@ export interface ApiTripSummary {
   id: string;
   name: string;
   status: TripStatus;
-  visibility: TripVisibility;
   event_count: number;
-  next_event?: ApiEventSummary | null;
+  next_event_date?: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 /**
@@ -104,13 +102,15 @@ export interface ApiTripSummary {
  */
 export interface ApiTripEventDetail {
   id: string;
-  trip_id: string;
   tournament_id: string;
+  tournament_name: string;
+  tournament_date: string;
+  tournament_region: string;
+  tournament_city?: string | null;
+  tournament_status: string;
   role: TripEventRole;
   notes?: string | null;
-  event: ApiEventSummary;
-  created_at: string;
-  updated_at: string;
+  days_until?: number | null;
 }
 
 /**
@@ -123,7 +123,7 @@ export interface ApiTripDetail {
   visibility: TripVisibility;
   notes?: string | null;
   events: ApiTripEventDetail[];
-  share_url?: string | null;
+  share_token?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -132,11 +132,9 @@ export interface ApiTripDetail {
  * Shared trip view (no auth required, read-only).
  */
 export interface ApiSharedTripView {
-  id: string;
   name: string;
-  status: TripStatus;
-  notes?: string | null;
   events: ApiTripEventDetail[];
+  created_at: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,11 +177,9 @@ export interface TripSummary {
   id: string;
   name: string;
   status: TripStatus;
-  visibility: TripVisibility;
   eventCount: number;
-  nextEvent?: EventSummary;
+  nextEventDate?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 /**
@@ -191,13 +187,15 @@ export interface TripSummary {
  */
 export interface TripEventDetail {
   id: string;
-  tripId: string;
   tournamentId: string;
+  tournamentName: string;
+  tournamentDate: string;
+  tournamentRegion: string;
+  tournamentCity?: string;
+  tournamentStatus: string;
   role: TripEventRole;
   notes?: string;
-  event: EventSummary;
-  createdAt: string;
-  updatedAt: string;
+  daysUntil?: number;
 }
 
 /**
@@ -210,7 +208,7 @@ export interface TripDetail {
   visibility: TripVisibility;
   notes?: string;
   events: TripEventDetail[];
-  shareUrl?: string;
+  shareToken?: string;
   createdAt: string;
   updatedAt: string;
 }

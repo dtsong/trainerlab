@@ -77,14 +77,13 @@ class TestPokemonEventsClientParsing:
         assert len(events) == 0
 
     @pytest.mark.asyncio
-    async def test_handles_error(self, pokemon_client):
-        with (
-            patch.object(
-                pokemon_client,
-                "_get",
-                new_callable=AsyncMock,
-                side_effect=PokemonEventsError("Fetch error"),
-            ),
-            pytest.raises(PokemonEventsError),
+    async def test_handles_error_returns_empty(self, pokemon_client):
+        with patch.object(
+            pokemon_client,
+            "_get",
+            new_callable=AsyncMock,
+            side_effect=PokemonEventsError("Fetch error"),
         ):
-            await pokemon_client.fetch_regional_championships()
+            events = await pokemon_client.fetch_regional_championships()
+
+        assert events == []

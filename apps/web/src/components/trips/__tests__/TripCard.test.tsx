@@ -20,21 +20,9 @@ describe("TripCard", () => {
     id: "trip-1",
     name: "Spring 2026 Season",
     status: "planning",
-    visibility: "private",
     event_count: 3,
-    next_event: {
-      id: "event-456",
-      name: "NAIC 2026",
-      date: "2026-06-20T00:00:00Z",
-      region: "NA",
-      country: "US",
-      city: "Columbus",
-      format: "standard",
-      tier: "major",
-      status: "registration_open",
-    },
+    next_event_date: "2026-06-20",
     created_at: "2026-01-15T10:00:00Z",
-    updated_at: "2026-01-20T14:00:00Z",
   };
 
   it("should render trip name", () => {
@@ -56,15 +44,15 @@ describe("TripCard", () => {
     expect(screen.getByText("Planning")).toBeInTheDocument();
   });
 
-  it("should display confirmed status badge", () => {
-    const confirmedTrip: ApiTripSummary = {
+  it("should display upcoming status badge", () => {
+    const upcomingTrip: ApiTripSummary = {
       ...mockTrip,
-      status: "confirmed",
+      status: "upcoming",
     };
 
-    render(<TripCard trip={confirmedTrip} />);
+    render(<TripCard trip={upcomingTrip} />);
 
-    expect(screen.getByText("Confirmed")).toBeInTheDocument();
+    expect(screen.getByText("Upcoming")).toBeInTheDocument();
   });
 
   it("should display completed status badge", () => {
@@ -78,15 +66,15 @@ describe("TripCard", () => {
     expect(screen.getByText("Completed")).toBeInTheDocument();
   });
 
-  it("should display cancelled status badge", () => {
-    const cancelledTrip: ApiTripSummary = {
+  it("should display active status badge", () => {
+    const activeTrip: ApiTripSummary = {
       ...mockTrip,
-      status: "cancelled",
+      status: "active",
     };
 
-    render(<TripCard trip={cancelledTrip} />);
+    render(<TripCard trip={activeTrip} />);
 
-    expect(screen.getByText("Cancelled")).toBeInTheDocument();
+    expect(screen.getByText("Active")).toBeInTheDocument();
   });
 
   it("should display event count with plural", () => {
@@ -106,23 +94,16 @@ describe("TripCard", () => {
     expect(screen.getByText("1 event")).toBeInTheDocument();
   });
 
-  it("should display next event info", () => {
+  it("should display next event date section", () => {
     render(<TripCard trip={mockTrip} />);
 
     expect(screen.getByText("Next Event")).toBeInTheDocument();
-    expect(screen.getByText("NAIC 2026")).toBeInTheDocument();
   });
 
-  it("should display next event region", () => {
-    render(<TripCard trip={mockTrip} />);
-
-    expect(screen.getByText("NA")).toBeInTheDocument();
-  });
-
-  it("should not show next event section when no next event", () => {
+  it("should not show next event section when no next event date", () => {
     const noNextTrip: ApiTripSummary = {
       ...mockTrip,
-      next_event: null,
+      next_event_date: null,
     };
 
     render(<TripCard trip={noNextTrip} />);

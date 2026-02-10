@@ -30,7 +30,10 @@ export function ShareTripDialog({
   const [copied, setCopied] = useState(false);
   const shareTrip = useShareTrip();
 
-  const shareUrl = shareTrip.data?.share_url ?? existingShareUrl;
+  const shareUrl =
+    (shareTrip.data?.share_token
+      ? `${window.location.origin}/trips/share/${shareTrip.data.share_token}`
+      : null) ?? existingShareUrl;
 
   const handleGenerateLink = () => {
     shareTrip.mutate(tripId);

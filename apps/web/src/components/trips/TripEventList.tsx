@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, MapPin, Trash2, Users } from "lucide-react";
+import { CalendarDays, MapPin, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CountdownBadge, EventStatusBadge } from "@/components/events";
 
-import type { ApiTripEventDetail } from "@trainerlab/shared-types";
+import type { ApiTripEventDetail, EventStatus } from "@trainerlab/shared-types";
 
 interface TripEventListProps {
   events: ApiTripEventDetail[];
@@ -17,10 +17,10 @@ interface TripEventListProps {
 }
 
 const roleLabels: Record<string, string> = {
-  player: "Player",
-  spectator: "Spectator",
+  attendee: "Attendee",
+  competitor: "Competitor",
   judge: "Judge",
-  coach: "Coach",
+  spectator: "Spectator",
 };
 
 export function TripEventList({
@@ -44,9 +44,9 @@ export function TripEventList({
   return (
     <div className="space-y-3">
       {events.map((tripEvent) => {
-        const ev = tripEvent.event;
-        const date = new Date(ev.date);
-        const formattedDate = date.toLocaleDateString("en-US", {
+        const formattedDate = new Date(
+          tripEvent.tournament_date
+        ).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
@@ -59,12 +59,12 @@ export function TripEventList({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Link
-                      href={`/events/${ev.id}`}
+                      href={`/events/${tripEvent.tournament_id}`}
                       className="text-base font-medium hover:underline line-clamp-1"
                     >
-                      {ev.name}
+                      {tripEvent.tournament_name}
                     </Link>
-                    <CountdownBadge date={ev.date} />
+                    <CountdownBadge date={tripEvent.tournament_date} />
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-2">
@@ -74,19 +74,16 @@ export function TripEventList({
                     </span>
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" />
-                      {[ev.city, ev.region].filter(Boolean).join(", ") ||
-                        ev.region}
+                      {[tripEvent.tournament_city, tripEvent.tournament_region]
+                        .filter(Boolean)
+                        .join(", ") || tripEvent.tournament_region}
                     </span>
-                    {ev.participant_count != null && (
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {ev.participant_count}
-                      </span>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <EventStatusBadge status={ev.status} />
+                    <EventStatusBadge
+                      status={tripEvent.tournament_status as EventStatus}
+                    />
                     <Badge variant="outline">
                       {roleLabels[tripEvent.role] ?? tripEvent.role}
                     </Badge>

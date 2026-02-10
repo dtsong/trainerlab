@@ -5,7 +5,7 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -201,7 +201,7 @@ async def list_trips(
 
 @router.get("/shared/{share_token}")
 async def get_shared_trip(
-    share_token: str,
+    share_token: Annotated[str, Path(min_length=36, max_length=36)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> SharedTripView:
     """View a shared trip (public, no auth required)."""
@@ -275,6 +275,8 @@ async def update_trip(
         trip.notes = body.notes
     if body.status is not None:
         trip.status = body.status
+    if body.visibility is not None:
+        trip.visibility = body.visibility
 
     try:
         await db.commit()
@@ -358,6 +360,12 @@ async def add_event_to_trip(
         await db.commit()
     except IntegrityError:
         await db.rollback()
+        logger.warning(
+            "Duplicate trip event: trip_id=%s tournament_id=%s",
+            trip_id,
+            body.tournament_id,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Event already added to this trip",

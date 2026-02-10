@@ -31,6 +31,9 @@ class TripUpdate(BaseModel):
     status: Literal["planning", "upcoming", "active", "completed"] | None = Field(
         default=None, description="Trip status"
     )
+    visibility: Literal["private", "shared"] | None = Field(
+        default=None, description="Trip visibility"
+    )
 
 
 class TripEventAdd(BaseModel):

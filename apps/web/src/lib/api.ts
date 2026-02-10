@@ -1062,7 +1062,7 @@ export const tripsApi = {
   },
 
   share: (id: string) => {
-    return fetchApiAuth<{ share_url: string }>(
+    return fetchApiAuth<ApiTripDetail>(
       `/api/v1/trips/${encodeURIComponent(id)}/share`,
       { method: "POST" }
     );

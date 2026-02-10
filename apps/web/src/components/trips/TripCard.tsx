@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, MapPin } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -18,17 +18,17 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Planning",
     className: "bg-blue-500/20 text-blue-600 border-blue-500/30",
   },
-  confirmed: {
-    label: "Confirmed",
+  upcoming: {
+    label: "Upcoming",
     className: "bg-green-500/20 text-green-600 border-green-500/30",
+  },
+  active: {
+    label: "Active",
+    className: "bg-amber-500/20 text-amber-600 border-amber-500/30",
   },
   completed: {
     label: "Completed",
     className: "bg-slate-500/20 text-slate-500 border-slate-500/30",
-  },
-  cancelled: {
-    label: "Cancelled",
-    className: "bg-red-500/20 text-red-500 border-red-500/30",
   },
 };
 
@@ -53,36 +53,20 @@ export function TripCard({ trip }: TripCardProps) {
             </span>
           </div>
 
-          {trip.next_event && (
+          {trip.next_event_date && (
             <div className="border-t pt-3 mt-3">
               <div className="text-xs font-medium text-muted-foreground mb-2">
                 Next Event
               </div>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <div className="text-sm font-medium line-clamp-1">
-                    {trip.next_event.name}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <CalendarDays className="h-3 w-3" />
-                      {new Date(trip.next_event.date).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                        }
-                      )}
-                    </span>
-                    {trip.next_event.region && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {trip.next_event.region}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <CountdownBadge date={trip.next_event.date} />
+                <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <CalendarDays className="h-3 w-3" />
+                  {new Date(trip.next_event_date).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+                <CountdownBadge date={trip.next_event_date} />
               </div>
             </div>
           )}

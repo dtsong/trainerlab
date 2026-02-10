@@ -216,8 +216,8 @@ class PokemonEventsClient:
         try:
             html = await self._get(endpoint)
         except PokemonEventsError:
-            logger.warning("Failed to fetch regionals page, trying main events page")
-            html = await self._get(self.EVENTS_PATH)
+            logger.warning("Failed to fetch regionals page")
+            return []
 
         soup = BeautifulSoup(html, "lxml")
         events = self._parse_event_listings(soup, tier="regional")
@@ -244,8 +244,8 @@ class PokemonEventsClient:
         try:
             html = await self._get(endpoint)
         except PokemonEventsError:
-            logger.warning("Failed to fetch ICs page, trying main events page")
-            html = await self._get(self.EVENTS_PATH)
+            logger.warning("Failed to fetch ICs page")
+            return []
 
         soup = BeautifulSoup(html, "lxml")
         events = self._parse_event_listings(soup, tier="international")
@@ -258,7 +258,7 @@ class PokemonEventsClient:
             worlds_events = self._parse_event_listings(worlds_soup, tier="worlds")
             events.extend(worlds_events)
         except PokemonEventsError:
-            logger.debug("No separate Worlds page found")
+            logger.warning("No separate Worlds page found")
 
         logger.info(
             "Fetched %d International Championships/Worlds",
@@ -290,7 +290,11 @@ class PokemonEventsClient:
         if isinstance(regionals, list):
             events.extend(regionals)
         else:
-            logger.warning("Failed to fetch regionals: %s", regionals)
+            logger.warning(
+                "Failed to fetch regionals: %s",
+                regionals,
+                exc_info=regionals,
+            )
 
         if isinstance(internationals, list):
             events.extend(internationals)
@@ -298,6 +302,7 @@ class PokemonEventsClient:
             logger.warning(
                 "Failed to fetch internationals: %s",
                 internationals,
+                exc_info=internationals,
             )
 
         return events
@@ -340,8 +345,11 @@ class PokemonEventsClient:
                 event = self._parse_event_container(container, tier)
                 if event:
                     events.append(event)
-            except (ValueError, KeyError, AttributeError) as e:
-                logger.warning("Error parsing Pokemon event: %s", e)
+            except (ValueError, KeyError, AttributeError):
+                logger.warning(
+                    "Error parsing Pokemon event",
+                    exc_info=True,
+                )
                 continue
 
         return events
@@ -795,10 +803,9 @@ class PokemonEventsClient:
 
         # Handle ISO 8601 with time
         if "T" in date_str:
-            clean = date_str.replace("Z", "+00:00")
-            if "." in clean:
-                clean = clean.split(".")[0] + "+00:00"
-            return datetime.fromisoformat(clean.replace("+00:00", "")).date()
+            # Strip fractional seconds and timezone suffix
+            clean = re.sub(r"[.\d]*[Zz]?$", "", date_str.split("+")[0])
+            return datetime.fromisoformat(clean).date()
 
         formats = [
             "%Y-%m-%d",

@@ -230,8 +230,11 @@ class RK9Client:
                 event = self._parse_event_card(card)
                 if event:
                     events.append(event)
-            except (ValueError, KeyError, AttributeError) as e:
-                logger.warning("Error parsing RK9 event card: %s", e)
+            except (ValueError, KeyError, AttributeError):
+                logger.warning(
+                    "Error parsing RK9 event card",
+                    exc_info=True,
+                )
                 continue
 
         logger.info("Fetched %d upcoming events from RK9", len(events))
@@ -657,10 +660,9 @@ class RK9Client:
 
         # Handle ISO 8601 with time component
         if "T" in date_str:
-            clean = date_str.replace("Z", "+00:00")
-            if "." in clean:
-                clean = clean.split(".")[0] + "+00:00"
-            return datetime.fromisoformat(clean.replace("+00:00", "")).date()
+            # Strip fractional seconds and timezone suffix
+            clean = re.sub(r"[.\d]*[Zz]?$", "", date_str.split("+")[0])
+            return datetime.fromisoformat(clean).date()
 
         formats = [
             "%Y-%m-%d",

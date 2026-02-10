@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.clients.pokemon_events import (
@@ -244,6 +245,10 @@ async def _upsert_event(
     """
     source_url = data.get("source_url")
     if not source_url:
+        logger.debug(
+            "Skipping event with no source_url: %s",
+            data.get("name", "<unknown>"),
+        )
         result.events_skipped += 1
         return
 
@@ -257,11 +262,17 @@ async def _upsert_event(
         new_status = data.get("status", "announced")
 
         # Only transition status forward
-        if new_status != existing.status and _is_valid_transition(
-            existing.status, new_status
-        ):
-            existing.status = new_status
-            updated = True
+        if new_status != existing.status:
+            if _is_valid_transition(existing.status, new_status):
+                existing.status = new_status
+                updated = True
+            else:
+                logger.debug(
+                    "Rejected status transition %s -> %s for %s",
+                    existing.status,
+                    new_status,
+                    source_url,
+                )
 
         # Update registration URL if newly available
         if data.get("registration_url") and not existing.registration_url:
@@ -355,9 +366,9 @@ async def sync_events(
             try:
                 data = _rk9_event_to_tournament_data(event)
                 await _upsert_event(session, data, result)
-            except Exception as e:
+            except (SQLAlchemyError, ValueError, KeyError) as e:
                 error_msg = f"Error upserting RK9 event '{event.name}': {e}"
-                logger.warning(error_msg)
+                logger.warning(error_msg, exc_info=True)
                 result.errors.append(error_msg)
 
         # Process Pokemon Events
@@ -365,9 +376,9 @@ async def sync_events(
             try:
                 data = _pokemon_event_to_tournament_data(event)
                 await _upsert_event(session, data, result)
-            except Exception as e:
+            except (SQLAlchemyError, ValueError, KeyError) as e:
                 error_msg = f"Error upserting Pokemon event '{event.name}': {e}"
-                logger.warning(error_msg)
+                logger.warning(error_msg, exc_info=True)
                 result.errors.append(error_msg)
 
         await session.commit()

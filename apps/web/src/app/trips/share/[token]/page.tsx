@@ -4,29 +4,9 @@ import { AlertCircle, Luggage, RefreshCw } from "lucide-react";
 import { useParams } from "next/navigation";
 
 import { TripEventList } from "@/components/trips";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSharedTrip } from "@/hooks/useTrips";
-
-const statusConfig: Record<string, { label: string; className: string }> = {
-  planning: {
-    label: "Planning",
-    className: "bg-blue-500/20 text-blue-600 border-blue-500/30",
-  },
-  confirmed: {
-    label: "Confirmed",
-    className: "bg-green-500/20 text-green-600 border-green-500/30",
-  },
-  completed: {
-    label: "Completed",
-    className: "bg-slate-500/20 text-slate-500 border-slate-500/30",
-  },
-  cancelled: {
-    label: "Cancelled",
-    className: "bg-red-500/20 text-red-500 border-red-500/30",
-  },
-};
 
 export default function SharedTripPage() {
   const params = useParams<{ token: string }>();
@@ -67,8 +47,6 @@ export default function SharedTripPage() {
     );
   }
 
-  const config = statusConfig[trip.status] ?? statusConfig.planning;
-
   return (
     <div className="container mx-auto py-8 px-4 max-w-3xl">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
@@ -77,13 +55,7 @@ export default function SharedTripPage() {
       </div>
 
       <div className="mb-8">
-        <div className="flex items-start gap-3 mb-3">
-          <h1 className="text-3xl font-bold">{trip.name}</h1>
-          <Badge variant="outline" className={config.className}>
-            {config.label}
-          </Badge>
-        </div>
-        {trip.notes && <p className="text-muted-foreground">{trip.notes}</p>}
+        <h1 className="text-3xl font-bold mb-3">{trip.name}</h1>
       </div>
 
       <h2 className="text-xl font-semibold mb-4">Events</h2>

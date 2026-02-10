@@ -29,17 +29,17 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Planning",
     className: "bg-blue-500/20 text-blue-600 border-blue-500/30",
   },
-  confirmed: {
-    label: "Confirmed",
+  upcoming: {
+    label: "Upcoming",
     className: "bg-green-500/20 text-green-600 border-green-500/30",
+  },
+  active: {
+    label: "Active",
+    className: "bg-amber-500/20 text-amber-600 border-amber-500/30",
   },
   completed: {
     label: "Completed",
     className: "bg-slate-500/20 text-slate-500 border-slate-500/30",
-  },
-  cancelled: {
-    label: "Cancelled",
-    className: "bg-red-500/20 text-red-500 border-red-500/30",
   },
 };
 
@@ -212,7 +212,11 @@ export default function TripDetailPage() {
 
               <ShareTripDialog
                 tripId={trip.id}
-                existingShareUrl={trip.share_url}
+                existingShareUrl={
+                  trip.share_token
+                    ? `${window.location.origin}/trips/share/${trip.share_token}`
+                    : null
+                }
                 trigger={
                   <Button variant="outline" className="w-full justify-start">
                     <Share2 className="h-4 w-4 mr-2" />

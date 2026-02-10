@@ -6,7 +6,7 @@ import type {
   ApiTripSummary,
   ApiTripDetail,
   ApiSharedTripView,
-  ApiEventSummary,
+  ApiTripEventDetail,
 } from "@trainerlab/shared-types";
 
 vi.mock("@/lib/api", () => ({
@@ -36,27 +36,26 @@ import {
   useShareTrip,
 } from "../useTrips";
 
-const mockNextEvent: ApiEventSummary = {
-  id: "event-456",
-  name: "NAIC 2026",
-  date: "2026-06-20",
-  region: "NA",
-  country: "US",
-  city: "Columbus",
-  format: "standard",
-  tier: "major",
-  status: "registration_open",
+const mockTripEvent: ApiTripEventDetail = {
+  id: "te-1",
+  tournament_id: "event-456",
+  tournament_name: "NAIC 2026",
+  tournament_date: "2026-06-20",
+  tournament_region: "NA",
+  tournament_city: "Columbus",
+  tournament_status: "registration_open",
+  role: "competitor",
+  notes: null,
+  days_until: null,
 };
 
 const mockTripSummary: ApiTripSummary = {
   id: "trip-123",
   name: "Spring 2026 Season",
   status: "planning",
-  visibility: "private",
   event_count: 2,
-  next_event: mockNextEvent,
+  next_event_date: "2026-06-20",
   created_at: "2026-01-15T10:00:00Z",
-  updated_at: "2026-01-20T14:00:00Z",
 };
 
 const mockTripDetail: ApiTripDetail = {
@@ -65,29 +64,16 @@ const mockTripDetail: ApiTripDetail = {
   status: "planning",
   visibility: "private",
   notes: "Focus on Standard format",
-  events: [
-    {
-      id: "te-1",
-      trip_id: "trip-123",
-      tournament_id: "event-456",
-      role: "player",
-      notes: null,
-      event: mockNextEvent,
-      created_at: "2026-01-15T10:00:00Z",
-      updated_at: "2026-01-15T10:00:00Z",
-    },
-  ],
-  share_url: null,
+  events: [mockTripEvent],
+  share_token: null,
   created_at: "2026-01-15T10:00:00Z",
   updated_at: "2026-01-20T14:00:00Z",
 };
 
 const mockSharedTrip: ApiSharedTripView = {
-  id: "trip-123",
   name: "Spring 2026 Season",
-  status: "planning",
-  notes: "Focus on Standard format",
   events: mockTripDetail.events,
+  created_at: "2026-01-15T10:00:00Z",
 };
 
 function createWrapper() {
@@ -301,7 +287,7 @@ describe("useAddTripEvent", () => {
     await act(async () => {
       result.current.mutate({
         tripId: "trip-123",
-        data: { tournament_id: "event-789", role: "player" },
+        data: { tournament_id: "event-789", role: "competitor" },
       });
     });
 
@@ -309,7 +295,7 @@ describe("useAddTripEvent", () => {
 
     expect(tripsApi.addEvent).toHaveBeenCalledWith("trip-123", {
       tournament_id: "event-789",
-      role: "player",
+      role: "competitor",
     });
   });
 });
@@ -387,9 +373,7 @@ describe("useShareTrip", () => {
   });
 
   it("should generate share link", async () => {
-    vi.mocked(tripsApi.share).mockResolvedValue({
-      share_url: "https://trainerlab.gg/trips/shared/abc123",
-    });
+    vi.mocked(tripsApi.share).mockResolvedValue(mockTripDetail);
 
     const { result } = renderHook(() => useShareTrip(), {
       wrapper: createWrapper(),
@@ -401,9 +385,6 @@ describe("useShareTrip", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data?.share_url).toBe(
-      "https://trainerlab.gg/trips/shared/abc123"
-    );
     expect(tripsApi.share).toHaveBeenCalledWith("trip-123");
   });
 });

@@ -68,6 +68,7 @@ export const MetaSnapshotSchema = z.object({
   region: z.string().nullable().optional(),
   format: z.enum(["standard", "expanded"]),
   best_of: z.number(),
+  tournament_type: z.enum(["all", "official", "grassroots"]).optional(),
   archetype_breakdown: z.array(ArchetypeSchema),
   card_usage: z.array(CardUsageSummarySchema).optional(),
   sample_size: z.number(),

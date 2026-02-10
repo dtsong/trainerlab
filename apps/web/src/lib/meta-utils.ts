@@ -2,6 +2,7 @@ import type {
   Archetype,
   MetaSnapshot,
   Region,
+  TournamentType,
   ApiMetaSnapshot,
 } from "@trainerlab/shared-types";
 import { ApiError } from "./api";
@@ -85,6 +86,7 @@ export function transformSnapshot(data: ApiMetaSnapshot): MetaSnapshot {
     region: isValidRegion(data.region) ? data.region : null,
     format: data.format,
     bestOf: data.best_of,
+    tournamentType: data.tournament_type,
     archetypeBreakdown: data.archetype_breakdown.map((a) => ({
       name: a.name,
       share: a.share,
@@ -97,6 +99,30 @@ export function transformSnapshot(data: ApiMetaSnapshot): MetaSnapshot {
     })),
     sampleSize: data.sample_size,
   };
+}
+
+const VALID_TOURNAMENT_TYPES: TournamentType[] = [
+  "all",
+  "official",
+  "grassroots",
+];
+
+export function isValidTournamentType(
+  value: string | null
+): value is TournamentType {
+  return (
+    value !== null && VALID_TOURNAMENT_TYPES.includes(value as TournamentType)
+  );
+}
+
+export function parseTournamentType(
+  value: string | null | undefined,
+  defaultType: TournamentType = "all"
+): TournamentType {
+  if (value && isValidTournamentType(value)) {
+    return value;
+  }
+  return defaultType;
 }
 
 /**

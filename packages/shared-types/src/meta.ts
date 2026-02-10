@@ -22,6 +22,7 @@ export interface ApiMetaSnapshot {
   region: string | null;
   format: "standard" | "expanded";
   best_of: 1 | 3;
+  tournament_type?: TournamentType;
   archetype_breakdown: ApiArchetype[];
   card_usage: ApiCardUsageSummary[];
   sample_size: number;
@@ -35,6 +36,8 @@ export interface ApiMetaHistoryResponse {
 // Frontend types (camelCase)
 
 export type Region = "global" | "NA" | "EU" | "JP" | "LATAM" | "OCE";
+
+export type TournamentType = "all" | "official" | "grassroots";
 
 export interface Archetype {
   name: string;
@@ -55,6 +58,7 @@ export interface MetaSnapshot {
   region: Region | null;
   format: "standard" | "expanded";
   bestOf: 1 | 3;
+  tournamentType?: TournamentType;
   archetypeBreakdown: Archetype[];
   cardUsage: CardUsageSummary[];
   sampleSize: number;
@@ -66,6 +70,7 @@ export interface MetaFilters {
   format: "standard" | "expanded";
   bestOf: 1 | 3;
   days: number;
+  tournamentType?: TournamentType;
 }
 
 // --- Archetype Detail API types ---

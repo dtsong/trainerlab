@@ -36,7 +36,7 @@ from src.schemas import (
     SampleDeckResponse,
     TrendInfo,
 )
-from src.services.meta_service import MetaService
+from src.services.meta_service import MetaService, TournamentType
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,7 @@ def _snapshot_to_response(
         region=snapshot.region,
         format=snapshot.format,  # type: ignore[arg-type]
         best_of=snapshot.best_of,
+        tournament_type=snapshot.tournament_type,  # type: ignore[arg-type]
         archetype_breakdown=archetype_breakdown,
         card_usage=card_usage,
         sample_size=snapshot.sample_size,
@@ -178,6 +179,10 @@ async def get_current_meta(
         str | None,
         Query(description="Filter by era label (e.g., 'post-nihil-zero')"),
     ] = None,
+    tournament_type: Annotated[
+        TournamentType,
+        Query(description="Tournament type (all, official, grassroots)"),
+    ] = "all",
 ) -> MetaSnapshotResponse:
     """Get the current (latest) meta snapshot.
 
@@ -187,6 +192,7 @@ async def get_current_meta(
     query = select(MetaSnapshot).where(
         MetaSnapshot.format == format,
         MetaSnapshot.best_of == best_of,
+        MetaSnapshot.tournament_type == tournament_type,
     )
 
     if region is None:
@@ -269,6 +275,10 @@ async def get_meta_history(
             description="Absolute start date (overrides days param)",
         ),
     ] = None,
+    tournament_type: Annotated[
+        TournamentType,
+        Query(description="Tournament type (all, official, grassroots)"),
+    ] = "all",
 ) -> MetaHistoryResponse:
     """Get historical meta snapshots.
 
@@ -281,6 +291,7 @@ async def get_meta_history(
         MetaSnapshot.format == format,
         MetaSnapshot.best_of == best_of,
         MetaSnapshot.snapshot_date >= start_date,
+        MetaSnapshot.tournament_type == tournament_type,
     )
 
     if region is None:
@@ -344,6 +355,10 @@ async def list_archetypes(
         BestOf,
         Query(description="Match format (1 for Japan BO1, 3 for international BO3)"),
     ] = BestOf.BO3,
+    tournament_type: Annotated[
+        TournamentType,
+        Query(description="Tournament type (all, official, grassroots)"),
+    ] = "all",
 ) -> list[ArchetypeResponse]:
     """List all archetypes from the current meta snapshot.
 
@@ -353,6 +368,7 @@ async def list_archetypes(
     query = select(MetaSnapshot).where(
         MetaSnapshot.format == format,
         MetaSnapshot.best_of == best_of,
+        MetaSnapshot.tournament_type == tournament_type,
     )
 
     if region is None:
@@ -420,6 +436,10 @@ async def get_archetype_detail(
         int,
         Query(ge=1, le=365, description="Number of days of history to return"),
     ] = 90,
+    tournament_type: Annotated[
+        TournamentType,
+        Query(description="Tournament type (all, official, grassroots)"),
+    ] = "all",
 ) -> ArchetypeDetailResponse:
     """Get detailed information for a specific archetype.
 
@@ -436,6 +456,7 @@ async def get_archetype_detail(
         MetaSnapshot.format == format,
         MetaSnapshot.best_of == best_of,
         MetaSnapshot.snapshot_date >= start_date,
+        MetaSnapshot.tournament_type == tournament_type,
     )
 
     if region is None:
@@ -842,6 +863,10 @@ async def get_archetype_matchups(
         int,
         Query(ge=1, le=365, description="Number of days of history to analyze"),
     ] = 90,
+    tournament_type: Annotated[
+        TournamentType,
+        Query(description="Tournament type (all, official, grassroots)"),
+    ] = "all",
 ) -> MatchupSpreadResponse:
     """Get matchup spread for a specific archetype.
 
@@ -937,6 +962,10 @@ async def compare_meta(
         int,
         Query(ge=1, le=30, description="Max archetypes"),
     ] = 15,
+    tournament_type: Annotated[
+        TournamentType,
+        Query(description="Tournament type (all, official, grassroots)"),
+    ] = "all",
 ) -> MetaComparisonResponse:
     """Compare meta between two regions.
 
@@ -973,6 +1002,10 @@ async def format_forecast(
         int,
         Query(ge=1, le=10, description="Max archetypes"),
     ] = 5,
+    tournament_type: Annotated[
+        TournamentType,
+        Query(description="Tournament type (all, official, grassroots)"),
+    ] = "all",
 ) -> FormatForecastResponse:
     """Get format forecast based on JP meta divergence.
 

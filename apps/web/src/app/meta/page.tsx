@@ -12,6 +12,7 @@ import {
   MetaTrendChart,
   ArchetypeCard,
   RegionFilter,
+  TournamentTypeFilter,
   DateRangePicker,
   ChartErrorBoundary,
 } from "@/components/meta";
@@ -20,11 +21,13 @@ import {
   transformSnapshot,
   parseRegion,
   parseDays,
+  parseTournamentType,
   getErrorMessage,
 } from "@/lib/meta-utils";
 import { Button } from "@/components/ui/button";
 import type {
   Region,
+  TournamentType,
   MetaSnapshot,
   Archetype,
   CardUsageSummary,
@@ -37,8 +40,14 @@ function MetaPageContent() {
   // Parse URL params with validation
   const initialRegion = parseRegion(searchParams.get("region"));
   const initialDays = parseDays(searchParams.get("days"));
+  const initialTournamentType = parseTournamentType(
+    searchParams.get("tournament_type")
+  );
 
   const [region, setRegion] = useState<Region>(initialRegion);
+  const [tournamentType, setTournamentType] = useState<TournamentType>(
+    initialTournamentType
+  );
   const [dateRange, setDateRange] = useState({
     start: startOfDay(subDays(new Date(), initialDays)),
     end: endOfDay(new Date()),
@@ -51,10 +60,16 @@ function MetaPageContent() {
   }, [dateRange]);
 
   // Update URL when filters change
-  const updateUrl = (newRegion: Region, newDays: number) => {
+  const updateUrl = (
+    newRegion: Region,
+    newDays: number,
+    newTournamentType: TournamentType = tournamentType
+  ) => {
     const params = new URLSearchParams();
     if (newRegion !== "global") params.set("region", newRegion);
     if (newDays !== 30) params.set("days", String(newDays));
+    if (newTournamentType !== "all")
+      params.set("tournament_type", newTournamentType);
     const query = params.toString();
     router.push(`/meta${query ? `?${query}` : ""}`);
   };
@@ -62,6 +77,11 @@ function MetaPageContent() {
   const handleRegionChange = (newRegion: Region) => {
     setRegion(newRegion);
     updateUrl(newRegion, days);
+  };
+
+  const handleTournamentTypeChange = (newType: TournamentType) => {
+    setTournamentType(newType);
+    updateUrl(region, days, newType);
   };
 
   const handleDateRangeChange = (newRange: { start: Date; end: Date }) => {
@@ -80,22 +100,24 @@ function MetaPageContent() {
   const [currentMetaQuery, metaHistoryQuery] = useQueries({
     queries: [
       {
-        queryKey: ["meta", "current", region],
+        queryKey: ["meta", "current", region, tournamentType],
         queryFn: () =>
           metaApi.getCurrent({
             region: region === "global" ? undefined : region,
             format: "standard",
             best_of: bestOf,
+            tournament_type: tournamentType,
           }),
       },
       {
-        queryKey: ["meta", "history", region, days],
+        queryKey: ["meta", "history", region, days, tournamentType],
         queryFn: () =>
           metaApi.getHistory({
             region: region === "global" ? undefined : region,
             format: "standard",
             best_of: bestOf,
             days,
+            tournament_type: tournamentType,
           }),
       },
     ],
@@ -156,6 +178,11 @@ function MetaPageContent() {
             value={region}
             onChange={handleRegionChange}
             className="w-[180px]"
+          />
+          <TournamentTypeFilter
+            value={tournamentType}
+            onChange={handleTournamentTypeChange}
+            className="w-[220px]"
           />
           <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
         </div>

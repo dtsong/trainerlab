@@ -12,6 +12,7 @@ from src.pipelines.compute_meta import (
     FORMATS,
     REGION_BEST_OF,
     REGIONS,
+    TOURNAMENT_TYPES,
     ComputeMetaResult,
     compute_daily_snapshots,
     compute_single_snapshot,
@@ -77,11 +78,13 @@ class TestComputeDailySnapshots:
         ):
             result = await compute_daily_snapshots(dry_run=False)
 
-        # Count expected combinations
+        # Count expected combinations (region × format × best_of × tournament_type)
         expected_count = 0
         for region in REGIONS:
             best_of_options = REGION_BEST_OF.get(region, [3])
-            expected_count += len(FORMATS) * len(best_of_options)
+            expected_count += (
+                len(FORMATS) * len(best_of_options) * len(TOURNAMENT_TYPES)
+            )
 
         assert result.snapshots_computed == expected_count
         assert mock_service.compute_enhanced_meta_snapshot.call_count == expected_count
@@ -166,10 +169,11 @@ class TestComputeDailySnapshots:
                 formats=["standard"],
             )
 
-        # Global only has BO3, so 1 combination for standard
+        # Global only has BO3, so 3 combinations for standard
+        # (all/official/grassroots tournament types)
         # Empty snapshot should be skipped (not saved)
-        assert result.snapshots_computed == 1
-        assert result.snapshots_skipped == 1
+        assert result.snapshots_computed == 3
+        assert result.snapshots_skipped == 3
         assert result.snapshots_saved == 0
         mock_service.save_snapshot.assert_not_called()
 
@@ -182,8 +186,12 @@ class TestComputeDailySnapshots:
 
         mock_service = AsyncMock()
         # First fails, rest succeed
+        # 2 regions × 1 format × 1 BO × 3 tournament types = 6 combos
         mock_service.compute_enhanced_meta_snapshot.side_effect = [
             SQLAlchemyError("DB error"),
+            sample_snapshot,
+            sample_snapshot,
+            sample_snapshot,
             sample_snapshot,
             sample_snapshot,
         ]
@@ -236,8 +244,9 @@ class TestComputeDailySnapshots:
                 formats=["standard"],
             )
 
-        # JP has BO1, so 1 combination for standard
-        assert result.snapshots_computed == 1
+        # JP has BO1, so 3 combinations for standard
+        # (all/official/grassroots tournament types)
+        assert result.snapshots_computed == 3
 
         # Verify JP region was used
         call_kwargs = mock_service.compute_enhanced_meta_snapshot.call_args.kwargs
@@ -270,8 +279,9 @@ class TestComputeDailySnapshots:
                 formats=["expanded"],  # Only expanded
             )
 
-        # Global has BO3, so 1 combination
-        assert result.snapshots_computed == 1
+        # Global has BO3, so 3 combinations
+        # (all/official/grassroots tournament types)
+        assert result.snapshots_computed == 3
         call_kwargs = mock_service.compute_enhanced_meta_snapshot.call_args.kwargs
         assert call_kwargs["game_format"] == "expanded"
 

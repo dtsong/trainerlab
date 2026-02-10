@@ -312,6 +312,7 @@ export interface MetaSearchParams {
   best_of?: 1 | 3;
   days?: number;
   era?: string;
+  tournament_type?: "all" | "official" | "grassroots";
 }
 
 export interface MetaCompareParams {
@@ -335,6 +336,8 @@ export const metaApi = {
     if (params.format) searchParams.set("format", params.format);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
     if (params.era) searchParams.set("era", params.era);
+    if (params.tournament_type && params.tournament_type !== "all")
+      searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
     return fetchApiValidated<ApiMetaSnapshot, unknown>(
@@ -350,6 +353,8 @@ export const metaApi = {
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
     if (params.days) searchParams.set("days", String(params.days));
     if (params.era) searchParams.set("era", params.era);
+    if (params.tournament_type && params.tournament_type !== "all")
+      searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
     return fetchApiValidated<ApiMetaHistoryResponse, unknown>(
@@ -363,6 +368,8 @@ export const metaApi = {
     if (params.region) searchParams.set("region", params.region);
     if (params.format) searchParams.set("format", params.format);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
+    if (params.tournament_type && params.tournament_type !== "all")
+      searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
     return fetchApiValidated<ApiArchetype[], unknown>(
@@ -376,6 +383,8 @@ export const metaApi = {
     if (params.region) searchParams.set("region", params.region);
     if (params.format) searchParams.set("format", params.format);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
+    if (params.tournament_type && params.tournament_type !== "all")
+      searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
     return fetchApi<ApiArchetypeDetailResponse>(

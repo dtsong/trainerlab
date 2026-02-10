@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,6 +55,13 @@ EXCLUDED_ARCHETYPES = frozenset({"Unknown"})
 # Tournaments 30 days old get ~50% weight; 60 days old get ~25%.
 RECENCY_HALF_LIFE_DAYS = 30
 
+# Tournament tier groupings for tournament_type filtering
+OFFICIAL_TIERS = ("major", "premier")
+GRASSROOTS_TIERS = ("league",)
+
+# Valid tournament types
+TournamentType = Literal["all", "official", "grassroots"]
+
 
 class MetaService:
     """Service for computing and storing meta snapshots."""
@@ -72,6 +79,7 @@ class MetaService:
         lookback_days: int = 90,
         start_date_floor: date | None = None,
         era_label: str | None = None,
+        tournament_type: TournamentType = "all",
     ) -> MetaSnapshot:
         """Compute a meta snapshot from tournament placements.
 
@@ -110,6 +118,20 @@ class MetaService:
             if region:
                 tournament_query = tournament_query.where(Tournament.region == region)
 
+            # Filter by tournament tier based on tournament_type
+            if tournament_type == "official":
+                tournament_query = tournament_query.where(
+                    Tournament.tier.in_(OFFICIAL_TIERS)
+                )
+            elif tournament_type == "grassroots":
+                tournament_query = tournament_query.where(
+                    or_(
+                        Tournament.tier.in_(GRASSROOTS_TIERS),
+                        Tournament.tier.is_(None),
+                    )
+                )
+            # "all" = no tier filter
+
             result = await self.session.execute(tournament_query)
             tournaments = result.scalars().all()
         except SQLAlchemyError:
@@ -124,10 +146,12 @@ class MetaService:
 
         if not tournaments:
             logger.warning(
-                "No tournaments found for snapshot: region=%s, format=%s, best_of=%s",
+                "No tournaments found for snapshot: region=%s, format=%s, "
+                "best_of=%s, tournament_type=%s",
                 region,
                 game_format,
                 best_of,
+                tournament_type,
             )
             return self._create_empty_snapshot(
                 snapshot_date,
@@ -135,6 +159,7 @@ class MetaService:
                 game_format,
                 best_of,
                 era_label=era_label,
+                tournament_type=tournament_type,
             )
 
         tournament_ids = [t.id for t in tournaments]
@@ -163,6 +188,7 @@ class MetaService:
                 game_format,
                 best_of,
                 era_label=era_label,
+                tournament_type=tournament_type,
             )
 
         # Lower min tournament threshold for short post-rotation windows
@@ -185,6 +211,7 @@ class MetaService:
             region=region,
             format=game_format,
             best_of=best_of,
+            tournament_type=tournament_type,
             archetype_shares=archetype_shares,
             card_usage=card_usage if card_usage else None,
             sample_size=len(placements),
@@ -223,6 +250,7 @@ class MetaService:
                 MetaSnapshot.snapshot_date == snapshot.snapshot_date,
                 MetaSnapshot.format == snapshot.format,
                 MetaSnapshot.best_of == snapshot.best_of,
+                MetaSnapshot.tournament_type == snapshot.tournament_type,
             )
 
             if snapshot.region is None:
@@ -271,6 +299,7 @@ class MetaService:
         region: str | None = None,
         game_format: Literal["standard", "expanded"] = "standard",
         best_of: Literal[1, 3] = 3,
+        tournament_type: TournamentType = "all",
     ) -> MetaSnapshot | None:
         """Get a meta snapshot by its dimensions.
 
@@ -279,6 +308,7 @@ class MetaService:
             region: Region filter or None for global.
             game_format: Game format.
             best_of: Match format.
+            tournament_type: Tournament type filter.
 
         Returns:
             MetaSnapshot if found, None otherwise.
@@ -290,6 +320,7 @@ class MetaService:
             MetaSnapshot.snapshot_date == snapshot_date,
             MetaSnapshot.format == game_format,
             MetaSnapshot.best_of == best_of,
+            MetaSnapshot.tournament_type == tournament_type,
         )
 
         if region is None:
@@ -487,6 +518,7 @@ class MetaService:
         game_format: str,
         best_of: int,
         era_label: str | None = None,
+        tournament_type: TournamentType = "all",
     ) -> MetaSnapshot:
         """Create an empty snapshot when no data is available."""
         return MetaSnapshot(
@@ -495,6 +527,7 @@ class MetaService:
             region=region,
             format=game_format,
             best_of=best_of,
+            tournament_type=tournament_type,
             archetype_shares={},
             card_usage=None,
             sample_size=0,
@@ -563,6 +596,7 @@ class MetaService:
         snapshot_date: date,
         game_format: Literal["standard", "expanded"] = "standard",
         lookback_days: int = 90,
+        tournament_type: TournamentType = "all",
     ) -> dict | None:
         """Compute JP vs EN meta divergence signals.
 
@@ -583,6 +617,7 @@ class MetaService:
             region="JP",
             game_format=game_format,
             best_of=1,
+            tournament_type=tournament_type,
         )
 
         # Get global/EN snapshot (BO3)
@@ -591,6 +626,7 @@ class MetaService:
             region=None,  # Global includes EN data
             game_format=game_format,
             best_of=3,
+            tournament_type=tournament_type,
         )
 
         if not jp_snapshot or not en_snapshot:
@@ -652,6 +688,7 @@ class MetaService:
         region: str | None,
         game_format: Literal["standard", "expanded"],
         best_of: Literal[1, 3],
+        tournament_type: TournamentType = "all",
     ) -> dict | None:
         """Compute week-over-week trends for archetypes.
 
@@ -672,6 +709,7 @@ class MetaService:
             region=region,
             game_format=game_format,
             best_of=best_of,
+            tournament_type=tournament_type,
         )
 
         if not previous_snapshot:
@@ -975,11 +1013,13 @@ class MetaService:
         region: str | None,
         game_format: Literal["standard", "expanded"],
         best_of: Literal[1, 3],
+        tournament_type: TournamentType = "all",
     ) -> MetaSnapshot | None:
         """Get the most recent snapshot for given dimensions."""
         query = select(MetaSnapshot).where(
             MetaSnapshot.format == game_format,
             MetaSnapshot.best_of == best_of,
+            MetaSnapshot.tournament_type == tournament_type,
         )
         if region is None:
             query = query.where(MetaSnapshot.region.is_(None))
@@ -1008,12 +1048,14 @@ class MetaService:
         region: str | None,
         game_format: Literal["standard", "expanded"],
         best_of: Literal[1, 3],
+        tournament_type: TournamentType = "all",
     ) -> MetaSnapshot | None:
         """Get the most recent snapshot on or before a given date."""
         query = select(MetaSnapshot).where(
             MetaSnapshot.format == game_format,
             MetaSnapshot.best_of == best_of,
             MetaSnapshot.snapshot_date <= before_date,
+            MetaSnapshot.tournament_type == tournament_type,
         )
         if region is None:
             query = query.where(MetaSnapshot.region.is_(None))
@@ -1094,6 +1136,7 @@ class MetaService:
         lookback_days: int = 90,
         start_date_floor: date | None = None,
         era_label: str | None = None,
+        tournament_type: TournamentType = "all",
     ) -> MetaSnapshot:
         """Compute an enhanced meta snapshot with diversity, tiers, and trends.
 
@@ -1124,6 +1167,7 @@ class MetaService:
             lookback_days=lookback_days,
             start_date_floor=start_date_floor,
             era_label=era_label,
+            tournament_type=tournament_type,
         )
 
         if snapshot.sample_size == 0:
@@ -1141,6 +1185,7 @@ class MetaService:
                 snapshot_date=snapshot_date,
                 game_format=game_format,
                 lookback_days=lookback_days,
+                tournament_type=tournament_type,
             )
 
         # Compute trends
@@ -1150,6 +1195,7 @@ class MetaService:
             region=region,
             game_format=game_format,
             best_of=best_of,
+            tournament_type=tournament_type,
         )
 
         return snapshot

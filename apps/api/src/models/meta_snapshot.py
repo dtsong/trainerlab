@@ -19,7 +19,12 @@ class MetaSnapshot(Base, TimestampMixin):
     # Unique constraint on snapshot dimensions + check constraints
     __table_args__ = (
         UniqueConstraint(
-            "snapshot_date", "region", "format", "best_of", name="uq_meta_snapshot"
+            "snapshot_date",
+            "region",
+            "format",
+            "best_of",
+            "tournament_type",
+            name="uq_meta_snapshot",
         ),
         CheckConstraint(
             "diversity_index >= 0 AND diversity_index <= 1",
@@ -27,6 +32,10 @@ class MetaSnapshot(Base, TimestampMixin):
         ),
         CheckConstraint("best_of IN (1, 3)", name="ck_best_of_valid"),
         CheckConstraint("format IN ('standard', 'expanded')", name="ck_format_valid"),
+        CheckConstraint(
+            "tournament_type IN ('all', 'official', 'grassroots')",
+            name="ck_tournament_type_valid",
+        ),
     )
 
     # Primary key
@@ -43,6 +52,9 @@ class MetaSnapshot(Base, TimestampMixin):
     best_of: Mapped[int] = mapped_column(
         Integer, nullable=False, default=3
     )  # 1 for Japan, 3 for international
+    tournament_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="all", index=True
+    )  # all, official, grassroots
 
     # Archetype breakdown (JSON: {"Charizard ex": 0.15, "Lugia VSTAR": 0.12, ...})
     archetype_shares: Mapped[dict] = mapped_column(JSONB, nullable=False)

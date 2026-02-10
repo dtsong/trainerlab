@@ -19,6 +19,7 @@ import {
   MetaPieChart,
   MetaTrendChart,
   DateRangePicker,
+  TournamentTypeFilter,
   BO1ContextBanner,
   ChartErrorBoundary,
 } from "@/components/meta";
@@ -35,12 +36,17 @@ import { metaApi } from "@/lib/api";
 import {
   transformSnapshot,
   parseDays,
+  parseTournamentType,
   getErrorMessage,
 } from "@/lib/meta-utils";
 import { useArchetypeDetail } from "@/hooks/useMeta";
 import { Button } from "@/components/ui/button";
 import { CardReference } from "@/components/cards/CardReference";
-import type { MetaSnapshot, Archetype } from "@trainerlab/shared-types";
+import type {
+  MetaSnapshot,
+  Archetype,
+  TournamentType,
+} from "@trainerlab/shared-types";
 
 /** JP Nihil Zero rotation date — all post-rotation data starts here. */
 const JP_ROTATION_DATE = new Date("2026-01-23");
@@ -60,7 +66,13 @@ function JapanMetaPageContent() {
   const initialDays =
     parseDays(searchParams.get("days")) || daysSinceRotation();
   const activeTab = searchParams.get("tab") || "overview";
+  const initialTournamentType = parseTournamentType(
+    searchParams.get("tournament_type")
+  );
 
+  const [tournamentType, setTournamentType] = useState<TournamentType>(
+    initialTournamentType
+  );
   const [dateRange, setDateRange] = useState({
     start: startOfDay(subDays(new Date(), initialDays)),
     end: endOfDay(new Date()),
@@ -72,7 +84,11 @@ function JapanMetaPageContent() {
   }, [dateRange]);
 
   const updateUrl = useCallback(
-    (params: { days?: number; tab?: string }) => {
+    (params: {
+      days?: number;
+      tab?: string;
+      tournament_type?: TournamentType;
+    }) => {
       const sp = new URLSearchParams(searchParams.toString());
       if (params.days !== undefined) {
         if (params.days === daysSinceRotation()) {
@@ -86,6 +102,13 @@ function JapanMetaPageContent() {
           sp.delete("tab");
         } else {
           sp.set("tab", params.tab);
+        }
+      }
+      if (params.tournament_type !== undefined) {
+        if (params.tournament_type === "all") {
+          sp.delete("tournament_type");
+        } else {
+          sp.set("tournament_type", params.tournament_type);
         }
       }
       const query = sp.toString();
@@ -107,6 +130,11 @@ function JapanMetaPageContent() {
     updateUrl({ tab: value });
   };
 
+  const handleTournamentTypeChange = (newType: TournamentType) => {
+    setTournamentType(newType);
+    updateUrl({ tournament_type: newType });
+  };
+
   // Era label for post-rotation JP data scoping
   const era = "post-nihil-zero";
 
@@ -117,13 +145,14 @@ function JapanMetaPageContent() {
     error: currentError,
     refetch: refetchCurrent,
   } = useQuery({
-    queryKey: ["meta", "current", "JP", 1, era],
+    queryKey: ["meta", "current", "JP", 1, era, tournamentType],
     queryFn: () =>
       metaApi.getCurrent({
         region: "JP",
         format: "standard",
         best_of: 1,
         era,
+        tournament_type: tournamentType,
       }),
   });
 
@@ -134,7 +163,7 @@ function JapanMetaPageContent() {
     error: historyError,
     refetch: refetchHistory,
   } = useQuery({
-    queryKey: ["meta", "history", "JP", 1, days, era],
+    queryKey: ["meta", "history", "JP", 1, days, era, tournamentType],
     queryFn: () =>
       metaApi.getHistory({
         region: "JP",
@@ -142,6 +171,7 @@ function JapanMetaPageContent() {
         best_of: 1,
         days,
         era,
+        tournament_type: tournamentType,
       }),
   });
 
@@ -208,7 +238,14 @@ function JapanMetaPageContent() {
             innovation scouting
           </p>
         </div>
-        <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+        <div className="flex flex-wrap gap-3">
+          <TournamentTypeFilter
+            value={tournamentType}
+            onChange={handleTournamentTypeChange}
+            className="w-[220px]"
+          />
+          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+        </div>
       </div>
 
       {/* Data freshness warning */}

@@ -56,6 +56,7 @@ class TestMetaEndpoints:
         snapshot.jp_signals = None
         snapshot.trends = None
         snapshot.era_label = None
+        snapshot.tournament_type = "all"
         return snapshot
 
 
@@ -173,6 +174,7 @@ class TestGetMetaHistory(TestMetaEndpoints):
         snapshot2.jp_signals = None
         snapshot2.trends = None
         snapshot2.era_label = None
+        snapshot2.tournament_type = "all"
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [
@@ -490,6 +492,7 @@ class TestJapanBO1Meta(TestMetaEndpoints):
         snapshot.jp_signals = None
         snapshot.trends = None
         snapshot.era_label = None
+        snapshot.tournament_type = "all"
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [snapshot]

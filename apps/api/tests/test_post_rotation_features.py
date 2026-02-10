@@ -191,6 +191,7 @@ class TestEraQueryParam:
         snapshot.jp_signals = None
         snapshot.trends = None
         snapshot.era_label = None
+        snapshot.tournament_type = "all"
         for k, v in overrides.items():
             setattr(snapshot, k, v)
         return snapshot

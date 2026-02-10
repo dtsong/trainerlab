@@ -22,6 +22,7 @@ vi.mock("@/components/meta", () => ({
   MetaPieChart: () => <div data-testid="meta-pie-chart" />,
   MetaTrendChart: () => <div data-testid="meta-trend-chart" />,
   DateRangePicker: () => <div data-testid="date-range-picker" />,
+  TournamentTypeFilter: () => <div data-testid="tournament-type-filter" />,
   BO1ContextBanner: () => <div data-testid="bo1-context-banner" />,
   ChartErrorBoundary: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -101,6 +102,7 @@ vi.mock("@/lib/api", () => ({
 vi.mock("@/lib/meta-utils", () => ({
   transformSnapshot: vi.fn((s: unknown) => s),
   parseDays: vi.fn(() => 30),
+  parseTournamentType: vi.fn(() => "all"),
   getErrorMessage: vi.fn(() => "Error message"),
 }));
 

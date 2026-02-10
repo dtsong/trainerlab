@@ -21,4 +21,5 @@ export { MetaPieChart } from "./MetaPieChart";
 export { MetaTrendChart } from "./MetaTrendChart";
 export { RegionFilter } from "./RegionFilter";
 export { TierList } from "./TierList";
+export { TournamentTypeFilter } from "./TournamentTypeFilter";
 export type { Tier, ArchetypeData, TierListProps } from "./TierList";

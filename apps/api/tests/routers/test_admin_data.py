@@ -225,7 +225,7 @@ class TestGetPipelineHealth:
         self, client: TestClient, mock_db: AsyncMock
     ) -> None:
         """Verify all 5 pipelines are reported."""
-        today = date.today()
+        today = datetime.now(UTC).date()
         mock_db.scalar = AsyncMock(
             side_effect=[
                 today,  # meta snapshot_date (healthy)
@@ -258,7 +258,7 @@ class TestGetPipelineHealth:
 
     def test_stale_detection(self, client: TestClient, mock_db: AsyncMock) -> None:
         """Old dates produce stale/critical statuses."""
-        today = date.today()
+        today = datetime.now(UTC).date()
         from datetime import timedelta
 
         stale_date = today - timedelta(days=5)

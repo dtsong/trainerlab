@@ -1,7 +1,7 @@
 """Admin endpoints for placeholder card and archetype sprite management."""
 
 import logging
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -681,7 +681,7 @@ async def get_pipeline_health(
     _admin_user: AdminUser,
 ) -> PipelineHealthResponse:
     """Check freshness of each data pipeline."""
-    today = date.today()
+    today = datetime.now(UTC).date()
     pipelines: list[PipelineHealthItem] = []
 
     # Meta Compute — max snapshot_date (date column)

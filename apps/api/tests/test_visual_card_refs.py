@@ -377,6 +377,7 @@ class TestSnapshotToResponseCardInfo:
         snapshot.jp_signals = None
         snapshot.trends = None
         snapshot.era_label = None
+        snapshot.tournament_type = "all"
 
         card_info = {
             "sv4-6": (
@@ -415,6 +416,7 @@ class TestSnapshotToResponseCardInfo:
         snapshot.jp_signals = None
         snapshot.trends = None
         snapshot.era_label = None
+        snapshot.tournament_type = "all"
 
         result = _snapshot_to_response(snapshot)
 
@@ -446,6 +448,7 @@ class TestSnapshotToResponseCardInfo:
         snapshot.jp_signals = None
         snapshot.trends = None
         snapshot.era_label = None
+        snapshot.tournament_type = "all"
 
         # Card info exists but does not contain unknown-card
         card_info = {
@@ -503,6 +506,7 @@ class TestCurrentMetaCardEnrichment:
         snapshot.jp_signals = None
         snapshot.trends = None
         snapshot.era_label = None
+        snapshot.tournament_type = "all"
 
         # Mock: snapshot query
         mock_snapshot = MagicMock()

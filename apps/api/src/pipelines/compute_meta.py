@@ -19,6 +19,13 @@ from src.services.pipeline_resilience import with_timeout
 
 SNAPSHOT_TIMEOUT = 60  # seconds per snapshot compute + save
 
+# Tournament type variants to compute per region/format/best_of combo
+TOURNAMENT_TYPES: list[Literal["all", "official", "grassroots"]] = [
+    "all",
+    "official",
+    "grassroots",
+]
+
 logger = logging.getLogger(__name__)
 
 # Regions to compute snapshots for (None = global)
@@ -137,51 +144,65 @@ async def compute_daily_snapshots(
 
             for game_format in target_formats:
                 for best_of in best_of_options:
-                    combo = f"{region or 'global'}/{game_format}/BO{best_of}"
-
-                    try:
-                        logger.info("Computing snapshot: %s", combo)
-
-                        snapshot = await with_timeout(
-                            service.compute_enhanced_meta_snapshot(
-                                snapshot_date=snapshot_date,
-                                region=region,
-                                game_format=game_format,
-                                best_of=best_of,
-                                lookback_days=lookback_days,
-                                start_date_floor=region_floor,
-                                era_label=region_era,
-                            ),
-                            SNAPSHOT_TIMEOUT,
-                            pipeline="compute-meta",
-                            step=f"compute-{combo}",
+                    for tournament_type in TOURNAMENT_TYPES:
+                        combo = (
+                            f"{region or 'global'}/{game_format}"
+                            f"/BO{best_of}/{tournament_type}"
                         )
 
-                        result.snapshots_computed += 1
+                        try:
+                            logger.info("Computing snapshot: %s", combo)
 
-                        if snapshot.sample_size == 0:
-                            logger.info("Skipping empty snapshot: %s", combo)
-                            result.snapshots_skipped += 1
-                            continue
+                            snapshot = await with_timeout(
+                                service.compute_enhanced_meta_snapshot(
+                                    snapshot_date=snapshot_date,
+                                    region=region,
+                                    game_format=game_format,
+                                    best_of=best_of,
+                                    lookback_days=lookback_days,
+                                    start_date_floor=region_floor,
+                                    era_label=region_era,
+                                    tournament_type=tournament_type,
+                                ),
+                                SNAPSHOT_TIMEOUT,
+                                pipeline="compute-meta",
+                                step=f"compute-{combo}",
+                            )
 
-                        logger.info(
-                            "Computed snapshot: %s (sample_size=%d, diversity=%.4f)",
-                            combo,
-                            snapshot.sample_size,
-                            float(snapshot.diversity_index or 0),
-                        )
+                            result.snapshots_computed += 1
 
-                        if not dry_run:
-                            await service.save_snapshot(snapshot)
-                            result.snapshots_saved += 1
-                            logger.info("Saved snapshot: %s", combo)
-                        else:
-                            logger.info("DRY RUN - would save snapshot: %s", combo)
+                            if snapshot.sample_size == 0:
+                                logger.info("Skipping empty snapshot: %s", combo)
+                                result.snapshots_skipped += 1
+                                continue
 
-                    except (SQLAlchemyError, ValueError, TypeError, TimeoutError) as e:
-                        error_msg = f"Error computing {combo}: {e}"
-                        logger.error(error_msg, exc_info=True)
-                        result.errors.append(error_msg)
+                            logger.info(
+                                "Computed snapshot: %s "
+                                "(sample_size=%d, diversity=%.4f)",
+                                combo,
+                                snapshot.sample_size,
+                                float(snapshot.diversity_index or 0),
+                            )
+
+                            if not dry_run:
+                                await service.save_snapshot(snapshot)
+                                result.snapshots_saved += 1
+                                logger.info("Saved snapshot: %s", combo)
+                            else:
+                                logger.info(
+                                    "DRY RUN - would save snapshot: %s",
+                                    combo,
+                                )
+
+                        except (
+                            SQLAlchemyError,
+                            ValueError,
+                            TypeError,
+                            TimeoutError,
+                        ) as e:
+                            error_msg = f"Error computing {combo}: {e}"
+                            logger.error(error_msg, exc_info=True)
+                            result.errors.append(error_msg)
 
     logger.info(
         "Meta computation complete: computed=%d, saved=%d, skipped=%d, errors=%d",

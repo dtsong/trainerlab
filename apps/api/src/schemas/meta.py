@@ -112,6 +112,10 @@ class MetaSnapshotResponse(BaseModel):
     )
     format: Literal["standard", "expanded"] = Field(description="Game format")
     best_of: int = Field(description="Match format (1 for BO1, 3 for BO3)")
+    tournament_type: Literal["all", "official", "grassroots"] = Field(
+        default="all",
+        description="Tournament type (all, official, grassroots)",
+    )
     archetype_breakdown: list[ArchetypeResponse] = Field(
         description="List of archetypes with their meta shares"
     )

@@ -9,7 +9,11 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
-from src.services.meta_service import MetaService
+from src.services.meta_service import (
+    GRASSROOTS_TIERS,
+    OFFICIAL_TIERS,
+    MetaService,
+)
 
 
 class TestComputeArchetypeShares:
@@ -1577,3 +1581,188 @@ class TestRecencyWeightedShares:
         )
         assert shares_weighted["Dragapult ex"] > 0.7
         assert shares_weighted["Cinderace ex"] < 0.3
+
+
+class TestTournamentTypeFiltering:
+    """Tests for tournament_type filtering in compute_meta_snapshot."""
+
+    @pytest.fixture
+    def mock_session(self) -> AsyncMock:
+        return AsyncMock()
+
+    @pytest.fixture
+    def service(self, mock_session: AsyncMock) -> MetaService:
+        return MetaService(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_all_type_no_tier_filter(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """tournament_type='all' should not filter by tier."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            tournament_type="all",
+        )
+
+        assert snapshot.sample_size == 0
+        assert snapshot.tournament_type == "all"
+
+    @pytest.mark.asyncio
+    async def test_official_type_sets_tournament_type(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """tournament_type='official' should be set on snapshot."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            tournament_type="official",
+        )
+
+        assert snapshot.tournament_type == "official"
+
+    @pytest.mark.asyncio
+    async def test_grassroots_type_sets_tournament_type(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """tournament_type='grassroots' should be set on snapshot."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            tournament_type="grassroots",
+        )
+
+        assert snapshot.tournament_type == "grassroots"
+
+    @pytest.mark.asyncio
+    async def test_save_snapshot_includes_tournament_type_in_lookup(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """save_snapshot should include tournament_type in upsert."""
+        snapshot = MetaSnapshot(
+            id=uuid4(),
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            format="standard",
+            best_of=3,
+            tournament_type="official",
+            archetype_shares={"A": 0.5},
+            card_usage=None,
+            sample_size=10,
+            tournaments_included=["t1"],
+            diversity_index=Decimal("0.75"),
+            tier_assignments={"A": "S"},
+            jp_signals=None,
+            trends=None,
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+        mock_session.add = MagicMock()
+
+        await service.save_snapshot(snapshot)
+
+        mock_session.add.assert_called_once_with(snapshot)
+
+    @pytest.mark.asyncio
+    async def test_different_types_are_separate_snapshots(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Different tournament_types should create separate snapshots."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        snap_all = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            tournament_type="all",
+        )
+        snap_official = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            tournament_type="official",
+        )
+        snap_grassroots = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            tournament_type="grassroots",
+        )
+
+        assert snap_all.tournament_type == "all"
+        assert snap_official.tournament_type == "official"
+        assert snap_grassroots.tournament_type == "grassroots"
+        # Each has its own ID
+        assert snap_all.id != snap_official.id
+        assert snap_official.id != snap_grassroots.id
+
+    def test_official_tiers_constant(self) -> None:
+        """OFFICIAL_TIERS should contain major and premier."""
+        assert "major" in OFFICIAL_TIERS
+        assert "premier" in OFFICIAL_TIERS
+
+    def test_grassroots_tiers_constant(self) -> None:
+        """GRASSROOTS_TIERS should contain league."""
+        assert "league" in GRASSROOTS_TIERS
+
+    @pytest.mark.asyncio
+    async def test_get_snapshot_filters_by_tournament_type(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """get_snapshot should filter by tournament_type."""
+        mock_snapshot = MagicMock(spec=MetaSnapshot)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_snapshot
+        mock_session.execute.return_value = mock_result
+
+        result = await service.get_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            region="NA",
+            game_format="standard",
+            best_of=3,
+            tournament_type="official",
+        )
+
+        assert result is mock_snapshot
+
+    @pytest.mark.asyncio
+    async def test_empty_snapshot_has_tournament_type(
+        self, service: MetaService, mock_session: AsyncMock
+    ) -> None:
+        """Empty snapshots should preserve tournament_type."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_result
+
+        snapshot = await service.compute_meta_snapshot(
+            snapshot_date=date(2024, 6, 15),
+            tournament_type="grassroots",
+        )
+
+        assert snapshot.tournament_type == "grassroots"
+        assert snapshot.sample_size == 0

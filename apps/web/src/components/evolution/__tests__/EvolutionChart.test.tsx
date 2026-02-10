@@ -22,19 +22,23 @@ describe("EvolutionChart", () => {
   const mockSnapshots: ApiEvolutionSnapshot[] = [
     {
       id: "snapshot-1",
-      archetype_id: "charizard-ex",
+      archetype: "Charizard ex",
+      tournament_id: "tournament-1",
+      deck_count: 10,
+      adaptations: [],
       created_at: "2024-06-01T00:00:00Z",
       meta_share: 0.15,
       top_cut_conversion: 0.25,
-      sample_size: 100,
     },
     {
       id: "snapshot-2",
-      archetype_id: "charizard-ex",
+      archetype: "Charizard ex",
+      tournament_id: "tournament-1",
+      deck_count: 10,
+      adaptations: [],
       created_at: "2024-06-15T00:00:00Z",
       meta_share: 0.18,
       top_cut_conversion: 0.3,
-      sample_size: 150,
     },
   ];
 
@@ -65,11 +69,13 @@ describe("EvolutionChart", () => {
     const invalidSnapshots: ApiEvolutionSnapshot[] = [
       {
         id: "snapshot-1",
-        archetype_id: "charizard-ex",
+        archetype: "Charizard ex",
+        tournament_id: "tournament-1",
+        deck_count: 10,
+        adaptations: [],
         created_at: null,
         meta_share: 0.15,
         top_cut_conversion: 0.25,
-        sample_size: 100,
       },
     ];
 
@@ -90,19 +96,23 @@ describe("EvolutionChart", () => {
     const mixedSnapshots: ApiEvolutionSnapshot[] = [
       {
         id: "valid",
-        archetype_id: "charizard-ex",
+        archetype: "Charizard ex",
+        tournament_id: "tournament-1",
+        deck_count: 10,
+        adaptations: [],
         created_at: "2024-06-01T00:00:00Z",
         meta_share: 0.15,
         top_cut_conversion: 0.25,
-        sample_size: 100,
       },
       {
         id: "invalid",
-        archetype_id: "charizard-ex",
+        archetype: "Charizard ex",
+        tournament_id: "tournament-1",
+        deck_count: 10,
+        adaptations: [],
         created_at: null,
         meta_share: 0.2,
         top_cut_conversion: 0.3,
-        sample_size: 100,
       },
     ];
 
@@ -118,11 +128,13 @@ describe("EvolutionChart", () => {
     const snapshotsWithNullShare: ApiEvolutionSnapshot[] = [
       {
         id: "snapshot-1",
-        archetype_id: "charizard-ex",
+        archetype: "Charizard ex",
+        tournament_id: "tournament-1",
+        deck_count: 10,
+        adaptations: [],
         created_at: "2024-06-01T00:00:00Z",
         meta_share: null,
         top_cut_conversion: 0.25,
-        sample_size: 100,
       },
     ];
 
@@ -135,11 +147,13 @@ describe("EvolutionChart", () => {
     const snapshotsWithNullConversion: ApiEvolutionSnapshot[] = [
       {
         id: "snapshot-1",
-        archetype_id: "charizard-ex",
+        archetype: "Charizard ex",
+        tournament_id: "tournament-1",
+        deck_count: 10,
+        adaptations: [],
         created_at: "2024-06-01T00:00:00Z",
         meta_share: 0.15,
         top_cut_conversion: null,
-        sample_size: 100,
       },
     ];
 
@@ -152,19 +166,23 @@ describe("EvolutionChart", () => {
     const unsortedSnapshots: ApiEvolutionSnapshot[] = [
       {
         id: "later",
-        archetype_id: "charizard-ex",
+        archetype: "Charizard ex",
+        tournament_id: "tournament-1",
+        deck_count: 10,
+        adaptations: [],
         created_at: "2024-06-15T00:00:00Z",
         meta_share: 0.18,
         top_cut_conversion: 0.3,
-        sample_size: 100,
       },
       {
         id: "earlier",
-        archetype_id: "charizard-ex",
+        archetype: "Charizard ex",
+        tournament_id: "tournament-1",
+        deck_count: 10,
+        adaptations: [],
         created_at: "2024-06-01T00:00:00Z",
         meta_share: 0.15,
         top_cut_conversion: 0.25,
-        sample_size: 100,
       },
     ];
 

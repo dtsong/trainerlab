@@ -88,15 +88,15 @@ describe("LabNoteEditor", () => {
     mockCreateLabNote.mockReturnValue({
       mutate: mockMutate,
       isPending: false,
-    } as ReturnType<typeof mockCreateLabNote>);
+    } as unknown as ReturnType<typeof mockCreateLabNote>);
     mockUpdateLabNote.mockReturnValue({
       mutate: mockMutate,
       isPending: false,
-    } as ReturnType<typeof mockUpdateLabNote>);
+    } as unknown as ReturnType<typeof mockUpdateLabNote>);
     mockDeleteLabNote.mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
-    } as ReturnType<typeof mockDeleteLabNote>);
+    } as unknown as ReturnType<typeof mockDeleteLabNote>);
   });
 
   describe("New note mode (no note prop)", () => {
@@ -344,7 +344,7 @@ describe("LabNoteEditor", () => {
       mockCreateLabNote.mockReturnValue({
         mutate: mockMutate,
         isPending: true,
-      } as ReturnType<typeof mockCreateLabNote>);
+      } as unknown as ReturnType<typeof mockCreateLabNote>);
 
       render(<LabNoteEditor />);
 
@@ -357,7 +357,7 @@ describe("LabNoteEditor", () => {
       mockUpdateLabNote.mockReturnValue({
         mutate: mockMutate,
         isPending: true,
-      } as ReturnType<typeof mockUpdateLabNote>);
+      } as unknown as ReturnType<typeof mockUpdateLabNote>);
 
       render(<LabNoteEditor note={sampleNote} />);
 
@@ -370,7 +370,7 @@ describe("LabNoteEditor", () => {
       mockDeleteLabNote.mockReturnValue({
         mutate: vi.fn(),
         isPending: true,
-      } as ReturnType<typeof mockDeleteLabNote>);
+      } as unknown as ReturnType<typeof mockDeleteLabNote>);
 
       render(<LabNoteEditor note={sampleNote} />);
 

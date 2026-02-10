@@ -1,8 +1,8 @@
 """Add travel companion: tournament lifecycle, trips, persona
 
-Revision ID: 025
-Revises: 024
-Create Date: 2026-02-07 12:00:00.000000
+Revision ID: 027
+Revises: 026
+Create Date: 2026-02-09 00:00:00.000000
 
 """
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "025"
-down_revision: str | None = "024"
+revision: str = "027"
+down_revision: str | None = "026"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -73,7 +73,7 @@ gcloud run domain-mappings describe api.trainerlab.io \
 1. **Connect Repository**
    - Go to [vercel.com](https://vercel.com)
    - Click "Add New Project"
-   - Import `danielsongdev/trainerlab` from GitHub
+   - Import `dtsong/trainerlab` from GitHub
 
 2. **Configure Build Settings**
    - Framework Preset: `Next.js`
@@ -86,9 +86,10 @@ gcloud run domain-mappings describe api.trainerlab.io \
 
    ```
    NEXT_PUBLIC_API_URL=https://api.trainerlab.io
-   NEXT_PUBLIC_FIREBASE_API_KEY=<your-firebase-api-key>
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=<your-project>.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=<your-project-id>
+   NEXTAUTH_URL=https://www.trainerlab.io
+   NEXTAUTH_SECRET=<openssl rand -base64 32>
+   AUTH_GOOGLE_ID=<google-oauth-client-id>
+   AUTH_GOOGLE_SECRET=<google-oauth-client-secret>
    ```
 
 4. **Custom Domain**

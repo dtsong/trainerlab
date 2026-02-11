@@ -104,11 +104,25 @@ export function MetaSnapshot() {
 
       <div className="container relative">
         <div className="mb-8 flex items-center justify-between lg:pl-8">
-          <SectionLabel
-            label="Meta Snapshot"
-            icon={<BarChart3 className="h-4 w-4" />}
-            variant="notebook"
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <SectionLabel
+              label="Meta Snapshot"
+              icon={<BarChart3 className="h-4 w-4" />}
+              variant="notebook"
+            />
+            <Link
+              href="/meta/official"
+              className="rounded-full border border-notebook-grid bg-notebook-cream px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-pencil transition-colors hover:bg-notebook-aged"
+            >
+              Official
+            </Link>
+            <Link
+              href="/meta/grassroots"
+              className="rounded-full border border-notebook-grid bg-notebook-cream px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-pencil transition-colors hover:bg-notebook-aged"
+            >
+              Grassroots
+            </Link>
+          </div>
           <Button
             variant="ghost"
             size="sm"

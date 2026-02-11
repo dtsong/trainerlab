@@ -3,7 +3,7 @@
 import { Suspense, useState, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { subDays, endOfDay, startOfDay } from "date-fns";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,6 +13,7 @@ import {
   ArchetypeCard,
   RegionFilter,
   TournamentTypeFilter,
+  TournamentTrackNav,
   DateRangePicker,
   ChartErrorBoundary,
 } from "@/components/meta";
@@ -36,13 +37,27 @@ import type {
 function MetaPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const getTournamentTypeFromPath = (path: string): TournamentType | null => {
+    if (path.endsWith("/official")) return "official";
+    if (path.endsWith("/grassroots")) return "grassroots";
+    return null;
+  };
+
+  const getMetaPathByType = (type: TournamentType): string => {
+    if (type === "official") return "/meta/official";
+    if (type === "grassroots") return "/meta/grassroots";
+    return "/meta";
+  };
 
   // Parse URL params with validation
   const initialRegion = parseRegion(searchParams.get("region"));
   const initialDays = parseDays(searchParams.get("days"));
-  const initialTournamentType = parseTournamentType(
-    searchParams.get("tournament_type")
-  );
+  const pathTournamentType = getTournamentTypeFromPath(pathname);
+  const initialTournamentType =
+    pathTournamentType ??
+    parseTournamentType(searchParams.get("tournament_type"));
 
   const [region, setRegion] = useState<Region>(initialRegion);
   const [tournamentType, setTournamentType] = useState<TournamentType>(
@@ -52,6 +67,26 @@ function MetaPageContent() {
     start: startOfDay(subDays(new Date(), initialDays)),
     end: endOfDay(new Date()),
   });
+
+  const tournamentTypeCopy: Record<
+    TournamentType,
+    { title: string; description: string }
+  > = {
+    all: {
+      title: "Meta Dashboard",
+      description: "Explore the full competitive meta across all events",
+    },
+    official: {
+      title: "Official Meta Dashboard",
+      description:
+        "Regionals, Internationals, and Worlds-focused competitive signals",
+    },
+    grassroots: {
+      title: "Grassroots Meta Dashboard",
+      description:
+        "League, local, and community tournament trends and experimentation",
+    },
+  };
 
   // Calculate days from date range
   const days = useMemo(() => {
@@ -68,10 +103,9 @@ function MetaPageContent() {
     const params = new URLSearchParams();
     if (newRegion !== "global") params.set("region", newRegion);
     if (newDays !== 30) params.set("days", String(newDays));
-    if (newTournamentType !== "all")
-      params.set("tournament_type", newTournamentType);
     const query = params.toString();
-    router.push(`/meta${query ? `?${query}` : ""}`);
+    const basePath = getMetaPathByType(newTournamentType);
+    router.push(`${basePath}${query ? `?${query}` : ""}`);
   };
 
   const handleRegionChange = (newRegion: Region) => {
@@ -168,10 +202,17 @@ function MetaPageContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Meta Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {tournamentTypeCopy[tournamentType].title}
+          </h1>
           <p className="text-muted-foreground">
-            Explore the current competitive meta
+            {tournamentTypeCopy[tournamentType].description}
           </p>
+          <TournamentTrackNav
+            basePath="/meta"
+            activeType={tournamentType}
+            className="mt-3"
+          />
         </div>
         <div className="flex flex-wrap gap-3">
           <RegionFilter

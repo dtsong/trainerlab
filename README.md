@@ -23,8 +23,8 @@ TrainerLab is a competitive intelligence platform for Pokemon TCG. We help train
 
 | Document                                               | Description                            |
 | ------------------------------------------------------ | -------------------------------------- |
-| [SPEC.md](./SPEC.md)                                   | Full implementation specification      |
-| [PROJECT_STATUS.md](./PROJECT_STATUS.md)               | Current project status and decisions   |
+| [SPEC.md](./docs/SPEC.md)                              | Full implementation specification      |
+| [PROJECT_STATUS.md](./docs/PROJECT_STATUS.md)          | Current project status and decisions   |
 | [terraform/README.md](./terraform/README.md)           | Infrastructure documentation           |
 | [docs/TRAINERLAB_BRAND.md](./docs/TRAINERLAB_BRAND.md) | Brand guide and messaging              |
 | [Architecture](./docs/architecture/README.md)          | System architecture diagrams (Mermaid) |

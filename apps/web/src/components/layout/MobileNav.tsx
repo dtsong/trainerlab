@@ -13,6 +13,7 @@ import {
   FileText,
   Settings,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const tabs = [
 const drawerLinks = [
   { href: "/tournaments", label: "Tournaments", icon: Calendar },
   { href: "/lab-notes", label: "Lab Notes", icon: FileText },
+  { href: "/creator", label: "Creator", icon: Sparkles },
   { href: "/investigate", label: "Investigate", icon: Search },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -50,12 +52,12 @@ export function MobileNav() {
       return pathname === "/";
     }
     if (href === "/meta/japan") {
-      return pathname === "/meta/japan";
+      return pathname.startsWith("/meta/japan");
     }
     if (href === "/meta") {
       return (
         pathname === "/meta" ||
-        (pathname.startsWith("/meta") && pathname !== "/meta/japan")
+        (pathname.startsWith("/meta") && !pathname.startsWith("/meta/japan"))
       );
     }
     return pathname.startsWith(href);

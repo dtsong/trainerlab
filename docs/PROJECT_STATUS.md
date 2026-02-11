@@ -18,13 +18,13 @@
 
 ## Documentation Complete
 
-| Document                     | Description                              | Location                                     |
-| ---------------------------- | ---------------------------------------- | -------------------------------------------- |
-| **SPEC.md**                  | Full implementation spec for Claude Code | `/SPEC.md`                                   |
-| **Terraform**                | Complete GCP infrastructure as code      | `/terraform/`                                |
-| **Brand Guide**              | TrainerLab brand, voice, messaging       | `/docs/TRAINERLAB_BRAND.md`                  |
-| **Japanese Research**        | Data sources, translation strategy       | `/docs/research/JAPANESE_META_RESEARCH.md`   |
-| **Card Data Infrastructure** | TCGdex evaluation, data pipeline         | `/docs/research/CARD_DATA_INFRASTRUCTURE.md` |
+| Document                     | Description                              | Location                          |
+| ---------------------------- | ---------------------------------------- | --------------------------------- |
+| **SPEC.md**                  | Full implementation spec for Claude Code | `/docs/SPEC.md`                   |
+| **Terraform**                | Complete GCP infrastructure as code      | `/terraform/`                     |
+| **Brand Guide**              | TrainerLab brand, voice, messaging       | `/docs/TRAINERLAB_BRAND.md`       |
+| **Japanese Research**        | Data sources, translation strategy       | `/docs/JAPANESE_META_RESEARCH.md` |
+| **Card Data Infrastructure** | TCGdex evaluation, data pipeline         | `/docs/PLATFORM_EXPLORATION.md`   |
 
 ---
 
@@ -124,6 +124,12 @@
 1. [ ] Beta user recruitment (Reddit, Discord)
 2. [ ] Content: "Introducing TrainerLab" post
 3. [ ] Soft launch to competitive community
+
+### Launch Readiness Gaps (Feb 2026)
+
+1. [ ] Pipeline health workflow environment variable/fallback hardening
+2. [ ] Dedicated official vs grassroots analysis tracks (UX + routing)
+3. [ ] Creator surfaces pending: OG image generation and creator dashboard
 
 ---
 

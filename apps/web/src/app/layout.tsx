@@ -23,8 +23,14 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.trainerlab.io"),
   title: "TrainerLab",
   description: "Competitive intelligence platform for Pokemon TCG",
+  openGraph: {
+    title: "TrainerLab",
+    description: "Competitive intelligence platform for Pokemon TCG",
+    images: [{ url: "/api/og/meta.png" }],
+  },
 };
 
 export default function RootLayout({

@@ -216,6 +216,27 @@ export function Hero() {
               </Button>
             </div>
 
+            <div
+              className="mt-4 flex flex-wrap items-center gap-3 opacity-0 animate-fade-in-up"
+              style={{ animationDelay: "0.35s" }}
+            >
+              <span className="font-mono text-[11px] uppercase tracking-wider text-pencil">
+                Meta Tracks:
+              </span>
+              <Link
+                href="/meta/official"
+                className="rounded-full border border-notebook-grid bg-notebook-aged/60 px-3 py-1 font-mono text-xs text-ink-black transition-colors hover:bg-notebook-aged"
+              >
+                Official
+              </Link>
+              <Link
+                href="/meta/grassroots"
+                className="rounded-full border border-notebook-grid bg-notebook-aged/60 px-3 py-1 font-mono text-xs text-ink-black transition-colors hover:bg-notebook-aged"
+              >
+                Grassroots
+              </Link>
+            </div>
+
             {/* Stats bar - styled as typewritten labels */}
             <div className="mt-12 flex flex-wrap gap-3 border-t-2 border-dashed border-notebook-grid pt-6">
               <StatItem

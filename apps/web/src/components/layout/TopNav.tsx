@@ -33,12 +33,12 @@ export function TopNav() {
 
   const isActive = (href: string) => {
     if (href === "/meta/japan") {
-      return pathname === "/meta/japan";
+      return pathname.startsWith("/meta/japan");
     }
     if (href === "/meta") {
       return (
         pathname === "/meta" ||
-        (pathname.startsWith("/meta") && pathname !== "/meta/japan")
+        (pathname.startsWith("/meta") && !pathname.startsWith("/meta/japan"))
       );
     }
     return pathname.startsWith(href);

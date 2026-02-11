@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     title: "My Decks | TrainerLab",
     description:
       "Manage your Pokemon TCG deck collection. Create, edit, and export decks for competitive play.",
+    images: [{ url: "/api/og/meta.png" }],
   },
 };
 

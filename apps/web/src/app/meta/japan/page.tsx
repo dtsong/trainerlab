@@ -9,7 +9,7 @@ import {
   format,
   differenceInHours,
 } from "date-fns";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 import { Clock } from "lucide-react";
 
@@ -20,6 +20,7 @@ import {
   MetaTrendChart,
   DateRangePicker,
   TournamentTypeFilter,
+  TournamentTrackNav,
   BO1ContextBanner,
   ChartErrorBoundary,
 } from "@/components/meta";
@@ -61,14 +62,28 @@ function daysSinceRotation(): number {
 function JapanMetaPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const getTournamentTypeFromPath = (path: string): TournamentType | null => {
+    if (path.endsWith("/official")) return "official";
+    if (path.endsWith("/grassroots")) return "grassroots";
+    return null;
+  };
+
+  const getJapanMetaPathByType = (type: TournamentType): string => {
+    if (type === "official") return "/meta/japan/official";
+    if (type === "grassroots") return "/meta/japan/grassroots";
+    return "/meta/japan";
+  };
 
   // Default to "all post-rotation" instead of 30 days
   const initialDays =
     parseDays(searchParams.get("days")) || daysSinceRotation();
   const activeTab = searchParams.get("tab") || "overview";
-  const initialTournamentType = parseTournamentType(
-    searchParams.get("tournament_type")
-  );
+  const pathTournamentType = getTournamentTypeFromPath(pathname);
+  const initialTournamentType =
+    pathTournamentType ??
+    parseTournamentType(searchParams.get("tournament_type"));
 
   const [tournamentType, setTournamentType] = useState<TournamentType>(
     initialTournamentType
@@ -77,6 +92,14 @@ function JapanMetaPageContent() {
     start: startOfDay(subDays(new Date(), initialDays)),
     end: endOfDay(new Date()),
   });
+
+  const tournamentTypeCopy: Record<TournamentType, string> = {
+    all: "What's winning in the SV9+ format — competitive prep & innovation scouting",
+    official:
+      "Official JP tournaments only — high-stakes signal for major-event preparation",
+    grassroots:
+      "Grassroots JP tournaments only — innovation and local adaptation discovery",
+  };
 
   const days = useMemo(() => {
     const diffMs = dateRange.end.getTime() - dateRange.start.getTime();
@@ -105,16 +128,15 @@ function JapanMetaPageContent() {
         }
       }
       if (params.tournament_type !== undefined) {
-        if (params.tournament_type === "all") {
-          sp.delete("tournament_type");
-        } else {
-          sp.set("tournament_type", params.tournament_type);
-        }
+        sp.delete("tournament_type");
       }
       const query = sp.toString();
-      router.push(`/meta/japan${query ? `?${query}` : ""}`);
+      const basePath = getJapanMetaPathByType(
+        params.tournament_type ?? tournamentType
+      );
+      router.push(`${basePath}${query ? `?${query}` : ""}`);
     },
-    [router, searchParams]
+    [router, searchParams, tournamentType]
   );
 
   const handleDateRangeChange = (newRange: { start: Date; end: Date }) => {
@@ -234,9 +256,13 @@ function JapanMetaPageContent() {
             Post-Rotation Japan
           </h1>
           <p className="text-muted-foreground">
-            What&apos;s winning in the SV9+ format — competitive prep &amp;
-            innovation scouting
+            {tournamentTypeCopy[tournamentType]}
           </p>
+          <TournamentTrackNav
+            basePath="/meta/japan"
+            activeType={tournamentType}
+            className="mt-3"
+          />
         </div>
         <div className="flex flex-wrap gap-3">
           <TournamentTypeFilter

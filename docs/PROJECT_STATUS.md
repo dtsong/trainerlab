@@ -1,6 +1,6 @@
 # TrainerLab - Project Status
 
-> Last updated: February 2026
+> Last updated: February 11, 2026
 
 ---
 
@@ -127,9 +127,15 @@
 
 ### Launch Readiness Gaps (Feb 2026)
 
-1. [ ] Pipeline health workflow environment variable/fallback hardening
-2. [ ] Dedicated official vs grassroots analysis tracks (UX + routing)
-3. [ ] Creator surfaces pending: OG image generation and creator dashboard
+1. [x] Pipeline health workflow environment variable/fallback hardening
+2. [x] Dedicated official vs grassroots analysis tracks (UX + routing)
+3. [x] Creator surfaces: OG image generation and creator dashboard
+
+### Current Launch Focus
+
+1. [ ] Beta user recruitment (Reddit, Discord)
+2. [ ] Publish launch post and onboarding docs for competitors/creators
+3. [ ] Soft launch to competitive community and collect first-week feedback
 
 ---
 
@@ -165,9 +171,8 @@ trainerlab/
     │   ├── APPLICATION_LAYERS.md
     │   ├── AUTHENTICATION.md
     │   └── CI_CD_DEPLOYMENT.md
-    └── research/
-        ├── JAPANESE_META_RESEARCH.md
-        └── CARD_DATA_INFRASTRUCTURE.md
+    ├── JAPANESE_META_RESEARCH.md
+    └── PLATFORM_EXPLORATION.md
 ```
 
 ---

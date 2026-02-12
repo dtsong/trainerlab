@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { Suspense, useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCards } from "@/hooks/useCards";
 import { useSets } from "@/hooks/useSets";
@@ -35,7 +35,7 @@ function isSameFilters(a: CardFiltersValues, b: CardFiltersValues): boolean {
   );
 }
 
-export default function CardsPage() {
+function CardsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -46,22 +46,30 @@ export default function CardsPage() {
     defaultValue: 1,
     min: 1,
   });
-  const urlFilters: CardFiltersValues = {
-    supertype: parseStringParam(searchParams.get("supertype"), {
-      defaultValue: DEFAULT_FILTERS.supertype,
+  const rawSupertype = searchParams.get("supertype");
+  const rawTypes = searchParams.get("types");
+  const rawSetId = searchParams.get("set_id");
+  const rawStandardLegal = searchParams.get("standard_legal");
+
+  const urlFilters = useMemo<CardFiltersValues>(
+    () => ({
+      supertype: parseStringParam(rawSupertype, {
+        defaultValue: DEFAULT_FILTERS.supertype,
+      }),
+      types: parseStringParam(rawTypes, {
+        defaultValue: DEFAULT_FILTERS.types,
+      }),
+      set_id: parseStringParam(rawSetId, {
+        defaultValue: DEFAULT_FILTERS.set_id,
+      }),
+      standard_legal: parseEnumParam(
+        rawStandardLegal,
+        LEGALITY_VALUES,
+        DEFAULT_FILTERS.standard_legal
+      ),
     }),
-    types: parseStringParam(searchParams.get("types"), {
-      defaultValue: DEFAULT_FILTERS.types,
-    }),
-    set_id: parseStringParam(searchParams.get("set_id"), {
-      defaultValue: DEFAULT_FILTERS.set_id,
-    }),
-    standard_legal: parseEnumParam(
-      searchParams.get("standard_legal"),
-      LEGALITY_VALUES,
-      DEFAULT_FILTERS.standard_legal
-    ),
-  };
+    [rawSetId, rawStandardLegal, rawSupertype, rawTypes]
+  );
 
   const [search, setSearch] = useState(urlSearch);
   const [page, setPage] = useState(urlPage);
@@ -256,5 +264,27 @@ export default function CardsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function CardsPageFallback() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Card Database</h1>
+        <p className="text-muted-foreground">
+          Search and browse Pokemon TCG cards
+        </p>
+      </div>
+      <CardGridSkeleton count={DEFAULT_PAGE_SIZE} />
+    </div>
+  );
+}
+
+export default function CardsPage() {
+  return (
+    <Suspense fallback={<CardsPageFallback />}>
+      <CardsPageContent />
+    </Suspense>
   );
 }

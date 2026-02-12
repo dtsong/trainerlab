@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -22,7 +22,7 @@ import {
   parseIntParam,
 } from "@/lib/url-state";
 
-export default function EvolutionPage() {
+function EvolutionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlPage = parseIntParam(searchParams.get("page"), {
@@ -204,5 +204,29 @@ export default function EvolutionPage() {
         </>
       )}
     </div>
+  );
+}
+
+function EvolutionPageFallback() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <h1 className="text-3xl font-bold mb-8">Deck Evolution</h1>
+      <div className="animate-pulse space-y-4">
+        <div className="h-6 w-48 bg-muted rounded" />
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-64 bg-muted rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function EvolutionPage() {
+  return (
+    <Suspense fallback={<EvolutionPageFallback />}>
+      <EvolutionPageContent />
+    </Suspense>
   );
 }

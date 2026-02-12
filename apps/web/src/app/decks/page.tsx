@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, FolderOpen, SortAsc } from "lucide-react";
@@ -24,7 +24,7 @@ import {
 type SortOption = "updated" | "created" | "name";
 type FilterFormat = "all" | DeckFormat;
 
-export default function DecksPage() {
+function DecksPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -239,5 +239,36 @@ export default function DecksPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function DecksPageFallback() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">My Decks</h1>
+          <p className="text-muted-foreground">
+            Manage your Pokemon TCG deck collection
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={i}
+            className="h-[220px] rounded-lg border bg-muted animate-pulse"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function DecksPage() {
+  return (
+    <Suspense fallback={<DecksPageFallback />}>
+      <DecksPageContent />
+    </Suspense>
   );
 }

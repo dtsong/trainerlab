@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, CalendarDays, RefreshCw } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { Suspense, useMemo, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ArchetypeSurvival, CardRotationList } from "@/components/rotation";
@@ -31,7 +31,7 @@ const RATING_VALUES = [
   "unknown",
 ] as const;
 
-export default function RotationPage() {
+function RotationPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlTab = parseEnumParam(
@@ -298,5 +298,29 @@ export default function RotationPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function RotationPageFallback() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 w-64 bg-muted rounded" />
+        <div className="h-4 w-96 bg-muted rounded" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-8">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-muted rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function RotationPage() {
+  return (
+    <Suspense fallback={<RotationPageFallback />}>
+      <RotationPageContent />
+    </Suspense>
   );
 }

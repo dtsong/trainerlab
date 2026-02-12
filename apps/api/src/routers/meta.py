@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.models import MetaSnapshot, Tournament, TournamentPlacement
 from src.models.archetype_sprite import ArchetypeSprite
 from src.models.card import Card
@@ -40,7 +41,11 @@ from src.services.meta_service import MetaService, TournamentType
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/meta", tags=["meta"])
+router = APIRouter(
+    prefix="/api/v1/meta",
+    tags=["meta"],
+    dependencies=[Depends(require_beta)],
+)
 limiter = Limiter(key_func=get_remote_address)
 
 

@@ -50,40 +50,52 @@ describe("middleware", () => {
     expect(NextResponse.redirect).not.toHaveBeenCalled();
   });
 
-  it("allows unauthenticated access to /meta", () => {
+  it("allows unauthenticated access to /lab-notes", () => {
+    middleware(makeReq("/lab-notes", false), mockCtx);
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("allows unauthenticated access to /lab-notes/some-article", () => {
+    middleware(makeReq("/lab-notes/some-article", false), mockCtx);
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("allows unauthenticated access to /api/og/meta", () => {
+    middleware(makeReq("/api/og/meta", false), mockCtx);
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
+  it("redirects unauthenticated access to /meta", () => {
     middleware(makeReq("/meta", false), mockCtx);
-    expect(NextResponse.next).toHaveBeenCalled();
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
+    expect(NextResponse.redirect).toHaveBeenCalled();
   });
 
-  it("allows unauthenticated access to /meta/japan", () => {
+  it("redirects unauthenticated access to /meta/japan", () => {
     middleware(makeReq("/meta/japan", false), mockCtx);
-    expect(NextResponse.next).toHaveBeenCalled();
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
+    expect(NextResponse.redirect).toHaveBeenCalled();
   });
 
-  it("allows unauthenticated access to /tournaments", () => {
+  it("redirects unauthenticated access to /tournaments", () => {
     middleware(makeReq("/tournaments", false), mockCtx);
-    expect(NextResponse.next).toHaveBeenCalled();
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
+    expect(NextResponse.redirect).toHaveBeenCalled();
   });
 
-  it("allows unauthenticated access to /tournaments/123", () => {
+  it("redirects unauthenticated access to /tournaments/123", () => {
     middleware(makeReq("/tournaments/123", false), mockCtx);
-    expect(NextResponse.next).toHaveBeenCalled();
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
+    expect(NextResponse.redirect).toHaveBeenCalled();
   });
 
-  it("allows unauthenticated access to /evolution", () => {
+  it("redirects unauthenticated access to /evolution", () => {
     middleware(makeReq("/evolution", false), mockCtx);
-    expect(NextResponse.next).toHaveBeenCalled();
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
+    expect(NextResponse.redirect).toHaveBeenCalled();
   });
 
-  it("allows unauthenticated access to /evolution/some-article", () => {
+  it("redirects unauthenticated access to /evolution/some-article", () => {
     middleware(makeReq("/evolution/some-article", false), mockCtx);
-    expect(NextResponse.next).toHaveBeenCalled();
-    expect(NextResponse.redirect).not.toHaveBeenCalled();
+    expect(NextResponse.redirect).toHaveBeenCalled();
   });
 
   it("redirects unauthenticated access to /decks", () => {

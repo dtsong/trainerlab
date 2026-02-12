@@ -1,4 +1,6 @@
 export { useAuth } from "./useAuth";
+export { useCurrentUser } from "./useCurrentUser";
+export { useHomeTeaser } from "./usePublicTeaser";
 export { useCards, useCard } from "./useCards";
 export { useSets, useSet, useSetCards } from "./useSets";
 export {

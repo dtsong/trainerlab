@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
 from src.models.archetype_prediction import ArchetypePrediction
 from src.models.evolution_article import EvolutionArticle
@@ -31,7 +32,11 @@ from src.schemas.evolution import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1", tags=["evolution"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["evolution"],
+    dependencies=[Depends(require_beta)],
+)
 
 
 def _snapshot_to_response(

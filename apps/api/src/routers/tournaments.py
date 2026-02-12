@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import MappedColumn, selectinload
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.models import Card, Tournament, TournamentPlacement
 from src.schemas import BestOf, PaginatedResponse, TopPlacement, TournamentSummary
 from src.schemas.tournament import (
@@ -26,7 +27,11 @@ from src.schemas.tournament import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/tournaments", tags=["tournaments"])
+router = APIRouter(
+    prefix="/api/v1/tournaments",
+    tags=["tournaments"],
+    dependencies=[Depends(require_beta)],
+)
 
 # Whitelist of sortable columns (prevents SQL injection via dynamic sort)
 SORTABLE_COLUMNS: dict[str, MappedColumn] = {  # type: ignore[type-arg]

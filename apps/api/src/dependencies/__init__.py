@@ -12,6 +12,7 @@ from src.dependencies.auth import (
     get_current_user,
     get_current_user_optional,
 )
+from src.dependencies.beta import BetaUser, require_beta
 from src.dependencies.creator import CreatorUser, require_creator
 from src.dependencies.scheduler_auth import verify_scheduler_auth
 
@@ -20,12 +21,14 @@ __all__ = [
     "ApiKeyAuth",
     "CreatorUser",
     "CurrentUser",
+    "BetaUser",
     "OptionalUser",
     "get_api_key_user",
     "get_current_user",
     "get_current_user_optional",
     "record_api_request",
     "require_admin",
+    "require_beta",
     "require_creator",
     "verify_scheduler_auth",
 ]

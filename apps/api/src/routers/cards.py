@@ -8,6 +8,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.schemas import (
     CardResponse,
     CardSummaryResponse,
@@ -17,7 +18,11 @@ from src.schemas import (
 from src.services.card_service import CardService, SortField, SortOrder
 from src.services.usage_service import UsageService
 
-router = APIRouter(prefix="/api/v1/cards", tags=["cards"])
+router = APIRouter(
+    prefix="/api/v1/cards",
+    tags=["cards"],
+    dependencies=[Depends(require_beta)],
+)
 limiter = Limiter(key_func=get_remote_address)
 
 

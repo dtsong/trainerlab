@@ -6,10 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.schemas import CardSummaryResponse, PaginatedResponse, SetResponse
 from src.services.set_service import SetService, SetSortField, SetSortOrder
 
-router = APIRouter(prefix="/api/v1/sets", tags=["sets"])
+router = APIRouter(
+    prefix="/api/v1/sets",
+    tags=["sets"],
+    dependencies=[Depends(require_beta)],
+)
 
 
 @router.get("")

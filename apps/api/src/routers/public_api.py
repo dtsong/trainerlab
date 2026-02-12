@@ -5,6 +5,7 @@ to programmatically access TrainerLab data.
 """
 
 import logging
+from datetime import date, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -18,10 +19,12 @@ from src.models.tournament import Tournament
 from src.schemas.public import (
     PublicArchetypeDetail,
     PublicArchetypeShare,
+    PublicHomeTeaser,
     PublicJPComparison,
     PublicMetaHistoryPoint,
     PublicMetaHistoryResponse,
     PublicMetaSnapshot,
+    PublicTeaserArchetype,
     PublicTournamentListResponse,
     PublicTournamentSummary,
 )
@@ -29,6 +32,101 @@ from src.schemas.public import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/public", tags=["public-api"])
+
+PUBLIC_TEASER_DELAY_DAYS = 14
+PUBLIC_TEASER_TOP_N = 5
+PUBLIC_TEASER_MIN_SAMPLE_SIZE = 50
+PUBLIC_ROUNDING_STEP = 0.005
+
+
+def _round_share_for_public(share: float) -> float:
+    """Round a share to the nearest 0.5 percentage points."""
+    rounded = round(share / PUBLIC_ROUNDING_STEP) * PUBLIC_ROUNDING_STEP
+    return max(0.0, min(1.0, rounded))
+
+
+@router.get("/teaser/home")
+async def get_home_teaser(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    format: Annotated[Literal["standard", "expanded"], Query()] = "standard",
+) -> PublicHomeTeaser:
+    """Get delayed aggregated homepage teaser data.
+
+    This endpoint is intentionally unauthenticated and returns only
+    delayed, rounded, top-N archetype data.
+    """
+    cutoff_date = date.today() - timedelta(days=PUBLIC_TEASER_DELAY_DAYS)
+
+    global_query = (
+        select(MetaSnapshot)
+        .where(MetaSnapshot.format == format)
+        .where(MetaSnapshot.best_of == 3)
+        .where(MetaSnapshot.region.is_(None))
+        .where(MetaSnapshot.snapshot_date <= cutoff_date)
+        .order_by(MetaSnapshot.snapshot_date.desc())
+        .limit(1)
+    )
+
+    jp_query = (
+        select(MetaSnapshot)
+        .where(MetaSnapshot.format == format)
+        .where(MetaSnapshot.best_of == 1)
+        .where(MetaSnapshot.region == "JP")
+        .where(MetaSnapshot.snapshot_date <= cutoff_date)
+        .order_by(MetaSnapshot.snapshot_date.desc())
+        .limit(1)
+    )
+
+    global_result = await db.execute(global_query)
+    global_snapshot = global_result.scalar_one_or_none()
+
+    jp_result = await db.execute(jp_query)
+    jp_snapshot = jp_result.scalar_one_or_none()
+
+    if (
+        not global_snapshot
+        or global_snapshot.sample_size < PUBLIC_TEASER_MIN_SAMPLE_SIZE
+    ):
+        return PublicHomeTeaser(
+            snapshot_date=None,
+            delay_days=PUBLIC_TEASER_DELAY_DAYS,
+            sample_size=0,
+            top_archetypes=[],
+        )
+
+    jp_map = jp_snapshot.archetype_shares if jp_snapshot else {}
+    top_archetypes: list[PublicTeaserArchetype] = []
+
+    sorted_global = sorted(
+        global_snapshot.archetype_shares.items(), key=lambda x: x[1], reverse=True
+    )[:PUBLIC_TEASER_TOP_N]
+
+    for name, global_share_raw in sorted_global:
+        global_share = _round_share_for_public(float(global_share_raw))
+
+        jp_raw = jp_map.get(name)
+        jp_share = (
+            _round_share_for_public(float(jp_raw)) if jp_raw is not None else None
+        )
+        divergence_pp = None
+        if jp_share is not None:
+            divergence_pp = round((jp_share - global_share) * 100, 1)
+
+        top_archetypes.append(
+            PublicTeaserArchetype(
+                name=name,
+                global_share=global_share,
+                jp_share=jp_share,
+                divergence_pp=divergence_pp,
+            )
+        )
+
+    return PublicHomeTeaser(
+        snapshot_date=global_snapshot.snapshot_date.isoformat(),
+        delay_days=PUBLIC_TEASER_DELAY_DAYS,
+        sample_size=global_snapshot.sample_size,
+        top_archetypes=top_archetypes,
+    )
 
 
 @router.get("/meta")

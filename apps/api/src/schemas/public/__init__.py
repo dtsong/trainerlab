@@ -86,13 +86,33 @@ class PublicJPComparison(BaseModel):
     comparisons: list[dict[str, Any]]
 
 
+class PublicTeaserArchetype(BaseModel):
+    """Archetype teaser row for public homepage."""
+
+    name: str
+    global_share: float = Field(..., ge=0, le=1)
+    jp_share: float | None = Field(default=None, ge=0, le=1)
+    divergence_pp: float | None = None
+
+
+class PublicHomeTeaser(BaseModel):
+    """Delayed aggregated homepage teaser."""
+
+    snapshot_date: str | None
+    delay_days: int
+    sample_size: int
+    top_archetypes: list[PublicTeaserArchetype]
+
+
 __all__ = [
     "PublicArchetypeDetail",
     "PublicArchetypeShare",
     "PublicJPComparison",
+    "PublicHomeTeaser",
     "PublicMetaHistoryPoint",
     "PublicMetaHistoryResponse",
     "PublicMetaSnapshot",
+    "PublicTeaserArchetype",
     "PublicTournamentListResponse",
     "PublicTournamentSummary",
 ]

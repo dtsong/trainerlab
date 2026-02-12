@@ -6,6 +6,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +52,24 @@ from src.services.placeholder_service import PlaceholderService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+class BetaAccessUpdateRequest(BaseModel):
+    """Request to grant or revoke beta access."""
+
+    email: EmailStr
+
+
+class BetaUserResponse(BaseModel):
+    """Beta user admin response model."""
+
+    id: str
+    email: str
+    display_name: str | None
+    is_beta_tester: bool
+    is_creator: bool
+    created_at: datetime
+    updated_at: datetime
 
 
 @router.post(
@@ -751,4 +770,96 @@ async def get_pipeline_health(
     return PipelineHealthResponse(
         pipelines=pipelines,
         checked_at=datetime.now(UTC).isoformat(),
+    )
+
+
+@router.get("/beta-users", response_model=list[BetaUserResponse])
+async def list_beta_users(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    active: bool | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[BetaUserResponse]:
+    """List users with optional beta access filtering."""
+    query = select(User).order_by(User.created_at.desc())
+
+    if active is not None:
+        query = query.where(User.is_beta_tester == active)
+
+    query = query.offset(offset).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    return [
+        BetaUserResponse(
+            id=str(user.id),
+            email=user.email,
+            display_name=user.display_name,
+            is_beta_tester=user.is_beta_tester,
+            is_creator=user.is_creator,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+        )
+        for user in users
+    ]
+
+
+@router.post("/beta-users/grant", response_model=BetaUserResponse)
+async def grant_beta_access(
+    payload: BetaAccessUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> BetaUserResponse:
+    """Grant beta access to a user by email."""
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == payload.email.lower())
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_beta_tester = True
+    await db.commit()
+    await db.refresh(user)
+
+    return BetaUserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        is_beta_tester=user.is_beta_tester,
+        is_creator=user.is_creator,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
+
+
+@router.post("/beta-users/revoke", response_model=BetaUserResponse)
+async def revoke_beta_access(
+    payload: BetaAccessUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> BetaUserResponse:
+    """Revoke beta access from a user by email."""
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == payload.email.lower())
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_beta_tester = False
+    await db.commit()
+    await db.refresh(user)
+
+    return BetaUserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        is_beta_tester=user.is_beta_tester,
+        is_creator=user.is_creator,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
     )

@@ -16,6 +16,8 @@ class UserResponse(BaseModel):
     email: str
     display_name: str | None = None
     avatar_url: str | None = None
+    is_beta_tester: bool = False
+    is_creator: bool = False
     preferences: dict = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime

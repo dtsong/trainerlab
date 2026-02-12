@@ -1,4 +1,5 @@
 export { Footer } from "./Footer";
+export { BetaAccessGate } from "./BetaAccessGate";
 export { Header } from "./Header";
 export { LayoutChrome } from "./LayoutChrome";
 export { MobileNav } from "./MobileNav";

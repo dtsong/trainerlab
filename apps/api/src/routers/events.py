@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.models import Tournament
 from src.schemas import PaginatedResponse
 from src.schemas.event import EventDetail, EventSummary
@@ -28,7 +29,11 @@ from src.utils.dates import days_until
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/events", tags=["events"])
+router = APIRouter(
+    prefix="/api/v1/events",
+    tags=["events"],
+    dependencies=[Depends(require_beta)],
+)
 
 
 def _escape_ics_text(text: str) -> str:

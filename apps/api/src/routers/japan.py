@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.models import (
     Card,
     JPCardInnovation,
@@ -43,7 +44,11 @@ from src.schemas.japan import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/japan", tags=["japan"])
+router = APIRouter(
+    prefix="/api/v1/japan",
+    tags=["japan"],
+    dependencies=[Depends(require_beta)],
+)
 
 
 def _innovation_to_response(innovation: JPCardInnovation) -> JPCardInnovationResponse:

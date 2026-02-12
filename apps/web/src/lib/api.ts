@@ -139,6 +139,32 @@ interface AdminPipelineHealth {
   checked_at: string;
 }
 
+export interface ApiCurrentUser {
+  id: string;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_beta_tester: boolean;
+  is_creator: boolean;
+  preferences: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiPublicTeaserArchetype {
+  name: string;
+  global_share: number;
+  jp_share: number | null;
+  divergence_pp: number | null;
+}
+
+export interface ApiPublicHomeTeaser {
+  snapshot_date: string | null;
+  delay_days: number;
+  sample_size: number;
+  top_archetypes: ApiPublicTeaserArchetype[];
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 class ApiError extends Error {
@@ -1135,6 +1161,21 @@ export const apiKeysApi = {
     return fetchApiAuth<void>(`/api/v1/api-keys/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
+  },
+};
+
+export const usersApi = {
+  getMe: () => {
+    return fetchApiAuth<ApiCurrentUser>("/api/v1/users/me");
+  },
+};
+
+export const publicApi = {
+  getHomeTeaser: (format: "standard" | "expanded" = "standard") => {
+    const searchParams = new URLSearchParams({ format });
+    return fetchApi<ApiPublicHomeTeaser>(
+      `/api/v1/public/teaser/home?${searchParams.toString()}`
+    );
   },
 };
 

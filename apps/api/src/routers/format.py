@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.models import FormatConfig, RotationImpact
 from src.schemas.format import (
     FormatConfigResponse,
@@ -22,7 +23,11 @@ from src.schemas.format import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1", tags=["format"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["format"],
+    dependencies=[Depends(require_beta)],
+)
 
 
 def _format_to_response(format_config: FormatConfig) -> FormatConfigResponse:

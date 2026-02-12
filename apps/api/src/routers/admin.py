@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
 from src.dependencies.admin import AdminUser
+from src.models.admin_audit_event import AdminAuditEvent
 from src.models.archetype_sprite import ArchetypeSprite
 from src.models.card import Card
 from src.models.jp_card_adoption_rate import JPCardAdoptionRate
@@ -39,6 +40,7 @@ from src.schemas.archetype_sprite import (
     ArchetypeSpriteResponse,
     ArchetypeSpriteUpdate,
 )
+from src.schemas.audit import AdminAuditEventResponse
 from src.schemas.placeholder import (
     PlaceholderCardCreate,
     PlaceholderCardResponse,
@@ -49,6 +51,7 @@ from src.schemas.placeholder import (
 )
 from src.schemas.readiness import TPCIReadinessResponse
 from src.services.archetype_normalizer import ArchetypeNormalizer
+from src.services.audit import record_admin_audit_event
 from src.services.placeholder_service import PlaceholderService
 from src.services.readiness import evaluate_tpci_post_major_readiness
 
@@ -966,6 +969,7 @@ async def grant_beta_access(
     payload: BetaAccessUpdateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     _admin_user: AdminUser,
+    request: Request,
 ) -> BetaUserResponse:
     """Grant beta access to a user by email."""
     result = await db.execute(
@@ -977,6 +981,14 @@ async def grant_beta_access(
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_beta_tester = True
+    await record_admin_audit_event(
+        db,
+        action="beta.grant",
+        actor=_admin_user,
+        target=user,
+        target_email=user.email,
+        request=request,
+    )
     await db.commit()
     await db.refresh(user)
 
@@ -997,6 +1009,7 @@ async def revoke_beta_access(
     payload: BetaAccessUpdateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     _admin_user: AdminUser,
+    request: Request,
 ) -> BetaUserResponse:
     """Revoke beta access from a user by email."""
     result = await db.execute(
@@ -1008,6 +1021,14 @@ async def revoke_beta_access(
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_beta_tester = False
+    await record_admin_audit_event(
+        db,
+        action="beta.revoke",
+        actor=_admin_user,
+        target=user,
+        target_email=user.email,
+        request=request,
+    )
     await db.commit()
     await db.refresh(user)
 
@@ -1061,6 +1082,7 @@ async def grant_subscriber_access(
     payload: BetaAccessUpdateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     _admin_user: AdminUser,
+    request: Request,
 ) -> SubscriberUserResponse:
     """Grant subscriber access to a user by email."""
     result = await db.execute(
@@ -1072,6 +1094,14 @@ async def grant_subscriber_access(
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_subscriber = True
+    await record_admin_audit_event(
+        db,
+        action="subscriber.grant",
+        actor=_admin_user,
+        target=user,
+        target_email=user.email,
+        request=request,
+    )
     await db.commit()
     await db.refresh(user)
 
@@ -1092,6 +1122,7 @@ async def revoke_subscriber_access(
     payload: BetaAccessUpdateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
     _admin_user: AdminUser,
+    request: Request,
 ) -> SubscriberUserResponse:
     """Revoke subscriber access from a user by email."""
     result = await db.execute(
@@ -1103,6 +1134,14 @@ async def revoke_subscriber_access(
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_subscriber = False
+    await record_admin_audit_event(
+        db,
+        action="subscriber.revoke",
+        actor=_admin_user,
+        target=user,
+        target_email=user.email,
+        request=request,
+    )
     await db.commit()
     await db.refresh(user)
 
@@ -1116,3 +1155,47 @@ async def revoke_subscriber_access(
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
+
+
+@router.get("/audit-events", response_model=list[AdminAuditEventResponse])
+async def list_audit_events(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    action: str | None = None,
+    actor_email: str | None = None,
+    target_email: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[AdminAuditEventResponse]:
+    query = select(AdminAuditEvent).order_by(AdminAuditEvent.created_at.desc())
+    if action:
+        query = query.where(AdminAuditEvent.action == action)
+    if actor_email:
+        query = query.where(
+            func.lower(AdminAuditEvent.actor_email) == actor_email.lower()
+        )
+    if target_email:
+        query = query.where(
+            func.lower(AdminAuditEvent.target_email) == target_email.lower()
+        )
+
+    result = await db.execute(query.offset(offset).limit(limit))
+    events = result.scalars().all()
+
+    return [
+        AdminAuditEventResponse(
+            id=str(e.id),
+            created_at=e.created_at,
+            action=e.action,
+            actor_user_id=(str(e.actor_user_id) if e.actor_user_id else None),
+            actor_email=e.actor_email,
+            target_user_id=(str(e.target_user_id) if e.target_user_id else None),
+            target_email=e.target_email,
+            ip_address=e.ip_address,
+            user_agent=e.user_agent,
+            path=e.path,
+            correlation_id=e.correlation_id,
+            metadata=e.event_metadata,
+        )
+        for e in events
+    ]

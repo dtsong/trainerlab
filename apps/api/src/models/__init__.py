@@ -1,6 +1,7 @@
 """SQLAlchemy models."""
 
 from src.models.adaptation import Adaptation
+from src.models.admin_audit_event import AdminAuditEvent
 from src.models.api_key import ApiKey
 from src.models.api_request import ApiRequest
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
@@ -39,6 +40,7 @@ __all__ = [
     "Adaptation",
     "ApiKey",
     "ApiRequest",
+    "AdminAuditEvent",
     "ArchetypeEvolutionSnapshot",
     "ArchetypePrediction",
     "ArchetypeSprite",

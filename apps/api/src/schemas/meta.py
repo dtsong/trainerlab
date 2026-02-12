@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.schemas.freshness import DataFreshness
+
 
 class ArchetypeResponse(BaseModel):
     """Single archetype in meta snapshot."""
@@ -153,6 +155,10 @@ class MetaSnapshotResponse(BaseModel):
     era_label: str | None = Field(
         default=None,
         description="Era tag (e.g., 'post-nihil-zero')",
+    )
+    freshness: DataFreshness | None = Field(
+        default=None,
+        description="Freshness metadata for snapshot context",
     )
 
 

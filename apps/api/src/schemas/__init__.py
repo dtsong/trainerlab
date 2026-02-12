@@ -50,6 +50,7 @@ from src.schemas.format import (
     RotationImpactResponse,
     UpcomingFormatResponse,
 )
+from src.schemas.freshness import DataFreshness
 from src.schemas.lab_note import (
     LabNoteCreate,
     LabNoteListResponse,
@@ -167,6 +168,7 @@ __all__ = [
     "ExportListResponse",
     "ExportResponse",
     "FormatConfigResponse",
+    "DataFreshness",
     "FormatForecastEntry",
     "FormatForecastResponse",
     "FormatNotes",

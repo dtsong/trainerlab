@@ -5,6 +5,8 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, computed_field
 
+from src.schemas.freshness import DataFreshness
+
 T = TypeVar("T")
 
 
@@ -29,6 +31,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     has_next: bool
     has_prev: bool
     next_cursor: str | None = None
+    freshness: DataFreshness | None = None
 
     @computed_field
     @property

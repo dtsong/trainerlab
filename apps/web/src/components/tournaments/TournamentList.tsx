@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DataFreshnessBanner } from "@/components/meta";
 import { useTournaments } from "@/hooks/useTournaments";
 import type { TournamentSearchParams } from "@/lib/api";
 
@@ -71,19 +72,23 @@ export function TournamentList({
 
   if (!data?.items.length) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">
-            No tournaments found matching your filters.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {data?.freshness && <DataFreshnessBanner freshness={data.freshness} />}
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">
+              No tournaments found matching your filters.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div>
+    <div className="space-y-4">
+      {data.freshness && <DataFreshnessBanner freshness={data.freshness} />}
       <div className="rounded-lg border">
         {data.items.map((tournament) => (
           <TournamentRow

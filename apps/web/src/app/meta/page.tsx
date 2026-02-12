@@ -15,6 +15,7 @@ import {
   TournamentTypeFilter,
   TournamentTrackNav,
   DateRangePicker,
+  DataFreshnessBanner,
   ChartErrorBoundary,
 } from "@/components/meta";
 import { metaApi } from "@/lib/api";
@@ -261,6 +262,10 @@ function MetaPageContent() {
           <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
         </div>
       </div>
+
+      {!error && currentMeta?.freshness && (
+        <DataFreshnessBanner freshness={currentMeta.freshness} />
+      )}
 
       {/* Error state */}
       {error && (

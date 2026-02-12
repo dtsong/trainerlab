@@ -3,6 +3,8 @@
  * These types match the JSON responses from the FastAPI backend.
  */
 
+import type { ApiDataFreshness } from "./freshness";
+
 export interface ApiPaginatedResponse<T> {
   items: T[];
   total: number;
@@ -12,4 +14,5 @@ export interface ApiPaginatedResponse<T> {
   has_prev: boolean;
   total_pages: number;
   next_cursor?: string | null;
+  freshness?: ApiDataFreshness | null;
 }

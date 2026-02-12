@@ -1,5 +1,7 @@
 // Tournament types (matching backend schemas)
 
+import type { ApiDataFreshness } from "./freshness";
+
 export type TournamentTier = "major" | "premier" | "league" | "grassroots";
 export type GameFormat = "standard" | "expanded";
 
@@ -59,6 +61,7 @@ export interface ApiTournamentListResponse {
   limit: number;
   has_next: boolean;
   has_prev: boolean;
+  freshness?: ApiDataFreshness | null;
 }
 
 export interface ApiDecklistCard {

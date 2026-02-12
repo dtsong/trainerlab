@@ -8,6 +8,7 @@ import {
   CardSummarySchema,
   PaginatedCardSummarySchema,
   ArchetypeSchema,
+  DataFreshnessSchema,
   MetaSnapshotSchema,
   LabNoteSchema,
 } from "../api-validation";
@@ -325,6 +326,21 @@ describe("Zod schemas", () => {
       };
 
       expect(MetaSnapshotSchema.safeParse(data).success).toBe(true);
+    });
+  });
+
+  describe("DataFreshnessSchema", () => {
+    it("should validate cadence-based freshness payload", () => {
+      const data = {
+        status: "partial",
+        cadence_profile: "tpci_event_cadence",
+        snapshot_date: "2026-02-10",
+        sample_size: 12,
+        staleness_days: 1,
+        message: "Post-major data is in early state (top cut only).",
+      };
+
+      expect(DataFreshnessSchema.safeParse(data).success).toBe(true);
     });
   });
 

@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +37,8 @@ from src.schemas import (
     SampleDeckResponse,
     TrendInfo,
 )
+from src.schemas.freshness import CadenceProfile
+from src.services.freshness import build_data_freshness
 from src.services.meta_service import MetaService, TournamentType
 
 logger = logging.getLogger(__name__)
@@ -98,16 +100,20 @@ def _snapshot_to_response(
     include_format_notes: bool = True,
     display_overrides: dict[str, str] | None = None,
     card_info: dict[str, tuple[str | None, str | None]] | None = None,
+    cadence_profile: CadenceProfile = "default_cadence",
+    latest_tpci_event_end_date: date | None = None,
 ) -> MetaSnapshotResponse:
     """Convert a MetaSnapshot model to response schema."""
     overrides = display_overrides or {}
-    archetype_breakdown = [
-        ArchetypeResponse(
-            name=overrides.get(name, name),
-            share=share,
+    archetype_breakdown: list[ArchetypeResponse] = []
+    for raw_name, share in (snapshot.archetype_shares or {}).items():
+        name = str(raw_name)
+        archetype_breakdown.append(
+            ArchetypeResponse(
+                name=overrides.get(name, name),
+                share=share,
+            )
         )
-        for name, share in (snapshot.archetype_shares or {}).items()
-    ]
 
     card_info_map = card_info or {}
     card_usage = []
@@ -160,7 +166,44 @@ def _snapshot_to_response(
         jp_signals=jp_signals,
         trends=trends,
         era_label=snapshot.era_label,
+        freshness=build_data_freshness(
+            cadence_profile=cadence_profile,
+            snapshot_date=snapshot.snapshot_date,
+            sample_size=snapshot.sample_size,
+            latest_tpci_event_end_date=latest_tpci_event_end_date,
+        ),
     )
+
+
+def _meta_cadence_profile(
+    region: str | None,
+    best_of: int,
+    tournament_type: TournamentType,
+) -> CadenceProfile:
+    if tournament_type == "official":
+        return "tpci_event_cadence"
+    if tournament_type == "grassroots":
+        return "grassroots_daily_cadence"
+    if (region == "JP") or best_of == 1:
+        return "jp_daily_cadence"
+    return "default_cadence"
+
+
+async def _latest_tpci_event_end_date(
+    db: AsyncSession,
+    region: str | None,
+    format: str,
+) -> date | None:
+    """Best-effort latest major event end date for TPCI cadence evaluation."""
+    official_tiers = ["major", "worlds", "international", "regional", "special"]
+    query = select(func.max(Tournament.date)).where(
+        Tournament.tier.in_(official_tiers),
+        Tournament.format == format,
+    )
+    if region is not None:
+        query = query.where(Tournament.region == region)
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
 
 
 @router.get("/current")
@@ -236,12 +279,25 @@ async def get_current_meta(
         )
 
     overrides = await _load_display_overrides(db)
+    cadence_profile = _meta_cadence_profile(region, best_of, tournament_type)
+    latest_tpci_date = None
+    if cadence_profile == "tpci_event_cadence":
+        try:
+            latest_tpci_date = await _latest_tpci_event_end_date(db, region, format)
+        except SQLAlchemyError:
+            logger.warning("Failed to load latest TPCI event date", exc_info=True)
 
     # Batch lookup card info for card_usage enrichment
     card_ids = list((snapshot.card_usage or {}).keys())
     ci = await _batch_lookup_cards(card_ids, db)
 
-    return _snapshot_to_response(snapshot, display_overrides=overrides, card_info=ci)
+    return _snapshot_to_response(
+        snapshot,
+        display_overrides=overrides,
+        card_info=ci,
+        cadence_profile=cadence_profile,
+        latest_tpci_event_end_date=latest_tpci_date,
+    )
 
 
 @router.get("/history")
@@ -328,6 +384,13 @@ async def get_meta_history(
         ) from None
 
     overrides = await _load_display_overrides(db)
+    cadence_profile = _meta_cadence_profile(region, best_of, tournament_type)
+    latest_tpci_date = None
+    if cadence_profile == "tpci_event_cadence":
+        try:
+            latest_tpci_date = await _latest_tpci_event_end_date(db, region, format)
+        except SQLAlchemyError:
+            logger.warning("Failed to load latest TPCI event date", exc_info=True)
 
     # Batch lookup card info for all snapshots' card_usage
     all_card_ids: set[str] = set()
@@ -337,7 +400,13 @@ async def get_meta_history(
 
     return MetaHistoryResponse(
         snapshots=[
-            _snapshot_to_response(s, display_overrides=overrides, card_info=ci)
+            _snapshot_to_response(
+                s,
+                display_overrides=overrides,
+                card_info=ci,
+                cadence_profile=cadence_profile,
+                latest_tpci_event_end_date=latest_tpci_date,
+            )
             for s in snapshots
         ]
     )
@@ -409,7 +478,7 @@ async def list_archetypes(
         )
 
     archetypes = [
-        ArchetypeResponse(name=name, share=share)
+        ArchetypeResponse(name=str(name), share=share)
         for name, share in (snapshot.archetype_shares or {}).items()
     ]
 
@@ -782,7 +851,7 @@ def _compute_matchups_from_placements(
         by_tournament[str(p.tournament_id)].append(p)
 
     # Track wins/losses against each opponent archetype
-    matchup_wins: dict[str, int] = defaultdict(int)
+    matchup_wins: dict[str, float] = defaultdict(float)
     matchup_games: dict[str, int] = defaultdict(int)
 
     for tournament_placements in by_tournament.values():

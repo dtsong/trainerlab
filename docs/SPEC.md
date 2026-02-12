@@ -616,6 +616,22 @@ POST /api/v1/pipeline/rescrape-jp     # Rescrape JP tournaments
 POST /api/v1/pipeline/cleanup-exports # Cleanup expired export files
 ```
 
+### 8.3 Freshness Semantics (Cadence-Based)
+
+Core intelligence responses include a `freshness` object with:
+
+- `status`: `fresh | stale | partial | no_data`
+- `cadence_profile`: `jp_daily_cadence | grassroots_daily_cadence | tpci_event_cadence | default_cadence`
+- `snapshot_date`, `sample_size`, `staleness_days`, optional `source_coverage`, optional `message`
+
+Cadence rules:
+
+- `tpci_event_cadence` evaluates against major-event timing in UTC.
+  - Target operational window: updated by Tuesday UTC after major-event weekend.
+  - Completeness thresholds: `partial >= 8`, `fresh >= 64` placements.
+- `jp_daily_cadence` and `grassroots_daily_cadence` use tighter daily staleness windows.
+- `default_cadence` is a safety fallback when context-specific cadence is unavailable.
+
 ---
 
 ## 9. Database Schema

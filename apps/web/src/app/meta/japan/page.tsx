@@ -2,16 +2,8 @@
 
 import { Suspense, useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  subDays,
-  endOfDay,
-  startOfDay,
-  format,
-  differenceInHours,
-} from "date-fns";
+import { subDays, endOfDay, startOfDay, format } from "date-fns";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-
-import { Clock } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -22,6 +14,7 @@ import {
   TournamentTypeFilter,
   TournamentTrackNav,
   BO1ContextBanner,
+  DataFreshnessBanner,
   ChartErrorBoundary,
 } from "@/components/meta";
 import {
@@ -255,13 +248,6 @@ function JapanMetaPageContent() {
   const startDateStr = format(dateRange.start, "yyyy-MM-dd");
   const endDateStr = format(dateRange.end, "yyyy-MM-dd");
 
-  // Data freshness: check if latest snapshot is >48 hours old
-  const dataStaleHours = useMemo(() => {
-    if (!currentMeta?.snapshot_date) return null;
-    const snapshotDate = new Date(currentMeta.snapshot_date);
-    return differenceInHours(new Date(), snapshotDate);
-  }, [currentMeta?.snapshot_date]);
-
   return (
     <div className="space-y-8">
       {/* Rotation Briefing Header */}
@@ -292,18 +278,8 @@ function JapanMetaPageContent() {
         </div>
       </div>
 
-      {/* Data freshness warning */}
-      {dataStaleHours !== null && dataStaleHours > 48 && (
-        <div
-          className="flex items-center gap-2 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs text-orange-700 dark:text-orange-300"
-          data-testid="data-freshness-warning"
-        >
-          <Clock className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Data may be stale — last snapshot is{" "}
-            {Math.floor(dataStaleHours / 24)} days old
-          </span>
-        </div>
+      {currentMeta?.freshness && (
+        <DataFreshnessBanner freshness={currentMeta.freshness} />
       )}
 
       {/* BO1 Context Banner (dismissible) */}

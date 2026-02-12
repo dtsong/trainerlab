@@ -16,6 +16,7 @@ from src.db.database import get_db
 from src.dependencies.beta import require_beta
 from src.models import Card, Tournament, TournamentPlacement
 from src.schemas import BestOf, PaginatedResponse, TopPlacement, TournamentSummary
+from src.schemas.freshness import CadenceProfile
 from src.schemas.tournament import (
     ArchetypeMeta,
     DecklistCardResponse,
@@ -24,6 +25,7 @@ from src.schemas.tournament import (
     TournamentDetailResponse,
     TournamentTier,
 )
+from src.services.freshness import build_data_freshness
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,20 @@ SORTABLE_COLUMNS: dict[str, MappedColumn] = {  # type: ignore[type-arg]
     "tier": Tournament.tier,
     "participants": Tournament.participant_count,
 }
+
+
+def _tournament_cadence_profile(
+    region: str | None,
+    best_of: BestOf | None,
+    tier: TournamentTier | None,
+) -> CadenceProfile:
+    if tier in {"major", "worlds", "international", "regional", "special"}:
+        return "tpci_event_cadence"
+    if tier == "grassroots":
+        return "grassroots_daily_cadence"
+    if region == "JP" or best_of == BestOf.BO1:
+        return "jp_daily_cadence"
+    return "default_cadence"
 
 
 @router.get("")
@@ -99,35 +115,43 @@ async def list_tournaments(
         end_date = date.today()
         start_date = end_date - timedelta(days=90)
 
-    # Build base query
-    query = select(Tournament).options(selectinload(Tournament.placements))
+    def _apply_filters(base_query):
+        filtered = base_query
+        if region:
+            filtered = filtered.where(Tournament.region == region)
+        if format:
+            filtered = filtered.where(Tournament.format == format)
+        if start_date:
+            filtered = filtered.where(Tournament.date >= start_date)
+        if end_date:
+            filtered = filtered.where(Tournament.date <= end_date)
+        if best_of:
+            filtered = filtered.where(Tournament.best_of == best_of)
+        if tier:
+            if tier == "grassroots":
+                filtered = filtered.where(
+                    (Tournament.tier != "major") | (Tournament.tier.is_(None))
+                )
+            else:
+                filtered = filtered.where(Tournament.tier == tier)
+        return filtered
 
-    if region:
-        query = query.where(Tournament.region == region)
-    if format:
-        query = query.where(Tournament.format == format)
-    if start_date:
-        query = query.where(Tournament.date >= start_date)
-    if end_date:
-        query = query.where(Tournament.date <= end_date)
-    if best_of:
-        query = query.where(Tournament.best_of == best_of)
-    if tier:
-        if tier == "grassroots":
-            query = query.where(
-                (Tournament.tier != "major") | (Tournament.tier.is_(None))
-            )
-        else:
-            query = query.where(Tournament.tier == tier)
+    # Build base query
+    query = _apply_filters(
+        select(Tournament).options(selectinload(Tournament.placements))
+    )
 
     # Get total count
     count_query = select(func.count()).select_from(
         query.with_only_columns(Tournament.id).subquery()
     )
+    freshness_query = _apply_filters(select(func.max(Tournament.date)))
 
     try:
         total_result = await db.execute(count_query)
         total = total_result.scalar() or 0
+        freshness_result = await db.execute(freshness_query)
+        latest_tournament_date = freshness_result.scalar_one_or_none()
     except SQLAlchemyError:
         logger.error(
             "Database error counting tournaments: region=%s, format=%s, "
@@ -219,6 +243,12 @@ async def list_tournaments(
         limit=limit,
         has_next=offset + len(items) < total,
         has_prev=page > 1,
+        freshness=build_data_freshness(
+            cadence_profile=_tournament_cadence_profile(region, best_of, tier),
+            snapshot_date=latest_tournament_date,
+            sample_size=total,
+            latest_tpci_event_end_date=latest_tournament_date,
+        ),
     )
 
 

@@ -11,6 +11,7 @@ export { BuildItBanner } from "./BuildItBanner";
 export { ChartErrorBoundary } from "./ChartErrorBoundary";
 export { ChartSkeleton } from "./ChartSkeleton";
 export { DateRangePicker } from "./DateRangePicker";
+export { DataFreshnessBanner } from "./DataFreshnessBanner";
 export { FilterBar } from "./FilterBar";
 export type { Format, Region, Period, FilterBarProps } from "./FilterBar";
 export { HealthIndicators } from "./HealthIndicators";

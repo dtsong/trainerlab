@@ -27,6 +27,9 @@ vi.mock("@/components/meta", () => ({
   TournamentTypeFilter: () => <div data-testid="tournament-type-filter" />,
   TournamentTrackNav: () => <div data-testid="tournament-track-nav" />,
   BO1ContextBanner: () => <div data-testid="bo1-context-banner" />,
+  DataFreshnessBanner: ({ freshness }: { freshness: { status: string } }) => (
+    <div data-testid="data-freshness-banner" data-status={freshness.status} />
+  ),
   ChartErrorBoundary: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -138,6 +141,14 @@ const mockSnapshot: ApiMetaSnapshot = {
   ],
   card_usage: [],
   sample_size: 250,
+  freshness: {
+    status: "fresh",
+    cadence_profile: "jp_daily_cadence",
+    snapshot_date: "2026-02-05",
+    sample_size: 250,
+    staleness_days: 1,
+    message: "Data snapshot is current.",
+  },
 };
 
 const mockArchetypeDetail: ApiArchetypeDetailResponse = {
@@ -183,6 +194,16 @@ describe("JapanMetaPage", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("bo1-context-banner")).toBeInTheDocument();
+    });
+  });
+
+  it("should render shared freshness banner", async () => {
+    vi.mocked(metaApi.getCurrent).mockResolvedValue(mockSnapshot);
+
+    render(<JapanMetaPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("data-freshness-banner")).toBeInTheDocument();
     });
   });
 
@@ -332,28 +353,45 @@ describe("JapanMetaPage", () => {
     });
   });
 
-  it("should show data freshness warning when data is stale (>48h)", async () => {
+  it("should show stale freshness banner when data is stale", async () => {
     const staleSnapshot: ApiMetaSnapshot = {
       ...mockSnapshot,
-      // Set snapshot_date to 4 days ago
       snapshot_date: "2026-02-01",
+      freshness: {
+        status: "stale",
+        cadence_profile: "jp_daily_cadence",
+        snapshot_date: "2026-02-01",
+        sample_size: 250,
+        staleness_days: 5,
+        message: "Data may be stale for this cadence.",
+      },
     };
     vi.mocked(metaApi.getCurrent).mockResolvedValue(staleSnapshot);
 
     render(<JapanMetaPage />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByTestId("data-freshness-warning")).toBeInTheDocument();
+      expect(screen.getByTestId("data-freshness-banner")).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Data may be stale/)).toBeInTheDocument();
+    expect(screen.getByTestId("data-freshness-banner")).toHaveAttribute(
+      "data-status",
+      "stale"
+    );
   });
 
-  it("should not show data freshness warning when data is fresh", async () => {
+  it("should show fresh freshness banner when data is fresh", async () => {
     const freshSnapshot: ApiMetaSnapshot = {
       ...mockSnapshot,
-      // Use today's date so it's definitely < 48h old
       snapshot_date: new Date().toISOString().split("T")[0],
+      freshness: {
+        status: "fresh",
+        cadence_profile: "jp_daily_cadence",
+        snapshot_date: new Date().toISOString().split("T")[0],
+        sample_size: 250,
+        staleness_days: 0,
+        message: "Data snapshot is current.",
+      },
     };
     vi.mocked(metaApi.getCurrent).mockResolvedValue(freshSnapshot);
 
@@ -364,8 +402,9 @@ describe("JapanMetaPage", () => {
       expect(screen.getByTestId("confidence-badge")).toBeInTheDocument();
     });
 
-    expect(
-      screen.queryByTestId("data-freshness-warning")
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("data-freshness-banner")).toHaveAttribute(
+      "data-status",
+      "fresh"
+    );
   });
 });

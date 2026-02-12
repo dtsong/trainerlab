@@ -1,5 +1,7 @@
 // Meta dashboard types (matching backend schemas)
 
+import type { ApiDataFreshness } from "./freshness";
+
 export interface ApiArchetype {
   name: string;
   share: number;
@@ -27,6 +29,7 @@ export interface ApiMetaSnapshot {
   card_usage: ApiCardUsageSummary[];
   sample_size: number;
   tournaments_included?: string[] | null;
+  freshness?: ApiDataFreshness | null;
 }
 
 export interface ApiMetaHistoryResponse {

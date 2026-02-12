@@ -24,11 +24,16 @@ class TestListTournaments:
     def client(self, mock_db: AsyncMock) -> TestClient:
         """Create test client with mocked database."""
         from src.db.database import get_db
+        from src.dependencies.beta import require_beta
 
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -61,6 +66,13 @@ class TestListTournaments:
 
         return tournament
 
+    @staticmethod
+    def _freshness_result(latest_date: date | None) -> MagicMock:
+        """Create mock result for max tournament date freshness query."""
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = latest_date
+        return result
+
     def test_list_tournaments_success(
         self, client: TestClient, mock_db: AsyncMock, sample_tournament: MagicMock
     ) -> None:
@@ -75,7 +87,11 @@ class TestListTournaments:
             sample_tournament
         ]
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(sample_tournament.date),
+            mock_result,
+        ]
 
         response = client.get("/api/v1/tournaments")
 
@@ -87,6 +103,8 @@ class TestListTournaments:
         assert data["items"][0]["name"] == "Test Regional"
         assert data["items"][0]["region"] == "NA"
         assert len(data["items"][0]["top_placements"]) == 2
+        assert data["freshness"]["cadence_profile"] == "default_cadence"
+        assert data["freshness"]["snapshot_date"] == "2024-01-15"
 
     def test_list_tournaments_empty(
         self, client: TestClient, mock_db: AsyncMock
@@ -98,7 +116,11 @@ class TestListTournaments:
         mock_result = MagicMock()
         mock_result.scalars.return_value.unique.return_value.all.return_value = []
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(None),
+            mock_result,
+        ]
 
         response = client.get("/api/v1/tournaments")
 
@@ -106,6 +128,7 @@ class TestListTournaments:
         data = response.json()
         assert data["total"] == 0
         assert data["items"] == []
+        assert data["freshness"]["status"] == "no_data"
 
     def test_list_tournaments_with_region_filter(
         self, client: TestClient, mock_db: AsyncMock, sample_tournament: MagicMock
@@ -119,7 +142,11 @@ class TestListTournaments:
             sample_tournament
         ]
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(sample_tournament.date),
+            mock_result,
+        ]
 
         response = client.get("/api/v1/tournaments?region=NA")
 
@@ -139,7 +166,11 @@ class TestListTournaments:
             sample_tournament
         ]
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(sample_tournament.date),
+            mock_result,
+        ]
 
         response = client.get("/api/v1/tournaments?format=standard")
 
@@ -159,7 +190,11 @@ class TestListTournaments:
             sample_tournament
         ]
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(sample_tournament.date),
+            mock_result,
+        ]
 
         response = client.get(
             "/api/v1/tournaments?start_date=2024-01-01&end_date=2024-01-31"
@@ -180,13 +215,41 @@ class TestListTournaments:
             sample_tournament
         ]
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(sample_tournament.date),
+            mock_result,
+        ]
 
         response = client.get("/api/v1/tournaments?best_of=1")
 
         assert response.status_code == 200
         data = response.json()
         assert data["items"][0]["best_of"] == 1
+
+    def test_list_tournaments_major_tier_uses_tpci_cadence(
+        self, client: TestClient, mock_db: AsyncMock, sample_tournament: MagicMock
+    ) -> None:
+        """Major-tier filter should evaluate freshness with TPCI cadence."""
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 1
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.unique.return_value.all.return_value = [
+            sample_tournament
+        ]
+
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(sample_tournament.date),
+            mock_result,
+        ]
+
+        response = client.get("/api/v1/tournaments?tier=major")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["freshness"]["cadence_profile"] == "tpci_event_cadence"
 
     def test_list_tournaments_pagination(
         self, client: TestClient, mock_db: AsyncMock, sample_tournament: MagicMock
@@ -200,7 +263,11 @@ class TestListTournaments:
             sample_tournament
         ]
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(sample_tournament.date),
+            mock_result,
+        ]
 
         response = client.get("/api/v1/tournaments?page=2&limit=10")
 
@@ -246,7 +313,11 @@ class TestListTournaments:
             tournament
         ]
 
-        mock_db.execute.side_effect = [mock_count_result, mock_result]
+        mock_db.execute.side_effect = [
+            mock_count_result,
+            self._freshness_result(tournament.date),
+            mock_result,
+        ]
 
         response = client.get("/api/v1/tournaments")
 
@@ -309,11 +380,16 @@ class TestGetPlacementDecklist:
     def client(self, mock_db: AsyncMock) -> TestClient:
         """Create test client with mocked database."""
         from src.db.database import get_db
+        from src.dependencies.beta import require_beta
 
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -529,11 +605,16 @@ class TestGetTournament:
     def client(self, mock_db: AsyncMock) -> TestClient:
         """Create test client with mocked database."""
         from src.db.database import get_db
+        from src.dependencies.beta import require_beta
 
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 

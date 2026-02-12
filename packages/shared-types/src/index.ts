@@ -11,6 +11,7 @@ export * from "./evolution";
 export * from "./translation";
 export * from "./creator";
 export * from "./event";
+export * from "./freshness";
 
 // Frontend types (camelCase, for deck builder etc.)
 // These match the original shared-types naming conventions

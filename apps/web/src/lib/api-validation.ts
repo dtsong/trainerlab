@@ -7,6 +7,21 @@
 
 import { z } from "zod";
 
+export const DataFreshnessSchema = z.object({
+  status: z.enum(["fresh", "stale", "partial", "no_data"]),
+  cadence_profile: z.enum([
+    "jp_daily_cadence",
+    "grassroots_daily_cadence",
+    "tpci_event_cadence",
+    "default_cadence",
+  ]),
+  snapshot_date: z.string().nullable().optional(),
+  sample_size: z.number().nullable().optional(),
+  staleness_days: z.number().nullable().optional(),
+  source_coverage: z.array(z.string()).nullable().optional(),
+  message: z.string().nullable().optional(),
+});
+
 export const PaginationFieldsSchema = z.object({
   total: z.number(),
   page: z.number(),
@@ -15,6 +30,7 @@ export const PaginationFieldsSchema = z.object({
   has_prev: z.boolean(),
   total_pages: z.number(),
   next_cursor: z.string().nullable().optional(),
+  freshness: DataFreshnessSchema.nullable().optional(),
 });
 
 export const CardSummarySchema = z.object({
@@ -78,6 +94,7 @@ export const MetaSnapshotSchema = z.object({
   tier_assignments: z.record(z.string(), z.string()).nullable().optional(),
   jp_signals: JPSignalsSchema.nullable().optional(),
   trends: z.record(z.string(), TrendInfoSchema).nullable().optional(),
+  freshness: DataFreshnessSchema.nullable().optional(),
 });
 
 export const MetaHistoryResponseSchema = z.object({

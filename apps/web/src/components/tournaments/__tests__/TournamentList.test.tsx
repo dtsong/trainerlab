@@ -65,6 +65,14 @@ const mockData: ApiTournamentListResponse = {
   limit: 20,
   has_next: false,
   has_prev: false,
+  freshness: {
+    status: "fresh",
+    cadence_profile: "default_cadence",
+    snapshot_date: "2026-02-03",
+    sample_size: 2,
+    staleness_days: 1,
+    message: "Data snapshot is current.",
+  },
 };
 
 describe("TournamentList", () => {
@@ -174,6 +182,7 @@ describe("TournamentList", () => {
 
     expect(screen.getByText("Charlotte Regional")).toBeInTheDocument();
     expect(screen.getByText("Stuttgart Regional")).toBeInTheDocument();
+    expect(screen.getByTestId("data-freshness-banner")).toBeInTheDocument();
   });
 
   it("should hide pagination when single page", () => {

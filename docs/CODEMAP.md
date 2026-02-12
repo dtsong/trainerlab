@@ -119,6 +119,11 @@ apps/api/src/
 | `translations.py` | `/api/v1`             | GET /japan/adoption-rates, /upcoming-cards, admin translation CRUD                      |
 | `widgets.py`      | `/api/v1/widgets`     | POST /, GET /, GET /{id}, GET /{id}/data, PATCH /{id}, DELETE /{id}                     |
 
+Core freshness support:
+
+- `src/schemas/freshness.py` defines shared response freshness payload.
+- `src/services/freshness.py` computes cadence-aware freshness status.
+
 ### Schemas (`schemas/`)
 
 | Schema          | File                  | Purpose                                   |
@@ -142,6 +147,7 @@ apps/api/src/
 | Placeholder     | `placeholder.py`      | Placeholder card CRUD schemas             |
 | Translation     | `translation.py`      | Translation request/response schemas      |
 | Widget          | `widget.py`           | Widget create/update/data schemas         |
+| Freshness       | `freshness.py`        | Cadence-aware freshness metadata schema   |
 | Public          | `public/`             | Public API response schemas (subpackage)  |
 
 ### Services (`services/`)

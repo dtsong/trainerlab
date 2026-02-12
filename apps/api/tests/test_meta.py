@@ -24,11 +24,16 @@ class TestMetaEndpoints:
     def client(self, mock_db: AsyncMock) -> TestClient:
         """Create test client with mocked database."""
         from src.db.database import get_db
+        from src.dependencies.beta import require_beta
 
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -82,6 +87,8 @@ class TestGetCurrentMeta(TestMetaEndpoints):
         assert data["sample_size"] == 100
         assert len(data["archetype_breakdown"]) == 3
         assert len(data["card_usage"]) == 2
+        assert data["freshness"]["cadence_profile"] == "default_cadence"
+        assert "status" in data["freshness"]
 
     def test_get_current_meta_not_found(
         self, client: TestClient, mock_db: AsyncMock
@@ -191,6 +198,7 @@ class TestGetMetaHistory(TestMetaEndpoints):
         assert len(data["snapshots"]) == 2
         assert data["snapshots"][0]["snapshot_date"] == "2024-01-15"
         assert data["snapshots"][1]["snapshot_date"] == "2024-01-08"
+        assert data["snapshots"][0]["freshness"]["cadence_profile"] == "default_cadence"
 
     def test_get_meta_history_empty(
         self, client: TestClient, mock_db: AsyncMock

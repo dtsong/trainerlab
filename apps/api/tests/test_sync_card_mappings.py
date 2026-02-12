@@ -64,6 +64,7 @@ class TestSyncMappingsResult:
         assert result.mappings_found == 0
         assert result.mappings_inserted == 0
         assert result.mappings_updated == 0
+        assert result.adoption_rows_backfilled == 0
         assert result.errors == []
 
 

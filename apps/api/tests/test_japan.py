@@ -13,7 +13,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.db.database import get_db
 from src.main import app
 from src.models import JPCardInnovation, JPNewArchetype, JPSetImpact, Prediction
-from src.models.tournament_placement import TournamentPlacement
 
 
 class TestListCardInnovations:
@@ -364,11 +363,8 @@ class TestCardCountEvolution:
         decklist: list[dict],
         tournament_id: str | None = None,
     ) -> tuple:
-        """Create a mock (TournamentPlacement, date) row."""
-        placement = MagicMock(spec=TournamentPlacement)
-        placement.tournament_id = tournament_id or str(uuid4())
-        placement.decklist = decklist
-        return (placement, tournament_date)
+        """Create a mock row for aggregate query."""
+        return (tournament_id or str(uuid4()), decklist, tournament_date)
 
     def test_card_count_evolution_success(
         self, client: TestClient, mock_db: AsyncMock

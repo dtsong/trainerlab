@@ -88,6 +88,36 @@ Deep data quality verification across all API endpoints. Validates response shap
 
 **Prerequisites:** gcloud CLI (or `--local` for dev), jq
 
+### benchmark-card-count-evolution.sh
+
+Benchmarks latency for the JP card-count evolution aggregate endpoint.
+
+```bash
+./scripts/local/benchmark-card-count-evolution.sh
+```
+
+| Env var      | Description                                             |
+| ------------ | ------------------------------------------------------- |
+| `AUTH_TOKEN` | **Required** bearer token for beta-protected API        |
+| `BASE_URL`   | API base URL (default `http://localhost:8000`)          |
+| `ARCHETYPE`  | Archetype filter (default `Charizard ex`)               |
+| `DAYS`       | Lookback window (default `90`)                          |
+| `TOP_CARDS`  | Top cards requested (default `20`)                      |
+| `RUNS`       | Number of benchmark requests for p50/p95 (default `50`) |
+
+**Output:** p50/p95/min/max response times in milliseconds.
+
+### explain-card-count-evolution.sql
+
+Captures query plan for the aggregate query used by `/api/v1/japan/card-count-evolution`.
+
+```bash
+psql "$DATABASE_URL" -f scripts/local/explain-card-count-evolution.sql
+```
+
+Use with `EXPLAIN (ANALYZE, BUFFERS)` output to verify index usage and compare
+plan cost before/after index changes.
+
 ## Python Scripts (`apps/api/scripts/`)
 
 ### seed-tournaments.py

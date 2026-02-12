@@ -78,6 +78,7 @@ class TestSyncCardMappingsEndpoint:
             mappings_found=200,
             mappings_inserted=50,
             mappings_updated=10,
+            adoption_rows_backfilled=7,
             errors=[],
         )
 
@@ -97,6 +98,7 @@ class TestSyncCardMappingsEndpoint:
             assert data["mappings_found"] == 200
             assert data["mappings_inserted"] == 50
             assert data["mappings_updated"] == 10
+            assert data["adoption_rows_backfilled"] == 7
             assert data["success"] is True
             mock_sync.assert_called_once_with(lookback_sets=3, dry_run=False)
 
@@ -368,6 +370,14 @@ class TestSyncJPAdoptionEndpoint:
             rates_created=80,
             rates_updated=15,
             rates_skipped=5,
+            rates_backfilled=12,
+            mapping_resolved=90,
+            mapping_unresolved=10,
+            mapping_coverage=0.9,
+            mapped_by_method={"card_name_en": 85, "generated_hash": 10},
+            unmapped_by_source={"https://pokecabook.com/adoption/": 10},
+            unmapped_by_set={"unknown": 10},
+            unmapped_card_samples=["未知カード"],
             errors=[],
         )
 
@@ -387,6 +397,11 @@ class TestSyncJPAdoptionEndpoint:
             assert data["rates_created"] == 80
             assert data["rates_updated"] == 15
             assert data["rates_skipped"] == 5
+            assert data["rates_backfilled"] == 12
+            assert data["mapping_coverage"] == 0.9
+            assert data["mapping_resolved"] == 90
+            assert data["mapping_unresolved"] == 10
+            assert data["mapped_by_method"]["card_name_en"] == 85
             assert data["success"] is True
 
     def test_sync_jp_adoption_dry_run(self, client: TestClient) -> None:

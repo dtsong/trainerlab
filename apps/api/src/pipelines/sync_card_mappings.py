@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.clients.limitless import LimitlessClient, LimitlessError
 from src.db.database import async_session_factory
 from src.models import CardIdMapping
+from src.pipelines.sync_jp_adoption_rates import backfill_adoption_card_ids
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class SyncMappingsResult:
     mappings_found: int = 0
     mappings_inserted: int = 0
     mappings_updated: int = 0
+    adoption_rows_backfilled: int = 0
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -149,12 +151,26 @@ async def sync_all_card_mappings(
                     result.errors.append(error_msg)
                     continue
 
+            try:
+                result.adoption_rows_backfilled = await backfill_adoption_card_ids(
+                    session
+                )
+                if result.adoption_rows_backfilled > 0:
+                    await session.commit()
+            except Exception as e:  # pragma: no cover - defensive logging path
+                logger.warning(
+                    "Error backfilling adoption mappings (non-fatal): %s",
+                    e,
+                )
+
     logger.info(
-        "Card mapping sync complete: sets=%d, found=%d, inserted=%d, updated=%d",
+        "Card mapping sync complete: sets=%d, found=%d, inserted=%d, "
+        "updated=%d, adoption_backfilled=%d",
         result.sets_processed,
         result.mappings_found,
         result.mappings_inserted,
         result.mappings_updated,
+        result.adoption_rows_backfilled,
     )
     if result.errors:
         logger.info("Errors: %d", len(result.errors))

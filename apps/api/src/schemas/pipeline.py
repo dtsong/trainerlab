@@ -207,6 +207,32 @@ class SyncJPAdoptionResult(BaseModel):
     rates_created: int = Field(ge=0, description="New rates created")
     rates_updated: int = Field(ge=0, description="Existing rates updated")
     rates_skipped: int = Field(ge=0, description="Rates skipped")
+    rates_backfilled: int = Field(
+        ge=0, description="Previously unresolved rates backfilled"
+    )
+    mapping_resolved: int = Field(ge=0, description="Rates resolved to canonical IDs")
+    mapping_unresolved: int = Field(ge=0, description="Rates still unresolved")
+    mapping_coverage: float = Field(
+        ge=0,
+        le=1,
+        description="Resolved mapping coverage ratio",
+    )
+    mapped_by_method: dict[str, int] = Field(
+        default_factory=dict,
+        description="Mapping method counts",
+    )
+    unmapped_by_source: dict[str, int] = Field(
+        default_factory=dict,
+        description="Unmapped entry counts by source",
+    )
+    unmapped_by_set: dict[str, int] = Field(
+        default_factory=dict,
+        description="Unmapped entry counts by set identifier",
+    )
+    unmapped_card_samples: list[str] = Field(
+        default_factory=list,
+        description="Sample unmapped card names for triage",
+    )
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether pipeline completed without errors")
 
@@ -266,6 +292,10 @@ class SyncCardMappingsResult(BaseModel):
     mappings_found: int = Field(ge=0, description="Total mappings found")
     mappings_inserted: int = Field(ge=0, description="New mappings inserted")
     mappings_updated: int = Field(ge=0, description="Existing mappings updated")
+    adoption_rows_backfilled: int = Field(
+        ge=0,
+        description="Historical JP adoption rows reconciled after mapping sync",
+    )
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether pipeline completed without errors")
 

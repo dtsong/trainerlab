@@ -207,7 +207,7 @@ class TestSyncAdoptionRatesLive:
                     inclusion_rate=0.5,
                 ),
                 PokecabookAdoptionEntry(
-                    card_name_jp=None,
+                    card_name_jp="",
                     inclusion_rate=0.5,
                 ),
             ],
@@ -332,14 +332,21 @@ class TestSyncAdoptionRatesErrors:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        # First entry fails, rest succeed
+        # First DB write path fails, subsequent calls succeed.
         mock_no_existing = MagicMock()
         mock_no_existing.scalar_one_or_none.return_value = None
-        mock_session.execute.side_effect = [
-            SQLAlchemyError("DB error"),
-            mock_no_existing,
-            mock_no_existing,
-        ]
+        mock_no_existing.first.return_value = None
+        mock_no_existing.scalars.return_value.all.return_value = []
+
+        call_count = {"n": 0}
+
+        async def execute_side_effect(*_args, **_kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise SQLAlchemyError("DB error")
+            return mock_no_existing
+
+        mock_session.execute.side_effect = execute_side_effect
 
         with (
             patch(
@@ -359,6 +366,58 @@ class TestSyncAdoptionRatesErrors:
         # Other two should still be processed
         assert result.rates_created == 2
         mock_session.commit.assert_called_once()
+
+
+class TestSyncAdoptionRatesMappingMetrics:
+    """Tests for mapping coverage diagnostics."""
+
+    @pytest.mark.asyncio
+    async def test_tracks_unresolved_mapping_coverage(self):
+        adoption_data = PokecabookAdoptionRates(
+            date=date.today(),
+            entries=[
+                PokecabookAdoptionEntry(
+                    card_name_jp="未知カード",
+                    card_name_en="Unknown Card",
+                    inclusion_rate=0.33,
+                    avg_copies=1.0,
+                )
+            ],
+            source_url="https://pokecabook.com/adoption/",
+        )
+
+        mock_client = AsyncMock(spec=PokecabookClient)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.fetch_adoption_rates.return_value = adoption_data
+
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        empty_result = MagicMock()
+        empty_result.first.return_value = None
+        empty_result.scalar_one_or_none.return_value = None
+        empty_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = empty_result
+
+        with (
+            patch(
+                "src.pipelines.sync_jp_adoption_rates.PokecabookClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "src.pipelines.sync_jp_adoption_rates.async_session_factory",
+                return_value=mock_session,
+            ),
+        ):
+            result = await sync_adoption_rates(dry_run=False)
+
+        assert result.mapping_unresolved == 1
+        assert result.mapping_resolved == 0
+        assert result.mapping_coverage == 0.0
+        assert result.unmapped_by_source["https://pokecabook.com/adoption/"] == 1
+        assert "未知カード" in result.unmapped_card_samples
 
 
 class TestGenerateCardId:

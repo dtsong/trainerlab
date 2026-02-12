@@ -477,7 +477,11 @@ async def get_card_count_evolution(
 
     # Fetch JP placements for this archetype with their tournament dates
     query = (
-        select(TournamentPlacement, Tournament.date)
+        select(
+            TournamentPlacement.tournament_id,
+            TournamentPlacement.decklist,
+            Tournament.date,
+        )
         .join(Tournament, TournamentPlacement.tournament_id == Tournament.id)
         .where(
             TournamentPlacement.archetype == archetype,
@@ -510,31 +514,35 @@ async def get_card_count_evolution(
             tournaments_analyzed=0,
         )
 
-    # Group placements into weekly buckets and track card counts
-    # week_key -> card_id -> list of quantities (0 if not included)
-    week_card_counts: dict[date, dict[str, list[int]]] = defaultdict(
-        lambda: defaultdict(list)
+    # Group placements into weekly buckets and track aggregate card counts.
+    # This avoids per-deck O(all_cards_seen_so_far) expansion and scales
+    # better as unique card counts grow.
+    week_card_totals: dict[date, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    week_card_included: dict[date, dict[str, int]] = defaultdict(
+        lambda: defaultdict(int)
     )
+    week_total_decks: dict[date, int] = defaultdict(int)
     tournament_ids: set[str] = set()
     all_card_ids: set[str] = set()
 
-    for placement, tournament_date in rows:
-        tournament_ids.add(str(placement.tournament_id))
+    for tournament_id, decklist, tournament_date in rows:
+        tournament_ids.add(str(tournament_id))
         # Bucket by ISO week start (Monday)
         week_start = tournament_date - timedelta(days=tournament_date.weekday())
+        week_total_decks[week_start] += 1
 
         # Build card quantity map for this decklist
         deck_cards: dict[str, int] = {}
-        for entry in placement.decklist or []:
+        for entry in decklist or []:
             if isinstance(entry, dict) and "card_id" in entry:
                 card_id = entry["card_id"]
                 quantity = int(entry.get("quantity", 1))
                 deck_cards[card_id] = deck_cards.get(card_id, 0) + quantity
                 all_card_ids.add(card_id)
 
-        # Record counts for all cards seen so far
-        for card_id in all_card_ids:
-            week_card_counts[week_start][card_id].append(deck_cards.get(card_id, 0))
+        for card_id, quantity in deck_cards.items():
+            week_card_totals[week_start][card_id] += quantity
+            week_card_included[week_start][card_id] += 1
 
     # Resolve card names
     card_names: dict[str, str] = {}
@@ -550,14 +558,21 @@ async def get_card_count_evolution(
             logger.warning("Could not resolve card names", exc_info=True)
 
     # Compute per-card evolution data
-    sorted_weeks = sorted(week_card_counts.keys())
+    sorted_weeks = sorted(week_total_decks.keys())
     card_evolutions: dict[str, list[CardCountDataPoint]] = defaultdict(list)
 
     for week in sorted_weeks:
-        for card_id, counts in week_card_counts[week].items():
-            total_decks = len(counts)
-            included = sum(1 for c in counts if c > 0)
-            avg_copies = sum(counts) / total_decks if total_decks > 0 else 0.0
+        total_decks = week_total_decks[week]
+        if total_decks <= 0:
+            continue
+
+        totals_for_week = week_card_totals.get(week, {})
+        included_for_week = week_card_included.get(week, {})
+
+        for card_id in all_card_ids:
+            total_qty = totals_for_week.get(card_id, 0)
+            included = included_for_week.get(card_id, 0)
+            avg_copies = total_qty / total_decks
 
             card_evolutions[card_id].append(
                 CardCountDataPoint(

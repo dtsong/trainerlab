@@ -437,6 +437,7 @@ def _convert_sync_mappings_result(
         mappings_found=internal.mappings_found,
         mappings_inserted=internal.mappings_inserted,
         mappings_updated=internal.mappings_updated,
+        adoption_rows_backfilled=internal.adoption_rows_backfilled,
         errors=internal.errors,
         success=internal.success,
     )
@@ -468,11 +469,13 @@ async def sync_card_mappings_endpoint(
         result = await sync_all_card_mappings(dry_run=request.dry_run)
 
     logger.info(
-        "Card mapping sync complete: sets=%d, found=%d, inserted=%d, updated=%d",
+        "Card mapping sync complete: sets=%d, found=%d, inserted=%d, "
+        "updated=%d, adoption_backfilled=%d",
         result.sets_processed,
         result.mappings_found,
         result.mappings_inserted,
         result.mappings_updated,
+        result.adoption_rows_backfilled,
     )
 
     return _convert_sync_mappings_result(result)
@@ -550,6 +553,14 @@ def _convert_sync_jp_adoption_result(
         rates_created=internal.rates_created,
         rates_updated=internal.rates_updated,
         rates_skipped=internal.rates_skipped,
+        rates_backfilled=internal.rates_backfilled,
+        mapping_resolved=internal.mapping_resolved,
+        mapping_unresolved=internal.mapping_unresolved,
+        mapping_coverage=internal.mapping_coverage,
+        mapped_by_method=internal.mapped_by_method,
+        unmapped_by_source=internal.unmapped_by_source,
+        unmapped_by_set=internal.unmapped_by_set,
+        unmapped_card_samples=internal.unmapped_card_samples,
         errors=internal.errors,
         success=internal.success,
     )

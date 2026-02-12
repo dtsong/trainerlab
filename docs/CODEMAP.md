@@ -97,27 +97,27 @@ apps/api/src/
 
 ### API Routers (`routers/`)
 
-| Router            | Prefix                | Key Endpoints                                                             |
-| ----------------- | --------------------- | ------------------------------------------------------------------------- |
-| `health.py`       | `/api/v1/health`      | Health check                                                              |
-| `cards.py`        | `/api/v1/cards`       | GET /, GET /{id}, Search with embeddings                                  |
-| `sets.py`         | `/api/v1/sets`        | GET /, GET /{id}                                                          |
-| `decks.py`        | `/api/v1/decks`       | CRUD operations, export/import                                            |
-| `meta.py`         | `/api/v1/meta`        | GET /current, /history, /archetypes, /compare, /forecast                  |
-| `tournaments.py`  | `/api/v1/tournaments` | GET /, GET /{id}, Filter + paginate                                       |
-| `japan.py`        | `/api/v1/japan`       | JP-specific endpoints (innovation, archetypes, sets, predictions)         |
-| `lab_notes.py`    | `/api/v1/lab-notes`   | GET /, GET /{slug}                                                        |
-| `waitlist.py`     | `/api/v1/waitlist`    | POST /                                                                    |
-| `format.py`       | `/api/v1`             | GET /current, GET /rotations, GET /rotation-impact                        |
-| `users.py`        | `/api/v1/users`       | GET /me, PUT /me                                                          |
-| `pipeline.py`     | `/api/v1/pipeline`    | POST /discover-_, /process-tournament, /compute-_, /sync-_, /translate-_  |
-| `admin.py`        | `/api/v1/admin`       | Placeholder card and archetype sprite CRUD                                |
-| `api_keys.py`     | `/api/v1/api-keys`    | POST /, GET /, GET /{id}, DELETE /{id}                                    |
-| `evolution.py`    | `/api/v1`             | GET /archetypes/{id}/evolution, /prediction, GET /evolution, /accuracy    |
-| `exports.py`      | `/api/v1/exports`     | POST /, GET /, GET /{id}, GET /{id}/download                              |
-| `public_api.py`   | `/api/v1/public`      | GET /meta, /meta/history, /archetypes/{}, /tournaments, /japan/comparison |
-| `translations.py` | `/api/v1`             | GET /japan/adoption-rates, /upcoming-cards, admin translation CRUD        |
-| `widgets.py`      | `/api/v1/widgets`     | POST /, GET /, GET /{id}, GET /{id}/data, PATCH /{id}, DELETE /{id}       |
+| Router            | Prefix                | Key Endpoints                                                                           |
+| ----------------- | --------------------- | --------------------------------------------------------------------------------------- |
+| `health.py`       | `/api/v1/health`      | Health check                                                                            |
+| `cards.py`        | `/api/v1/cards`       | GET /, GET /{id}, Search with embeddings                                                |
+| `sets.py`         | `/api/v1/sets`        | GET /, GET /{id}                                                                        |
+| `decks.py`        | `/api/v1/decks`       | CRUD operations, export/import                                                          |
+| `meta.py`         | `/api/v1/meta`        | GET /current, /history, /archetypes, /compare, /forecast                                |
+| `tournaments.py`  | `/api/v1/tournaments` | GET /, GET /{id}, Filter + paginate                                                     |
+| `japan.py`        | `/api/v1/japan`       | JP-specific endpoints (innovation, archetypes, sets, predictions)                       |
+| `lab_notes.py`    | `/api/v1/lab-notes`   | GET /, GET /{slug}                                                                      |
+| `waitlist.py`     | `/api/v1/waitlist`    | POST /                                                                                  |
+| `format.py`       | `/api/v1`             | GET /current, GET /rotations, GET /rotation-impact                                      |
+| `users.py`        | `/api/v1/users`       | GET /me, PUT /me                                                                        |
+| `pipeline.py`     | `/api/v1/pipeline`    | POST /discover-_, /process-tournament, /compute-_, /sync-_, /translate-_                |
+| `admin.py`        | `/api/v1/admin`       | Placeholder card and archetype sprite CRUD                                              |
+| `api_keys.py`     | `/api/v1/api-keys`    | POST /, GET /, GET /{id}, DELETE /{id}                                                  |
+| `evolution.py`    | `/api/v1`             | GET /archetypes/{id}/evolution, /prediction, GET /evolution, /accuracy                  |
+| `exports.py`      | `/api/v1/exports`     | POST /, GET /, GET /{id}, GET /{id}/download                                            |
+| `public_api.py`   | `/api/v1/public`      | GET /teaser/home, /meta, /meta/history, /archetypes/{}, /tournaments, /japan/comparison |
+| `translations.py` | `/api/v1`             | GET /japan/adoption-rates, /upcoming-cards, admin translation CRUD                      |
+| `widgets.py`      | `/api/v1/widgets`     | POST /, GET /, GET /{id}, GET /{id}/data, PATCH /{id}, DELETE /{id}                     |
 
 ### Schemas (`schemas/`)
 
@@ -176,17 +176,23 @@ apps/api/src/
 
 ### Pipelines (`pipelines/`)
 
-| Pipeline                    | Trigger               | Purpose                                              |
-| --------------------------- | --------------------- | ---------------------------------------------------- |
-| `scrape_limitless.py`       | Daily 6am/7am UTC     | Discover + process EN/JP tournaments from Limitless  |
-| `compute_meta.py`           | Daily 8am UTC         | Compute meta snapshots, JP signals, tiers            |
-| `sync_cards.py`             | Weekly Sunday 3am UTC | Sync cards from TCGdex                               |
-| `sync_card_mappings.py`     | Weekly Sunday 4am UTC | Sync JP↔EN card ID mappings                          |
-| `compute_evolution.py`      | Daily                 | AI-powered evolution analysis, predictions, articles |
-| `monitor_card_reveals.py`   | Periodic              | Monitor Limitless for new JP card reveals            |
-| `sync_jp_adoption_rates.py` | Periodic              | Sync JP card adoption rates from Pokecabook          |
-| `translate_pokecabook.py`   | Periodic              | Translate JP meta content from Pokecabook            |
-| `translate_tier_lists.py`   | Periodic              | Translate tier lists from Pokecabook and Pokekameshi |
+| Pipeline                     | Trigger             | Purpose                                              |
+| ---------------------------- | ------------------- | ---------------------------------------------------- |
+| `scrape_limitless.py`        | Daily 6am/7am UTC   | Discover + process EN/JP tournaments from Limitless  |
+| `compute_meta.py`            | Daily 8am UTC       | Compute meta snapshots, JP signals, tiers            |
+| `compute_evolution.py`       | Daily 9am UTC       | AI-powered evolution analysis, predictions, articles |
+| `compute_jp_intelligence.py` | On demand / chained | Derive JP innovations and new archetypes             |
+| `sync_cards.py`              | Weekly Sunday       | Sync EN+JP card data from TCGdex                     |
+| `sync_card_mappings.py`      | Weekly Sunday       | Sync JP↔EN card ID mappings                          |
+| `sync_events.py`             | Weekly              | Sync upcoming events from RK9 + Pokemon Events       |
+| `monitor_card_reveals.py`    | Every 6 hours       | Monitor Limitless for new JP card reveals            |
+| `sync_jp_adoption_rates.py`  | Tue/Thu/Sat         | Sync JP card adoption rates from Pokecabook          |
+| `translate_pokecabook.py`    | Mon/Wed/Fri         | Translate JP meta content from Pokecabook            |
+| `translate_tier_lists.py`    | Weekly Sunday       | Translate tier lists from Pokecabook and Pokekameshi |
+| `reprocess_archetypes.py`    | Monthly / manual    | Reprocess existing placement archetype labels        |
+| `prune_tournaments.py`       | Manual              | Delete tournaments before a cutoff date              |
+| `seed_data.py`               | Manual              | Seed format configs and archetype sprites            |
+| `wipe_data.py`               | Manual              | Truncate non-user data tables for reset/testing      |
 
 ### External Clients (`clients/`)
 

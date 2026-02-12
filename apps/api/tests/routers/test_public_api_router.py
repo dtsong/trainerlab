@@ -11,6 +11,7 @@ from src.models.meta_snapshot import MetaSnapshot
 from src.models.tournament import Tournament
 from src.routers.public_api import (
     get_archetype_detail,
+    get_home_teaser,
     get_jp_comparison,
     get_meta_history,
     get_meta_snapshot,
@@ -158,6 +159,75 @@ class TestGetMetaSnapshot:
         charizard = next(a for a in response.archetypes if a.name == "Charizard ex")
         assert charizard.tier == "S"
         assert charizard.trend == "up"
+
+
+class TestGetHomeTeaser:
+    """Tests for GET /api/v1/public/teaser/home."""
+
+    @pytest.mark.asyncio
+    async def test_uses_latest_eligible_delayed_snapshot(self, mock_session):
+        """Select latest delayed snapshot that meets teaser eligibility."""
+        too_small = MagicMock(spec=MetaSnapshot)
+        too_small.snapshot_date = date(2024, 1, 14)
+        too_small.sample_size = 10
+        too_small.archetype_shares = {"Deck A": 0.3}
+
+        eligible = MagicMock(spec=MetaSnapshot)
+        eligible.snapshot_date = date(2024, 1, 10)
+        eligible.sample_size = 120
+        eligible.archetype_shares = {
+            "Charizard ex": 0.123,
+            "Gardevoir ex": 0.091,
+        }
+
+        jp_snapshot = MagicMock(spec=MetaSnapshot)
+        jp_snapshot.snapshot_date = date(2024, 1, 9)
+        jp_snapshot.sample_size = 90
+        jp_snapshot.archetype_shares = {"Charizard ex": 0.166}
+
+        global_scalars = MagicMock()
+        global_scalars.all.return_value = [too_small, eligible]
+        global_result = MagicMock()
+        global_result.scalars.return_value = global_scalars
+
+        jp_result = MagicMock()
+        jp_result.scalar_one_or_none.return_value = jp_snapshot
+
+        mock_session.execute.side_effect = [global_result, jp_result]
+
+        response = await get_home_teaser(mock_session, format="standard")
+
+        assert response.snapshot_date == "2024-01-10"
+        assert response.sample_size == 120
+        assert response.delay_days == 14
+        assert len(response.top_archetypes) == 2
+        assert response.top_archetypes[0].name == "Charizard ex"
+        assert response.top_archetypes[0].global_share == 0.125
+        assert response.top_archetypes[0].jp_share == 0.165
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_no_eligible_delayed_data(self, mock_session):
+        """Return explicit empty teaser if no delayed eligible snapshot exists."""
+        ineligible = MagicMock(spec=MetaSnapshot)
+        ineligible.snapshot_date = date(2024, 1, 14)
+        ineligible.sample_size = 200
+        ineligible.archetype_shares = {}
+
+        global_scalars = MagicMock()
+        global_scalars.all.return_value = [ineligible]
+        global_result = MagicMock()
+        global_result.scalars.return_value = global_scalars
+
+        jp_result = MagicMock()
+        jp_result.scalar_one_or_none.return_value = None
+
+        mock_session.execute.side_effect = [global_result, jp_result]
+
+        response = await get_home_teaser(mock_session, format="standard")
+
+        assert response.snapshot_date is None
+        assert response.sample_size == 0
+        assert response.top_archetypes == []
 
 
 class TestGetMetaHistory:

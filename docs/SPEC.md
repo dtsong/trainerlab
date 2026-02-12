@@ -523,11 +523,19 @@ def detect_archetype(decklist: list[dict]) -> str:
 Cloud Scheduler jobs:
 | Job | Schedule | Target |
 |-----|----------|--------|
-| discover-en | 0 6 \* \* _ | POST /api/v1/pipeline/discover-en |
-| discover-jp | 0 7 _ \* _ | POST /api/v1/pipeline/discover-jp |
-| compute-meta | 0 8 _ \* _ | POST /api/v1/pipeline/compute-meta |
-| sync-cards | 0 3 _ \* 0 | POST /api/v1/pipeline/sync-cards |
-| sync-card-mappings | 0 4 \_ \* 0 | POST /api/v1/pipeline/sync-card-mappings |
+| discover-en | `0 6 * * *` | POST /api/v1/pipeline/discover-en |
+| discover-jp | `0 7 * * *` | POST /api/v1/pipeline/discover-jp |
+| compute-meta | `0 8 * * *` | POST /api/v1/pipeline/compute-meta |
+| compute-evolution | `0 9 * * *` | POST /api/v1/pipeline/compute-evolution |
+| sync-cards | `0 3 * * 0` | POST /api/v1/pipeline/sync-cards |
+| sync-jp-cards | `30 3 * * 0` | POST /api/v1/pipeline/sync-jp-cards |
+| sync-card-mappings | `0 4 * * 0` | POST /api/v1/pipeline/sync-card-mappings |
+| sync-events | `0 11 * * 1` | POST /api/v1/pipeline/sync-events |
+| translate-pokecabook | `0 9 * * 1,3,5` | POST /api/v1/pipeline/translate-pokecabook |
+| sync-jp-adoption | `0 10 * * 2,4,6` | POST /api/v1/pipeline/sync-jp-adoption |
+| translate-tier-lists | `0 10 * * 0` | POST /api/v1/pipeline/translate-tier-lists |
+| monitor-card-reveals | `0 */6 * * *` | POST /api/v1/pipeline/monitor-card-reveals |
+| cleanup-exports | `0 3 * * 0` | POST /api/v1/pipeline/cleanup-exports |
 
 ---
 
@@ -593,8 +601,19 @@ POST /api/v1/pipeline/discover-en     # Discover + enqueue EN tournaments
 POST /api/v1/pipeline/discover-jp     # Discover + enqueue JP tournaments
 POST /api/v1/pipeline/process-tournament # Process single tournament (Cloud Tasks)
 POST /api/v1/pipeline/compute-meta    # Compute snapshots
+POST /api/v1/pipeline/compute-evolution # Compute evolution intelligence
+POST /api/v1/pipeline/compute-jp-intelligence # Compute JP intelligence
 POST /api/v1/pipeline/sync-cards      # Sync cards from TCGdex
+POST /api/v1/pipeline/sync-jp-cards   # Sync Japanese cards from TCGdex
 POST /api/v1/pipeline/sync-card-mappings # Sync JP↔EN card ID mappings
+POST /api/v1/pipeline/sync-events     # Sync upcoming events
+POST /api/v1/pipeline/translate-pokecabook # Translate JP articles
+POST /api/v1/pipeline/sync-jp-adoption # Sync JP adoption rates
+POST /api/v1/pipeline/translate-tier-lists # Translate JP tier lists
+POST /api/v1/pipeline/monitor-card-reveals # Monitor new JP card reveals
+POST /api/v1/pipeline/reprocess-archetypes # Reprocess placement archetypes
+POST /api/v1/pipeline/rescrape-jp     # Rescrape JP tournaments
+POST /api/v1/pipeline/cleanup-exports # Cleanup expired export files
 ```
 
 ---

@@ -37,6 +37,7 @@ PUBLIC_TEASER_DELAY_DAYS = 14
 PUBLIC_TEASER_TOP_N = 5
 PUBLIC_TEASER_MIN_SAMPLE_SIZE = 50
 PUBLIC_ROUNDING_STEP = 0.005
+PUBLIC_TEASER_LOOKBACK_LIMIT = 30
 
 
 def _round_share_for_public(share: float) -> float:
@@ -63,8 +64,9 @@ async def get_home_teaser(
         .where(MetaSnapshot.best_of == 3)
         .where(MetaSnapshot.region.is_(None))
         .where(MetaSnapshot.snapshot_date <= cutoff_date)
+        .where(MetaSnapshot.sample_size >= PUBLIC_TEASER_MIN_SAMPLE_SIZE)
         .order_by(MetaSnapshot.snapshot_date.desc())
-        .limit(1)
+        .limit(PUBLIC_TEASER_LOOKBACK_LIMIT)
     )
 
     jp_query = (
@@ -78,15 +80,22 @@ async def get_home_teaser(
     )
 
     global_result = await db.execute(global_query)
-    global_snapshot = global_result.scalar_one_or_none()
+    global_candidates = list(global_result.scalars().all())
+    global_snapshot = next(
+        (
+            snapshot
+            for snapshot in global_candidates
+            if snapshot.sample_size >= PUBLIC_TEASER_MIN_SAMPLE_SIZE
+            and snapshot.archetype_shares
+            and len(snapshot.archetype_shares) > 0
+        ),
+        None,
+    )
 
     jp_result = await db.execute(jp_query)
     jp_snapshot = jp_result.scalar_one_or_none()
 
-    if (
-        not global_snapshot
-        or global_snapshot.sample_size < PUBLIC_TEASER_MIN_SAMPLE_SIZE
-    ):
+    if not global_snapshot:
         return PublicHomeTeaser(
             snapshot_date=None,
             delay_days=PUBLIC_TEASER_DELAY_DAYS,

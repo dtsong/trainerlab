@@ -76,6 +76,16 @@ class VerboseArchetypeDetail(BaseModel):
     method_trends: list[MethodTrendDetail] = []
 
 
+class SourceHealthDetail(BaseModel):
+    """Source freshness and failure visibility detail."""
+
+    source: str
+    status: Literal["ok", "stale", "missing"]
+    last_success_at: str | None = None
+    age_days: int | None = None
+    failure_reason: str | None = None
+
+
 class PipelineHealthResponse(BaseModel):
     """Full pipeline health response."""
 
@@ -83,5 +93,6 @@ class PipelineHealthResponse(BaseModel):
     scrape: ScrapeHealthDetail
     meta: MetaHealthDetail
     archetype: ArchetypeHealthDetail
+    sources: list[SourceHealthDetail] = []
     checked_at: datetime
     verbose: VerboseArchetypeDetail | None = None

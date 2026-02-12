@@ -9,24 +9,32 @@ Quick reference for all operational scripts in the TrainerLab project.
 Triggers Cloud Scheduler pipelines and verifies data existence via API.
 
 ```bash
-./scripts/verify-pipelines.sh [OPTIONS]
+./scripts/cloud/verify-pipelines.sh [OPTIONS]
 ```
 
 | Option          | Description                    |
 | --------------- | ------------------------------ |
-| `--step=N`      | Run specific step (1-5)        |
+| `--step=N`      | Run specific step (1-13)       |
 | `--verify-only` | Skip triggers, just check data |
 | `-h, --help`    | Show help                      |
 
 **Steps:**
 
-| Step | Pipeline           | Verifies                   |
-| ---- | ------------------ | -------------------------- |
-| 1    | sync-cards         | Card count > 0             |
-| 2    | sync-card-mappings | Mapping sync job completed |
-| 3    | discover-en        | Tournament count > 0       |
-| 4    | discover-jp        | JP tournament count > 0    |
-| 5    | compute-meta       | Meta archetypes present    |
+| Step | Pipeline             | Verifies                                  |
+| ---- | -------------------- | ----------------------------------------- |
+| 1    | sync-cards           | Card count > 0                            |
+| 2    | sync-jp-cards        | Card API remains healthy after JP sync    |
+| 3    | sync-card-mappings   | Mapping sync job completed                |
+| 4    | sync-events          | Scheduler trigger + completion            |
+| 5    | discover-en          | Tournament count > 0                      |
+| 6    | discover-jp          | JP tournament count > 0                   |
+| 7    | compute-meta         | Meta archetypes present                   |
+| 8    | compute-evolution    | Evolution pipeline completes              |
+| 9    | translate-pokecabook | Translation pipeline completes            |
+| 10   | sync-jp-adoption     | JP innovation/adoption API data available |
+| 11   | translate-tier-lists | Tier list translation pipeline completes  |
+| 12   | monitor-card-reveals | Card reveal monitor pipeline completes    |
+| 13   | cleanup-exports      | Export cleanup pipeline completes         |
 
 **Prerequisites:** gcloud CLI, jq, authenticated GCP session
 
@@ -35,17 +43,17 @@ Triggers Cloud Scheduler pipelines and verifies data existence via API.
 Manually triggers production pipelines via Cloud Scheduler. Writes to the production database.
 
 ```bash
-./scripts/test-production-scrapers.sh [OPTIONS]
+./scripts/cloud/test-production-scrapers.sh [OPTIONS]
 ```
 
-| Option            | Description                                                                                             |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
-| `--pipeline=NAME` | Run specific pipeline: `discover-en`, `discover-jp`, `compute-meta`, `sync-cards`, `sync-card-mappings` |
-| `--all`           | Run all pipelines (triggered in parallel)                                                               |
-| `--confirm`       | **Required** — acknowledge production DB writes                                                         |
-| `--verify`        | Verify results after execution                                                                          |
-| `--check-logs`    | Check Cloud Logs for recent errors (no execution)                                                       |
-| `-h, --help`      | Show help                                                                                               |
+| Option            | Description                                                                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--pipeline=NAME` | Run specific pipeline from scheduler jobs (e.g. `discover-en`, `discover-jp`, `compute-meta`, `sync-cards`, `sync-jp-cards`, `sync-card-mappings`, `sync-events`) |
+| `--all`           | Run all pipelines (triggered in parallel)                                                                                                                         |
+| `--confirm`       | **Required** — acknowledge production DB writes                                                                                                                   |
+| `--verify`        | Verify results after execution                                                                                                                                    |
+| `--check-logs`    | Check Cloud Logs for recent errors (no execution)                                                                                                                 |
+| `-h, --help`      | Show help                                                                                                                                                         |
 
 **Safety:** Requires `--confirm` flag because it writes to the production database.
 

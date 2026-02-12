@@ -54,19 +54,34 @@ def _make_mock_tournament(
     source_url: str = "https://rk9.gg/event/charlotte-2026",
     status: str = "announced",
     registration_url: str | None = None,
+    name: str = "Charlotte Regional",
+    event_date: date = date(2026, 3, 15),
+    region: str = "NA",
+    format_name: str = "standard",
+    best_of: int = 3,
     city: str | None = "Charlotte",
     venue_name: str | None = None,
     country: str | None = "US",
+    source: str | None = "rk9",
+    event_source: str | None = "rk9",
     tier: str | None = None,
 ) -> MagicMock:
     t = MagicMock()
     t.source_url = source_url
     t.status = status
     t.registration_url = registration_url
+    t.name = name
+    t.date = event_date
+    t.region = region
+    t.format = format_name
+    t.best_of = best_of
     t.city = city
     t.venue_name = venue_name
     t.country = country
+    t.source = source
+    t.event_source = event_source
     t.tier = tier
+    t.id = "t-1"
     return t
 
 
@@ -360,6 +375,44 @@ class TestUpsertEvent:
         assert result.events_updated == 1
         assert existing.tier == "international"
 
+    @pytest.mark.asyncio
+    async def test_dedupes_canonical_match_when_source_url_differs(self) -> None:
+        """Should merge cross-source duplicates by canonical identity."""
+        existing = _make_mock_tournament(
+            source_url="https://rk9.gg/event/charlotte-2026",
+            name="Charlotte Regional Championships",
+            city="Charlotte",
+            country="US",
+            event_source="rk9",
+            source="rk9",
+            tier="regional",
+        )
+        session = AsyncMock()
+
+        source_result = MagicMock()
+        source_result.scalar_one_or_none.return_value = None
+        canonical_result = MagicMock()
+        canonical_result.scalars.return_value.all.return_value = [existing]
+        session.execute = AsyncMock(side_effect=[source_result, canonical_result])
+
+        result = SyncEventsResult()
+        data = _pokemon_event_to_tournament_data(
+            _make_pokemon_event(
+                name="Charlotte Regional",
+                city="Charlotte",
+                source_url="https://pokemon.com/events/charlotte-regional-2026",
+                tier="regional",
+            )
+        )
+
+        await _upsert_event(session, data, result)
+
+        assert result.events_created == 0
+        assert result.events_deduped == 1
+        assert result.events_updated == 1
+        assert existing.source == "rk9,pokemon.com"
+        assert existing.event_source == "rk9,pokemon.com"
+
 
 # ── End-to-end pipeline tests ───────────────────────────────────────
 
@@ -546,5 +599,7 @@ class TestSyncEventsResult:
         assert result.events_created == 0
         assert result.events_updated == 0
         assert result.events_skipped == 0
+        assert result.events_deduped == 0
+        assert result.sources_merged == 0
         assert result.errors == []
         assert result.success is True

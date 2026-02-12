@@ -22,6 +22,7 @@ from src.models.placeholder_card import PlaceholderCard
 from src.models.set import Set
 from src.models.tournament import Tournament
 from src.models.tournament_placement import TournamentPlacement
+from src.models.translated_content import TranslatedContent
 from src.models.user import User
 from src.schemas.admin_data import (
     DataOverviewResponse,
@@ -764,6 +765,84 @@ async def get_pipeline_health(
             status=_pipeline_status(adopt_days, 14, 30),
             last_run=(str(adopt_date) if adopt_date else None),
             days_since_run=adopt_days,
+        )
+    )
+
+    # Limitless source freshness — latest tournament date where source='limitless'
+    limitless_date = await db.scalar(
+        select(func.max(Tournament.date)).where(Tournament.source == "limitless")
+    )
+    limitless_days = (today - limitless_date).days if limitless_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="Limitless Source",
+            status=_pipeline_status(limitless_days, 3, 14),
+            last_run=(str(limitless_date) if limitless_date else None),
+            days_since_run=limitless_days,
+        )
+    )
+
+    # Events source freshness — latest updated_at by event_source
+    rk9_dt = await db.scalar(
+        select(func.max(Tournament.updated_at)).where(Tournament.event_source == "rk9")
+    )
+    rk9_date = rk9_dt.date() if rk9_dt else None
+    rk9_days = (today - rk9_date).days if rk9_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="RK9 Source",
+            status=_pipeline_status(rk9_days, 7, 21),
+            last_run=(str(rk9_date) if rk9_date else None),
+            days_since_run=rk9_days,
+        )
+    )
+
+    pokemon_dt = await db.scalar(
+        select(func.max(Tournament.updated_at)).where(
+            Tournament.event_source == "pokemon.com"
+        )
+    )
+    pokemon_date = pokemon_dt.date() if pokemon_dt else None
+    pokemon_days = (today - pokemon_date).days if pokemon_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="Pokemon Events Source",
+            status=_pipeline_status(pokemon_days, 7, 21),
+            last_run=(str(pokemon_date) if pokemon_date else None),
+            days_since_run=pokemon_days,
+        )
+    )
+
+    # Translation source freshness — latest content update by source_name
+    pokecabook_dt = await db.scalar(
+        select(func.max(TranslatedContent.updated_at)).where(
+            func.lower(TranslatedContent.source_name) == "pokecabook"
+        )
+    )
+    pokecabook_date = pokecabook_dt.date() if pokecabook_dt else None
+    pokecabook_days = (today - pokecabook_date).days if pokecabook_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="Pokecabook Source",
+            status=_pipeline_status(pokecabook_days, 7, 21),
+            last_run=(str(pokecabook_date) if pokecabook_date else None),
+            days_since_run=pokecabook_days,
+        )
+    )
+
+    pokekameshi_dt = await db.scalar(
+        select(func.max(TranslatedContent.updated_at)).where(
+            func.lower(TranslatedContent.source_name) == "pokekameshi"
+        )
+    )
+    pokekameshi_date = pokekameshi_dt.date() if pokekameshi_dt else None
+    pokekameshi_days = (today - pokekameshi_date).days if pokekameshi_date else None
+    pipelines.append(
+        PipelineHealthItem(
+            name="Pokekameshi Source",
+            status=_pipeline_status(pokekameshi_days, 7, 21),
+            last_run=(str(pokekameshi_date) if pokekameshi_date else None),
+            days_since_run=pokekameshi_days,
         )
     )
 

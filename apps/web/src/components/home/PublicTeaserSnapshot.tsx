@@ -9,6 +9,7 @@ import { SectionLabel } from "@/components/ui/section-label";
 
 export function PublicTeaserSnapshot() {
   const { data, isLoading, isError } = useHomeTeaser("standard");
+  const delayDays = data?.delay_days ?? 14;
 
   return (
     <section className="bg-notebook-aged py-12 md:py-16">
@@ -20,7 +21,7 @@ export function PublicTeaserSnapshot() {
             variant="notebook"
           />
           <span className="rounded-full border border-notebook-grid bg-notebook-cream px-3 py-1 font-mono text-xs text-pencil">
-            Delayed by 14 days
+            Delayed by {delayDays} days
           </span>
         </div>
 

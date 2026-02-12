@@ -47,7 +47,9 @@ Pipelines:
     compute-meta             Compute daily meta snapshots (daily)
     compute-evolution        AI classification + predictions (daily)
     sync-cards               Sync card data from TCGdex (weekly)
+    sync-jp-cards            Sync Japanese card data from TCGdex (weekly)
     sync-card-mappings       Sync JP-to-EN card mappings (weekly)
+    sync-events              Sync upcoming events from RK9 + Pokemon Events (weekly)
     translate-pokecabook     Translate Pokecabook content (MWF)
     sync-jp-adoption         Sync JP card adoption rates (TTS)
     translate-tier-lists     Translate JP tier lists (weekly)
@@ -324,7 +326,7 @@ if [ "$RUN_ALL" = true ]; then
 
     # Trigger all scheduler jobs in parallel
     PIDS=()
-    PIPELINES=(sync-cards sync-card-mappings discover-en discover-jp compute-meta compute-evolution translate-pokecabook sync-jp-adoption translate-tier-lists monitor-card-reveals cleanup-exports)
+    PIPELINES=(sync-cards sync-jp-cards sync-card-mappings sync-events discover-en discover-jp compute-meta compute-evolution translate-pokecabook sync-jp-adoption translate-tier-lists monitor-card-reveals cleanup-exports)
 
     for pipeline in "${PIPELINES[@]}"; do
         job_name="trainerlab-${pipeline}"

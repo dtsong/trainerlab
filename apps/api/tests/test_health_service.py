@@ -643,3 +643,56 @@ class TestOverallStatusAggregation:
         result = await service.get_pipeline_health(verbose=False)
 
         assert result.verbose is None
+
+
+class TestSourceHealthDetail:
+    """Source-level health visibility is included in pipeline health."""
+
+    @pytest.mark.asyncio
+    async def test_pipeline_health_includes_sources(self) -> None:
+        session = make_mock_session()
+        recent = datetime.now(UTC) - timedelta(days=1)
+        recent_date = date.today() - timedelta(days=1)
+
+        scrape_result = MagicMock()
+        scrape_result.one.return_value = (recent, 5)
+        scrape_region = MagicMock()
+        scrape_region.all.return_value = [("JP",)]
+
+        meta_date = MagicMock()
+        meta_date.scalar.return_value = recent_date
+        meta_region = MagicMock()
+        meta_region.all.return_value = [(None,)]
+
+        arch_result = MagicMock()
+        arch_result.all.return_value = [("Charizard ex", "sprite_lookup")] * 50
+
+        session.execute = AsyncMock(
+            side_effect=[
+                scrape_result,
+                scrape_region,
+                meta_date,
+                meta_region,
+                arch_result,
+            ]
+        )
+        session.scalar = AsyncMock(
+            side_effect=[
+                datetime.now(UTC),  # tcgdex
+                date.today(),  # limitless
+                datetime.now(UTC),  # rk9
+                datetime.now(UTC),  # pokemon_events
+                None,  # pokecabook
+                None,  # pokekameshi
+            ]
+        )
+
+        service = PipelineHealthService(session)
+        result = await service.get_pipeline_health()
+
+        assert len(result.sources) == 6
+        by_source = {item.source: item for item in result.sources}
+        assert by_source["tcgdex"].status == "ok"
+        assert by_source["limitless"].status == "ok"
+        assert by_source["pokecabook"].status == "missing"
+        assert by_source["pokecabook"].failure_reason == "no_recent_source_data"

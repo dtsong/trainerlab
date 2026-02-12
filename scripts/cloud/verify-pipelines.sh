@@ -37,22 +37,24 @@ Triggers each pipeline via Cloud Scheduler, waits for completion, then
 verifies data via authenticated GET endpoints.
 
 Options:
-    --step=N           Run specific step (1-11)
+    --step=N           Run specific step (1-13)
     --verify-only      Skip triggers, just check data
     -h, --help         Show this help message
 
 Steps:
     1   sync-cards          — Sync card database from TCGdex
-    2   sync-card-mappings  — Sync JP-to-EN card ID mappings
-    3   discover-en         — Discover & enqueue English tournaments
-    4   discover-jp         — Discover & enqueue Japanese tournaments
-    5   compute-meta        — Compute meta archetypes
-    6   compute-evolution   — AI classification + predictions
-    7   translate-pokecabook — Translate Pokecabook content
-    8   sync-jp-adoption    — Sync JP card adoption rates
-    9   translate-tier-lists — Translate JP tier lists
-    10  monitor-card-reveals — Monitor JP card reveals
-    11  cleanup-exports     — Clean up expired export files
+    2   sync-jp-cards       — Sync Japanese card names/images from TCGdex
+    3   sync-card-mappings  — Sync JP-to-EN card ID mappings
+    4   sync-events         — Sync upcoming events from RK9/Pokemon Events
+    5   discover-en         — Discover & enqueue English tournaments
+    6   discover-jp         — Discover & enqueue Japanese tournaments
+    7   compute-meta        — Compute meta archetypes
+    8   compute-evolution   — AI classification + predictions
+    9   translate-pokecabook — Translate Pokecabook content
+    10  sync-jp-adoption    — Sync JP card adoption rates
+    11  translate-tier-lists — Translate JP tier lists
+    12  monitor-card-reveals — Monitor JP card reveals
+    13  cleanup-exports     — Clean up expired export files
 
 Examples:
     $0                   # Run all steps
@@ -235,7 +237,20 @@ run_step_1() {
 }
 
 run_step_2() {
-    log_step 2 "sync-card-mappings"
+    log_step 2 "sync-jp-cards"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-sync-jp-cards" || true
+    fi
+
+    verify_endpoint \
+        "/api/v1/cards?limit=1" \
+        'if .total > 0 then "pass" else "fail" end' \
+        '"\(.total) cards found after JP sync"'
+}
+
+run_step_3() {
+    log_step 3 "sync-card-mappings"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-sync-card-mappings" || true
@@ -247,8 +262,19 @@ run_step_2() {
     log_success "Verify: card mapping sync completed"
 }
 
-run_step_3() {
-    log_step 3 "discover-en"
+run_step_4() {
+    log_step 4 "sync-events"
+
+    if [ "$VERIFY_ONLY" = false ]; then
+        trigger_and_wait "trainerlab-sync-events" || true
+    fi
+
+    log_info "Event sync triggered (verification relies on protected events API)"
+    log_success "Verify: sync-events completed"
+}
+
+run_step_5() {
+    log_step 5 "discover-en"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-discover-en" || true
@@ -260,8 +286,8 @@ run_step_3() {
         '"\(.total) tournaments found"'
 }
 
-run_step_4() {
-    log_step 4 "discover-jp"
+run_step_6() {
+    log_step 6 "discover-jp"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-discover-jp" || true
@@ -273,8 +299,8 @@ run_step_4() {
         '"\(.total) JP tournaments found"'
 }
 
-run_step_5() {
-    log_step 5 "compute-meta"
+run_step_7() {
+    log_step 7 "compute-meta"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-compute-meta" || true
@@ -286,8 +312,8 @@ run_step_5() {
         '"meta response with \(.archetype_breakdown | length) archetypes"'
 }
 
-run_step_6() {
-    log_step 6 "compute-evolution"
+run_step_8() {
+    log_step 8 "compute-evolution"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-compute-evolution" || true
@@ -301,8 +327,8 @@ run_step_6() {
         '"evolution pipeline completed, meta has \(.archetype_breakdown | length) archetypes"'
 }
 
-run_step_7() {
-    log_step 7 "translate-pokecabook"
+run_step_9() {
+    log_step 9 "translate-pokecabook"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-translate-pokecabook" || true
@@ -312,8 +338,8 @@ run_step_7() {
     log_success "Verify: translate-pokecabook completed"
 }
 
-run_step_8() {
-    log_step 8 "sync-jp-adoption"
+run_step_10() {
+    log_step 10 "sync-jp-adoption"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-sync-jp-adoption" || true
@@ -326,8 +352,8 @@ run_step_8() {
         '"JP innovation data available"'
 }
 
-run_step_9() {
-    log_step 9 "translate-tier-lists"
+run_step_11() {
+    log_step 11 "translate-tier-lists"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-translate-tier-lists" || true
@@ -337,8 +363,8 @@ run_step_9() {
     log_success "Verify: translate-tier-lists completed"
 }
 
-run_step_10() {
-    log_step 10 "monitor-card-reveals"
+run_step_12() {
+    log_step 12 "monitor-card-reveals"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-monitor-card-reveals" || true
@@ -348,8 +374,8 @@ run_step_10() {
     log_success "Verify: monitor-card-reveals completed"
 }
 
-run_step_11() {
-    log_step 11 "cleanup-exports"
+run_step_13() {
+    log_step 13 "cleanup-exports"
 
     if [ "$VERIFY_ONLY" = false ]; then
         trigger_and_wait "trainerlab-cleanup-exports" || true
@@ -424,7 +450,9 @@ if [ -n "$STEP" ]; then
         9)  run_and_track run_step_9 ;;
         10) run_and_track run_step_10 ;;
         11) run_and_track run_step_11 ;;
-        *) log_error "Invalid step: $STEP (must be 1-11)"; exit 1 ;;
+        12) run_and_track run_step_12 ;;
+        13) run_and_track run_step_13 ;;
+        *) log_error "Invalid step: $STEP (must be 1-13)"; exit 1 ;;
     esac
 else
     run_and_track run_step_1
@@ -438,6 +466,8 @@ else
     run_and_track run_step_9
     run_and_track run_step_10
     run_and_track run_step_11
+    run_and_track run_step_12
+    run_and_track run_step_13
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────

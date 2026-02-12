@@ -3,6 +3,7 @@
 from datetime import date
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from src.clients.rk9 import (
@@ -109,3 +110,47 @@ class TestRK9ClientParsing:
             pytest.raises(RK9Error),
         ):
             await rk9_client.fetch_upcoming_events()
+
+
+class TestRK9ClientRetryBehavior:
+    """Transient and hard failure behaviors for _get."""
+
+    @pytest.mark.asyncio
+    async def test_retries_transient_502_then_succeeds(self) -> None:
+        client = RK9Client(timeout=5.0, max_retries=2, retry_delay=0.01)
+        call_count = 0
+
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            request = httpx.Request("GET", "https://rk9.gg/test")
+            if call_count == 1:
+                return httpx.Response(502, request=request)
+            return httpx.Response(200, text="ok", request=request)
+
+        with patch.object(client._client, "get", side_effect=mock_get):
+            result = await client._get("/test")
+
+        assert result == "ok"
+        assert call_count == 2
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_401_fails_fast(self) -> None:
+        client = RK9Client(timeout=5.0, max_retries=3, retry_delay=0.01)
+        call_count = 0
+
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            request = httpx.Request("GET", "https://rk9.gg/test")
+            return httpx.Response(401, request=request)
+
+        with (
+            patch.object(client._client, "get", side_effect=mock_get),
+            pytest.raises(RK9Error, match="HTTP error 401"),
+        ):
+            await client._get("/test")
+
+        assert call_count == 1
+        await client.close()

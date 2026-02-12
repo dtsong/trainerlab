@@ -5,15 +5,27 @@ Scrapes Pokemon TCG event data from rk9.gg including:
 - Event registration status and capacity
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date as date_type
+from datetime import datetime
 from typing import Any, Self
 
 import httpx
 from bs4 import BeautifulSoup, Tag
+
+from src.clients.retry_policy import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_DELAY_SECONDS,
+    DEFAULT_TIMEOUT_SECONDS,
+    backoff_delay_seconds,
+    classify_status,
+    is_retryable_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +54,8 @@ class RK9Event:
     """An event listing from RK9.gg."""
 
     name: str
-    date: date
-    end_date: date | None = None
+    date: date_type
+    end_date: date_type | None = None
     city: str | None = None
     venue: str | None = None
     country: str | None = None
@@ -63,9 +75,9 @@ class RK9Client:
 
     def __init__(
         self,
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        retry_delay: float = 2.0,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        retry_delay: float = DEFAULT_RETRY_DELAY_SECONDS,
         requests_per_minute: int = 10,
         max_concurrent: int = 2,
     ):
@@ -145,28 +157,28 @@ class RK9Client:
                 try:
                     response = await self._client.get(endpoint)
 
-                    if response.status_code == 429:
-                        delay = self._retry_delay * (2**attempt)
-                        logger.warning(
-                            "RK9 rate limited (429) on %s, "
-                            "retrying in %.1fs (attempt %d)",
-                            endpoint,
-                            delay,
-                            attempt + 1,
-                        )
-                        await asyncio.sleep(delay)
-                        last_error = RK9RateLimitError("Rate limited")
-                        continue
+                    if response.status_code == 404:
+                        raise RK9Error(f"Not found: {endpoint}")
 
-                    if response.status_code == 503:
-                        delay = self._retry_delay * (2**attempt)
+                    if is_retryable_status(response.status_code):
+                        delay = backoff_delay_seconds(self._retry_delay, attempt)
                         logger.warning(
-                            "RK9 unavailable (503) on %s, retrying in %.1fs",
+                            "rk9_retry status=%d category=%s endpoint=%s "
+                            "attempt=%d/%d delay=%.2fs",
+                            response.status_code,
+                            classify_status(response.status_code),
                             endpoint,
+                            attempt + 1,
+                            self._max_retries,
                             delay,
                         )
                         await asyncio.sleep(delay)
-                        last_error = RK9Error("Service unavailable")
+                        if response.status_code == 429:
+                            last_error = RK9RateLimitError("Rate limited")
+                        else:
+                            last_error = RK9Error(
+                                f"Transient HTTP {response.status_code}"
+                            )
                         continue
 
                     response.raise_for_status()
@@ -175,23 +187,36 @@ class RK9Client:
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 404:
                         raise RK9Error(f"Not found: {endpoint}") from e
+                    if is_retryable_status(e.response.status_code):
+                        delay = backoff_delay_seconds(self._retry_delay, attempt)
+                        logger.warning(
+                            "rk9_retry exception_status=%d category=%s endpoint=%s "
+                            "attempt=%d/%d delay=%.2fs",
+                            e.response.status_code,
+                            classify_status(e.response.status_code),
+                            endpoint,
+                            attempt + 1,
+                            self._max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                        last_error = e
+                        continue
                     last_error = e
-                    delay = self._retry_delay * (2**attempt)
-                    logger.warning(
-                        "RK9 HTTP error %d on %s, retrying in %.1fs",
-                        e.response.status_code,
-                        endpoint,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
+                    raise RK9Error(
+                        f"HTTP error {e.response.status_code} on {endpoint}"
+                    ) from e
 
                 except httpx.RequestError as e:
                     last_error = e
-                    delay = self._retry_delay * (2**attempt)
+                    delay = backoff_delay_seconds(self._retry_delay, attempt)
                     logger.warning(
-                        "RK9 request error on %s: %s, retrying in %.1fs",
+                        "rk9_retry request_error=%s endpoint=%s "
+                        "attempt=%d/%d delay=%.2fs",
+                        type(e).__name__,
                         endpoint,
-                        e,
+                        attempt + 1,
+                        self._max_retries,
                         delay,
                     )
                     await asyncio.sleep(delay)
@@ -333,7 +358,7 @@ class RK9Client:
             source_url=source_url,
         )
 
-    def _extract_date(self, card: Tag) -> date | None:
+    def _extract_date(self, card: Tag) -> date_type | None:
         """Extract event date from a card element.
 
         Args:
@@ -387,7 +412,7 @@ class RK9Client:
 
         return None
 
-    def _extract_end_date(self, card: Tag) -> date | None:
+    def _extract_end_date(self, card: Tag) -> date_type | None:
         """Extract event end date if a date range is shown.
 
         Args:
@@ -644,7 +669,7 @@ class RK9Client:
     # =================================================================
 
     @staticmethod
-    def _parse_date(date_str: str) -> date:
+    def _parse_date(date_str: str) -> date_type:
         """Parse date from various RK9 formats.
 
         Args:

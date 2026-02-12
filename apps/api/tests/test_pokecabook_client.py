@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from src.clients.pokecabook import (
@@ -207,4 +208,46 @@ class TestPokecabookClientErrors:
         ):
             await client._get("/nonexistent")
 
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_retries_transient_503_then_succeeds(self) -> None:
+        """Should retry transient 503 and eventually succeed."""
+        client = PokecabookClient(max_retries=2, retry_delay=0.01)
+        call_count = 0
+
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            request = httpx.Request("GET", "https://pokecabook.com/test")
+            if call_count == 1:
+                return httpx.Response(503, request=request)
+            return httpx.Response(200, text="ok", request=request)
+
+        with patch.object(client._client, "get", side_effect=mock_get):
+            result = await client._get("/test")
+
+        assert result == "ok"
+        assert call_count == 2
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_400_fails_fast(self) -> None:
+        """Should not retry non-transient 4xx errors."""
+        client = PokecabookClient(max_retries=3, retry_delay=0.01)
+        call_count = 0
+
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            request = httpx.Request("GET", "https://pokecabook.com/test")
+            return httpx.Response(400, request=request)
+
+        with (
+            patch.object(client._client, "get", side_effect=mock_get),
+            pytest.raises(PokecabookError, match="HTTP error 400"),
+        ):
+            await client._get("/test")
+
+        assert call_count == 1
         await client.close()

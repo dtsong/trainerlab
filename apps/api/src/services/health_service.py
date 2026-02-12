@@ -9,19 +9,23 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
+from typing import Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.card import Card
 from src.models.meta_snapshot import MetaSnapshot
 from src.models.tournament import Tournament
 from src.models.tournament_placement import TournamentPlacement
+from src.models.translated_content import TranslatedContent
 from src.schemas.health import (
     ArchetypeHealthDetail,
     MetaHealthDetail,
     MethodTrendDetail,
     PipelineHealthResponse,
     ScrapeHealthDetail,
+    SourceHealthDetail,
     TextLabelFallbackDetail,
     UnknownPlacementDetail,
     VerboseArchetypeDetail,
@@ -37,12 +41,130 @@ META_STALE_DAYS = 7
 ARCHETYPE_UNKNOWN_OK = 0.10
 ARCHETYPE_UNKNOWN_DEGRADED = 0.25
 
+SOURCE_OK_DAYS = 7
+SOURCE_STALE_DAYS = 21
+LIMITLESS_SOURCE_OK_DAYS = 3
+LIMITLESS_SOURCE_STALE_DAYS = 14
+
 
 class PipelineHealthService:
     """Checks pipeline health across scrape, meta, and archetype."""
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    @staticmethod
+    def _source_status(
+        days: int | None,
+        ok_days: int,
+        stale_days: int,
+    ) -> Literal["ok", "stale", "missing"]:
+        if days is None:
+            return "missing"
+        if days <= ok_days:
+            return "ok"
+        if days <= stale_days:
+            return "stale"
+        return "missing"
+
+    async def _safe_last_date(self, stmt) -> date | None:
+        """Execute scalar date query and swallow query failures."""
+        try:
+            result = await self.session.scalar(stmt)
+        except Exception:
+            logger.exception("Source health query failed")
+            return None
+
+        if result is None:
+            return None
+
+        if isinstance(result, datetime):
+            return result.date()
+
+        if isinstance(result, date):
+            return result
+
+        return None
+
+    async def get_source_health(self) -> list[SourceHealthDetail]:
+        """Build source-level freshness detail for operators."""
+        today = date.today()
+        sources: list[SourceHealthDetail] = []
+
+        source_checks = [
+            (
+                "tcgdex",
+                select(func.max(Card.updated_at)),
+                SOURCE_OK_DAYS,
+                SOURCE_STALE_DAYS,
+            ),
+            (
+                "limitless",
+                select(func.max(Tournament.date)).where(
+                    Tournament.source == "limitless"
+                ),
+                LIMITLESS_SOURCE_OK_DAYS,
+                LIMITLESS_SOURCE_STALE_DAYS,
+            ),
+            (
+                "rk9",
+                select(func.max(Tournament.updated_at)).where(
+                    Tournament.event_source == "rk9"
+                ),
+                SOURCE_OK_DAYS,
+                SOURCE_STALE_DAYS,
+            ),
+            (
+                "pokemon_events",
+                select(func.max(Tournament.updated_at)).where(
+                    Tournament.event_source == "pokemon.com"
+                ),
+                SOURCE_OK_DAYS,
+                SOURCE_STALE_DAYS,
+            ),
+            (
+                "pokecabook",
+                select(func.max(TranslatedContent.updated_at)).where(
+                    func.lower(TranslatedContent.source_name) == "pokecabook"
+                ),
+                SOURCE_OK_DAYS,
+                SOURCE_STALE_DAYS,
+            ),
+            (
+                "pokekameshi",
+                select(func.max(TranslatedContent.updated_at)).where(
+                    func.lower(TranslatedContent.source_name) == "pokekameshi"
+                ),
+                SOURCE_OK_DAYS,
+                SOURCE_STALE_DAYS,
+            ),
+        ]
+
+        for source_name, query, ok_days, stale_days in source_checks:
+            last_date = await self._safe_last_date(query)
+            age_days = (today - last_date).days if last_date else None
+            status = cast(
+                Literal["ok", "stale", "missing"],
+                self._source_status(age_days, ok_days, stale_days),
+            )
+
+            failure_reason = None
+            if status == "stale":
+                failure_reason = "source_data_stale"
+            elif status == "missing":
+                failure_reason = "no_recent_source_data"
+
+            sources.append(
+                SourceHealthDetail(
+                    source=source_name,
+                    status=status,
+                    last_success_at=last_date.isoformat() if last_date else None,
+                    age_days=age_days,
+                    failure_reason=failure_reason,
+                )
+            )
+
+        return sources
 
     async def get_scrape_health(self) -> ScrapeHealthDetail:
         """Query Tournament for scrape freshness."""
@@ -300,6 +422,7 @@ class PipelineHealthService:
         scrape = await self.get_scrape_health()
         meta = await self.get_meta_health()
         archetype = await self.get_archetype_health()
+        sources = await self.get_source_health()
 
         # Overall status: worst of all components
         scrape_severity = {
@@ -340,6 +463,7 @@ class PipelineHealthService:
             scrape=scrape,
             meta=meta,
             archetype=archetype,
+            sources=sources,
             checked_at=datetime.now(UTC),
             verbose=verbose_detail,
         )

@@ -224,15 +224,21 @@ class TestGetPipelineHealth:
     def test_returns_all_pipelines(
         self, client: TestClient, mock_db: AsyncMock
     ) -> None:
-        """Verify all 5 pipelines are reported."""
+        """Verify pipeline and source health items are reported."""
         today = datetime.now(UTC).date()
+        now_dt = datetime.now(UTC)
         mock_db.scalar = AsyncMock(
             side_effect=[
                 today,  # meta snapshot_date (healthy)
                 today,  # jp tournament date (healthy)
-                datetime.now(UTC),  # jp intel
-                datetime.now(UTC),  # card sync
+                now_dt,  # jp intel
+                now_dt,  # card sync
                 today,  # jp adoption period_end
+                today,  # limitless date
+                now_dt,  # rk9 updated_at
+                now_dt,  # pokemon.com updated_at
+                now_dt,  # pokecabook updated_at
+                now_dt,  # pokekameshi updated_at
             ]
         )
 
@@ -242,7 +248,7 @@ class TestGetPipelineHealth:
         data = response.json()
         assert "pipelines" in data
         assert "checked_at" in data
-        assert len(data["pipelines"]) == 5
+        assert len(data["pipelines"]) == 10
 
         names = [p["name"] for p in data["pipelines"]]
         assert "Meta Compute" in names
@@ -250,6 +256,11 @@ class TestGetPipelineHealth:
         assert "JP Intelligence" in names
         assert "Card Sync" in names
         assert "JP Adoption Rate" in names
+        assert "Limitless Source" in names
+        assert "RK9 Source" in names
+        assert "Pokemon Events Source" in names
+        assert "Pokecabook Source" in names
+        assert "Pokekameshi Source" in names
 
         # All should be healthy (today's dates)
         for pipeline in data["pipelines"]:
@@ -277,6 +288,11 @@ class TestGetPipelineHealth:
                 stale_dt,  # jp intel: 5d <= 7d
                 stale_dt,  # card sync: 5d <= 7d
                 critical_date,  # adoption: 20d <= 30d
+                stale_date,  # limitless source
+                stale_dt,  # rk9 source
+                stale_dt,  # pokemon events source
+                stale_dt,  # pokecabook source
+                stale_dt,  # pokekameshi source
             ]
         )
 
@@ -296,6 +312,11 @@ class TestGetPipelineHealth:
         # JP Adoption Rate: 20 days <= 30 (stale)
         assert pipelines_map["JP Adoption Rate"]["status"] == "stale"
 
+        # Source-level checks are also surfaced
+        assert pipelines_map["Limitless Source"]["status"] == "stale"
+        assert pipelines_map["RK9 Source"]["status"] == "healthy"
+        assert pipelines_map["Pokemon Events Source"]["status"] == "healthy"
+
     def test_null_dates_critical(self, client: TestClient, mock_db: AsyncMock) -> None:
         """All null dates should produce critical status."""
         mock_db.scalar = AsyncMock(
@@ -305,6 +326,11 @@ class TestGetPipelineHealth:
                 None,  # jp intel
                 None,  # card sync
                 None,  # jp adoption
+                None,  # limitless source
+                None,  # rk9 source
+                None,  # pokemon events source
+                None,  # pokecabook source
+                None,  # pokekameshi source
             ]
         )
 

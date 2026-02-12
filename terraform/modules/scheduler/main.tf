@@ -6,7 +6,9 @@
 # - compute-meta: 8 AM daily (after scraping)
 # - compute-evolution: 9 AM daily (after compute-meta, AI classification + predictions)
 # - sync-cards: 3 AM Sunday weekly (low traffic)
-# - sync-card-mappings: 4 AM Sunday weekly (after sync-cards, JP-to-EN mappings)
+# - sync-jp-cards: 3:30 AM Sunday weekly (after sync-cards, JP card sync)
+# - sync-card-mappings: 4 AM Sunday weekly (after JP sync, JP-to-EN mappings)
+# - sync-events: 11 AM Monday weekly (upcoming event calendar)
 # - translate-pokecabook: 9 AM MWF (Japanese content translation)
 # - sync-jp-adoption: 10 AM TTS (JP card adoption rates)
 # - translate-tier-lists: 10 AM Sunday (weekly tier list consolidation)
@@ -50,10 +52,24 @@ locals {
       body             = jsonencode({ dry_run = false })
       attempt_deadline = "600s"
     }
+    sync-jp-cards = {
+      description      = "Sync Japanese card data from TCGdex"
+      schedule         = "30 3 * * 0" # Weekly on Sunday at 3:30 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-jp-cards"
+      body             = jsonencode({ dry_run = false })
+      attempt_deadline = "600s"
+    }
     sync-card-mappings = {
       description      = "Sync JP-to-EN card ID mappings for archetype detection"
       schedule         = "0 4 * * 0" # Weekly on Sunday at 4 AM (after sync-cards)
       uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-card-mappings"
+      body             = jsonencode({ dry_run = false })
+      attempt_deadline = "300s"
+    }
+    sync-events = {
+      description      = "Sync upcoming events from RK9 and Pokemon Events"
+      schedule         = "0 11 * * 1" # Weekly on Monday at 11 AM
+      uri              = "${var.cloud_run_url}/api/v1/pipeline/sync-events"
       body             = jsonencode({ dry_run = false })
       attempt_deadline = "300s"
     }

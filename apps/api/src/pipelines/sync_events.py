@@ -6,7 +6,9 @@ status tracking.
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
+from datetime import timedelta
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -33,6 +35,8 @@ class SyncEventsResult:
     events_created: int = 0
     events_updated: int = 0
     events_skipped: int = 0
+    events_deduped: int = 0
+    sources_merged: int = 0
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -214,6 +218,28 @@ _STATUS_TRANSITIONS: dict[str, set[str]] = {
     "completed": set(),  # terminal state
 }
 
+_EVENT_NAME_STOPWORDS = {
+    "pokemon",
+    "play",
+    "tcg",
+    "tournament",
+    "championship",
+    "championships",
+    "event",
+    "open",
+}
+
+_TOKEN_ALIASES = {
+    "regionals": "regional",
+    "internationals": "international",
+    "world": "worlds",
+    "worldchampionship": "worlds",
+    "naic": "northamerica",
+    "euic": "europe",
+    "laic": "latinamerica",
+    "ocic": "oceania",
+}
+
 
 def _is_valid_transition(current: str, new: str) -> bool:
     """Check if a status transition is valid.
@@ -226,6 +252,126 @@ def _is_valid_transition(current: str, new: str) -> bool:
         True if the transition is allowed.
     """
     return new in _STATUS_TRANSITIONS.get(current, set())
+
+
+def _normalize_text(value: str | None) -> str:
+    """Normalize free text for robust matching."""
+    if not value:
+        return ""
+    lowered = value.lower()
+    lowered = lowered.replace("&", " and ")
+    lowered = re.sub(r"[^a-z0-9\s]", " ", lowered)
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+    return lowered
+
+
+def _name_tokens(value: str | None) -> set[str]:
+    """Tokenize event name while removing high-noise words."""
+    normalized = _normalize_text(value)
+    if not normalized:
+        return set()
+
+    tokens: set[str] = set()
+    for token in normalized.split(" "):
+        if not token:
+            continue
+        if re.fullmatch(r"20\d{2}", token):
+            continue
+        token = _TOKEN_ALIASES.get(token, token)
+        if token in _EVENT_NAME_STOPWORDS:
+            continue
+        tokens.add(token)
+    return tokens
+
+
+def _name_similarity(left: str | None, right: str | None) -> float:
+    """Compute simple Jaccard similarity over normalized tokens."""
+    left_tokens = _name_tokens(left)
+    right_tokens = _name_tokens(right)
+    if not left_tokens or not right_tokens:
+        return 0.0
+    intersection = left_tokens.intersection(right_tokens)
+    union = left_tokens.union(right_tokens)
+    return len(intersection) / len(union)
+
+
+def _merge_csv(
+    existing: str | None, incoming: str | None, max_len: int = 100
+) -> str | None:
+    """Merge comma-separated source markers into a stable string."""
+    tokens: list[str] = []
+    for raw in (existing, incoming):
+        if not raw:
+            continue
+        for token in raw.split(","):
+            token = token.strip()
+            if token and token not in tokens:
+                tokens.append(token)
+
+    if not tokens:
+        return None
+
+    merged = ",".join(tokens)
+    if len(merged) <= max_len:
+        return merged
+    return "multi"
+
+
+async def _find_canonical_event_match(
+    session: AsyncSession,
+    data: dict,
+) -> Tournament | None:
+    """Find likely existing event when source URLs differ across providers."""
+    event_date = data.get("date")
+    region = data.get("region")
+    if event_date is None or region is None:
+        return None
+
+    stmt = (
+        select(Tournament)
+        .where(Tournament.region == region)
+        .where(Tournament.date >= event_date - timedelta(days=2))
+        .where(Tournament.date <= event_date + timedelta(days=2))
+        .where(Tournament.best_of == data.get("best_of", 3))
+        .where(Tournament.format == data.get("format", "standard"))
+    )
+    candidates = (await session.execute(stmt)).scalars().all()
+    if not candidates:
+        return None
+
+    incoming_city = _normalize_text(data.get("city"))
+    incoming_country = _normalize_text(data.get("country"))
+    incoming_tier = data.get("tier")
+
+    best_candidate: Tournament | None = None
+    best_score = 0.0
+
+    for candidate in candidates:
+        score = 0.0
+
+        similarity = _name_similarity(candidate.name, data.get("name"))
+        score += similarity * 4
+
+        candidate_city = _normalize_text(candidate.city)
+        if incoming_city and candidate_city and incoming_city == candidate_city:
+            score += 4
+
+        candidate_country = _normalize_text(candidate.country)
+        if (
+            incoming_country
+            and candidate_country
+            and incoming_country == candidate_country
+        ):
+            score += 1
+
+        if incoming_tier and candidate.tier and incoming_tier == candidate.tier:
+            score += 2
+
+        if score > best_score:
+            best_score = score
+            best_candidate = candidate
+
+    return best_candidate if best_score >= 4.5 else None
 
 
 async def _upsert_event(
@@ -255,6 +401,13 @@ async def _upsert_event(
     # Check for existing tournament by source_url
     stmt = select(Tournament).where(Tournament.source_url == source_url)
     existing = (await session.execute(stmt)).scalar_one_or_none()
+
+    dedupe_match = False
+    if not existing:
+        existing = await _find_canonical_event_match(session, data)
+        dedupe_match = existing is not None
+        if dedupe_match:
+            result.events_deduped += 1
 
     if existing:
         # Update fields that may have changed
@@ -292,6 +445,29 @@ async def _upsert_event(
         if data.get("tier") and not existing.tier:
             existing.tier = data["tier"]
             updated = True
+
+        merged_source = _merge_csv(existing.source, data.get("source"))
+        if merged_source and merged_source != existing.source:
+            existing.source = merged_source
+            updated = True
+            result.sources_merged += 1
+
+        merged_event_source = _merge_csv(
+            existing.event_source,
+            data.get("event_source"),
+            max_len=20,
+        )
+        if merged_event_source and merged_event_source != existing.event_source:
+            existing.event_source = merged_event_source
+            updated = True
+            result.sources_merged += 1
+
+        if dedupe_match:
+            logger.info(
+                "Deduped cross-source event '%s' into existing tournament id=%s",
+                data.get("name", "<unknown>"),
+                existing.id,
+            )
 
         if updated:
             result.events_updated += 1
@@ -385,12 +561,15 @@ async def sync_events(
 
     logger.info(
         "Event sync complete (run_id=%s): "
-        "fetched=%d, created=%d, updated=%d, skipped=%d, errors=%d",
+        "fetched=%d, created=%d, updated=%d, skipped=%d, deduped=%d, "
+        "sources_merged=%d, errors=%d",
         run_id,
         result.events_fetched,
         result.events_created,
         result.events_updated,
         result.events_skipped,
+        result.events_deduped,
+        result.sources_merged,
         len(result.errors),
     )
 

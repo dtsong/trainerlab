@@ -9,6 +9,14 @@ from urllib.parse import quote
 
 import httpx
 
+from src.clients.retry_policy import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_DELAY_SECONDS,
+    DEFAULT_TIMEOUT_SECONDS,
+    backoff_delay_seconds,
+    classify_status,
+    is_retryable_status,
+)
 from src.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -193,9 +201,9 @@ class TCGdexClient:
     def __init__(
         self,
         base_url: str | None = None,
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        retry_delay: float = 1.0,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        retry_delay: float = DEFAULT_RETRY_DELAY_SECONDS,
     ):
         """Initialize TCGdex client.
 
@@ -244,32 +252,64 @@ class TCGdexClient:
         for attempt in range(self._max_retries):
             try:
                 response = await self._client.get(endpoint)
+                if response.status_code == 404:
+                    raise TCGdexError(f"Not found: {endpoint}")
+
+                if is_retryable_status(response.status_code):
+                    delay = backoff_delay_seconds(self._retry_delay, attempt)
+                    logger.warning(
+                        "tcgdex_retry status=%d category=%s endpoint=%s "
+                        "attempt=%d/%d delay=%.2fs",
+                        response.status_code,
+                        classify_status(response.status_code),
+                        endpoint,
+                        attempt + 1,
+                        self._max_retries,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    last_error = TCGdexError(
+                        f"Transient HTTP {response.status_code} for {endpoint}"
+                    )
+                    continue
+
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as e:
-                if e.response.status_code == 429:
-                    # Rate limited - retry with exponential backoff
-                    delay = self._retry_delay * (2**attempt)
+                if e.response.status_code == 404:
+                    raise TCGdexError(f"Not found: {endpoint}") from e
+                if is_retryable_status(e.response.status_code):
+                    delay = backoff_delay_seconds(self._retry_delay, attempt)
                     logger.warning(
-                        f"Rate limited on {endpoint}, retrying in {delay}s "
-                        f"(attempt {attempt + 1}/{self._max_retries})"
+                        "tcgdex_retry exception_status=%d category=%s endpoint=%s "
+                        "attempt=%d/%d delay=%.2fs",
+                        e.response.status_code,
+                        classify_status(e.response.status_code),
+                        endpoint,
+                        attempt + 1,
+                        self._max_retries,
+                        delay,
                     )
                     await asyncio.sleep(delay)
                     last_error = e
-                elif e.response.status_code == 404:
-                    raise TCGdexError(f"Not found: {endpoint}") from e
-                else:
-                    raise TCGdexError(
-                        f"HTTP error {e.response.status_code} on {endpoint}"
-                    ) from e
+                    continue
+                raise TCGdexError(
+                    f"HTTP error {e.response.status_code} on {endpoint}"
+                ) from e
             except httpx.RequestError as e:
+                delay = backoff_delay_seconds(self._retry_delay, attempt)
                 logger.warning(
-                    f"Request error on {endpoint}: {e} "
-                    f"(attempt {attempt + 1}/{self._max_retries})"
+                    "tcgdex_retry request_error=%s endpoint=%s "
+                    "attempt=%d/%d delay=%.2fs",
+                    type(e).__name__,
+                    endpoint,
+                    attempt + 1,
+                    self._max_retries,
+                    delay,
                 )
                 last_error = e
                 if attempt < self._max_retries - 1:
-                    await asyncio.sleep(self._retry_delay * (2**attempt))
+                    await asyncio.sleep(delay)
 
         raise TCGdexError(f"Max retries exceeded for {endpoint}") from last_error
 

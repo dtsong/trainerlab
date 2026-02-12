@@ -17,6 +17,15 @@ from typing import Any, Self
 import httpx
 from bs4 import BeautifulSoup, Tag
 
+from src.clients.retry_policy import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_DELAY_SECONDS,
+    DEFAULT_TIMEOUT_SECONDS,
+    backoff_delay_seconds,
+    classify_status,
+    is_retryable_status,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -296,9 +305,9 @@ class LimitlessClient:
 
     def __init__(
         self,
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        retry_delay: float = 2.0,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        retry_delay: float = DEFAULT_RETRY_DELAY_SECONDS,
         requests_per_minute: int = 30,
         max_concurrent: int = 5,
     ):
@@ -393,24 +402,28 @@ class LimitlessClient:
                 try:
                     response = await self._client.get(endpoint)
 
-                    if response.status_code == 429:
-                        delay = self._retry_delay * (2**attempt)
-                        logger.warning(
-                            f"Rate limited (429) on {endpoint}, "
-                            f"retrying in {delay}s (attempt {attempt + 1})"
-                        )
-                        await asyncio.sleep(delay)
-                        last_error = LimitlessRateLimitError("Rate limited")
-                        continue
+                    if response.status_code == 404:
+                        raise LimitlessError(f"Not found: {endpoint}")
 
-                    if response.status_code == 503:
-                        delay = self._retry_delay * (2**attempt)
+                    if is_retryable_status(response.status_code):
+                        delay = backoff_delay_seconds(self._retry_delay, attempt)
                         logger.warning(
-                            f"Service unavailable (503) on {endpoint}, "
-                            f"retrying in {delay}s"
+                            "limitless_retry status=%d category=%s endpoint=%s "
+                            "attempt=%d/%d delay=%.2fs",
+                            response.status_code,
+                            classify_status(response.status_code),
+                            endpoint,
+                            attempt + 1,
+                            self._max_retries,
+                            delay,
                         )
                         await asyncio.sleep(delay)
-                        last_error = LimitlessError("Service unavailable")
+                        if response.status_code == 429:
+                            last_error = LimitlessRateLimitError("Rate limited")
+                        else:
+                            last_error = LimitlessError(
+                                f"Transient HTTP {response.status_code}"
+                            )
                         continue
 
                     response.raise_for_status()
@@ -419,19 +432,37 @@ class LimitlessClient:
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 404:
                         raise LimitlessError(f"Not found: {endpoint}") from e
+                    if is_retryable_status(e.response.status_code):
+                        delay = backoff_delay_seconds(self._retry_delay, attempt)
+                        logger.warning(
+                            "limitless_retry exception_status=%d category=%s "
+                            "endpoint=%s attempt=%d/%d delay=%.2fs",
+                            e.response.status_code,
+                            classify_status(e.response.status_code),
+                            endpoint,
+                            attempt + 1,
+                            self._max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                        last_error = e
+                        continue
                     last_error = e
-                    delay = self._retry_delay * (2**attempt)
-                    logger.warning(
-                        f"HTTP error {e.response.status_code} on {endpoint}, "
-                        f"retrying in {delay}s"
-                    )
-                    await asyncio.sleep(delay)
+                    raise LimitlessError(
+                        f"HTTP error {e.response.status_code} on {endpoint}"
+                    ) from e
 
                 except httpx.RequestError as e:
                     last_error = e
-                    delay = self._retry_delay * (2**attempt)
+                    delay = backoff_delay_seconds(self._retry_delay, attempt)
                     logger.warning(
-                        f"Request error on {endpoint}: {e}, retrying in {delay}s"
+                        "limitless_retry request_error=%s endpoint=%s "
+                        "attempt=%d/%d delay=%.2fs",
+                        type(e).__name__,
+                        endpoint,
+                        attempt + 1,
+                        self._max_retries,
+                        delay,
                     )
                     await asyncio.sleep(delay)
 
@@ -989,14 +1020,28 @@ class LimitlessClient:
                 try:
                     response = await self._official_client.get(endpoint)
 
-                    if response.status_code == 429:
-                        delay = self._retry_delay * (2**attempt)
+                    if response.status_code == 404:
+                        raise LimitlessError(f"Not found: {endpoint}")
+
+                    if is_retryable_status(response.status_code):
+                        delay = backoff_delay_seconds(self._retry_delay, attempt)
                         logger.warning(
-                            f"Rate limited (429) on official {endpoint}, "
-                            f"retrying in {delay}s"
+                            "limitless_official_retry status=%d category=%s "
+                            "endpoint=%s attempt=%d/%d delay=%.2fs",
+                            response.status_code,
+                            classify_status(response.status_code),
+                            endpoint,
+                            attempt + 1,
+                            self._max_retries,
+                            delay,
                         )
                         await asyncio.sleep(delay)
-                        last_error = LimitlessRateLimitError("Rate limited")
+                        if response.status_code == 429:
+                            last_error = LimitlessRateLimitError("Rate limited")
+                        else:
+                            last_error = LimitlessError(
+                                f"Transient HTTP {response.status_code}"
+                            )
                         continue
 
                     response.raise_for_status()
@@ -1005,13 +1050,38 @@ class LimitlessClient:
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 404:
                         raise LimitlessError(f"Not found: {endpoint}") from e
+                    if is_retryable_status(e.response.status_code):
+                        delay = backoff_delay_seconds(self._retry_delay, attempt)
+                        logger.warning(
+                            "limitless_official_retry exception_status=%d "
+                            "category=%s endpoint=%s attempt=%d/%d delay=%.2fs",
+                            e.response.status_code,
+                            classify_status(e.response.status_code),
+                            endpoint,
+                            attempt + 1,
+                            self._max_retries,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                        last_error = e
+                        continue
                     last_error = e
-                    delay = self._retry_delay * (2**attempt)
-                    await asyncio.sleep(delay)
+                    raise LimitlessError(
+                        f"HTTP error {e.response.status_code} on official {endpoint}"
+                    ) from e
 
                 except httpx.RequestError as e:
                     last_error = e
-                    delay = self._retry_delay * (2**attempt)
+                    delay = backoff_delay_seconds(self._retry_delay, attempt)
+                    logger.warning(
+                        "limitless_official_retry request_error=%s endpoint=%s "
+                        "attempt=%d/%d delay=%.2fs",
+                        type(e).__name__,
+                        endpoint,
+                        attempt + 1,
+                        self._max_retries,
+                        delay,
+                    )
                     await asyncio.sleep(delay)
 
             raise LimitlessError(

@@ -258,8 +258,11 @@ curl -H "Authorization: Bearer $TOKEN" \
 # - Configure GitHub repo secrets:
 #   - READINESS_ALERT_TOKEN (same value)
 #   - DISCORD_WEBHOOK_URL (Discord channel webhook URL)
+# - Configure GitHub repo variable/secret:
+#   - PRODUCTION_API_URL (optional, defaults to https://api.trainerlab.io)
 # - Workflow: .github/workflows/tpci-readiness-alert.yml
 # - Endpoint used by workflow: GET /api/v1/ops/readiness/tpci (Bearer token)
+# - If READINESS_ALERT_TOKEN is missing, workflow exits as "skipped" with a warning
 
 # Check card count
 curl -H "Authorization: Bearer $TOKEN" \

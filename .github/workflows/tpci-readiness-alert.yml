@@ -30,8 +30,14 @@ jobs:
           fi
 
           if [ -z "${READINESS_ALERT_TOKEN:-}" ]; then
-            echo "::error::READINESS_ALERT_TOKEN is not set"
-            exit 1
+            NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "::warning::READINESS_ALERT_TOKEN is not set; skipping readiness check"
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            echo "checked_at=$NOW" >> "$GITHUB_OUTPUT"
+            echo "should_alert=false" >> "$GITHUB_OUTPUT"
+            echo "summary=TPCI readiness check skipped (missing READINESS_ALERT_TOKEN)" >> "$GITHUB_OUTPUT"
+            echo "details=Set GitHub Actions secret READINESS_ALERT_TOKEN to enable this check." >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           if ! [[ "${PRODUCTION_API_URL}" =~ ^https?:// ]]; then

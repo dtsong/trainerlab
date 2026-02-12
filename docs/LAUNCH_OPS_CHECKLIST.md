@@ -25,7 +25,7 @@
 - [ ] Confirm Cloud SQL storage headroom and connection metrics are normal
 - [ ] Confirm Redis (Memorystore) availability and error rate baseline
 - [ ] Verify env vars and secrets are present in prod (no placeholder values)
-- [ ] Validate rollback target (last known good commit SHA): `________________`
+- [ ] Validate rollback target (last known good commit SHA): `7072884`
 
 ---
 
@@ -106,11 +106,11 @@
 
 ## 7) Ownership
 
-- Launch commander: `________________`
-- Web on-call: `________________`
-- API on-call: `________________`
-- Communications owner: `________________`
-- Support triage owner: `________________`
+- Launch commander: `dtsong`
+- Web on-call: `dtsong`
+- API on-call: `dtsong`
+- Communications owner: `dtsong`
+- Support triage owner: `dtsong`
 
 ---
 

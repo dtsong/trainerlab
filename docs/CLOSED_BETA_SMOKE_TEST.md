@@ -62,7 +62,13 @@ This is intentionally small. If you need full launch readiness, use `docs/LAUNCH
 - [ ] Repo secrets configured:
   - [ ] `READINESS_ALERT_TOKEN` (must match Cloud Run secret)
   - [ ] `DISCORD_WEBHOOK_URL` (if using Discord)
+  - [ ] `PRODUCTION_API_URL` variable or secret (defaults to `https://api.trainerlab.io`)
 - [ ] Labels exist in repo (for issue creation): `ops`, `alerts`
+
+Notes:
+
+- If `READINESS_ALERT_TOKEN` is not configured, the workflow now exits as `skipped` with a warning instead of failing.
+- Configure `READINESS_ALERT_TOKEN` to actively query `/api/v1/ops/readiness/tpci` and raise alerts.
 
 ## 7) If Something Fails
 

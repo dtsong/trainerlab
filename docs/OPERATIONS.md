@@ -244,6 +244,10 @@ curl -H "Authorization: Bearer $TOKEN" \
 curl -H "Authorization: Bearer $TOKEN" \
   "$SERVICE_URL/api/v1/meta/snapshots?limit=5" | jq
 
+# Check TPCI post-major readiness (admin-only)
+# (Generate an admin JWT or use existing admin tooling)
+./scripts/cloud/check-tpci-readiness.sh
+
 # Check card count
 curl -H "Authorization: Bearer $TOKEN" \
   "$SERVICE_URL/api/v1/cards?limit=1" | jq '.total'

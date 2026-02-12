@@ -47,8 +47,10 @@ from src.schemas.placeholder import (
     TranslationFetchRequest,
     TranslationFetchResponse,
 )
+from src.schemas.readiness import TPCIReadinessResponse
 from src.services.archetype_normalizer import ArchetypeNormalizer
 from src.services.placeholder_service import PlaceholderService
+from src.services.readiness import evaluate_tpci_post_major_readiness
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,66 @@ class SubscriberUserResponse(BaseModel):
     is_subscriber: bool
     created_at: datetime
     updated_at: datetime
+
+
+@router.get("/readiness/tpci", response_model=TPCIReadinessResponse)
+async def tpci_readiness(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> TPCIReadinessResponse:
+    """Operational readiness check for post-major fast-follow."""
+    now_utc = datetime.now(UTC)
+    today = now_utc.date()
+    official_tiers = ["major", "worlds", "international", "regional", "special"]
+
+    latest_major_end = await db.scalar(
+        select(func.max(Tournament.date)).where(Tournament.tier.in_(official_tiers))
+    )
+
+    # Latest official snapshot (global, standard, BO3)
+    snapshot = await db.scalar(
+        select(MetaSnapshot)
+        .where(MetaSnapshot.tournament_type == "official")
+        .where(MetaSnapshot.region.is_(None))
+        .where(MetaSnapshot.format == "standard")
+        .where(MetaSnapshot.best_of == 3)
+        .order_by(MetaSnapshot.snapshot_date.desc())
+        .limit(1)
+    )
+
+    snapshot_date = snapshot.snapshot_date if snapshot else None
+    sample_size = snapshot.sample_size if snapshot else None
+
+    evaluation = evaluate_tpci_post_major_readiness(
+        latest_major_end_date=latest_major_end,
+        snapshot_date=snapshot_date,
+        sample_size=sample_size,
+        now_utc=now_utc,
+    )
+
+    logger.info(
+        "tpci_readiness status=%s major_end=%s snapshot=%s sample=%s "
+        "deadline=%s missed=%s",
+        evaluation["status"],
+        latest_major_end,
+        snapshot_date,
+        sample_size,
+        evaluation.get("deadline_date"),
+        evaluation.get("deadline_missed"),
+    )
+
+    return TPCIReadinessResponse(
+        status=evaluation["status"],
+        checked_at=today,
+        latest_major_end_date=latest_major_end,
+        deadline_date=evaluation.get("deadline_date"),
+        snapshot_date=snapshot_date,
+        sample_size=sample_size,
+        meets_partial_threshold=evaluation["meets_partial"],
+        meets_fresh_threshold=evaluation["meets_fresh"],
+        deadline_missed=evaluation["deadline_missed"],
+        message=evaluation["message"],
+    )
 
 
 @router.post(

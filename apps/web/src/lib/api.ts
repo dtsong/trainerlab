@@ -930,6 +930,76 @@ export const adminDataApi = {
     fetchApiAuth<AdminPipelineHealth>("/api/v1/admin/data/pipeline-health"),
 };
 
+export interface AdminAccessUser {
+  id: string;
+  email: string;
+  display_name?: string | null;
+  is_beta_tester: boolean;
+  is_creator: boolean;
+  is_subscriber: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminAccessUpdateRequest {
+  email: string;
+}
+
+// Admin Access API
+export const adminAccessApi = {
+  listBetaUsers: (
+    params: { active?: boolean; limit?: number; offset?: number } = {}
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params.active !== undefined)
+      searchParams.set("active", String(params.active));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+    const query = searchParams.toString();
+    return fetchApiAuth<AdminAccessUser[]>(
+      `/api/v1/admin/beta-users${query ? `?${query}` : ""}`
+    );
+  },
+
+  grantBeta: (email: string) =>
+    fetchApiAuth<AdminAccessUser>("/api/v1/admin/beta-users/grant", {
+      method: "POST",
+      body: JSON.stringify({ email } satisfies AdminAccessUpdateRequest),
+    }),
+
+  revokeBeta: (email: string) =>
+    fetchApiAuth<AdminAccessUser>("/api/v1/admin/beta-users/revoke", {
+      method: "POST",
+      body: JSON.stringify({ email } satisfies AdminAccessUpdateRequest),
+    }),
+
+  listSubscribers: (
+    params: { active?: boolean; limit?: number; offset?: number } = {}
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params.active !== undefined)
+      searchParams.set("active", String(params.active));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+    const query = searchParams.toString();
+    return fetchApiAuth<AdminAccessUser[]>(
+      `/api/v1/admin/subscribers${query ? `?${query}` : ""}`
+    );
+  },
+
+  grantSubscriber: (email: string) =>
+    fetchApiAuth<AdminAccessUser>("/api/v1/admin/subscribers/grant", {
+      method: "POST",
+      body: JSON.stringify({ email } satisfies AdminAccessUpdateRequest),
+    }),
+
+  revokeSubscriber: (email: string) =>
+    fetchApiAuth<AdminAccessUser>("/api/v1/admin/subscribers/revoke", {
+      method: "POST",
+      body: JSON.stringify({ email } satisfies AdminAccessUpdateRequest),
+    }),
+};
+
 // Widget search parameters
 export interface WidgetSearchParams {
   page?: number;

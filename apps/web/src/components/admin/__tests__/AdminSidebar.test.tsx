@@ -42,10 +42,12 @@ describe("AdminSidebar", () => {
     render(<AdminSidebar />);
 
     expect(screen.getByText("Overview")).toBeInTheDocument();
+    expect(screen.getByText("Access")).toBeInTheDocument();
     expect(screen.getByText("Tournaments")).toBeInTheDocument();
     expect(screen.getByText("Meta")).toBeInTheDocument();
     expect(screen.getByText("Cards")).toBeInTheDocument();
     expect(screen.getByText("Lab Notes")).toBeInTheDocument();
+    expect(screen.getByText("Data")).toBeInTheDocument();
   });
 
   it("renders navigation links with correct hrefs", () => {
@@ -54,6 +56,10 @@ describe("AdminSidebar", () => {
     expect(screen.getByText("Overview").closest("a")).toHaveAttribute(
       "href",
       "/admin"
+    );
+    expect(screen.getByText("Access").closest("a")).toHaveAttribute(
+      "href",
+      "/admin/access"
     );
     expect(screen.getByText("Tournaments").closest("a")).toHaveAttribute(
       "href",
@@ -70,6 +76,10 @@ describe("AdminSidebar", () => {
     expect(screen.getByText("Lab Notes").closest("a")).toHaveAttribute(
       "href",
       "/admin/lab-notes"
+    );
+    expect(screen.getByText("Data").closest("a")).toHaveAttribute(
+      "href",
+      "/admin/data"
     );
   });
 

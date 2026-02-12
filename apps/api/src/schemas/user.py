@@ -18,6 +18,8 @@ class UserResponse(BaseModel):
     avatar_url: str | None = None
     is_beta_tester: bool = False
     is_creator: bool = False
+    is_subscriber: bool = False
+    is_admin: bool = False
     preferences: dict = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime

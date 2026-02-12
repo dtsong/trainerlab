@@ -47,6 +47,11 @@ class User(Base, TimestampMixin):
         default=False, server_default=text("false"), nullable=False, index=True
     )
 
+    # Subscriber access (paid / power users)
+    is_subscriber: Mapped[bool] = mapped_column(
+        default=False, server_default=text("false"), nullable=False, index=True
+    )
+
     # Persona for UX personalization (grinder, first_timer, parent)
     persona: Mapped[str | None] = mapped_column(String(20), nullable=True)
 

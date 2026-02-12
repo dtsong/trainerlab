@@ -8,6 +8,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import get_settings
 from src.db.database import get_db
 from src.dependencies import CurrentUser
 from src.schemas.user import UserPreferencesUpdate, UserResponse
@@ -26,7 +27,13 @@ async def get_current_user_info(
     current_user: CurrentUser,
 ) -> UserResponse:
     """Get the current authenticated user's profile."""
-    return UserResponse.model_validate(current_user)
+    settings = get_settings()
+    admin_emails = {
+        e.strip().lower() for e in settings.admin_emails.split(",") if e.strip()
+    }
+    is_admin = current_user.email.lower() in admin_emails if admin_emails else False
+    base = UserResponse.model_validate(current_user)
+    return base.model_copy(update={"is_admin": is_admin})
 
 
 @router.get("/me/preferences")

@@ -146,6 +146,8 @@ export interface ApiCurrentUser {
   avatar_url: string | null;
   is_beta_tester: boolean;
   is_creator: boolean;
+  is_subscriber: boolean;
+  is_admin: boolean;
   preferences: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -238,7 +240,7 @@ async function fetchApiValidated<T, S>(
  */
 async function getAuthToken(): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/token");
+    const res = await fetch("/api/auth/token", { cache: "no-store" });
     if (!res.ok) return null;
     const data = await res.json();
     return data.token ?? null;
@@ -261,6 +263,7 @@ async function fetchApiAuth<T>(
     throw new ApiError("Not authenticated", 401);
   }
   return fetchApi<T>(endpoint, {
+    cache: options?.cache ?? "no-store",
     ...options,
     headers: {
       ...options?.headers,

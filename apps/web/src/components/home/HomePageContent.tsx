@@ -40,8 +40,12 @@ export function HomePageContent() {
   const { user } = useAuth();
   const { data: currentUser } = useCurrentUser(!!user);
 
-  const isBetaUser = !!currentUser?.is_beta_tester;
-  const shouldRenderTeaser = !isBetaUser;
+  const hasFullAccess =
+    !!currentUser?.is_beta_tester ||
+    !!currentUser?.is_subscriber ||
+    !!currentUser?.is_creator ||
+    !!currentUser?.is_admin;
+  const shouldRenderTeaser = !hasFullAccess;
 
   return (
     <>

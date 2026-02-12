@@ -27,6 +27,9 @@ class TestGetCurrentUserInfo:
         user.email = "testuser@trainerlab.gg"
         user.display_name = "Test User"
         user.avatar_url = "https://example.com/avatar.png"
+        user.is_beta_tester = False
+        user.is_creator = False
+        user.is_subscriber = False
         user.preferences = {"theme": "dark"}
         user.created_at = datetime.now(UTC)
         user.updated_at = datetime.now(UTC)
@@ -103,6 +106,9 @@ class TestGetUserPreferences:
         user.email = "testuser@trainerlab.gg"
         user.display_name = "Test User"
         user.avatar_url = None
+        user.is_beta_tester = False
+        user.is_creator = False
+        user.is_subscriber = False
         user.preferences = {"theme": "dark", "default_format": "standard"}
         user.created_at = datetime.now(UTC)
         user.updated_at = datetime.now(UTC)
@@ -179,6 +185,9 @@ class TestUpdateUserPreferences:
         user.email = "testuser@trainerlab.gg"
         user.display_name = "Test User"
         user.avatar_url = None
+        user.is_beta_tester = False
+        user.is_creator = False
+        user.is_subscriber = False
         user.preferences = {}
         user.created_at = datetime.now(UTC)
         user.updated_at = datetime.now(UTC)

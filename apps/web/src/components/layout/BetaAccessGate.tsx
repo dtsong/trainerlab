@@ -19,8 +19,10 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
   const shouldCheckBeta = isBetaGatedPath(pathname) && !!user;
-  const { data: currentUser, isLoading: userLoading } =
-    useCurrentUser(shouldCheckBeta);
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser(
+    shouldCheckBeta,
+    { staleTimeMs: 0 }
+  );
 
   if (!shouldCheckBeta) {
     return <>{children}</>;
@@ -35,6 +37,16 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
   }
 
   if (currentUser && !currentUser.is_beta_tester) {
+    const hasAccess =
+      currentUser.is_beta_tester ||
+      currentUser.is_subscriber ||
+      currentUser.is_creator ||
+      currentUser.is_admin;
+
+    if (hasAccess) {
+      return <>{children}</>;
+    }
+
     return (
       <div className="container mx-auto py-12 px-4">
         <Card className="max-w-2xl mx-auto">

@@ -69,6 +69,20 @@ class BetaUserResponse(BaseModel):
     display_name: str | None
     is_beta_tester: bool
     is_creator: bool
+    is_subscriber: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class SubscriberUserResponse(BaseModel):
+    """Subscriber user admin response model."""
+
+    id: str
+    email: str
+    display_name: str | None
+    is_beta_tester: bool
+    is_creator: bool
+    is_subscriber: bool
     created_at: datetime
     updated_at: datetime
 
@@ -877,6 +891,7 @@ async def list_beta_users(
             display_name=user.display_name,
             is_beta_tester=user.is_beta_tester,
             is_creator=user.is_creator,
+            is_subscriber=user.is_subscriber,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -909,6 +924,7 @@ async def grant_beta_access(
         display_name=user.display_name,
         is_beta_tester=user.is_beta_tester,
         is_creator=user.is_creator,
+        is_subscriber=user.is_subscriber,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
@@ -939,6 +955,102 @@ async def revoke_beta_access(
         display_name=user.display_name,
         is_beta_tester=user.is_beta_tester,
         is_creator=user.is_creator,
+        is_subscriber=user.is_subscriber,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
+
+
+@router.get("/subscribers", response_model=list[SubscriberUserResponse])
+async def list_subscribers(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    active: bool | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[SubscriberUserResponse]:
+    """List users with optional subscriber filtering."""
+    query = select(User).order_by(User.created_at.desc())
+
+    if active is not None:
+        query = query.where(User.is_subscriber == active)
+
+    query = query.offset(offset).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    return [
+        SubscriberUserResponse(
+            id=str(user.id),
+            email=user.email,
+            display_name=user.display_name,
+            is_beta_tester=user.is_beta_tester,
+            is_creator=user.is_creator,
+            is_subscriber=user.is_subscriber,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+        )
+        for user in users
+    ]
+
+
+@router.post("/subscribers/grant", response_model=SubscriberUserResponse)
+async def grant_subscriber_access(
+    payload: BetaAccessUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> SubscriberUserResponse:
+    """Grant subscriber access to a user by email."""
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == payload.email.lower())
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_subscriber = True
+    await db.commit()
+    await db.refresh(user)
+
+    return SubscriberUserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        is_beta_tester=user.is_beta_tester,
+        is_creator=user.is_creator,
+        is_subscriber=user.is_subscriber,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
+
+
+@router.post("/subscribers/revoke", response_model=SubscriberUserResponse)
+async def revoke_subscriber_access(
+    payload: BetaAccessUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> SubscriberUserResponse:
+    """Revoke subscriber access from a user by email."""
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == payload.email.lower())
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_subscriber = False
+    await db.commit()
+    await db.refresh(user)
+
+    return SubscriberUserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        is_beta_tester=user.is_beta_tester,
+        is_creator=user.is_creator,
+        is_subscriber=user.is_subscriber,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )

@@ -1,0 +1,206 @@
+name: TPCI Readiness Alerts
+
+on:
+  schedule:
+    # Every 6 hours (similar to pipeline health)
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL || secrets.PRODUCTION_API_URL || 'https://api.trainerlab.io' }}
+
+jobs:
+  readiness-alert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check TPCI readiness
+        id: readiness
+        env:
+          READINESS_ALERT_TOKEN: ${{ secrets.READINESS_ALERT_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PRODUCTION_API_URL}" ]; then
+            echo "::error::PRODUCTION_API_URL is not set"
+            exit 1
+          fi
+
+          if [ -z "${READINESS_ALERT_TOKEN:-}" ]; then
+            echo "::error::READINESS_ALERT_TOKEN is not set"
+            exit 1
+          fi
+
+          if ! [[ "${PRODUCTION_API_URL}" =~ ^https?:// ]]; then
+            echo "::error::PRODUCTION_API_URL must start with http:// or https://"
+            exit 1
+          fi
+
+          TARGET_URL="${PRODUCTION_API_URL%/}/api/v1/ops/readiness/tpci"
+          RESPONSE=$(curl -sS --retry 3 --retry-delay 2 --max-time 20 \
+            -H "Authorization: Bearer ${READINESS_ALERT_TOKEN}" \
+            -w "\n%{http_code}" "$TARGET_URL")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Target URL: $TARGET_URL"
+          echo "HTTP Status: $HTTP_CODE"
+
+          if ! echo "$HTTP_CODE" | grep -Eq '^2[0-9]{2}$'; then
+            echo "status=error" >> "$GITHUB_OUTPUT"
+            echo "should_alert=true" >> "$GITHUB_OUTPUT"
+            echo "summary=Readiness check HTTP $HTTP_CODE" >> "$GITHUB_OUTPUT"
+            echo "details=$BODY" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! echo "$BODY" | jq . >/dev/null 2>&1; then
+            echo "status=error" >> "$GITHUB_OUTPUT"
+            echo "should_alert=true" >> "$GITHUB_OUTPUT"
+            echo "summary=Readiness check returned invalid JSON" >> "$GITHUB_OUTPUT"
+            echo "details=$BODY" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          STATUS=$(echo "$BODY" | jq -r '.status')
+          MISSED=$(echo "$BODY" | jq -r '.deadline_missed')
+          CHECKED_AT=$(echo "$BODY" | jq -r '.checked_at')
+          DEADLINE=$(echo "$BODY" | jq -r '.deadline_date // ""')
+          SNAPSHOT=$(echo "$BODY" | jq -r '.snapshot_date // ""')
+          SAMPLE=$(echo "$BODY" | jq -r '.sample_size // ""')
+          MSG=$(echo "$BODY" | jq -r '.message // ""')
+          MEETS_FRESH=$(echo "$BODY" | jq -r '.meets_fresh_threshold')
+
+          SHOULD_ALERT=false
+          if [ "$STATUS" = "fail" ] || [ "$MISSED" = "true" ]; then
+            SHOULD_ALERT=true
+          elif [ "$MEETS_FRESH" = "false" ] && [ -n "$DEADLINE" ] && [ "$CHECKED_AT" = "$DEADLINE" ]; then
+            # Deadline day and still not fresh
+            SHOULD_ALERT=true
+          fi
+
+          SUMMARY="TPCI readiness: ${STATUS} (snapshot=${SNAPSHOT:-none}, sample=${SAMPLE:-none}, deadline=${DEADLINE:-none})"
+          if [ -n "$MSG" ]; then
+            SUMMARY="$SUMMARY — $MSG"
+          fi
+
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "checked_at=$CHECKED_AT" >> "$GITHUB_OUTPUT"
+          echo "deadline_date=$DEADLINE" >> "$GITHUB_OUTPUT"
+          echo "snapshot_date=$SNAPSHOT" >> "$GITHUB_OUTPUT"
+          echo "sample_size=$SAMPLE" >> "$GITHUB_OUTPUT"
+          echo "deadline_missed=$MISSED" >> "$GITHUB_OUTPUT"
+          echo "meets_fresh_threshold=$MEETS_FRESH" >> "$GITHUB_OUTPUT"
+          echo "should_alert=$SHOULD_ALERT" >> "$GITHUB_OUTPUT"
+          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+
+      - name: Update GitHub issue + send Discord alert
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SHOULD_ALERT: ${{ steps.readiness.outputs.should_alert }}
+          SUMMARY: ${{ steps.readiness.outputs.summary }}
+          STATUS: ${{ steps.readiness.outputs.status }}
+          CHECKED_AT: ${{ steps.readiness.outputs.checked_at }}
+          DEADLINE_DATE: ${{ steps.readiness.outputs.deadline_date }}
+          SNAPSHOT_DATE: ${{ steps.readiness.outputs.snapshot_date }}
+          SAMPLE_SIZE: ${{ steps.readiness.outputs.sample_size }}
+          DEADLINE_MISSED: ${{ steps.readiness.outputs.deadline_missed }}
+          DETAILS: ${{ steps.readiness.outputs.details }}
+        run: |
+          set -euo pipefail
+
+          ISSUE_TITLE="TPCI Readiness Alert"
+          LABELS="ops,alerts"
+          TODAY="$(date -u +%F)"
+
+          # Find existing issue (open or closed)
+          ISSUE_NUMBER=$(gh issue list --search "in:title \"${ISSUE_TITLE}\"" --state all --json number,title --jq '.[0].number' || true)
+
+          ISSUE_BODY=""
+          ISSUE_STATE=""
+          if [ -n "${ISSUE_NUMBER}" ]; then
+            ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body --jq '.body' || true)
+            ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state' || true)
+          fi
+
+          PREV_JSON=$(python -c "import os,re; body=os.environ.get('ISSUE_BODY',''); m=re.search(r'<!-- readiness-state:(.*?) -->', body, re.DOTALL); print(m.group(1).strip() if m else '')")
+
+          PREV_ALERT="false"
+          PREV_NOTIFIED=""
+          if [ -n "${PREV_JSON}" ]; then
+            PREV_ALERT=$(echo "${PREV_JSON}" | jq -r '.alert // false' 2>/dev/null || echo false)
+            PREV_NOTIFIED=$(echo "${PREV_JSON}" | jq -r '.last_notified_date // ""' 2>/dev/null || echo "")
+          fi
+
+          # Determine current alert state
+          CUR_ALERT="${SHOULD_ALERT:-false}"
+
+          # Build message
+          MSG="${SUMMARY:-TPCI readiness check}"
+          MSG="$MSG\nChecked: ${CHECKED_AT:-unknown} UTC"
+          if [ -n "${DEADLINE_DATE:-}" ]; then MSG="$MSG\nDeadline: ${DEADLINE_DATE} UTC"; fi
+          if [ -n "${SNAPSHOT_DATE:-}" ]; then MSG="$MSG\nSnapshot: ${SNAPSHOT_DATE}"; fi
+          if [ -n "${SAMPLE_SIZE:-}" ]; then MSG="$MSG\nSample: ${SAMPLE_SIZE}"; fi
+          if [ -n "${DEADLINE_MISSED:-}" ]; then MSG="$MSG\nDeadline missed: ${DEADLINE_MISSED}"; fi
+          MSG="$MSG\nAdmin: ${PRODUCTION_API_URL%/}/admin/data"
+          if [ -n "${DETAILS:-}" ]; then
+            MSG="$MSG\n\nDetails:\n${DETAILS}"
+          fi
+
+          # Ensure issue exists when alerting
+          if [ "$CUR_ALERT" = "true" ] && [ -z "${ISSUE_NUMBER}" ]; then
+            BODY="This issue is managed by the scheduled TPCI readiness alert workflow."$'\n\n'
+            BODY+="It comments when readiness enters an alert state and when it recovers."$'\n\n'
+            BODY+="<!-- readiness-state:{\"alert\":true,\"last_notified_date\":\"${TODAY}\"} -->"$'\n'
+            ISSUE_URL=$(gh issue create --title "$ISSUE_TITLE" --body "$BODY" --label "$LABELS")
+            ISSUE_NUMBER=$(echo "$ISSUE_URL" | sed -n 's#.*/\([0-9][0-9]*\)$#\1#p')
+            ISSUE_STATE="OPEN"
+          fi
+
+          # If alerting: notify on transition or once per day
+          if [ "$CUR_ALERT" = "true" ]; then
+            if [ "$ISSUE_STATE" = "CLOSED" ]; then
+              gh issue reopen "$ISSUE_NUMBER" >/dev/null
+            fi
+
+            if [ "$PREV_ALERT" != "true" ] || [ "$PREV_NOTIFIED" != "$TODAY" ]; then
+              gh issue comment "$ISSUE_NUMBER" --body "$MSG" >/dev/null
+              NEW_STATE="<!-- readiness-state:{\"alert\":true,\"last_notified_date\":\"${TODAY}\"} -->"
+              NEW_BODY=$(python -c "import os,re; body=os.environ.get('ISSUE_BODY',''); marker=os.environ.get('NEW_STATE',''); print(re.sub(r'<!-- readiness-state:.*? -->', marker, body, flags=re.DOTALL) if '<!-- readiness-state:' in body else (body.rstrip()+'\\n\\n'+marker+'\\n'))")
+              gh issue edit "$ISSUE_NUMBER" --body "$NEW_BODY" >/dev/null
+            fi
+          else
+            # Recovered: close issue if it was previously alerting
+            if [ -n "${ISSUE_NUMBER}" ] && [ "$PREV_ALERT" = "true" ]; then
+              REC_MSG="Recovered: ${SUMMARY:-TPCI readiness OK}\nChecked: ${CHECKED_AT:-unknown} UTC"
+              gh issue comment "$ISSUE_NUMBER" --body "$REC_MSG" >/dev/null
+              NEW_STATE="<!-- readiness-state:{\"alert\":false,\"last_notified_date\":\"${TODAY}\"} -->"
+              NEW_BODY=$(python -c "import os,re; body=os.environ.get('ISSUE_BODY',''); marker=os.environ.get('NEW_STATE',''); print(re.sub(r'<!-- readiness-state:.*? -->', marker, body, flags=re.DOTALL) if '<!-- readiness-state:' in body else (body.rstrip()+'\\n\\n'+marker+'\\n'))")
+              gh issue edit "$ISSUE_NUMBER" --body "$NEW_BODY" >/dev/null
+              gh issue close "$ISSUE_NUMBER" >/dev/null
+            fi
+          fi
+
+          # Discord notification mirrors GitHub issue behavior (on transition or daily when alerting)
+          if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
+            SEND_DISCORD="false"
+            if [ "$CUR_ALERT" = "true" ] && { [ "$PREV_ALERT" != "true" ] || [ "$PREV_NOTIFIED" != "$TODAY" ]; }; then
+              SEND_DISCORD="true"
+            elif [ "$CUR_ALERT" != "true" ] && [ "$PREV_ALERT" = "true" ]; then
+              SEND_DISCORD="true"
+            fi
+
+            if [ "$SEND_DISCORD" = "true" ]; then
+              # JSON-escape newlines for Discord content
+              PAYLOAD=$(python -c "import json,os; print(json.dumps({'content': os.environ.get('MSG','')}))")
+              curl -sS -X POST -H "Content-Type: application/json" \
+                -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL" >/dev/null || true
+            fi
+          else
+            echo "DISCORD_WEBHOOK_URL not set; skipping Discord notification"
+          fi

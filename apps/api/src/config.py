@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # Admin (comma-separated emails)
     admin_emails: str = ""
 
+    # Ops alerts (GitHub Actions / webhooks)
+    # Shared secret used by scheduled readiness alert checks
+    readiness_alert_token: str | None = None
+
     # CORS (comma-separated list of origins)
     cors_origins: str = "http://localhost:3000"
 

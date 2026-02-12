@@ -29,6 +29,7 @@ from src.routers import (
     japan_router,
     lab_notes_router,
     meta_router,
+    ops_router,
     pipeline_router,
     public_api_router,
     sets_router,
@@ -170,6 +171,7 @@ app.include_router(health_router)
 app.include_router(japan_router)
 app.include_router(lab_notes_router)
 app.include_router(meta_router)
+app.include_router(ops_router)
 app.include_router(pipeline_router)
 app.include_router(public_api_router)
 app.include_router(sets_router)

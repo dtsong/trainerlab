@@ -248,6 +248,14 @@ curl -H "Authorization: Bearer $TOKEN" \
 # (Generate an admin JWT or use existing admin tooling)
 ./scripts/cloud/check-tpci-readiness.sh
 
+# Automated TPCI readiness alerts (GitHub + Discord)
+# - Configure API env: READINESS_ALERT_TOKEN (random, long)
+# - Configure GitHub repo secrets:
+#   - READINESS_ALERT_TOKEN (same value)
+#   - DISCORD_WEBHOOK_URL (Discord channel webhook URL)
+# - Workflow: .github/workflows/tpci-readiness-alert.yml
+# - Endpoint used by workflow: GET /api/v1/ops/readiness/tpci (Bearer token)
+
 # Check card count
 curl -H "Authorization: Bearer $TOKEN" \
   "$SERVICE_URL/api/v1/cards?limit=1" | jq '.total'

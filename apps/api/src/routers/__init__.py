@@ -12,6 +12,7 @@ from src.routers.health import router as health_router
 from src.routers.japan import router as japan_router
 from src.routers.lab_notes import router as lab_notes_router
 from src.routers.meta import router as meta_router
+from src.routers.ops import router as ops_router
 from src.routers.pipeline import router as pipeline_router
 from src.routers.public_api import router as public_api_router
 from src.routers.sets import router as sets_router
@@ -35,6 +36,7 @@ __all__ = [
     "japan_router",
     "lab_notes_router",
     "meta_router",
+    "ops_router",
     "pipeline_router",
     "public_api_router",
     "sets_router",

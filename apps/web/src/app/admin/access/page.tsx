@@ -238,7 +238,12 @@ export default function AdminAccessPage() {
       qc.invalidateQueries({ queryKey: ["admin", "access"] });
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "Request failed");
+      const message = err instanceof Error ? err.message : "Request failed";
+      if (message === "Not authenticated") {
+        toast.error("Session expired. Please refresh and sign in again.");
+        return;
+      }
+      toast.error(message);
     },
   });
 

@@ -60,25 +60,25 @@ export default function ClosedBetaPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-zinc-950 via-zinc-950 to-teal-950/30 px-4 py-10">
-      <div className="mx-auto max-w-3xl">
+    <div className="container mx-auto px-4 py-12">
+      <div className="mx-auto max-w-2xl">
         <div className="mb-8">
-          <div className="inline-flex items-center gap-2 rounded border border-teal-500/20 bg-teal-500/10 px-2 py-1 font-mono text-[11px] text-teal-200">
+          <div className="inline-flex items-center gap-2 rounded border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
             Invite-only closed beta
           </div>
-          <h1 className="mt-4 font-display text-4xl font-bold tracking-tight text-zinc-50">
+          <h1 className="mt-4 text-4xl font-bold tracking-tight">
             TrainerLab Closed Beta
           </h1>
-          <p className="mt-3 max-w-2xl text-base text-zinc-300">
+          <p className="mt-3 text-base text-muted-foreground">
             Get launch updates and request access. We are keeping the beta small
             so we can move fast with feedback.
           </p>
         </div>
 
-        <Card className="border-zinc-800 bg-zinc-900/40">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-zinc-50">Request access</CardTitle>
+            <CardTitle>Request access</CardTitle>
             <CardDescription>
               We will reach out if we can add you. If you are already invited,
               sign in with the invited email.
@@ -86,18 +86,18 @@ export default function ClosedBetaPage() {
           </CardHeader>
           <CardContent>
             {status === "success" ? (
-              <div className="flex items-center gap-2 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 font-mono text-sm text-emerald-200">
+              <div className="flex items-center gap-2 rounded-md bg-emerald-500/15 p-3 text-sm text-emerald-700 dark:text-emerald-300">
                 <Check className="h-4 w-4" />
                 You are on the list. Watch your inbox.
               </div>
             ) : (
               <form onSubmit={onSubmit} className="space-y-3">
                 <div>
-                  <div className="mb-1 font-mono text-xs uppercase tracking-wider text-zinc-500">
+                  <div className="mb-1 text-xs font-medium text-muted-foreground">
                     Email
                   </div>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       type="email"
                       value={email}
@@ -114,7 +114,7 @@ export default function ClosedBetaPage() {
                 </div>
 
                 <div>
-                  <div className="mb-1 font-mono text-xs uppercase tracking-wider text-zinc-500">
+                  <div className="mb-1 text-xs font-medium text-muted-foreground">
                     Note (optional)
                   </div>
                   <Textarea
@@ -123,12 +123,11 @@ export default function ClosedBetaPage() {
                     placeholder="What are you trying to do with TrainerLab?"
                     rows={4}
                     disabled={status === "loading"}
-                    className="bg-zinc-950"
                   />
                 </div>
 
                 {status === "error" ? (
-                  <div className="rounded border border-rose-500/20 bg-rose-500/10 px-3 py-2 font-mono text-xs text-rose-200">
+                  <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
                     {errorMessage}
                   </div>
                 ) : null}
@@ -156,7 +155,7 @@ export default function ClosedBetaPage() {
           </CardContent>
         </Card>
 
-        <div className="mt-6 text-sm text-zinc-400">
+        <div className="mt-6 text-sm text-muted-foreground">
           If you are invited but still see the gate after signing in, try a
           refresh.
         </div>

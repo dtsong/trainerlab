@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useMemo } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { subDays, endOfDay, startOfDay } from "date-fns";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -25,6 +25,7 @@ import {
   parseTournamentType,
   getErrorMessage,
 } from "@/lib/meta-utils";
+import { buildPathWithQuery, mergeSearchParams } from "@/lib/url-state";
 import { Button } from "@/components/ui/button";
 import type {
   Region,
@@ -52,19 +53,18 @@ function MetaPageContent() {
   };
 
   // Parse URL params with validation
-  const initialRegion = parseRegion(searchParams.get("region"));
-  const initialDays = parseDays(searchParams.get("days"));
+  const urlRegion = parseRegion(searchParams.get("region"));
+  const urlDays = parseDays(searchParams.get("days"));
   const pathTournamentType = getTournamentTypeFromPath(pathname);
-  const initialTournamentType =
+  const urlTournamentType =
     pathTournamentType ??
     parseTournamentType(searchParams.get("tournament_type"));
 
-  const [region, setRegion] = useState<Region>(initialRegion);
-  const [tournamentType, setTournamentType] = useState<TournamentType>(
-    initialTournamentType
-  );
+  const [region, setRegion] = useState<Region>(urlRegion);
+  const [tournamentType, setTournamentType] =
+    useState<TournamentType>(urlTournamentType);
   const [dateRange, setDateRange] = useState({
-    start: startOfDay(subDays(new Date(), initialDays)),
+    start: startOfDay(subDays(new Date(), urlDays)),
     end: endOfDay(new Date()),
   });
 
@@ -94,18 +94,51 @@ function MetaPageContent() {
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   }, [dateRange]);
 
+  useEffect(() => {
+    if (region !== urlRegion) {
+      setRegion(urlRegion);
+    }
+  }, [region, urlRegion]);
+
+  useEffect(() => {
+    if (tournamentType !== urlTournamentType) {
+      setTournamentType(urlTournamentType);
+    }
+  }, [tournamentType, urlTournamentType]);
+
+  useEffect(() => {
+    if (days === urlDays) return;
+    setDateRange({
+      start: startOfDay(subDays(new Date(), urlDays)),
+      end: endOfDay(new Date()),
+    });
+  }, [days, urlDays]);
+
   // Update URL when filters change
   const updateUrl = (
     newRegion: Region,
     newDays: number,
-    newTournamentType: TournamentType = tournamentType
+    newTournamentType: TournamentType = tournamentType,
+    navigationMode: "replace" | "push" = "replace"
   ) => {
-    const params = new URLSearchParams();
-    if (newRegion !== "global") params.set("region", newRegion);
-    if (newDays !== 30) params.set("days", String(newDays));
-    const query = params.toString();
+    const query = mergeSearchParams(
+      searchParams,
+      {
+        region: newRegion,
+        days: newDays,
+        tournament_type: null,
+      },
+      { region: "global", days: 30 }
+    );
     const basePath = getMetaPathByType(newTournamentType);
-    router.push(`${basePath}${query ? `?${query}` : ""}`);
+    const href = buildPathWithQuery(basePath, query);
+
+    if (navigationMode === "push") {
+      router.push(href, { scroll: false });
+      return;
+    }
+
+    router.replace(href, { scroll: false });
   };
 
   const handleRegionChange = (newRegion: Region) => {
@@ -115,7 +148,7 @@ function MetaPageContent() {
 
   const handleTournamentTypeChange = (newType: TournamentType) => {
     setTournamentType(newType);
-    updateUrl(region, days, newType);
+    updateUrl(region, days, newType, "push");
   };
 
   const handleDateRangeChange = (newRange: { start: Date; end: Date }) => {

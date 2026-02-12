@@ -9,6 +9,14 @@ import type {
   ApiUpcomingFormat,
 } from "@trainerlab/shared-types";
 
+const mockPush = vi.fn();
+const mockReplace = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // Mock next/link
 vi.mock("next/link", () => ({
   default: ({
@@ -65,10 +73,16 @@ vi.mock("@/components/ui/tabs", () => ({
   TabsTrigger: ({
     children,
     value,
+    onValueChange,
   }: {
     children: React.ReactNode;
     value: string;
-  }) => <button data-testid={`tab-${value}`}>{children}</button>,
+    onValueChange?: (v: string) => void;
+  }) => (
+    <button data-testid={`tab-${value}`} onClick={() => onValueChange?.(value)}>
+      {children}
+    </button>
+  ),
   TabsContent: ({
     children,
     value,
@@ -136,6 +150,8 @@ describe("RotationPage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPush.mockReset();
+    mockReplace.mockReset();
   });
 
   function setupLoadedState() {

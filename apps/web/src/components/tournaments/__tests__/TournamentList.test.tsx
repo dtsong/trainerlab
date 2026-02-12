@@ -68,6 +68,8 @@ const mockData: ApiTournamentListResponse = {
 };
 
 describe("TournamentList", () => {
+  const onPageChange = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -81,7 +83,11 @@ describe("TournamentList", () => {
     });
 
     const { container } = render(
-      <TournamentList apiParams={{ tier: "major" }} />
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
     );
 
     const pulseElements = container.querySelectorAll(".animate-pulse");
@@ -96,7 +102,13 @@ describe("TournamentList", () => {
       refetch: vi.fn(),
     });
 
-    render(<TournamentList apiParams={{ tier: "major" }} />);
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    );
 
     expect(screen.getByText("Failed to load tournaments")).toBeInTheDocument();
   });
@@ -110,7 +122,13 @@ describe("TournamentList", () => {
       refetch,
     });
 
-    render(<TournamentList apiParams={{ tier: "major" }} />);
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    );
 
     fireEvent.click(screen.getByText("Try Again"));
 
@@ -125,7 +143,13 @@ describe("TournamentList", () => {
       refetch: vi.fn(),
     });
 
-    render(<TournamentList apiParams={{ tier: "major" }} />);
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    );
 
     expect(
       screen.getByText("No tournaments found matching your filters.")
@@ -140,7 +164,13 @@ describe("TournamentList", () => {
       refetch: vi.fn(),
     });
 
-    render(<TournamentList apiParams={{ tier: "major" }} />);
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    );
 
     expect(screen.getByText("Charlotte Regional")).toBeInTheDocument();
     expect(screen.getByText("Stuttgart Regional")).toBeInTheDocument();
@@ -154,7 +184,13 @@ describe("TournamentList", () => {
       refetch: vi.fn(),
     });
 
-    render(<TournamentList apiParams={{ tier: "major" }} />);
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    );
 
     expect(screen.queryByText("Previous")).not.toBeInTheDocument();
     expect(screen.queryByText("Next")).not.toBeInTheDocument();
@@ -168,7 +204,13 @@ describe("TournamentList", () => {
       refetch: vi.fn(),
     });
 
-    render(<TournamentList apiParams={{ tier: "major" }} />);
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    );
 
     expect(screen.getByText("Previous")).toBeDisabled();
     expect(screen.getByText("Next")).not.toBeDisabled();
@@ -189,7 +231,13 @@ describe("TournamentList", () => {
       refetch: vi.fn(),
     });
 
-    render(<TournamentList apiParams={{ tier: "major" }} />);
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={2}
+        onPageChange={onPageChange}
+      />
+    );
 
     expect(screen.getByText("Previous")).not.toBeDisabled();
     expect(screen.getByText("Next")).toBeDisabled();
@@ -204,7 +252,11 @@ describe("TournamentList", () => {
     });
 
     render(
-      <TournamentList apiParams={{ tier: "major", format: "standard" }} />
+      <TournamentList
+        apiParams={{ tier: "major", format: "standard" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
     );
 
     expect(mockUseTournaments).toHaveBeenCalledWith(
@@ -231,15 +283,45 @@ describe("TournamentList", () => {
     });
 
     const { rerender } = render(
-      <TournamentList apiParams={{ tier: "major" }} showRegion={true} />
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        showRegion={true}
+        page={1}
+        onPageChange={onPageChange}
+      />
     );
 
     expect(screen.getAllByText("NA").length).toBeGreaterThan(0);
 
     rerender(
-      <TournamentList apiParams={{ tier: "major" }} showRegion={false} />
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        showRegion={false}
+        page={1}
+        onPageChange={onPageChange}
+      />
     );
 
     expect(screen.queryByText("NA")).not.toBeInTheDocument();
+  });
+
+  it("should call onPageChange when next is clicked", () => {
+    mockUseTournaments.mockReturnValue({
+      data: { ...mockData, has_next: true, total: 40 },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <TournamentList
+        apiParams={{ tier: "major" }}
+        page={1}
+        onPageChange={onPageChange}
+      />
+    );
+
+    fireEvent.click(screen.getByText("Next"));
+    expect(onPageChange).toHaveBeenCalledWith(2);
   });
 });

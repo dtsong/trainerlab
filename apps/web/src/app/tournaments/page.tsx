@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Flag, Trophy, Users } from "lucide-react";
 
@@ -9,6 +9,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BO1ContextBanner } from "@/components/meta";
 import { useState } from "react";
 import type { TournamentSearchParams } from "@/lib/api";
+import {
+  buildPathWithQuery,
+  mergeSearchParams,
+  parseEnumParam,
+  parseIntParam,
+} from "@/lib/url-state";
 
 type TabCategory = "tpci" | "japan" | "grassroots";
 
@@ -17,23 +23,86 @@ function TournamentsPageContent() {
   const searchParams = useSearchParams();
 
   const VALID_TABS: TabCategory[] = ["tpci", "japan", "grassroots"];
-  const rawCategory = searchParams.get("category");
-  const activeTab: TabCategory = VALID_TABS.includes(rawCategory as TabCategory)
-    ? (rawCategory as TabCategory)
-    : "tpci";
-  const [format, setFormat] = useState<"standard" | "expanded" | "all">("all");
+  const FORMAT_VALUES = ["all", "standard", "expanded"] as const;
+  const activeTab = parseEnumParam(
+    searchParams.get("category"),
+    VALID_TABS,
+    "tpci"
+  );
+  const urlFormat = parseEnumParam(
+    searchParams.get("format"),
+    FORMAT_VALUES,
+    "all"
+  );
+  const urlPage = parseIntParam(searchParams.get("page"), {
+    defaultValue: 1,
+    min: 1,
+  });
+
+  const [format, setFormat] = useState<"standard" | "expanded" | "all">(
+    urlFormat
+  );
+  const [page, setPage] = useState(urlPage);
+
+  useEffect(() => {
+    if (format !== urlFormat) {
+      setFormat(urlFormat);
+    }
+  }, [format, urlFormat]);
+
+  useEffect(() => {
+    if (page !== urlPage) {
+      setPage(urlPage);
+    }
+  }, [page, urlPage]);
+
+  const updateUrl = (
+    updates: {
+      category?: TabCategory;
+      format?: "standard" | "expanded" | "all";
+      page?: number;
+    },
+    navigationMode: "replace" | "push"
+  ) => {
+    const query = mergeSearchParams(
+      searchParams,
+      {
+        category: updates.category,
+        format: updates.format,
+        page: updates.page,
+      },
+      {
+        category: "tpci",
+        format: "all",
+        page: 1,
+      }
+    );
+
+    const href = buildPathWithQuery("/tournaments", query);
+    if (navigationMode === "replace") {
+      router.replace(href, { scroll: false });
+      return;
+    }
+
+    router.push(href, { scroll: false });
+  };
 
   const handleTabChange = (value: string) => {
-    const sp = new URLSearchParams(searchParams.toString());
-    if (value === "tpci") {
-      sp.delete("category");
-    } else {
-      sp.set("category", value);
-    }
-    const query = sp.toString();
-    router.push(`/tournaments${query ? `?${query}` : ""}`, {
-      scroll: false,
-    });
+    const nextTab = parseEnumParam(value, VALID_TABS, "tpci");
+    setPage(1);
+    updateUrl({ category: nextTab, page: 1 }, "push");
+  };
+
+  const handleFormatChange = (nextFormat: "standard" | "expanded" | "all") => {
+    setFormat(nextFormat);
+    setPage(1);
+    updateUrl({ format: nextFormat, page: 1 }, "replace");
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    const normalizedPage = Math.max(1, nextPage);
+    setPage(normalizedPage);
+    updateUrl({ page: normalizedPage }, "push");
   };
 
   const formatParam = format === "all" ? undefined : format;
@@ -57,7 +126,10 @@ function TournamentsPageContent() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 className="text-3xl font-bold">Tournaments</h1>
-        <TournamentFilters format={format} onFormatChange={setFormat} />
+        <TournamentFilters
+          format={format}
+          onFormatChange={handleFormatChange}
+        />
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
@@ -77,16 +149,29 @@ function TournamentsPageContent() {
         </TabsList>
 
         <TabsContent value="tpci">
-          <TournamentList apiParams={tpciParams} />
+          <TournamentList
+            apiParams={tpciParams}
+            page={page}
+            onPageChange={handlePageChange}
+          />
         </TabsContent>
 
         <TabsContent value="japan">
           <BO1ContextBanner className="mb-4" />
-          <TournamentList apiParams={japanParams} showRegion={false} />
+          <TournamentList
+            apiParams={japanParams}
+            showRegion={false}
+            page={page}
+            onPageChange={handlePageChange}
+          />
         </TabsContent>
 
         <TabsContent value="grassroots">
-          <TournamentList apiParams={grassrootsParams} />
+          <TournamentList
+            apiParams={grassrootsParams}
+            page={page}
+            onPageChange={handlePageChange}
+          />
         </TabsContent>
       </Tabs>
     </div>

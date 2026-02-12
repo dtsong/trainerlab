@@ -10,11 +10,13 @@ import type {
 
 // Capture the push mock so we can assert on it
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/meta/japan",
 }));
 
 // Mock all child components to isolate page-level tests
@@ -23,6 +25,7 @@ vi.mock("@/components/meta", () => ({
   MetaTrendChart: () => <div data-testid="meta-trend-chart" />,
   DateRangePicker: () => <div data-testid="date-range-picker" />,
   TournamentTypeFilter: () => <div data-testid="tournament-type-filter" />,
+  TournamentTrackNav: () => <div data-testid="tournament-track-nav" />,
   BO1ContextBanner: () => <div data-testid="bo1-context-banner" />,
   ChartErrorBoundary: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
@@ -165,6 +168,7 @@ function createWrapper() {
 describe("JapanMetaPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockReplace.mockReset();
     tabsOnValueChange = undefined;
     vi.mocked(metaApi.getHistory).mockResolvedValue({ snapshots: [] });
     vi.mocked(metaApi.getArchetypeDetail).mockResolvedValue(
@@ -322,7 +326,8 @@ describe("JapanMetaPage", () => {
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith(
-        expect.stringContaining("tab=analysis")
+        expect.stringContaining("tab=analysis"),
+        { scroll: false }
       );
     });
   });

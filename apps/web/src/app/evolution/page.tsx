@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   FileText,
@@ -15,14 +16,47 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useEvolutionArticles } from "@/hooks/useEvolution";
+import {
+  buildPathWithQuery,
+  mergeSearchParams,
+  parseIntParam,
+} from "@/lib/url-state";
 
 export default function EvolutionPage() {
-  const [page, setPage] = useState(0);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlPage = parseIntParam(searchParams.get("page"), {
+    defaultValue: 1,
+    min: 1,
+  });
+
+  const [page, setPage] = useState(urlPage);
   const limit = 12;
+
+  useEffect(() => {
+    if (page !== urlPage) {
+      setPage(urlPage);
+    }
+  }, [page, urlPage]);
+
+  const updateUrl = (nextPage: number, navigationMode: "replace" | "push") => {
+    const normalizedPage = Math.max(1, nextPage);
+    const query = mergeSearchParams(
+      searchParams,
+      { page: normalizedPage },
+      { page: 1 }
+    );
+    const href = buildPathWithQuery("/evolution", query);
+    if (navigationMode === "replace") {
+      router.replace(href, { scroll: false });
+      return;
+    }
+    router.push(href, { scroll: false });
+  };
 
   const { data, isLoading, isError, refetch } = useEvolutionArticles({
     limit,
-    offset: page * limit,
+    offset: (page - 1) * limit,
   });
 
   if (isLoading) {
@@ -144,18 +178,24 @@ export default function EvolutionPage() {
             <div className="flex items-center justify-center gap-4 mt-8">
               <Button
                 variant="outline"
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 1}
+                onClick={() => {
+                  const nextPage = page - 1;
+                  setPage(nextPage);
+                  updateUrl(nextPage, "push");
+                }}
               >
                 Previous
               </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {page + 1}
-              </span>
+              <span className="text-sm text-muted-foreground">Page {page}</span>
               <Button
                 variant="outline"
                 disabled={articles.length < limit}
-                onClick={() => setPage((p) => p + 1)}
+                onClick={() => {
+                  const nextPage = page + 1;
+                  setPage(nextPage);
+                  updateUrl(nextPage, "push");
+                }}
               >
                 Next
               </Button>

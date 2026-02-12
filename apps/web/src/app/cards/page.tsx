@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCards } from "@/hooks/useCards";
 import { useSets } from "@/hooks/useSets";
 import {
@@ -14,17 +15,107 @@ import {
   type CardFiltersValues,
 } from "@/components/cards";
 import { Button } from "@/components/ui/button";
+import {
+  buildPathWithQuery,
+  mergeSearchParams,
+  parseEnumParam,
+  parseIntParam,
+  parseStringParam,
+} from "@/lib/url-state";
 
 const DEFAULT_PAGE_SIZE = 20;
+const LEGALITY_VALUES = ["all", "standard", "expanded"] as const;
+
+function isSameFilters(a: CardFiltersValues, b: CardFiltersValues): boolean {
+  return (
+    a.supertype === b.supertype &&
+    a.types === b.types &&
+    a.set_id === b.set_id &&
+    a.standard_legal === b.standard_legal
+  );
+}
 
 export default function CardsPage() {
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<CardFiltersValues>(DEFAULT_FILTERS);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const urlSearch = parseStringParam(searchParams.get("q"), {
+    defaultValue: "",
+  });
+  const urlPage = parseIntParam(searchParams.get("page"), {
+    defaultValue: 1,
+    min: 1,
+  });
+  const urlFilters: CardFiltersValues = {
+    supertype: parseStringParam(searchParams.get("supertype"), {
+      defaultValue: DEFAULT_FILTERS.supertype,
+    }),
+    types: parseStringParam(searchParams.get("types"), {
+      defaultValue: DEFAULT_FILTERS.types,
+    }),
+    set_id: parseStringParam(searchParams.get("set_id"), {
+      defaultValue: DEFAULT_FILTERS.set_id,
+    }),
+    standard_legal: parseEnumParam(
+      searchParams.get("standard_legal"),
+      LEGALITY_VALUES,
+      DEFAULT_FILTERS.standard_legal
+    ),
+  };
+
+  const [search, setSearch] = useState(urlSearch);
+  const [page, setPage] = useState(urlPage);
+  const [filters, setFilters] = useState<CardFiltersValues>(urlFilters);
+
+  useEffect(() => {
+    if (search !== urlSearch) {
+      setSearch(urlSearch);
+    }
+  }, [search, urlSearch]);
+
+  useEffect(() => {
+    if (page !== urlPage) {
+      setPage(urlPage);
+    }
+  }, [page, urlPage]);
+
+  useEffect(() => {
+    if (!isSameFilters(filters, urlFilters)) {
+      setFilters(urlFilters);
+    }
+  }, [filters, urlFilters]);
 
   const { data: setsData, isLoading: setsLoading } = useSets();
 
-  const searchParams = {
+  const updateUrl = useCallback(
+    (
+      updates: Partial<
+        CardFiltersValues & {
+          q: string;
+          page: number;
+        }
+      >,
+      navigationMode: "replace" | "push" = "replace"
+    ) => {
+      const query = mergeSearchParams(searchParams, updates, {
+        q: "",
+        page: 1,
+        supertype: DEFAULT_FILTERS.supertype,
+        types: DEFAULT_FILTERS.types,
+        set_id: DEFAULT_FILTERS.set_id,
+        standard_legal: DEFAULT_FILTERS.standard_legal,
+      });
+      const href = buildPathWithQuery("/cards", query);
+      if (navigationMode === "push") {
+        router.push(href, { scroll: false });
+        return;
+      }
+      router.replace(href, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const cardSearchParams = {
     q: search || undefined,
     supertype: filters.supertype !== "all" ? filters.supertype : undefined,
     types: filters.types !== "all" ? filters.types : undefined,
@@ -35,30 +126,42 @@ export default function CardsPage() {
     limit: DEFAULT_PAGE_SIZE,
   };
 
-  const { data, isLoading, isError, error } = useCards(searchParams);
+  const { data, isLoading, isError, error } = useCards(cardSearchParams);
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearch(value);
-    setPage(1); // Reset to first page on search change
-  }, []);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearch(value);
+      setPage(1); // Reset to first page on search change
+      updateUrl({ q: value, page: 1 }, "replace");
+    },
+    [updateUrl]
+  );
 
   const handleFilterChange = useCallback(
     (key: keyof CardFiltersValues, value: string) => {
       setFilters((prev) => ({ ...prev, [key]: value }));
       setPage(1); // Reset to first page on filter change
+      updateUrl({ [key]: value, page: 1 }, "replace");
     },
-    []
+    [updateUrl]
   );
 
   const handleClearFilters = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
     setPage(1);
-  }, []);
+    updateUrl({ ...DEFAULT_FILTERS, page: 1 }, "replace");
+  }, [updateUrl]);
 
-  const handlePrevPage = () => setPage((p) => Math.max(1, p - 1));
+  const handlePrevPage = () => {
+    const nextPage = Math.max(1, page - 1);
+    setPage(nextPage);
+    updateUrl({ page: nextPage }, "push");
+  };
   const handleNextPage = () => {
     if (data && page < data.total_pages) {
-      setPage((p) => p + 1);
+      const nextPage = page + 1;
+      setPage(nextPage);
+      updateUrl({ page: nextPage }, "push");
     }
   };
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, FolderOpen, SortAsc } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,13 +15,56 @@ import {
 import { DeckCard } from "@/components/deck";
 import { useDecks } from "@/hooks/useDecks";
 import type { DeckFormat } from "@/types/deck";
+import {
+  buildPathWithQuery,
+  mergeSearchParams,
+  parseEnumParam,
+} from "@/lib/url-state";
 
 type SortOption = "updated" | "created" | "name";
 type FilterFormat = "all" | DeckFormat;
 
 export default function DecksPage() {
-  const [sortBy, setSortBy] = useState<SortOption>("updated");
-  const [filterFormat, setFilterFormat] = useState<FilterFormat>("all");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const SORT_VALUES = ["updated", "created", "name"] as const;
+  const FORMAT_VALUES = ["all", "standard", "expanded"] as const;
+  const urlSortBy = parseEnumParam(
+    searchParams.get("sort"),
+    SORT_VALUES,
+    "updated"
+  );
+  const urlFilterFormat = parseEnumParam(
+    searchParams.get("format"),
+    FORMAT_VALUES,
+    "all"
+  );
+
+  const [sortBy, setSortBy] = useState<SortOption>(urlSortBy);
+  const [filterFormat, setFilterFormat] =
+    useState<FilterFormat>(urlFilterFormat);
+
+  useEffect(() => {
+    if (sortBy !== urlSortBy) {
+      setSortBy(urlSortBy);
+    }
+  }, [sortBy, urlSortBy]);
+
+  useEffect(() => {
+    if (filterFormat !== urlFilterFormat) {
+      setFilterFormat(urlFilterFormat);
+    }
+  }, [filterFormat, urlFilterFormat]);
+
+  const updateUrl = (updates: { sort?: SortOption; format?: FilterFormat }) => {
+    const query = mergeSearchParams(searchParams, updates, {
+      sort: "updated",
+      format: "all",
+    });
+    const href = buildPathWithQuery("/decks", query);
+    router.replace(href, { scroll: false });
+  };
 
   const { decks, isLoading, loadError } = useDecks();
 
@@ -78,7 +122,11 @@ export default function DecksPage() {
             <SortAsc className="h-4 w-4 text-muted-foreground" />
             <Select
               value={sortBy}
-              onValueChange={(value) => setSortBy(value as SortOption)}
+              onValueChange={(value) => {
+                const nextSort = value as SortOption;
+                setSortBy(nextSort);
+                updateUrl({ sort: nextSort });
+              }}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue />
@@ -93,7 +141,11 @@ export default function DecksPage() {
 
           <Select
             value={filterFormat}
-            onValueChange={(value) => setFilterFormat(value as FilterFormat)}
+            onValueChange={(value) => {
+              const nextFormat = value as FilterFormat;
+              setFilterFormat(nextFormat);
+              updateUrl({ format: nextFormat });
+            }}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue />
@@ -166,7 +218,13 @@ export default function DecksPage() {
             <p className="text-muted-foreground mb-4">
               No decks match your current filters.
             </p>
-            <Button variant="outline" onClick={() => setFilterFormat("all")}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFilterFormat("all");
+                updateUrl({ format: "all" });
+              }}
+            >
               Clear Filters
             </Button>
           </div>

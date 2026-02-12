@@ -1,7 +1,8 @@
 "use client";
 
 import { AlertCircle, CalendarDays, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { ArchetypeSurvival, CardRotationList } from "@/components/rotation";
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,84 @@ import {
   useUpcomingFormat,
   useRotationImpacts,
 } from "@/hooks/useFormat";
+import {
+  buildPathWithQuery,
+  mergeSearchParams,
+  parseEnumParam,
+} from "@/lib/url-state";
 
 import type { SurvivalRating } from "@trainerlab/shared-types";
 
+const TAB_VALUES = ["overview", "cards"] as const;
+const RATING_VALUES = [
+  "all",
+  "dies",
+  "crippled",
+  "adapts",
+  "thrives",
+  "unknown",
+] as const;
+
 export default function RotationPage() {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [ratingFilter, setRatingFilter] = useState<SurvivalRating | "all">(
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlTab = parseEnumParam(
+    searchParams.get("tab"),
+    TAB_VALUES,
+    "overview"
+  );
+  const urlRating = parseEnumParam(
+    searchParams.get("rating"),
+    RATING_VALUES,
     "all"
   );
+
+  const [optimisticTab, setOptimisticTab] = useState<string | null>(null);
+  const [optimisticRating, setOptimisticRating] = useState<
+    SurvivalRating | "all" | null
+  >(null);
+
+  useEffect(() => {
+    if (optimisticTab === urlTab) {
+      setOptimisticTab(null);
+    }
+  }, [optimisticTab, urlTab]);
+
+  useEffect(() => {
+    if (optimisticRating === urlRating) {
+      setOptimisticRating(null);
+    }
+  }, [optimisticRating, urlRating]);
+
+  const activeTab = optimisticTab ?? urlTab;
+  const ratingFilter = optimisticRating ?? urlRating;
+
+  const updateUrl = (
+    updates: { tab?: string; rating?: SurvivalRating | "all" },
+    navigationMode: "replace" | "push"
+  ) => {
+    const query = mergeSearchParams(searchParams, updates, {
+      tab: "overview",
+      rating: "all",
+    });
+    const href = buildPathWithQuery("/rotation", query);
+    if (navigationMode === "replace") {
+      router.replace(href, { scroll: false });
+      return;
+    }
+    router.push(href, { scroll: false });
+  };
+
+  const handleTabChange = (nextTab: string) => {
+    const normalizedTab = parseEnumParam(nextTab, TAB_VALUES, "overview");
+    setOptimisticTab(normalizedTab);
+    updateUrl({ tab: normalizedTab }, "push");
+  };
+
+  const handleRatingFilterChange = (nextRating: SurvivalRating | "all") => {
+    setOptimisticRating(nextRating);
+    updateUrl({ rating: nextRating }, "replace");
+  };
 
   const { data: currentFormat } = useCurrentFormat();
   const { data: upcomingFormat, isLoading: loadingUpcoming } =
@@ -133,7 +204,7 @@ export default function RotationPage() {
       {/* Survival Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8">
         <button
-          onClick={() => setRatingFilter("all")}
+          onClick={() => handleRatingFilterChange("all")}
           className={`p-4 rounded-lg border transition-colors text-left ${
             ratingFilter === "all"
               ? "border-primary bg-primary/10"
@@ -146,7 +217,7 @@ export default function RotationPage() {
           <div className="text-sm text-muted-foreground">Total Archetypes</div>
         </button>
         <button
-          onClick={() => setRatingFilter("thrives")}
+          onClick={() => handleRatingFilterChange("thrives")}
           className={`p-4 rounded-lg border transition-colors text-left ${
             ratingFilter === "thrives"
               ? "border-green-500 bg-green-500/10"
@@ -159,7 +230,7 @@ export default function RotationPage() {
           <div className="text-sm text-muted-foreground">Thrives</div>
         </button>
         <button
-          onClick={() => setRatingFilter("adapts")}
+          onClick={() => handleRatingFilterChange("adapts")}
           className={`p-4 rounded-lg border transition-colors text-left ${
             ratingFilter === "adapts"
               ? "border-yellow-500 bg-yellow-500/10"
@@ -172,7 +243,7 @@ export default function RotationPage() {
           <div className="text-sm text-muted-foreground">Adapts</div>
         </button>
         <button
-          onClick={() => setRatingFilter("crippled")}
+          onClick={() => handleRatingFilterChange("crippled")}
           className={`p-4 rounded-lg border transition-colors text-left ${
             ratingFilter === "crippled"
               ? "border-orange-500 bg-orange-500/10"
@@ -185,7 +256,7 @@ export default function RotationPage() {
           <div className="text-sm text-muted-foreground">Crippled</div>
         </button>
         <button
-          onClick={() => setRatingFilter("dies")}
+          onClick={() => handleRatingFilterChange("dies")}
           className={`p-4 rounded-lg border transition-colors text-left ${
             ratingFilter === "dies"
               ? "border-red-500 bg-red-500/10"
@@ -200,7 +271,7 @@ export default function RotationPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="overview">Archetype Overview</TabsTrigger>
           <TabsTrigger value="cards">Rotating Cards</TabsTrigger>

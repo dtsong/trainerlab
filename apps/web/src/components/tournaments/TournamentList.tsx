@@ -12,20 +12,22 @@ import { TournamentRow } from "./TournamentRow";
 
 interface TournamentListProps {
   apiParams: TournamentSearchParams;
+  page: number;
+  onPageChange: (page: number) => void;
   showRegion?: boolean;
 }
 
 export function TournamentList({
   apiParams,
+  page,
+  onPageChange,
   showRegion = true,
 }: TournamentListProps) {
-  const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    setPage(1);
     setExpandedId(null);
-  }, [apiParams]);
+  }, [apiParams, page]);
 
   const { data, isLoading, isError, refetch } = useTournaments({
     ...apiParams,
@@ -103,7 +105,7 @@ export function TournamentList({
             size="sm"
             disabled={!data.has_prev}
             onClick={() => {
-              setPage((p) => p - 1);
+              onPageChange(page - 1);
               setExpandedId(null);
             }}
           >
@@ -117,7 +119,7 @@ export function TournamentList({
             size="sm"
             disabled={!data.has_next}
             onClick={() => {
-              setPage((p) => p + 1);
+              onPageChange(page + 1);
               setExpandedId(null);
             }}
           >

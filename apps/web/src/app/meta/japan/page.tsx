@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useMemo, useCallback } from "react";
+import { Suspense, useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   subDays,
@@ -40,6 +40,7 @@ import {
   parseTournamentType,
   getErrorMessage,
 } from "@/lib/meta-utils";
+import { buildPathWithQuery, mergeSearchParams } from "@/lib/url-state";
 import { useArchetypeDetail } from "@/hooks/useMeta";
 import { Button } from "@/components/ui/button";
 import { CardReference } from "@/components/cards/CardReference";
@@ -51,6 +52,7 @@ import type {
 
 /** JP Nihil Zero rotation date — all post-rotation data starts here. */
 const JP_ROTATION_DATE = new Date("2026-01-23");
+const TAB_VALUES = ["overview", "analysis"] as const;
 
 /** Compute days since JP rotation for default lookback. */
 function daysSinceRotation(): number {
@@ -76,20 +78,24 @@ function JapanMetaPageContent() {
     return "/meta/japan";
   };
 
-  // Default to "all post-rotation" instead of 30 days
-  const initialDays =
-    parseDays(searchParams.get("days")) || daysSinceRotation();
-  const activeTab = searchParams.get("tab") || "overview";
+  const defaultDays = daysSinceRotation();
+  const rawDays = searchParams.get("days");
+  const urlDays = rawDays ? parseDays(rawDays, defaultDays) : defaultDays;
+  const tabParam = searchParams.get("tab");
+  const activeTab: (typeof TAB_VALUES)[number] = TAB_VALUES.includes(
+    tabParam as (typeof TAB_VALUES)[number]
+  )
+    ? (tabParam as (typeof TAB_VALUES)[number])
+    : "overview";
   const pathTournamentType = getTournamentTypeFromPath(pathname);
-  const initialTournamentType =
+  const urlTournamentType =
     pathTournamentType ??
     parseTournamentType(searchParams.get("tournament_type"));
 
-  const [tournamentType, setTournamentType] = useState<TournamentType>(
-    initialTournamentType
-  );
+  const [tournamentType, setTournamentType] =
+    useState<TournamentType>(urlTournamentType);
   const [dateRange, setDateRange] = useState({
-    start: startOfDay(subDays(new Date(), initialDays)),
+    start: startOfDay(subDays(new Date(), urlDays)),
     end: endOfDay(new Date()),
   });
 
@@ -106,37 +112,49 @@ function JapanMetaPageContent() {
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   }, [dateRange]);
 
+  useEffect(() => {
+    if (tournamentType !== urlTournamentType) {
+      setTournamentType(urlTournamentType);
+    }
+  }, [tournamentType, urlTournamentType]);
+
+  useEffect(() => {
+    if (days === urlDays) return;
+    setDateRange({
+      start: startOfDay(subDays(new Date(), urlDays)),
+      end: endOfDay(new Date()),
+    });
+  }, [days, urlDays]);
+
   const updateUrl = useCallback(
     (params: {
       days?: number;
       tab?: string;
       tournament_type?: TournamentType;
+      navigationMode?: "replace" | "push";
     }) => {
-      const sp = new URLSearchParams(searchParams.toString());
-      if (params.days !== undefined) {
-        if (params.days === daysSinceRotation()) {
-          sp.delete("days");
-        } else {
-          sp.set("days", String(params.days));
-        }
-      }
-      if (params.tab !== undefined) {
-        if (params.tab === "overview") {
-          sp.delete("tab");
-        } else {
-          sp.set("tab", params.tab);
-        }
-      }
-      if (params.tournament_type !== undefined) {
-        sp.delete("tournament_type");
-      }
-      const query = sp.toString();
+      const query = mergeSearchParams(
+        searchParams,
+        {
+          days: params.days,
+          tab: params.tab,
+          tournament_type: null,
+        },
+        { days: defaultDays, tab: "overview" }
+      );
       const basePath = getJapanMetaPathByType(
         params.tournament_type ?? tournamentType
       );
-      router.push(`${basePath}${query ? `?${query}` : ""}`);
+      const href = buildPathWithQuery(basePath, query);
+
+      if (params.navigationMode === "replace") {
+        router.replace(href, { scroll: false });
+        return;
+      }
+
+      router.push(href, { scroll: false });
     },
-    [router, searchParams, tournamentType]
+    [defaultDays, router, searchParams, tournamentType]
   );
 
   const handleDateRangeChange = (newRange: { start: Date; end: Date }) => {
@@ -145,7 +163,7 @@ function JapanMetaPageContent() {
       (newRange.end.getTime() - newRange.start.getTime()) /
         (1000 * 60 * 60 * 24)
     );
-    updateUrl({ days: newDays });
+    updateUrl({ days: newDays, navigationMode: "replace" });
   };
 
   const handleTabChange = (value: string) => {
@@ -154,7 +172,7 @@ function JapanMetaPageContent() {
 
   const handleTournamentTypeChange = (newType: TournamentType) => {
     setTournamentType(newType);
-    updateUrl({ tournament_type: newType });
+    updateUrl({ tournament_type: newType, navigationMode: "push" });
   };
 
   // Era label for post-rotation JP data scoping

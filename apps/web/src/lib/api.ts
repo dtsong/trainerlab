@@ -945,6 +945,19 @@ export interface AdminAccessUpdateRequest {
   email: string;
 }
 
+export interface AdminAccessGrant {
+  id: string;
+  email: string;
+  is_beta_tester: boolean;
+  is_subscriber: boolean;
+  note?: string | null;
+  created_by_admin_email?: string | null;
+  has_user: boolean;
+  user_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Admin Access API
 export const adminAccessApi = {
   listBetaUsers: (
@@ -998,6 +1011,61 @@ export const adminAccessApi = {
       method: "POST",
       body: JSON.stringify({ email } satisfies AdminAccessUpdateRequest),
     }),
+};
+
+export const adminAccessGrantsApi = {
+  list: (
+    params: {
+      active?: boolean;
+      claimed?: boolean;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params.active !== undefined) {
+      searchParams.set("active", String(params.active));
+    }
+    if (params.claimed !== undefined) {
+      searchParams.set("claimed", String(params.claimed));
+    }
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+    const query = searchParams.toString();
+    return fetchApiAuth<AdminAccessGrant[]>(
+      `/api/v1/admin/access-grants${query ? `?${query}` : ""}`
+    );
+  },
+
+  grantBeta: (email: string, note?: string) =>
+    fetchApiAuth<AdminAccessGrant>("/api/v1/admin/access-grants/beta/grant", {
+      method: "POST",
+      body: JSON.stringify({ email, note }),
+    }),
+
+  revokeBeta: (email: string, note?: string) =>
+    fetchApiAuth<AdminAccessGrant>("/api/v1/admin/access-grants/beta/revoke", {
+      method: "POST",
+      body: JSON.stringify({ email, note }),
+    }),
+
+  grantSubscriber: (email: string, note?: string) =>
+    fetchApiAuth<AdminAccessGrant>(
+      "/api/v1/admin/access-grants/subscribers/grant",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, note }),
+      }
+    ),
+
+  revokeSubscriber: (email: string, note?: string) =>
+    fetchApiAuth<AdminAccessGrant>(
+      "/api/v1/admin/access-grants/subscribers/revoke",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, note }),
+      }
+    ),
 };
 
 export interface AdminAuditEvent {

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.jwt import TokenVerificationError, verify_token
 from src.db.database import get_db
+from src.models.access_grant import AccessGrant
 from src.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -184,6 +185,28 @@ async def get_current_user(
                     detail="Account creation failed, please try again",
                 ) from e
             logger.info("User already created by concurrent request: %s", decoded.sub)
+
+    # Apply email-based access grants (pre-login invites)
+    if decoded.email:
+        grant_result = await db.execute(
+            select(AccessGrant).where(
+                func.lower(AccessGrant.email) == decoded.email.lower()
+            )
+        )
+        grant = grant_result.scalar_one_or_none()
+
+        if grant:
+            changed = False
+            if grant.is_beta_tester and not user.is_beta_tester:
+                user.is_beta_tester = True
+                changed = True
+            if grant.is_subscriber and not user.is_subscriber:
+                user.is_subscriber = True
+                changed = True
+
+            if changed:
+                await db.commit()
+                await db.refresh(user)
 
     return user
 

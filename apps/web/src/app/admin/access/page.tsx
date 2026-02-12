@@ -7,7 +7,12 @@ import { toast } from "sonner";
 import { AdminHeader } from "@/components/admin";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { adminAccessApi, type AdminAccessUser } from "@/lib/api";
+import {
+  adminAccessApi,
+  adminAccessGrantsApi,
+  type AdminAccessGrant,
+  type AdminAccessUser,
+} from "@/lib/api";
 
 type AccessAction =
   | "grant_beta"
@@ -35,11 +40,11 @@ function parseEmailLines(input: string): string[] {
 }
 
 async function runAccessAction(action: AccessAction, email: string) {
-  if (action === "grant_beta") return adminAccessApi.grantBeta(email);
-  if (action === "revoke_beta") return adminAccessApi.revokeBeta(email);
+  if (action === "grant_beta") return adminAccessGrantsApi.grantBeta(email);
+  if (action === "revoke_beta") return adminAccessGrantsApi.revokeBeta(email);
   if (action === "grant_subscriber")
-    return adminAccessApi.grantSubscriber(email);
-  return adminAccessApi.revokeSubscriber(email);
+    return adminAccessGrantsApi.grantSubscriber(email);
+  return adminAccessGrantsApi.revokeSubscriber(email);
 }
 
 function FlagPill({ label, active }: { label: string; active: boolean }) {
@@ -130,6 +135,61 @@ function UserRow({
   );
 }
 
+function InviteRow({
+  grant,
+  onRevokeBeta,
+  onRevokeSubscriber,
+}: {
+  grant: AdminAccessGrant;
+  onRevokeBeta: (email: string) => void;
+  onRevokeSubscriber: (email: string) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-zinc-800/50 px-3 py-2 last:border-0">
+      <div className="min-w-0">
+        <div className="truncate font-mono text-sm text-zinc-100">
+          {grant.email}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <FlagPill label="beta" active={grant.is_beta_tester} />
+          <FlagPill label="subscriber" active={grant.is_subscriber} />
+          {grant.note ? (
+            <span className="ml-1 truncate font-mono text-[10px] text-zinc-500">
+              note: {grant.note}
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-1 font-mono text-[10px] text-zinc-500">
+          updated {grant.updated_at}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {grant.is_beta_tester ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 border-zinc-700 bg-zinc-950 font-mono text-xs text-zinc-300 hover:bg-zinc-900"
+            onClick={() => onRevokeBeta(grant.email)}
+          >
+            Revoke beta
+          </Button>
+        ) : null}
+
+        {grant.is_subscriber ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 border-zinc-700 bg-zinc-950 font-mono text-xs text-zinc-300 hover:bg-zinc-900"
+            onClick={() => onRevokeSubscriber(grant.email)}
+          >
+            Revoke sub
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAccessPage() {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
@@ -159,11 +219,22 @@ export default function AdminAccessPage() {
     staleTime: 1000 * 30,
   });
 
+  const pendingInvites = useQuery({
+    queryKey: ["admin", "access", "access-grants", "pending"],
+    queryFn: () =>
+      adminAccessGrantsApi.list({ active: true, claimed: false, limit: 500 }),
+    staleTime: 1000 * 30,
+  });
+
   const singleMutation = useMutation({
     mutationFn: ({ action, email }: { action: AccessAction; email: string }) =>
       runAccessAction(action, email),
-    onSuccess: (user) => {
-      toast.success(`Updated ${user.email}`);
+    onSuccess: (grant) => {
+      toast.success(
+        grant.has_user
+          ? `Updated ${grant.email}`
+          : `Invited ${grant.email} (applies on first login)`
+      );
       qc.invalidateQueries({ queryKey: ["admin", "access"] });
     },
     onError: (err) => {
@@ -490,6 +561,57 @@ export default function AdminAccessPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="mt-4 rounded border border-zinc-800 bg-zinc-900/50">
+              <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
+                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
+                  Pending invites
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 font-mono text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  onClick={() => pendingInvites.refetch()}
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              {pendingInvites.isLoading ? (
+                <div className="p-3 font-mono text-sm text-zinc-500">
+                  Loading...
+                </div>
+              ) : pendingInvites.isError ? (
+                <div className="p-3 font-mono text-sm text-zinc-500">
+                  Failed to load
+                </div>
+              ) : (pendingInvites.data?.length ?? 0) === 0 ? (
+                <div className="p-3 font-mono text-sm text-zinc-500">
+                  No pending invites
+                </div>
+              ) : (
+                <div className="max-h-[520px] overflow-auto">
+                  {pendingInvites.data?.map((g) => (
+                    <InviteRow
+                      key={g.id}
+                      grant={g}
+                      onRevokeBeta={(e) =>
+                        singleMutation.mutate({
+                          action: "revoke_beta",
+                          email: e,
+                        })
+                      }
+                      onRevokeSubscriber={(e) =>
+                        singleMutation.mutate({
+                          action: "revoke_subscriber",
+                          email: e,
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

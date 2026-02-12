@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
 from src.dependencies.admin import AdminUser
+from src.models.access_grant import AccessGrant
 from src.models.admin_audit_event import AdminAuditEvent
 from src.models.archetype_sprite import ArchetypeSprite
 from src.models.card import Card
@@ -25,6 +26,7 @@ from src.models.tournament import Tournament
 from src.models.tournament_placement import TournamentPlacement
 from src.models.translated_content import TranslatedContent
 from src.models.user import User
+from src.schemas.access_grants import AccessGrantResponse, AccessGrantUpdateRequest
 from src.schemas.admin_data import (
     DataOverviewResponse,
     MetaSnapshotDetailResponse,
@@ -1155,6 +1157,257 @@ async def revoke_subscriber_access(
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
+
+
+async def _get_user_by_email(
+    db: AsyncSession,
+    email: str,
+) -> User | None:
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == email.lower())
+    )
+    return result.scalar_one_or_none()
+
+
+async def _get_access_grant_by_email(
+    db: AsyncSession,
+    email: str,
+) -> AccessGrant | None:
+    result = await db.execute(
+        select(AccessGrant).where(func.lower(AccessGrant.email) == email.lower())
+    )
+    return result.scalar_one_or_none()
+
+
+def _access_grant_response(
+    grant: AccessGrant, user: User | None
+) -> AccessGrantResponse:
+    return AccessGrantResponse(
+        id=str(grant.id),
+        email=grant.email,
+        is_beta_tester=grant.is_beta_tester,
+        is_subscriber=grant.is_subscriber,
+        note=grant.note,
+        created_by_admin_email=grant.created_by_admin_email,
+        has_user=user is not None,
+        user_id=(str(user.id) if user else None),
+        created_at=grant.created_at,
+        updated_at=grant.updated_at,
+    )
+
+
+@router.get("/access-grants", response_model=list[AccessGrantResponse])
+async def list_access_grants(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    active: bool | None = None,
+    claimed: bool | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> list[AccessGrantResponse]:
+    query = (
+        select(AccessGrant, User)
+        .select_from(AccessGrant)
+        .join(User, func.lower(User.email) == AccessGrant.email, isouter=True)
+        .order_by(AccessGrant.updated_at.desc())
+    )
+
+    if active is True:
+        query = query.where(
+            (AccessGrant.is_beta_tester.is_(True))
+            | (AccessGrant.is_subscriber.is_(True))
+        )
+    elif active is False:
+        query = query.where(
+            (AccessGrant.is_beta_tester.is_(False))
+            & (AccessGrant.is_subscriber.is_(False))
+        )
+
+    if claimed is True:
+        query = query.where(User.id.is_not(None))
+    elif claimed is False:
+        query = query.where(User.id.is_(None))
+
+    result = await db.execute(query.offset(offset).limit(limit))
+    rows = result.all()
+    return [_access_grant_response(grant, user) for grant, user in rows]
+
+
+@router.post("/access-grants/beta/grant", response_model=AccessGrantResponse)
+async def grant_beta_access_grant(
+    payload: AccessGrantUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    request: Request,
+) -> AccessGrantResponse:
+    user = await _get_user_by_email(db, payload.email)
+    grant = await _get_access_grant_by_email(db, payload.email)
+
+    if not grant:
+        grant = AccessGrant(
+            email=payload.email,
+            is_beta_tester=True,
+            is_subscriber=False,
+            note=payload.note,
+            created_by_admin_email=_admin_user.email,
+        )
+        db.add(grant)
+    else:
+        grant.email = payload.email
+        grant.is_beta_tester = True
+        if payload.note and not grant.note:
+            grant.note = payload.note
+
+    if user:
+        user.is_beta_tester = True
+
+    await record_admin_audit_event(
+        db,
+        action="beta.invite_grant",
+        actor=_admin_user,
+        target=user,
+        target_email=payload.email,
+        request=request,
+        metadata={"has_user": bool(user)},
+    )
+    await db.commit()
+    await db.refresh(grant)
+    if user:
+        await db.refresh(user)
+
+    return _access_grant_response(grant, user)
+
+
+@router.post("/access-grants/beta/revoke", response_model=AccessGrantResponse)
+async def revoke_beta_access_grant(
+    payload: AccessGrantUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    request: Request,
+) -> AccessGrantResponse:
+    user = await _get_user_by_email(db, payload.email)
+    grant = await _get_access_grant_by_email(db, payload.email)
+
+    if not grant:
+        grant = AccessGrant(
+            email=payload.email,
+            is_beta_tester=False,
+            is_subscriber=False,
+            note=payload.note,
+            created_by_admin_email=_admin_user.email,
+        )
+        db.add(grant)
+    else:
+        grant.is_beta_tester = False
+        if payload.note and not grant.note:
+            grant.note = payload.note
+
+    if user:
+        user.is_beta_tester = False
+
+    await record_admin_audit_event(
+        db,
+        action="beta.invite_revoke",
+        actor=_admin_user,
+        target=user,
+        target_email=payload.email,
+        request=request,
+        metadata={"has_user": bool(user)},
+    )
+    await db.commit()
+    await db.refresh(grant)
+    if user:
+        await db.refresh(user)
+
+    return _access_grant_response(grant, user)
+
+
+@router.post("/access-grants/subscribers/grant", response_model=AccessGrantResponse)
+async def grant_subscriber_access_grant(
+    payload: AccessGrantUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    request: Request,
+) -> AccessGrantResponse:
+    user = await _get_user_by_email(db, payload.email)
+    grant = await _get_access_grant_by_email(db, payload.email)
+
+    if not grant:
+        grant = AccessGrant(
+            email=payload.email,
+            is_beta_tester=False,
+            is_subscriber=True,
+            note=payload.note,
+            created_by_admin_email=_admin_user.email,
+        )
+        db.add(grant)
+    else:
+        grant.is_subscriber = True
+        if payload.note and not grant.note:
+            grant.note = payload.note
+
+    if user:
+        user.is_subscriber = True
+
+    await record_admin_audit_event(
+        db,
+        action="subscriber.invite_grant",
+        actor=_admin_user,
+        target=user,
+        target_email=payload.email,
+        request=request,
+        metadata={"has_user": bool(user)},
+    )
+    await db.commit()
+    await db.refresh(grant)
+    if user:
+        await db.refresh(user)
+
+    return _access_grant_response(grant, user)
+
+
+@router.post("/access-grants/subscribers/revoke", response_model=AccessGrantResponse)
+async def revoke_subscriber_access_grant(
+    payload: AccessGrantUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+    request: Request,
+) -> AccessGrantResponse:
+    user = await _get_user_by_email(db, payload.email)
+    grant = await _get_access_grant_by_email(db, payload.email)
+
+    if not grant:
+        grant = AccessGrant(
+            email=payload.email,
+            is_beta_tester=False,
+            is_subscriber=False,
+            note=payload.note,
+            created_by_admin_email=_admin_user.email,
+        )
+        db.add(grant)
+    else:
+        grant.is_subscriber = False
+        if payload.note and not grant.note:
+            grant.note = payload.note
+
+    if user:
+        user.is_subscriber = False
+
+    await record_admin_audit_event(
+        db,
+        action="subscriber.invite_revoke",
+        actor=_admin_user,
+        target=user,
+        target_email=payload.email,
+        request=request,
+        metadata={"has_user": bool(user)},
+    )
+    await db.commit()
+    await db.refresh(grant)
+    if user:
+        await db.refresh(user)
+
+    return _access_grant_response(grant, user)
 
 
 @router.get("/audit-events", response_model=list[AdminAuditEventResponse])

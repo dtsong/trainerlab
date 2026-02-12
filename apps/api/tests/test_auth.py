@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from src.core.jwt import DecodedToken, TokenVerificationError
 from src.dependencies.auth import get_current_user, get_current_user_optional
+from src.models.access_grant import AccessGrant
 from src.models.user import User
 
 
@@ -105,6 +106,44 @@ class TestGetCurrentUser:
 
     @pytest.mark.asyncio
     @patch("src.dependencies.auth.verify_token")
+    async def test_applies_access_grant_to_existing_user(
+        self, mock_verify: MagicMock
+    ) -> None:
+        mock_request = make_mock_request()
+        mock_db = AsyncMock()
+        mock_verify.return_value = DecodedToken(
+            sub="google-uid-123",
+            email="test@example.com",
+        )
+
+        mock_user = MagicMock(spec=User)
+        mock_user.id = uuid4()
+        mock_user.auth_provider_id = "google-uid-123"
+        mock_user.email = "test@example.com"
+        mock_user.is_beta_tester = False
+        mock_user.is_subscriber = False
+
+        result_user = MagicMock()
+        result_user.scalar_one_or_none.return_value = mock_user
+
+        grant = MagicMock(spec=AccessGrant)
+        grant.is_beta_tester = True
+        grant.is_subscriber = False
+
+        result_grant = MagicMock()
+        result_grant.scalar_one_or_none.return_value = grant
+
+        mock_db.execute.side_effect = [result_user, result_grant]
+
+        await get_current_user(
+            mock_request, mock_db, authorization="Bearer valid-token"
+        )
+
+        assert mock_user.is_beta_tester is True
+        mock_db.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.dependencies.auth.verify_token")
     async def test_existing_user_found_by_email_when_sub_differs(
         self, mock_verify: MagicMock
     ) -> None:
@@ -127,7 +166,10 @@ class TestGetCurrentUser:
         second_result = MagicMock()
         second_result.scalar_one_or_none.return_value = email_user
 
-        mock_db.execute.side_effect = [first_result, second_result]
+        grant_result = MagicMock()
+        grant_result.scalar_one_or_none.return_value = None
+
+        mock_db.execute.side_effect = [first_result, second_result, grant_result]
 
         result = await get_current_user(
             mock_request, mock_db, authorization="Bearer valid-token"
@@ -246,7 +288,15 @@ class TestGetCurrentUser:
         third_result = MagicMock()
         third_result.scalar_one_or_none.return_value = mock_user
 
-        mock_db.execute.side_effect = [first_result, second_result, third_result]
+        grant_result = MagicMock()
+        grant_result.scalar_one_or_none.return_value = None
+
+        mock_db.execute.side_effect = [
+            first_result,
+            second_result,
+            third_result,
+            grant_result,
+        ]
 
         # db.commit raises IntegrityError (concurrent insert)
         mock_db.commit.side_effect = IntegrityError(
@@ -261,8 +311,9 @@ class TestGetCurrentUser:
         mock_db.rollback.assert_called_once()
         # Verify we got the existing user
         assert result == mock_user
-        # Verify execute was called three times (sub + email + post-rollback sub)
-        assert mock_db.execute.call_count == 3
+        # Verify execute was called four times:
+        # sub + email + post-rollback sub + access_grants
+        assert mock_db.execute.call_count == 4
 
     @pytest.mark.asyncio
     @patch("src.dependencies.auth.verify_token")
@@ -282,6 +333,7 @@ class TestGetCurrentUser:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.side_effect = [
+            mock_result,
             mock_result,
             mock_result,
             mock_result,

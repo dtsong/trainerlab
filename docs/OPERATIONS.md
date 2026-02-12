@@ -6,10 +6,15 @@ This guide covers operational procedures for managing the TrainerLab production 
 
 - [Environment Overview](#environment-overview)
 - [Prerequisites](#prerequisites)
+- [Closed Beta Smoke Test](#closed-beta-smoke-test)
 - [Pipeline Management](#pipeline-management)
 - [Monitoring](#monitoring)
 - [Troubleshooting](#troubleshooting)
 - [Database Operations](#database-operations)
+
+## Closed Beta Smoke Test
+
+Use `docs/CLOSED_BETA_SMOKE_TEST.md` after deploying to production or before inviting a new batch.
 
 ## Environment Overview
 

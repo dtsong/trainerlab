@@ -17,12 +17,14 @@ import {
 
 export function BetaAccessGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const shouldCheckBeta = isBetaGatedPath(pathname) && !!user;
-  const { data: currentUser, isLoading: userLoading } = useCurrentUser(
-    shouldCheckBeta,
-    { staleTimeMs: 0 }
-  );
+  const {
+    data: currentUser,
+    isLoading: userLoading,
+    isFetching: userFetching,
+    refetch: refetchCurrentUser,
+  } = useCurrentUser(shouldCheckBeta, { staleTimeMs: 0 });
 
   if (!shouldCheckBeta) {
     return <>{children}</>;
@@ -60,16 +62,39 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
               currently available only to approved beta users.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
-            <Button asChild>
-              <Link href="/lab-notes">Browse Lab Notes</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/">Go Home</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/closed-beta">Request Access</Link>
-            </Button>
+          <CardContent className="space-y-4">
+            <div className="rounded-md border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
+              If you were just invited, access can take a moment to propagate.
+              Click "Refresh Access" to re-check without signing out.
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => {
+                  void refetchCurrentUser();
+                }}
+                disabled={userFetching}
+              >
+                {userFetching ? "Checking..." : "Refresh Access"}
+              </Button>
+              <Button asChild>
+                <Link href="/lab-notes">Browse Lab Notes</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/">Go Home</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link href="/closed-beta">Request Access</Link>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void signOut();
+                }}
+                disabled={authLoading || userLoading}
+              >
+                Sign out
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -76,8 +76,11 @@ function LoginContent() {
             <p className="font-medium">Closed Beta</p>
             <p className="mt-1 text-muted-foreground">
               Access is currently limited to invited testers. Looking to join?{" "}
-              <a href="/#waitlist" className="underline hover:text-foreground">
-                Sign up for the waitlist
+              <a
+                href="/closed-beta"
+                className="underline hover:text-foreground"
+              >
+                Get launch updates + request access
               </a>
               .
             </p>

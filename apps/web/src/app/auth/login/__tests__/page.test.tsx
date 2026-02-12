@@ -30,11 +30,11 @@ describe("LoginPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows waitlist link pointing to /#waitlist", () => {
+  it("shows request access link pointing to /closed-beta", () => {
     render(<LoginPage />);
-    const link = screen.getByText("Sign up for the waitlist");
+    const link = screen.getByText("Get launch updates + request access");
     expect(link).toBeInTheDocument();
-    expect(link.closest("a")).toHaveAttribute("href", "/#waitlist");
+    expect(link.closest("a")).toHaveAttribute("href", "/closed-beta");
   });
 
   it("shows Google sign-in button", () => {

@@ -11,7 +11,7 @@ from typing import Annotated
 from uuid import uuid4
 
 from fastapi import Depends, Header, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -128,6 +128,14 @@ async def get_current_user(
     result = await db.execute(query)
     user = result.scalar_one_or_none()
 
+    # Fallback lookup by email to avoid lockout when provider subject changes
+    if user is None and decoded.email:
+        email_query = select(User).where(
+            func.lower(User.email) == decoded.email.lower()
+        )
+        email_result = await db.execute(email_query)
+        user = email_result.scalar_one_or_none()
+
     # Auto-create user if they don't exist (first login)
     if user is None:
         if not decoded.email:
@@ -163,6 +171,12 @@ async def get_current_user(
             await db.rollback()
             result = await db.execute(query)
             user = result.scalar_one_or_none()
+            if user is None and decoded.email:
+                email_query = select(User).where(
+                    func.lower(User.email) == decoded.email.lower()
+                )
+                email_result = await db.execute(email_query)
+                user = email_result.scalar_one_or_none()
             if not user:
                 logger.error("User creation failed unexpectedly: %s", decoded.sub)
                 raise HTTPException(

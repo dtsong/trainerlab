@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.main import app
 from src.models import JPCardInnovation, JPNewArchetype, JPSetImpact, Prediction
 
@@ -27,7 +28,11 @@ class TestListCardInnovations:
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -126,7 +131,11 @@ class TestGetCardInnovationDetail:
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -185,7 +194,11 @@ class TestListNewArchetypes:
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -242,7 +255,11 @@ class TestListSetImpacts:
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -288,7 +305,11 @@ class TestListPredictions:
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -353,7 +374,11 @@ class TestCardCountEvolution:
         async def override_get_db():
             yield mock_db
 
+        async def override_require_beta():
+            return None
+
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = override_require_beta
         yield TestClient(app)
         app.dependency_overrides.clear()
 

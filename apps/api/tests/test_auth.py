@@ -105,6 +105,39 @@ class TestGetCurrentUser:
 
     @pytest.mark.asyncio
     @patch("src.dependencies.auth.verify_token")
+    async def test_existing_user_found_by_email_when_sub_differs(
+        self, mock_verify: MagicMock
+    ) -> None:
+        """User should still resolve when auth provider subject changes."""
+        mock_request = make_mock_request()
+        mock_db = AsyncMock()
+        mock_verify.return_value = DecodedToken(
+            sub="google-uid-new-sub",
+            email="test@example.com",
+        )
+
+        first_result = MagicMock()
+        first_result.scalar_one_or_none.return_value = None
+
+        email_user = MagicMock(spec=User)
+        email_user.id = uuid4()
+        email_user.auth_provider_id = "google-uid-old-sub"
+        email_user.email = "test@example.com"
+
+        second_result = MagicMock()
+        second_result.scalar_one_or_none.return_value = email_user
+
+        mock_db.execute.side_effect = [first_result, second_result]
+
+        result = await get_current_user(
+            mock_request, mock_db, authorization="Bearer valid-token"
+        )
+
+        assert result == email_user
+        mock_db.add.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("src.dependencies.auth.verify_token")
     async def test_new_user_created(self, mock_verify: MagicMock) -> None:
         """Test that new user is created on first login."""
         mock_request = make_mock_request()
@@ -197,8 +230,9 @@ class TestGetCurrentUser:
             name="Race User",
         )
 
-        # First execute returns no user (triggering creation attempt)
-        # Second execute (after rollback) returns the user created by concurrent request
+        # First execute returns no user by sub.
+        # Second execute returns no user by email (triggering creation attempt).
+        # Third execute (after rollback) returns the user created by concurrent request.
         mock_user = MagicMock(spec=User)
         mock_user.id = uuid4()
         mock_user.auth_provider_id = "google-uid-race"
@@ -207,9 +241,12 @@ class TestGetCurrentUser:
         first_result.scalar_one_or_none.return_value = None
 
         second_result = MagicMock()
-        second_result.scalar_one_or_none.return_value = mock_user
+        second_result.scalar_one_or_none.return_value = None
 
-        mock_db.execute.side_effect = [first_result, second_result]
+        third_result = MagicMock()
+        third_result.scalar_one_or_none.return_value = mock_user
+
+        mock_db.execute.side_effect = [first_result, second_result, third_result]
 
         # db.commit raises IntegrityError (concurrent insert)
         mock_db.commit.side_effect = IntegrityError(
@@ -224,8 +261,8 @@ class TestGetCurrentUser:
         mock_db.rollback.assert_called_once()
         # Verify we got the existing user
         assert result == mock_user
-        # Verify execute was called twice (initial lookup + post-rollback lookup)
-        assert mock_db.execute.call_count == 2
+        # Verify execute was called three times (sub + email + post-rollback sub)
+        assert mock_db.execute.call_count == 3
 
     @pytest.mark.asyncio
     @patch("src.dependencies.auth.verify_token")
@@ -241,10 +278,15 @@ class TestGetCurrentUser:
             email="ghost@example.com",
         )
 
-        # Both executes return no user (shouldn't happen in practice)
+        # Sub + email lookups before create, then same again after rollback.
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
-        mock_db.execute.return_value = mock_result
+        mock_db.execute.side_effect = [
+            mock_result,
+            mock_result,
+            mock_result,
+            mock_result,
+        ]
 
         # db.commit raises IntegrityError
         mock_db.commit.side_effect = IntegrityError(

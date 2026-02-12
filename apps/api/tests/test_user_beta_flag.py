@@ -18,12 +18,12 @@ def make_mock_request() -> MagicMock:
 
 
 class TestBetaTesterFlag:
-    """Verify auto-created users receive is_beta_tester=True."""
+    """Verify auto-created users receive is_beta_tester=False by default."""
 
     @pytest.mark.asyncio
     @patch("src.dependencies.auth.verify_token")
     async def test_new_user_has_beta_tester_flag(self, mock_verify: MagicMock) -> None:
-        """Auto-created users should have is_beta_tester=True."""
+        """Auto-created users should have is_beta_tester=False."""
         mock_request = make_mock_request()
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
@@ -43,4 +43,4 @@ class TestBetaTesterFlag:
         )
 
         created_user = mock_db.add.call_args[0][0]
-        assert created_user.is_beta_tester is True
+        assert created_user.is_beta_tester is False

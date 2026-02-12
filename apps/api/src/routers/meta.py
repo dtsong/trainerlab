@@ -171,8 +171,19 @@ def _snapshot_to_response(
             snapshot_date=snapshot.snapshot_date,
             sample_size=snapshot.sample_size,
             latest_tpci_event_end_date=latest_tpci_event_end_date,
+            source_coverage=_source_coverage_for_meta(cadence_profile),
         ),
     )
+
+
+def _source_coverage_for_meta(cadence_profile: CadenceProfile) -> list[str]:
+    if cadence_profile == "tpci_event_cadence":
+        return ["Limitless (major events)"]
+    if cadence_profile == "jp_daily_cadence":
+        return ["Limitless (JP)"]
+    if cadence_profile == "grassroots_daily_cadence":
+        return ["Limitless (community)"]
+    return ["Limitless"]
 
 
 def _meta_cadence_profile(

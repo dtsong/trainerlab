@@ -221,9 +221,9 @@ async def list_tournaments(
                 date=tournament.date,
                 region=tournament.region,
                 country=tournament.country,
-                format=tournament.format,  # type: ignore[invalid-argument-type]
-                best_of=tournament.best_of,  # type: ignore[invalid-argument-type]
-                tier=tournament.tier,  # type: ignore[invalid-argument-type]
+                format=tournament.format,
+                best_of=tournament.best_of,
+                tier=tournament.tier,
                 participant_count=tournament.participant_count,
                 top_placements=[
                     TopPlacement(
@@ -248,8 +248,22 @@ async def list_tournaments(
             snapshot_date=latest_tournament_date,
             sample_size=total,
             latest_tpci_event_end_date=latest_tournament_date,
+            source_coverage=_source_coverage_for_tournaments(region, tier),
         ),
     )
+
+
+def _source_coverage_for_tournaments(
+    region: str | None,
+    tier: TournamentTier | None,
+) -> list[str]:
+    if tier in {"major", "worlds", "international", "regional", "special"}:
+        return ["Limitless", "RK9", "pokemon.com"]
+    if region == "JP":
+        return ["Limitless (JP)"]
+    if tier == "grassroots":
+        return ["Limitless (community)"]
+    return ["Limitless", "RK9"]
 
 
 @router.get("/{tournament_id}")

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Lock } from "lucide-react";
 
 import { useAuth, useCurrentUser } from "@/hooks";
-import { isBetaGatedPath } from "@/lib/route-access";
+import { isBetaGatedPath, isPublicPath } from "@/lib/route-access";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,6 +18,7 @@ import {
 export function BetaAccessGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading: authLoading, signOut } = useAuth();
+  const isPublic = isPublicPath(pathname);
   const isGatedPath = isBetaGatedPath(pathname);
   const shouldCheckBeta = isGatedPath && !!user;
   const {
@@ -27,7 +28,7 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
     refetch: refetchCurrentUser,
   } = useCurrentUser(shouldCheckBeta, { staleTimeMs: 0 });
 
-  if (!isGatedPath) {
+  if (isPublic) {
     return <>{children}</>;
   }
 
@@ -39,7 +40,7 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If session is missing (signed out / expired), never render gated content.
+  // If session is missing (signed out / expired), never render protected content.
   if (!user) {
     const loginUrl = `/auth/login?callbackUrl=${encodeURIComponent(pathname)}`;
 
@@ -49,11 +50,10 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lock className="h-5 w-5 text-amber-600" />
-              Sign in for Closed Beta
+              Sign in required
             </CardTitle>
             <CardDescription>
-              This section is invite-only. Sign in to check access, or request
-              an invite.
+              This section requires a TrainerLab account. Sign in to continue.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
@@ -81,6 +81,11 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
         <div className="h-48 animate-pulse rounded-lg border bg-muted" />
       </div>
     );
+  }
+
+  // Non-beta routes only require authentication.
+  if (!isGatedPath) {
+    return <>{children}</>;
   }
 
   if (currentUser && !currentUser.is_beta_tester) {

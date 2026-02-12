@@ -535,6 +535,7 @@ Cloud Scheduler jobs:
 | sync-jp-adoption | `0 10 * * 2,4,6` | POST /api/v1/pipeline/sync-jp-adoption |
 | translate-tier-lists | `0 10 * * 0` | POST /api/v1/pipeline/translate-tier-lists |
 | monitor-card-reveals | `0 */6 * * *` | POST /api/v1/pipeline/monitor-card-reveals |
+| reprocess-archetypes | `0 5 1 * *` | POST /api/v1/pipeline/reprocess-archetypes |
 | cleanup-exports | `0 3 * * 0` | POST /api/v1/pipeline/cleanup-exports |
 
 ---

@@ -45,6 +45,20 @@ variable "cors_origins" {
   default     = "https://trainerlab-web.vercel.app,https://trainerlab.io,https://www.trainerlab.io"
 }
 
+variable "admin_emails" {
+  description = "Comma-separated list of admin emails for the API (ADMIN_EMAILS)"
+  type        = string
+  # Production admins. Override via terraform.tfvars or -var for other envs.
+  default = "xdtsong@gmail.com,daniel@appraisehq.ai"
+}
+
+variable "readiness_alert_token" {
+  description = "Secret token for readiness alerts (READINESS_ALERT_TOKEN). If empty, token is not provisioned or injected."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # =============================================================================
 # Cloud SQL
 # =============================================================================

@@ -218,6 +218,27 @@ resource "google_secret_manager_secret" "anthropic_api_key" {
   depends_on = [google_project_service.apis]
 }
 
+# Readiness alert token (used by API ops/alerts endpoints)
+resource "google_secret_manager_secret" "readiness_alert_token" {
+  project   = var.project_id
+  secret_id = "trainerlab-readiness-alert-token"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+# NOTE: We only create a secret version when a value is provided at apply time.
+# This prevents accidentally deploying Cloud Run with an empty/invalid token.
+resource "google_secret_manager_secret_version" "readiness_alert_token" {
+  count = var.readiness_alert_token != "" ? 1 : 0
+
+  secret      = google_secret_manager_secret.readiness_alert_token.id
+  secret_data = var.readiness_alert_token
+}
+
 # =============================================================================
 # Cloud SQL PostgreSQL (Private)
 # =============================================================================
@@ -276,6 +297,7 @@ module "api" {
     DATABASE_URL               = "postgresql+asyncpg://trainerlab_app@${module.database.private_ip_address}:5432/trainerlab"
     TCGDEX_URL                 = var.tcgdex_url
     CORS_ORIGINS               = var.cors_origins
+    ADMIN_EMAILS               = var.admin_emails
     CLOUD_RUN_URL              = "https://trainerlab-api-${data.google_project.current.number}.${var.region}.run.app"
     SCHEDULER_SERVICE_ACCOUNT  = google_service_account.scheduler.email
     OPERATIONS_SERVICE_ACCOUNT = google_service_account.operations.email
@@ -286,20 +308,28 @@ module "api" {
 
   }
 
-  secret_env_vars = {
-    DATABASE_PASSWORD = {
-      secret_id = google_secret_manager_secret.db_password.secret_id
-      version   = "latest"
-    }
-    NEXTAUTH_SECRET = {
-      secret_id = google_secret_manager_secret.nextauth_secret.secret_id
-      version   = "latest"
-    }
-    ANTHROPIC_API_KEY = {
-      secret_id = google_secret_manager_secret.anthropic_api_key.secret_id
-      version   = "latest"
-    }
-  }
+  secret_env_vars = merge(
+    {
+      DATABASE_PASSWORD = {
+        secret_id = google_secret_manager_secret.db_password.secret_id
+        version   = "latest"
+      }
+      NEXTAUTH_SECRET = {
+        secret_id = google_secret_manager_secret.nextauth_secret.secret_id
+        version   = "latest"
+      }
+      ANTHROPIC_API_KEY = {
+        secret_id = google_secret_manager_secret.anthropic_api_key.secret_id
+        version   = "latest"
+      }
+    },
+    var.readiness_alert_token != "" ? {
+      READINESS_ALERT_TOKEN = {
+        secret_id = google_secret_manager_secret.readiness_alert_token.secret_id
+        version   = "latest"
+      }
+    } : {}
+  )
 
   allow_unauthenticated = true
   custom_domain         = var.custom_domain

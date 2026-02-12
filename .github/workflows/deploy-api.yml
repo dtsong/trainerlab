@@ -142,10 +142,9 @@ jobs:
           SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region=${{ env.REGION }} \
             --format='value(status.url)')
-          TOKEN=$(gcloud auth print-identity-token)
 
+          # /api/v1/health/pipeline is read-only and does not require auth
           HEALTH=$(curl -sf --max-time 10 \
-            -H "Authorization: Bearer $TOKEN" \
             "${SERVICE_URL}/api/v1/health/pipeline" 2>/dev/null || echo "{}")
 
           ARCH_STATUS=$(echo "$HEALTH" | jq -r '.archetype.status // "unknown"')

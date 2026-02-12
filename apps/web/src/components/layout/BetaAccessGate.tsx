@@ -68,9 +68,7 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
               <Link href="/">Go Home</Link>
             </Button>
             <Button variant="ghost" asChild>
-              <a href="mailto:support@trainerlab.io?subject=TrainerLab%20Beta%20Access">
-                Request Beta Access
-              </a>
+              <Link href="/closed-beta">Request Access</Link>
             </Button>
           </CardContent>
         </Card>

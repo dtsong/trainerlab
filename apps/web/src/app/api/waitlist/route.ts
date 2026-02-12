@@ -6,6 +6,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const email = body.email?.toLowerCase().trim();
+    const note = typeof body.note === "string" ? body.note : undefined;
+    const intent = typeof body.intent === "string" ? body.intent : undefined;
+    const source = typeof body.source === "string" ? body.source : undefined;
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(
@@ -19,7 +22,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, note, intent, source }),
     });
 
     const data = await response.json();

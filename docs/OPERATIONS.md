@@ -313,6 +313,32 @@ gcloud run services add-iam-policy-binding trainerlab-api \
   --role="roles/run.invoker"
 ```
 
+#### 2a. OAuth Subject Drift / Closed Beta Access Seems "Stuck"
+
+**Symptoms:**
+
+- User is signed in via Google OAuth on `trainerlab.io` but sees closed beta access gate
+- API returns 401/403 unexpectedly even after admin grants access
+
+**Notes:**
+
+- The API verifies Auth.js JWTs with `NEXTAUTH_SECRET`.
+- User lookup prefers `auth_provider_id` (`sub`), with a fallback by email to avoid lockouts
+  if provider subject identifiers drift.
+
+**Quick checks:**
+
+```bash
+SERVICE_URL=$(gcloud run services describe trainerlab-api --region=us-west1 --format='value(status.url)')
+
+# /health and /health/pipeline do not require auth
+curl -sS "$SERVICE_URL/api/v1/health" | jq
+curl -sS "$SERVICE_URL/api/v1/health/pipeline" | jq '.status'
+```
+
+If access changes were recently granted, ensure the frontend refreshes the session/token.
+In the UI, a sign-out/sign-in cycle is the most deterministic reset.
+
 #### 3. Database Connection Failed
 
 **Symptoms:**

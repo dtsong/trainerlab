@@ -43,6 +43,7 @@ describe("AdminSidebar", () => {
 
     expect(screen.getByText("Overview")).toBeInTheDocument();
     expect(screen.getByText("Access")).toBeInTheDocument();
+    expect(screen.getByText("Audit")).toBeInTheDocument();
     expect(screen.getByText("Tournaments")).toBeInTheDocument();
     expect(screen.getByText("Meta")).toBeInTheDocument();
     expect(screen.getByText("Cards")).toBeInTheDocument();
@@ -60,6 +61,10 @@ describe("AdminSidebar", () => {
     expect(screen.getByText("Access").closest("a")).toHaveAttribute(
       "href",
       "/admin/access"
+    );
+    expect(screen.getByText("Audit").closest("a")).toHaveAttribute(
+      "href",
+      "/admin/audit"
     );
     expect(screen.getByText("Tournaments").closest("a")).toHaveAttribute(
       "href",

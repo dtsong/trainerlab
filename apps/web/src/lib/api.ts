@@ -1000,6 +1000,46 @@ export const adminAccessApi = {
     }),
 };
 
+export interface AdminAuditEvent {
+  id: string;
+  created_at: string;
+  action: string;
+  actor_user_id?: string | null;
+  actor_email: string;
+  target_user_id?: string | null;
+  target_email: string;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  path?: string | null;
+  correlation_id?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export const adminAuditApi = {
+  listEvents: (
+    params: {
+      action?: string;
+      actor_email?: string;
+      target_email?: string;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) => {
+    const searchParams = new URLSearchParams();
+    if (params.action) searchParams.set("action", params.action);
+    if (params.actor_email) searchParams.set("actor_email", params.actor_email);
+    if (params.target_email)
+      searchParams.set("target_email", params.target_email);
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    if (params.offset) searchParams.set("offset", String(params.offset));
+
+    const query = searchParams.toString();
+    return fetchApiAuth<AdminAuditEvent[]>(
+      `/api/v1/admin/audit-events${query ? `?${query}` : ""}`
+    );
+  },
+};
+
 // Widget search parameters
 export interface WidgetSearchParams {
   page?: number;

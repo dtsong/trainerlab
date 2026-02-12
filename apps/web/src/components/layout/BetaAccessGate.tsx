@@ -115,7 +115,7 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
           <CardContent className="space-y-4">
             <div className="rounded-md border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
               If you were just invited, access can take a moment to propagate.
-              Click "Refresh Access" to re-check without signing out.
+              Click Refresh Access to re-check without signing out.
             </div>
             <div className="flex flex-wrap gap-3">
               <Button

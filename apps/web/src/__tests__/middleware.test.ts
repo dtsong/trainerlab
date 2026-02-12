@@ -44,6 +44,12 @@ describe("middleware", () => {
     expect(NextResponse.redirect).not.toHaveBeenCalled();
   });
 
+  it("allows unauthenticated access to /closed-beta", () => {
+    middleware(makeReq("/closed-beta", false), mockCtx);
+    expect(NextResponse.next).toHaveBeenCalled();
+    expect(NextResponse.redirect).not.toHaveBeenCalled();
+  });
+
   it("allows unauthenticated access to /api/waitlist", () => {
     middleware(makeReq("/api/waitlist", false), mockCtx);
     expect(NextResponse.next).toHaveBeenCalled();

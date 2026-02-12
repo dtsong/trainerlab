@@ -18,7 +18,8 @@ import {
 export function BetaAccessGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading: authLoading, signOut } = useAuth();
-  const shouldCheckBeta = isBetaGatedPath(pathname) && !!user;
+  const isGatedPath = isBetaGatedPath(pathname);
+  const shouldCheckBeta = isGatedPath && !!user;
   const {
     data: currentUser,
     isLoading: userLoading,
@@ -26,11 +27,55 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
     refetch: refetchCurrentUser,
   } = useCurrentUser(shouldCheckBeta, { staleTimeMs: 0 });
 
-  if (!shouldCheckBeta) {
+  if (!isGatedPath) {
     return <>{children}</>;
   }
 
-  if (authLoading || userLoading) {
+  if (authLoading) {
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <div className="h-48 animate-pulse rounded-lg border bg-muted" />
+      </div>
+    );
+  }
+
+  // If session is missing (signed out / expired), never render gated content.
+  if (!user) {
+    const loginUrl = `/auth/login?callbackUrl=${encodeURIComponent(pathname)}`;
+
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-600" />
+              Sign in for Closed Beta
+            </CardTitle>
+            <CardDescription>
+              This section is invite-only. Sign in to check access, or request
+              an invite.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button asChild>
+              <Link href={loginUrl}>Sign in</Link>
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/closed-beta">Request Access</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/lab-notes">Browse Lab Notes</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/">Go Home</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (userLoading) {
     return (
       <div className="container mx-auto py-12 px-4">
         <div className="h-48 animate-pulse rounded-lg border bg-muted" />

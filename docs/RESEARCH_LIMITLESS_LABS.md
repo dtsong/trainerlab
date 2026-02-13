@@ -46,6 +46,23 @@ Observed fields:
 - Variants toggle via `?combine`
 - Views via `?day=1`, `?day=2`, `?conversion`
 
+## Comparison Snapshot (Recent Major)
+
+Event sampled: **Regional Championship Santiago (Feb 7-8, 2026)**
+
+| Source                                            | What we can access quickly                                     | Completeness for fast-follow                    | Notes                                                                                |
+| ------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Limitless Labs (`/0053/standings`, `/0053/decks`) | Standings, archetype/deck aggregate, upstream links            | **High** for post-major signal                  | Best single page for ops readiness signal (partial/fresh checks).                    |
+| Limitless Play (`play.limitlesstcg.com`)          | Tournament listing ecosystem and many grassroots/online events | **Low-Med** for official major canonical status | Great for broad tournament discovery, but not purpose-built as official-major truth. |
+| RK9 (linked from Labs page)                       | Pairings + roster links for event platform context             | **Med** (platform-native but fragmented)        | Useful corroboration source; parsing model differs from Labs aggregate pages.        |
+| TrainerLab current ingestion                      | Official events/tournaments + tagged major format windows      | **Canonical target**                            | Should remain system of record for user-facing official-major reporting.             |
+
+Timeliness assessment for this event:
+
+- Labs provided immediate post-event standings/metagame surfaces suitable for readiness checks.
+- RK9 links were available directly from Labs event page for source traceability.
+- TrainerLab remains the canonical surfaced result after ingestion/verification pipelines complete.
+
 ## Coverage + Limitations
 
 - Not all events are present; coverage depends on whether RK9/playlatam provides sufficient data.
@@ -101,6 +118,12 @@ Suggested implementation approach:
 - Add a lightweight "major readiness" job that checks the newest known major event id(s) and attempts to parse the `/<id>/decks` table.
 - Treat the presence of a non-trivial metagame table as "partial" readiness.
 - Keep TrainerLab's primary snapshots anchored on our existing ingestion + verification.
+
+Decision summary:
+
+- **Adopt**: Limitless Labs as **signal-only** source for post-major readiness.
+- **Do not adopt (now)**: direct canonical ingestion from Labs standings/player rows.
+- **Re-evaluate later**: if we need faster archetype confidence deltas before full pipeline completion.
 
 Follow-up tasks (if we proceed):
 

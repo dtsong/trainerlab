@@ -264,6 +264,23 @@ curl -H "Authorization: Bearer $TOKEN" \
 # - Endpoint used by workflow: GET /api/v1/ops/readiness/tpci (Bearer token)
 # - If READINESS_ALERT_TOKEN is missing, workflow exits as "skipped" with a warning
 
+# If readiness returns fail/deadline_missed=true, run this triage sequence:
+# 1) Verify latest official events are present
+curl -H "Authorization: Bearer $TOKEN" \
+  "$SERVICE_URL/api/v1/events?tier=major&official_only=true&limit=10" | jq
+
+# 2) Verify latest tournaments include official majors and format tags
+curl -H "Authorization: Bearer $TOKEN" \
+  "$SERVICE_URL/api/v1/tournaments?tier=major&official_only=true&limit=20&sort_by=date&order=desc" | jq
+
+# 3) Trigger the official pipelines (discover -> scrape -> compute)
+./scripts/test-production-scrapers.sh --pipeline=discover-en --confirm
+./scripts/test-production-scrapers.sh --pipeline=scrape-en --confirm
+./scripts/test-production-scrapers.sh --pipeline=compute-meta --confirm
+
+# 4) Re-check readiness and post result in the ops issue thread
+./scripts/cloud/check-tpci-readiness.sh
+
 # Check card count
 curl -H "Authorization: Bearer $TOKEN" \
   "$SERVICE_URL/api/v1/cards?limit=1" | jq '.total'

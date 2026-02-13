@@ -27,5 +27,48 @@ describe("DataFreshnessBanner", () => {
     expect(
       screen.getByText("Sources: Limitless, RK9, pokemon.com")
     ).toBeInTheDocument();
+    expect(screen.getByTestId("update-window-copy")).toHaveTextContent(
+      "Expected update window: by Tuesday UTC after the latest major."
+    );
+  });
+
+  it("renders no-data copy for official cadence", () => {
+    const freshness: ApiDataFreshness = {
+      status: "no_data",
+      cadence_profile: "tpci_event_cadence",
+      message: "No official data yet.",
+    };
+
+    render(<DataFreshnessBanner freshness={freshness} />);
+
+    expect(screen.getByTestId("update-window-copy")).toHaveTextContent(
+      "Expected first official signal by Tuesday UTC post-major."
+    );
+  });
+
+  it("renders grassroots cadence window for stale data", () => {
+    const freshness: ApiDataFreshness = {
+      status: "stale",
+      cadence_profile: "grassroots_daily_cadence",
+      message: "Data may be delayed.",
+    };
+
+    render(<DataFreshnessBanner freshness={freshness} />);
+
+    expect(screen.getByTestId("update-window-copy")).toHaveTextContent(
+      "Expected update window: within 24-48 hours."
+    );
+  });
+
+  it("omits expected window copy for fresh status", () => {
+    const freshness: ApiDataFreshness = {
+      status: "fresh",
+      cadence_profile: "default_cadence",
+      message: "Fresh data available.",
+    };
+
+    render(<DataFreshnessBanner freshness={freshness} />);
+
+    expect(screen.queryByTestId("update-window-copy")).not.toBeInTheDocument();
   });
 });

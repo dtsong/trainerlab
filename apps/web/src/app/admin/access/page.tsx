@@ -10,9 +10,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   adminAccessApi,
   adminAccessGrantsApi,
+  adminAuditApi,
   type AdminAccessGrant,
   type AdminAccessUser,
+  type AdminAuditEvent,
 } from "@/lib/api";
+import {
+  filterGrantsByEmail,
+  filterRecentAccessEvents,
+  filterUsersByEmail,
+  formatWhen,
+  normalizeEmail,
+  parseEmailLines,
+} from "./utils";
 
 type AccessAction =
   | "grant_beta"
@@ -26,18 +36,6 @@ const ACTION_LABEL: Record<AccessAction, string> = {
   grant_subscriber: "Grant subscriber",
   revoke_subscriber: "Revoke subscriber",
 };
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-function parseEmailLines(input: string): string[] {
-  const lines = input
-    .split(/\r?\n/)
-    .map((l) => normalizeEmail(l))
-    .filter((l) => l.length > 0);
-  return Array.from(new Set(lines));
-}
 
 async function runAccessAction(action: AccessAction, email: string) {
   if (action === "grant_beta") return adminAccessGrantsApi.grantBeta(email);
@@ -193,6 +191,7 @@ function InviteRow({
 export default function AdminAccessPage() {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
+  const [emailSearch, setEmailSearch] = useState("");
   const [batchAction, setBatchAction] = useState<AccessAction>("grant_beta");
   const [batchEmails, setBatchEmails] = useState("");
   const [batchLog, setBatchLog] = useState<{
@@ -202,6 +201,10 @@ export default function AdminAccessPage() {
   } | null>(null);
 
   const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
+  const normalizedEmailSearch = useMemo(
+    () => normalizeEmail(emailSearch),
+    [emailSearch]
+  );
   const parsedBatch = useMemo(
     () => parseEmailLines(batchEmails),
     [batchEmails]
@@ -225,6 +228,33 @@ export default function AdminAccessPage() {
       adminAccessGrantsApi.list({ active: true, claimed: false, limit: 500 }),
     staleTime: 1000 * 30,
   });
+
+  const recentAccessEvents = useQuery({
+    queryKey: ["admin", "access", "recent-events"],
+    queryFn: () => adminAuditApi.listEvents({ limit: 40, offset: 0 }),
+    staleTime: 1000 * 20,
+  });
+
+  const filteredBetaUsers = useMemo(
+    () => filterUsersByEmail(betaUsers.data, normalizedEmailSearch),
+    [betaUsers.data, normalizedEmailSearch]
+  );
+
+  const filteredSubscribers = useMemo(
+    () => filterUsersByEmail(subscribers.data, normalizedEmailSearch),
+    [subscribers.data, normalizedEmailSearch]
+  );
+
+  const filteredPendingInvites = useMemo(
+    () => filterGrantsByEmail(pendingInvites.data, normalizedEmailSearch),
+    [pendingInvites.data, normalizedEmailSearch]
+  );
+
+  const filteredRecentAccessEvents = useMemo<AdminAuditEvent[]>(
+    () =>
+      filterRecentAccessEvents(recentAccessEvents.data, normalizedEmailSearch),
+    [recentAccessEvents.data, normalizedEmailSearch]
+  );
 
   const singleMutation = useMutation({
     mutationFn: ({ action, email }: { action: AccessAction; email: string }) =>
@@ -442,6 +472,79 @@ export default function AdminAccessPage() {
           </TabsContent>
 
           <TabsContent value="lists" className="mt-6">
+            <div className="mb-4 rounded border border-zinc-800 bg-zinc-900/50 p-4">
+              <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
+                Search by email
+              </div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  value={emailSearch}
+                  onChange={(e) => setEmailSearch(e.target.value)}
+                  placeholder="Filter active users, invites, and recent access changes"
+                  className="h-10 flex-1 rounded border border-zinc-700 bg-zinc-950 px-3 font-mono text-sm text-zinc-200 placeholder:text-zinc-600"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 border-zinc-700 bg-zinc-950 font-mono text-xs text-zinc-300 hover:bg-zinc-900"
+                  onClick={() => setEmailSearch("")}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <div className="mb-4 rounded border border-zinc-800 bg-zinc-900/50">
+              <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
+                <div className="font-mono text-xs uppercase tracking-wider text-zinc-500">
+                  Recent access changes
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 font-mono text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  onClick={() => recentAccessEvents.refetch()}
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              {recentAccessEvents.isLoading ? (
+                <div className="p-3 font-mono text-sm text-zinc-500">
+                  Loading...
+                </div>
+              ) : recentAccessEvents.isError ? (
+                <div className="p-3 font-mono text-sm text-zinc-500">
+                  Failed to load recent access changes
+                </div>
+              ) : filteredRecentAccessEvents.length === 0 ? (
+                <div className="p-3 font-mono text-sm text-zinc-500">
+                  No recent matching access events
+                </div>
+              ) : (
+                <div className="max-h-[220px] overflow-auto">
+                  {filteredRecentAccessEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="border-b border-zinc-800/50 px-3 py-2 last:border-0"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="truncate font-mono text-xs text-zinc-300">
+                          {formatWhen(event.created_at)}
+                        </div>
+                        <div className="shrink-0 rounded border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                          {event.action}
+                        </div>
+                      </div>
+                      <div className="mt-1 font-mono text-xs text-zinc-500">
+                        {event.actor_email} → {event.target_email}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded border border-zinc-800 bg-zinc-900/50">
                 <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
@@ -465,13 +568,13 @@ export default function AdminAccessPage() {
                   <div className="p-3 font-mono text-sm text-zinc-500">
                     Failed to load
                   </div>
-                ) : (betaUsers.data?.length ?? 0) === 0 ? (
+                ) : filteredBetaUsers.length === 0 ? (
                   <div className="p-3 font-mono text-sm text-zinc-500">
                     No active beta users
                   </div>
                 ) : (
                   <div className="max-h-[520px] overflow-auto">
-                    {betaUsers.data?.map((u) => (
+                    {filteredBetaUsers.map((u) => (
                       <UserRow
                         key={u.id}
                         user={u}
@@ -527,13 +630,13 @@ export default function AdminAccessPage() {
                   <div className="p-3 font-mono text-sm text-zinc-500">
                     Failed to load
                   </div>
-                ) : (subscribers.data?.length ?? 0) === 0 ? (
+                ) : filteredSubscribers.length === 0 ? (
                   <div className="p-3 font-mono text-sm text-zinc-500">
                     No active subscribers
                   </div>
                 ) : (
                   <div className="max-h-[520px] overflow-auto">
-                    {subscribers.data?.map((u) => (
+                    {filteredSubscribers.map((u) => (
                       <UserRow
                         key={u.id}
                         user={u}
@@ -591,13 +694,13 @@ export default function AdminAccessPage() {
                 <div className="p-3 font-mono text-sm text-zinc-500">
                   Failed to load
                 </div>
-              ) : (pendingInvites.data?.length ?? 0) === 0 ? (
+              ) : filteredPendingInvites.length === 0 ? (
                 <div className="p-3 font-mono text-sm text-zinc-500">
                   No pending invites
                 </div>
               ) : (
                 <div className="max-h-[520px] overflow-auto">
-                  {pendingInvites.data?.map((g) => (
+                  {filteredPendingInvites.map((g) => (
                     <InviteRow
                       key={g.id}
                       grant={g}

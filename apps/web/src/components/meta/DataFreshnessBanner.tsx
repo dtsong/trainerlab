@@ -68,6 +68,28 @@ const cadenceLabels: Partial<
   default_cadence: "Default cadence",
 };
 
+function expectedUpdateWindow(
+  status: ApiDataFreshness["status"],
+  cadenceProfile: ApiDataFreshness["cadence_profile"]
+): string | null {
+  if (status === "fresh") {
+    return null;
+  }
+
+  if (cadenceProfile === "tpci_event_cadence") {
+    if (status === "no_data") {
+      return "Expected first official signal by Tuesday UTC post-major.";
+    }
+    return "Expected update window: by Tuesday UTC after the latest major.";
+  }
+
+  if (cadenceProfile === "grassroots_daily_cadence") {
+    return "Expected update window: within 24-48 hours.";
+  }
+
+  return "Expected update window: within 24 hours.";
+}
+
 export function DataFreshnessBanner({
   freshness,
   className,
@@ -88,6 +110,10 @@ export function DataFreshnessBanner({
     sampleSize != null ? confidenceFromSampleSize(sampleSize) : null;
   const confidenceTitle =
     sampleSize != null ? `${sampleSize.toLocaleString()} samples` : undefined;
+  const expectedWindow = expectedUpdateWindow(
+    status,
+    freshness.cadence_profile
+  );
 
   return (
     <div
@@ -124,6 +150,14 @@ export function DataFreshnessBanner({
         {sourceCoverage.length > 0 ? (
           <p className="text-[11px] opacity-80">
             Sources: {sourceCoverage.join(", ")}
+          </p>
+        ) : null}
+        {expectedWindow ? (
+          <p
+            className="text-[11px] opacity-80"
+            data-testid="update-window-copy"
+          >
+            {expectedWindow}
           </p>
         ) : null}
       </div>

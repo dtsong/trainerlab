@@ -2,7 +2,15 @@
 
 import type { ApiDataFreshness } from "./freshness";
 
-export type TournamentTier = "major" | "premier" | "league" | "grassroots";
+export type TournamentTier =
+  | "major"
+  | "premier"
+  | "league"
+  | "grassroots"
+  | "worlds"
+  | "international"
+  | "regional"
+  | "special";
 export type GameFormat = "standard" | "expanded";
 
 export interface ApiTopPlacement {
@@ -35,6 +43,8 @@ export interface ApiTournamentSummary {
   best_of: 1 | 3;
   tier?: TournamentTier | null;
   participant_count?: number | null;
+  major_format_key?: string | null;
+  major_format_label?: string | null;
   top_placements: ApiTopPlacement[];
 }
 
@@ -48,6 +58,8 @@ export interface ApiTournamentDetail {
   best_of: 1 | 3;
   tier?: TournamentTier | null;
   participant_count?: number | null;
+  major_format_key?: string | null;
+  major_format_label?: string | null;
   source?: string | null;
   source_url?: string | null;
   placements: ApiPlacementDetail[];

@@ -15,7 +15,11 @@ beforeAll(() => {
 describe("TournamentFilters", () => {
   const defaultProps = {
     format: "all" as const,
+    majorFormatKey: "all" as const,
+    season: "all" as const,
     onFormatChange: vi.fn(),
+    onMajorFormatChange: vi.fn(),
+    onSeasonChange: vi.fn(),
   };
 
   it("should render format select", () => {
@@ -49,6 +53,25 @@ describe("TournamentFilters", () => {
     fireEvent.click(option);
 
     expect(onFormatChange).toHaveBeenCalledWith("standard");
+  });
+
+  it("should render and change major format when major filters are enabled", async () => {
+    const onMajorFormatChange = vi.fn();
+    render(
+      <TournamentFilters
+        {...defaultProps}
+        showMajorFilters={true}
+        onMajorFormatChange={onMajorFormatChange}
+      />
+    );
+
+    const comboboxes = screen.getAllByRole("combobox");
+    fireEvent.click(comboboxes[1]);
+
+    const option = await screen.findByText("SVI-ASC (Mar 2026)");
+    fireEvent.click(option);
+
+    expect(onMajorFormatChange).toHaveBeenCalledWith("svi-asc");
   });
 
   it("should update displayed value when props change", () => {

@@ -19,6 +19,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useEvent } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks";
+import {
+  getMajorFormatBadgeText,
+  isOfficialMajorTier,
+} from "@/lib/official-majors";
 
 const tierColors: Record<string, string> = {
   major: "bg-purple-500/20 text-purple-400 border-purple-500/30",
@@ -69,6 +73,13 @@ export default function EventDetailPage() {
     day: "numeric",
     year: "numeric",
   });
+  const majorFormatBadgeText = getMajorFormatBadgeText(
+    event.major_format_key,
+    event.major_format_label
+  );
+  const shouldShowMajorFormatBadge = Boolean(
+    isOfficialMajorTier(event.tier) && majorFormatBadgeText
+  );
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -102,6 +113,15 @@ export default function EventDetailPage() {
               {event.format && (
                 <Badge variant="outline">
                   {event.format.charAt(0).toUpperCase() + event.format.slice(1)}
+                </Badge>
+              )}
+              {shouldShowMajorFormatBadge && (
+                <Badge
+                  variant="outline"
+                  title={event.major_format_label ?? undefined}
+                  aria-label={`Major format window ${majorFormatBadgeText ?? ""}`}
+                >
+                  {majorFormatBadgeText ?? ""}
                 </Badge>
               )}
             </div>

@@ -10,6 +10,12 @@ import { BO1ContextBanner } from "@/components/meta";
 import { useState } from "react";
 import type { TournamentSearchParams } from "@/lib/api";
 import {
+  MAJOR_FORMAT_FILTER_OPTIONS,
+  SEASON_FILTER_OPTIONS,
+  type MajorFormatFilterValue,
+  type SeasonFilterValue,
+} from "@/lib/official-majors";
+import {
   buildPathWithQuery,
   mergeSearchParams,
   parseEnumParam,
@@ -38,10 +44,30 @@ function TournamentsPageContent() {
     defaultValue: 1,
     min: 1,
   });
+  const MAJOR_FORMAT_VALUES = MAJOR_FORMAT_FILTER_OPTIONS.map(
+    (option) => option.value
+  ) as readonly MajorFormatFilterValue[];
+  const SEASON_VALUES = SEASON_FILTER_OPTIONS.map(
+    (option) => option.value
+  ) as readonly SeasonFilterValue[];
+
+  const urlMajorFormatKey = parseEnumParam(
+    searchParams.get("major_format"),
+    MAJOR_FORMAT_VALUES,
+    "all"
+  );
+  const urlSeason = parseEnumParam(
+    searchParams.get("season"),
+    SEASON_VALUES,
+    "all"
+  );
 
   const [format, setFormat] = useState<"standard" | "expanded" | "all">(
     urlFormat
   );
+  const [majorFormatKey, setMajorFormatKey] =
+    useState<MajorFormatFilterValue>(urlMajorFormatKey);
+  const [season, setSeason] = useState<SeasonFilterValue>(urlSeason);
   const [page, setPage] = useState(urlPage);
 
   useEffect(() => {
@@ -56,10 +82,24 @@ function TournamentsPageContent() {
     }
   }, [page, urlPage]);
 
+  useEffect(() => {
+    if (majorFormatKey !== urlMajorFormatKey) {
+      setMajorFormatKey(urlMajorFormatKey);
+    }
+  }, [majorFormatKey, urlMajorFormatKey]);
+
+  useEffect(() => {
+    if (season !== urlSeason) {
+      setSeason(urlSeason);
+    }
+  }, [season, urlSeason]);
+
   const updateUrl = (
     updates: {
       category?: TabCategory;
       format?: "standard" | "expanded" | "all";
+      majorFormatKey?: MajorFormatFilterValue;
+      season?: SeasonFilterValue;
       page?: number;
     },
     navigationMode: "replace" | "push"
@@ -69,11 +109,15 @@ function TournamentsPageContent() {
       {
         category: updates.category,
         format: updates.format,
+        major_format: updates.majorFormatKey,
+        season: updates.season,
         page: updates.page,
       },
       {
         category: "tpci",
         format: "all",
+        major_format: "all",
+        season: "all",
         page: 1,
       }
     );
@@ -99,6 +143,20 @@ function TournamentsPageContent() {
     updateUrl({ format: nextFormat, page: 1 }, "replace");
   };
 
+  const handleMajorFormatChange = (
+    nextMajorFormatKey: MajorFormatFilterValue
+  ) => {
+    setMajorFormatKey(nextMajorFormatKey);
+    setPage(1);
+    updateUrl({ majorFormatKey: nextMajorFormatKey, page: 1 }, "replace");
+  };
+
+  const handleSeasonChange = (nextSeason: SeasonFilterValue) => {
+    setSeason(nextSeason);
+    setPage(1);
+    updateUrl({ season: nextSeason, page: 1 }, "replace");
+  };
+
   const handlePageChange = (nextPage: number) => {
     const normalizedPage = Math.max(1, nextPage);
     setPage(normalizedPage);
@@ -106,10 +164,20 @@ function TournamentsPageContent() {
   };
 
   const formatParam = format === "all" ? undefined : format;
+  const seasonParam =
+    season === "all" ? undefined : Number.parseInt(season, 10);
+  const majorFormatParam =
+    majorFormatKey === "all" ? undefined : majorFormatKey;
 
   const tpciParams: TournamentSearchParams = useMemo(
-    () => ({ tier: "major", format: formatParam }),
-    [formatParam]
+    () => ({
+      tier: "major",
+      format: formatParam,
+      major_format_key: majorFormatParam,
+      season: seasonParam,
+      official_only: true,
+    }),
+    [formatParam, majorFormatParam, seasonParam]
   );
 
   const japanParams: TournamentSearchParams = useMemo(
@@ -128,7 +196,12 @@ function TournamentsPageContent() {
         <h1 className="text-3xl font-bold">Tournaments</h1>
         <TournamentFilters
           format={format}
+          majorFormatKey={majorFormatKey}
+          season={season}
           onFormatChange={handleFormatChange}
+          onMajorFormatChange={handleMajorFormatChange}
+          onSeasonChange={handleSeasonChange}
+          showMajorFilters={activeTab === "tpci"}
         />
       </div>
 
@@ -153,6 +226,7 @@ function TournamentsPageContent() {
             apiParams={tpciParams}
             page={page}
             onPageChange={handlePageChange}
+            showMajorFormatBadge={true}
           />
         </TabsContent>
 

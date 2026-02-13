@@ -30,6 +30,8 @@ describe("EventCard", () => {
     registration_closes_at: "2026-06-01T23:59:00Z",
     registration_url: "https://rk9.gg/event/naic2026",
     participant_count: 2048,
+    major_format_key: "svi-asc",
+    major_format_label: "Scarlet & Violet to Ascended Heroes",
   };
 
   it("should render event name", () => {
@@ -146,5 +148,22 @@ describe("EventCard", () => {
     render(<EventCard event={mockEvent} />);
 
     expect(screen.getByText("Standard")).toBeInTheDocument();
+  });
+
+  it("should display major format badge for official majors", () => {
+    render(<EventCard event={mockEvent} />);
+
+    expect(screen.getByText("SVI-ASC")).toBeInTheDocument();
+  });
+
+  it("should hide major format badge for non-official events", () => {
+    const grassrootsEvent: ApiEventSummary = {
+      ...mockEvent,
+      tier: "grassroots",
+    };
+
+    render(<EventCard event={grassrootsEvent} />);
+
+    expect(screen.queryByText("SVI-ASC")).not.toBeInTheDocument();
   });
 });

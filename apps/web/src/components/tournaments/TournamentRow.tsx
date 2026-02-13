@@ -5,6 +5,10 @@ import { ChevronDown, ChevronRight, Users } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  getMajorFormatBadgeText,
+  isOfficialMajorTier,
+} from "@/lib/official-majors";
 import type {
   ApiTournamentSummary,
   ApiTopPlacement,
@@ -39,6 +43,7 @@ interface TournamentRowProps {
   expanded: boolean;
   onToggle: () => void;
   showRegion?: boolean;
+  showMajorFormatBadge?: boolean;
 }
 
 export function TournamentRow({
@@ -46,9 +51,19 @@ export function TournamentRow({
   expanded,
   onToggle,
   showRegion = true,
+  showMajorFormatBadge = false,
 }: TournamentRowProps) {
   const dateStr = formatTournamentDate(tournament.date);
   const winner = tournament.top_placements[0];
+  const majorFormatBadgeText = getMajorFormatBadgeText(
+    tournament.major_format_key,
+    tournament.major_format_label
+  );
+  const shouldShowMajorFormatBadge = Boolean(
+    showMajorFormatBadge &&
+    isOfficialMajorTier(tournament.tier) &&
+    majorFormatBadgeText
+  );
   // Larger events (64+ players) run more Swiss rounds, show top 8
   const placementsToShow =
     (tournament.participant_count ?? 0) >= 64
@@ -92,12 +107,24 @@ export function TournamentRow({
           </span>
         )}
 
-        {/* Winner badge */}
-        {winner && (
-          <Badge variant="secondary" className="text-xs shrink-0">
-            {winner.archetype}
-          </Badge>
-        )}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          {shouldShowMajorFormatBadge && (
+            <Badge
+              variant="outline"
+              title={tournament.major_format_label ?? undefined}
+              aria-label={`Major format window ${majorFormatBadgeText ?? ""}`}
+              className="text-xs"
+            >
+              {majorFormatBadgeText ?? ""}
+            </Badge>
+          )}
+
+          {winner && (
+            <Badge variant="secondary" className="text-xs shrink-0">
+              {winner.archetype}
+            </Badge>
+          )}
+        </div>
 
         {/* Chevron */}
         {expanded ? (
@@ -108,7 +135,9 @@ export function TournamentRow({
       </button>
 
       {/* Mobile metadata row */}
-      {(showRegion || tournament.participant_count != null) && (
+      {(showRegion ||
+        tournament.participant_count != null ||
+        shouldShowMajorFormatBadge) && (
         <div className="flex sm:hidden items-center gap-3 px-4 pb-2 text-xs text-muted-foreground -mt-1">
           {showRegion && <span>{tournament.region}</span>}
           {tournament.participant_count != null && (
@@ -116,6 +145,16 @@ export function TournamentRow({
               <Users className="h-3 w-3" />
               {tournament.participant_count}
             </span>
+          )}
+          {shouldShowMajorFormatBadge && (
+            <Badge
+              variant="outline"
+              title={tournament.major_format_label ?? undefined}
+              aria-label={`Major format window ${majorFormatBadgeText ?? ""}`}
+              className="text-[10px]"
+            >
+              {majorFormatBadgeText ?? ""}
+            </Badge>
           )}
         </div>
       )}

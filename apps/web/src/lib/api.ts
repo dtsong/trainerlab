@@ -455,6 +455,9 @@ export interface TournamentSearchParams {
   end_date?: string;
   best_of?: 1 | 3;
   tier?: TournamentTier;
+  major_format_key?: string;
+  season?: number;
+  official_only?: boolean;
   sort_by?: string;
   order?: "asc" | "desc";
   page?: number;
@@ -471,6 +474,11 @@ export const tournamentsApi = {
     if (params.end_date) searchParams.set("end_date", params.end_date);
     if (params.best_of) searchParams.set("best_of", String(params.best_of));
     if (params.tier) searchParams.set("tier", params.tier);
+    if (params.major_format_key)
+      searchParams.set("major_format_key", params.major_format_key);
+    if (params.season) searchParams.set("season", String(params.season));
+    if (params.official_only)
+      searchParams.set("official_only", String(params.official_only));
     if (params.sort_by) searchParams.set("sort_by", params.sort_by);
     if (params.order) searchParams.set("order", params.order);
     if (params.page) searchParams.set("page", String(params.page));
@@ -1174,6 +1182,9 @@ export interface EventSearchParams {
   format?: "standard" | "expanded";
   tier?: string;
   status?: EventStatus;
+  major_format_key?: string;
+  season?: number;
+  official_only?: boolean;
   page?: number;
   limit?: number;
 }
@@ -1186,6 +1197,11 @@ export const eventsApi = {
     if (params.format) searchParams.set("format", params.format);
     if (params.tier) searchParams.set("tier", params.tier);
     if (params.status) searchParams.set("status", params.status);
+    if (params.major_format_key)
+      searchParams.set("major_format_key", params.major_format_key);
+    if (params.season) searchParams.set("season", String(params.season));
+    if (params.official_only)
+      searchParams.set("official_only", String(params.official_only));
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
 

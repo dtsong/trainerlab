@@ -5,6 +5,10 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  getMajorFormatBadgeText,
+  isOfficialMajorTier,
+} from "@/lib/official-majors";
 import { CountdownBadge } from "./CountdownBadge";
 import { EventStatusBadge } from "./EventStatusBadge";
 
@@ -38,6 +42,13 @@ export function EventCard({ event }: EventCardProps) {
     day: "numeric",
     year: "numeric",
   });
+  const majorFormatBadgeText = getMajorFormatBadgeText(
+    event.major_format_key,
+    event.major_format_label
+  );
+  const shouldShowMajorFormatBadge = Boolean(
+    isOfficialMajorTier(event.tier) && majorFormatBadgeText
+  );
 
   return (
     <Link href={`/events/${event.id}`}>
@@ -66,6 +77,15 @@ export function EventCard({ event }: EventCardProps) {
             )}
             {event.format && (
               <Badge variant="outline">{capitalize(event.format)}</Badge>
+            )}
+            {shouldShowMajorFormatBadge && (
+              <Badge
+                variant="outline"
+                title={event.major_format_label ?? undefined}
+                aria-label={`Major format window ${majorFormatBadgeText ?? ""}`}
+              >
+                {majorFormatBadgeText ?? ""}
+              </Badge>
             )}
           </div>
 

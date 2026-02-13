@@ -16,6 +16,7 @@ interface TournamentListProps {
   page: number;
   onPageChange: (page: number) => void;
   showRegion?: boolean;
+  showMajorFormatBadge?: boolean;
 }
 
 export function TournamentList({
@@ -23,6 +24,7 @@ export function TournamentList({
   page,
   onPageChange,
   showRegion = true,
+  showMajorFormatBadge = false,
 }: TournamentListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -99,6 +101,7 @@ export function TournamentList({
               setExpandedId(expandedId === tournament.id ? null : tournament.id)
             }
             showRegion={showRegion}
+            showMajorFormatBadge={showMajorFormatBadge}
           />
         ))}
       </div>

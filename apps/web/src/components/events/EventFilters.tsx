@@ -7,14 +7,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  MAJOR_FORMAT_FILTER_OPTIONS,
+  SEASON_FILTER_OPTIONS,
+  type MajorFormatFilterValue,
+  type SeasonFilterValue,
+} from "@/lib/official-majors";
 
 interface EventFiltersProps {
   region: string;
   format: "standard" | "expanded" | "all";
   tier: string;
+  majorFormatKey: MajorFormatFilterValue;
+  season: SeasonFilterValue;
   onRegionChange: (region: string) => void;
   onFormatChange: (format: "standard" | "expanded" | "all") => void;
   onTierChange: (tier: string) => void;
+  onMajorFormatChange: (majorFormatKey: MajorFormatFilterValue) => void;
+  onSeasonChange: (season: SeasonFilterValue) => void;
 }
 
 const regions = [
@@ -43,9 +53,13 @@ export function EventFilters({
   region,
   format,
   tier,
+  majorFormatKey,
+  season,
   onRegionChange,
   onFormatChange,
   onTierChange,
+  onMajorFormatChange,
+  onSeasonChange,
 }: EventFiltersProps) {
   return (
     <div className="flex flex-wrap gap-4">
@@ -83,6 +97,40 @@ export function EventFilters({
           {tiers.map((t) => (
             <SelectItem key={t.value} value={t.value}>
               {t.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={majorFormatKey}
+        onValueChange={(value) =>
+          onMajorFormatChange(value as MajorFormatFilterValue)
+        }
+      >
+        <SelectTrigger className="w-[220px]">
+          <SelectValue placeholder="Major Window" />
+        </SelectTrigger>
+        <SelectContent>
+          {MAJOR_FORMAT_FILTER_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={season}
+        onValueChange={(value) => onSeasonChange(value as SeasonFilterValue)}
+      >
+        <SelectTrigger className="w-[140px]">
+          <SelectValue placeholder="Season" />
+        </SelectTrigger>
+        <SelectContent>
+          {SEASON_FILTER_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
             </SelectItem>
           ))}
         </SelectContent>

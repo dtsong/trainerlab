@@ -15,6 +15,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTournament } from "@/hooks/useTournaments";
+import {
+  getMajorFormatBadgeText,
+  isOfficialMajorTier,
+} from "@/lib/official-majors";
 
 interface TournamentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -71,6 +75,13 @@ export default function TournamentDetailPage({
     day: "numeric",
     year: "numeric",
   });
+  const majorFormatBadgeText = getMajorFormatBadgeText(
+    tournament.major_format_key,
+    tournament.major_format_label
+  );
+  const shouldShowMajorFormatBadge = Boolean(
+    isOfficialMajorTier(tournament.tier) && majorFormatBadgeText
+  );
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -113,6 +124,15 @@ export default function TournamentDetailPage({
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{tournament.format}</Badge>
           <Badge variant="outline">BO{tournament.best_of}</Badge>
+          {shouldShowMajorFormatBadge && (
+            <Badge
+              variant="outline"
+              title={tournament.major_format_label ?? undefined}
+              aria-label={`Major format window ${majorFormatBadgeText ?? ""}`}
+            >
+              {majorFormatBadgeText ?? ""}
+            </Badge>
+          )}
           {tournament.source_url && (
             <a
               href={tournament.source_url}

@@ -7,17 +7,26 @@ import { EventCard, EventFilters } from "@/components/events";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEvents } from "@/hooks/useEvents";
+import {
+  type MajorFormatFilterValue,
+  type SeasonFilterValue,
+} from "@/lib/official-majors";
 
 export default function EventsPage() {
   const [region, setRegion] = useState<string>("all");
   const [format, setFormat] = useState<"standard" | "expanded" | "all">("all");
   const [tier, setTier] = useState<string>("all");
+  const [majorFormatKey, setMajorFormatKey] =
+    useState<MajorFormatFilterValue>("all");
+  const [season, setSeason] = useState<SeasonFilterValue>("all");
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, refetch } = useEvents({
     region: region === "all" ? undefined : region,
     format: format === "all" ? undefined : format,
     tier: tier === "all" ? undefined : tier,
+    major_format_key: majorFormatKey === "all" ? undefined : majorFormatKey,
+    season: season === "all" ? undefined : Number.parseInt(season, 10),
     page,
     limit: 20,
   });
@@ -68,6 +77,8 @@ export default function EventsPage() {
           region={region}
           format={format}
           tier={tier}
+          majorFormatKey={majorFormatKey}
+          season={season}
           onRegionChange={(v) => {
             setRegion(v);
             handleFilterChange();
@@ -78,6 +89,14 @@ export default function EventsPage() {
           }}
           onTierChange={(v) => {
             setTier(v);
+            handleFilterChange();
+          }}
+          onMajorFormatChange={(v) => {
+            setMajorFormatKey(v);
+            handleFilterChange();
+          }}
+          onSeasonChange={(v) => {
+            setSeason(v);
             handleFilterChange();
           }}
         />

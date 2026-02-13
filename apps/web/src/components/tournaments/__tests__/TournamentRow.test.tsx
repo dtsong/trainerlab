@@ -26,6 +26,8 @@ describe("TournamentRow", () => {
     best_of: 3,
     tier: "major",
     participant_count: 512,
+    major_format_key: "svi-asc",
+    major_format_label: "Scarlet & Violet to Ascended Heroes",
     top_placements: [
       { placement: 1, archetype: "Charizard ex", player_name: "Alice" },
       { placement: 2, archetype: "Lugia VSTAR", player_name: "Bob" },
@@ -194,5 +196,29 @@ describe("TournamentRow", () => {
     rerender(<TournamentRow {...defaultProps} expanded={true} />);
 
     expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows major format badge for official majors when enabled", () => {
+    render(
+      <TournamentRow
+        {...defaultProps}
+        showMajorFormatBadge={true}
+        expanded={false}
+      />
+    );
+
+    expect(screen.getAllByText("SVI-ASC").length).toBeGreaterThan(0);
+  });
+
+  it("does not show major format badge for grassroots tournaments", () => {
+    render(
+      <TournamentRow
+        {...defaultProps}
+        showMajorFormatBadge={true}
+        tournament={{ ...baseTournament, tier: "grassroots" }}
+      />
+    );
+
+    expect(screen.queryByText("SVI-ASC")).not.toBeInTheDocument();
   });
 });

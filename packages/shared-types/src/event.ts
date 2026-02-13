@@ -35,6 +35,8 @@ export interface ApiEventSummary {
   registration_closes_at?: string | null;
   registration_url?: string | null;
   participant_count?: number | null;
+  major_format_key?: string | null;
+  major_format_label?: string | null;
   days_until?: number | null;
 }
 

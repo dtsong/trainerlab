@@ -10,6 +10,7 @@ import {
   Cell,
 } from "recharts";
 import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CardUsageSummary } from "@trainerlab/shared-types";
 import { getChartColor } from "@/lib/chart-colors";
 
@@ -28,7 +29,70 @@ interface TooltipPayload {
     name: string;
     inclusionRate: number;
     avgCopies: number;
+    imageSmall?: string;
   };
+}
+
+const THUMB_W = 24;
+const THUMB_H = 34;
+const THUMB_GAP = 8;
+
+function safeTickLabel(label: unknown): string {
+  return typeof label === "string" ? label : String(label ?? "");
+}
+
+function YAxisTick({
+  x,
+  y,
+  payload,
+  yAxisWidth,
+  showThumbnails,
+  imageSmall,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: unknown };
+  yAxisWidth: number;
+  showThumbnails: boolean;
+  imageSmall?: string;
+}) {
+  const label = safeTickLabel(payload?.value);
+  const hasThumb =
+    showThumbnails && typeof imageSmall === "string" && imageSmall;
+
+  // Recharts provides x/y near the right edge of the Y axis area.
+  // We shift left by the allocated width so we can render image + label within it.
+  const gx = (x ?? 0) - yAxisWidth + 8;
+  const gy = y ?? 0;
+
+  const textX = hasThumb ? THUMB_W + THUMB_GAP : 0;
+  const clipped = label.length > 26 ? `${label.slice(0, 25)}...` : label;
+
+  return (
+    <g transform={`translate(${gx},${gy})`}>
+      {hasThumb ? (
+        <image
+          href={imageSmall}
+          xlinkHref={imageSmall}
+          width={THUMB_W}
+          height={THUMB_H}
+          y={-THUMB_H / 2}
+          preserveAspectRatio="xMidYMid slice"
+        />
+      ) : null}
+      <text
+        x={textX}
+        y={0}
+        dy={4}
+        textAnchor="start"
+        fontSize={12}
+        fill="currentColor"
+        className="text-muted-foreground"
+      >
+        {clipped}
+      </text>
+    </g>
+  );
 }
 
 function CustomTooltip({
@@ -63,6 +127,30 @@ export function MetaBarChart({
 }: MetaBarChartProps) {
   const router = useRouter();
 
+  const [showThumbnails, setShowThumbnails] = useState(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return false;
+    }
+    return window.matchMedia("(min-width: 640px)").matches;
+  });
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return;
+    }
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setShowThumbnails(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+
   const chartData = data
     .slice(0, limit)
     .map((card) => ({
@@ -71,8 +159,36 @@ export function MetaBarChart({
       inclusionRate: card.inclusionRate,
       avgCopies: card.avgCopies,
       value: card.inclusionRate * 100,
+      imageSmall: card.imageSmall,
     }))
     .sort((a, b) => b.inclusionRate - a.inclusionRate);
+
+  const imageByName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const item of chartData) {
+      if (typeof item.imageSmall === "string" && item.imageSmall) {
+        m.set(item.name, item.imageSmall);
+      }
+    }
+    return m;
+  }, [chartData]);
+
+  const yAxisWidth = showThumbnails ? 170 : 110;
+
+  const renderYAxisTick = useCallback(
+    (props: { x?: number; y?: number; payload?: { value?: unknown } }) => {
+      const label = safeTickLabel(props.payload?.value);
+      return (
+        <YAxisTick
+          {...props}
+          yAxisWidth={yAxisWidth}
+          showThumbnails={showThumbnails}
+          imageSmall={imageByName.get(label)}
+        />
+      );
+    },
+    [imageByName, showThumbnails, yAxisWidth]
+  );
 
   const handleBarClick = (data: Record<string, unknown>) => {
     if (typeof data.cardId === "string") {
@@ -86,7 +202,12 @@ export function MetaBarChart({
         <BarChart
           data={chartData}
           layout="vertical"
-          margin={{ left: 100, right: 20, top: 10, bottom: 10 }}
+          margin={{
+            left: showThumbnails ? 160 : 120,
+            right: 20,
+            top: 10,
+            bottom: 10,
+          }}
         >
           <XAxis
             type="number"
@@ -96,8 +217,8 @@ export function MetaBarChart({
           <YAxis
             type="category"
             dataKey="name"
-            width={90}
-            tick={{ fontSize: 12 }}
+            width={yAxisWidth}
+            tick={renderYAxisTick}
           />
           <Tooltip content={<CustomTooltip />} />
           <Bar

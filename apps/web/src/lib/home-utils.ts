@@ -12,6 +12,7 @@ export interface ArchetypeWithTrend {
   trend: "up" | "down" | "stable";
   trendValue?: number;
   jpSignal?: number;
+  spriteUrls?: string[];
 }
 
 export interface JPDivergenceResult {
@@ -118,6 +119,7 @@ export function computeTrends(
       trend,
       trendValue,
       jpSignal,
+      spriteUrls: arch.sprite_urls ?? undefined,
     };
   });
 }

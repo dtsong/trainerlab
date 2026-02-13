@@ -6,6 +6,7 @@ import { TrendArrow } from "@/components/ui/trend-arrow";
 import { JPSignalBadge } from "@/components/ui/jp-signal-badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Button } from "@/components/ui/button";
+import { ArchetypeSprites } from "@/components/meta";
 import { useHomeMetaData } from "@/hooks/useMeta";
 import { computeTrends, type ArchetypeWithTrend } from "@/lib/home-utils";
 import { SpecimenCardSkeleton } from "./skeletons";
@@ -17,6 +18,7 @@ function SpecimenCard({
   trend,
   trendValue,
   jpSignal,
+  spriteUrls,
   animationDelay = "0s",
 }: ArchetypeWithTrend & { animationDelay?: string }) {
   return (
@@ -38,11 +40,20 @@ function SpecimenCard({
       {/* Tape effect at top right - with subtle wiggle */}
       <div className="absolute -top-1 right-3 w-8 h-3 bg-gradient-to-b from-amber-100/80 to-amber-200/60 rounded-sm rotate-12 shadow-sm motion-safe:animate-tape-wiggle" />
 
-      {/* Card image placeholder - styled as specimen photo */}
+      {/* Card image - specimen photo or sprites */}
       <div className="relative mb-4 mt-2">
-        <div className="h-24 w-16 rounded bg-gradient-to-br from-slate-200 to-slate-300 shadow-inner" />
-        {/* Photo corner effect */}
-        <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-notebook-grid" />
+        {spriteUrls && spriteUrls.length > 0 ? (
+          <ArchetypeSprites
+            spriteUrls={spriteUrls}
+            archetypeName={name}
+            size="md"
+          />
+        ) : (
+          <>
+            <div className="h-24 w-16 rounded bg-gradient-to-br from-slate-200 to-slate-300 shadow-inner" />
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-notebook-grid" />
+          </>
+        )}
       </div>
 
       {/* Name - typewritten label style */}
@@ -95,7 +106,7 @@ export function MetaSnapshot() {
   const sampleSize = globalMeta?.sample_size;
 
   return (
-    <section className="relative py-12 md:py-16 bg-notebook-aged">
+    <section className="relative py-8 md:py-12 bg-notebook-aged">
       {/* Subtle texture */}
       <div className="absolute inset-0 bg-paper-texture" />
 
@@ -103,7 +114,7 @@ export function MetaSnapshot() {
       <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-ink-red/20 hidden lg:block" />
 
       <div className="container relative">
-        <div className="mb-8 flex items-center justify-between lg:pl-8">
+        <div className="mb-6 flex items-center justify-between lg:pl-8">
           <div className="flex flex-wrap items-center gap-3">
             <SectionLabel
               label="Meta Snapshot"
@@ -137,7 +148,7 @@ export function MetaSnapshot() {
         </div>
 
         {/* Section annotation */}
-        <div className="mb-6 lg:pl-8">
+        <div className="mb-4 lg:pl-8">
           <p className="font-mono text-xs text-pencil italic">
             Current tournament meta analysis &mdash; updated weekly
           </p>
@@ -145,7 +156,7 @@ export function MetaSnapshot() {
 
         {/* Loading state */}
         {isLoading && (
-          <div className="flex gap-4 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 lg:pl-8">
+          <div className="flex gap-3 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 lg:pl-8">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="min-w-[160px] flex-shrink-0 md:min-w-0">
                 <SpecimenCardSkeleton />
@@ -176,7 +187,7 @@ export function MetaSnapshot() {
 
         {/* Data state */}
         {!isLoading && !isError && archetypes.length > 0 && (
-          <div className="flex gap-4 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 lg:pl-8">
+          <div className="flex gap-3 overflow-x-auto pb-4 md:grid md:grid-cols-5 md:overflow-visible md:pb-0 lg:pl-8">
             {archetypes.map((archetype, index) => (
               <div
                 key={archetype.rank}

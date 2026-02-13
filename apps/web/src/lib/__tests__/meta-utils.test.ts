@@ -123,12 +123,34 @@ describe("meta-utils", () => {
       format: "standard",
       best_of: 3,
       archetype_breakdown: [
-        { name: "Charizard ex", share: 0.15, key_cards: ["sv4-54", "sv3-6"] },
-        { name: "Gardevoir ex", share: 0.12, key_cards: null },
+        {
+          name: "Charizard ex",
+          share: 0.15,
+          key_cards: ["sv4-54", "sv3-6"],
+          sprite_urls: ["https://sprites.example.com/charizard.png"],
+        },
+        {
+          name: "Gardevoir ex",
+          share: 0.12,
+          key_cards: null,
+          sprite_urls: null,
+        },
       ],
       card_usage: [
-        { card_id: "sv4-54", inclusion_rate: 0.85, avg_copies: 3.2 },
-        { card_id: "sv3-6", inclusion_rate: 0.72, avg_copies: 2.8 },
+        {
+          card_id: "sv4-54",
+          card_name: "Charizard ex",
+          image_small: "https://img.example.com/sv4-54.png",
+          inclusion_rate: 0.85,
+          avg_copies: 3.2,
+        },
+        {
+          card_id: "sv3-6",
+          card_name: "Gardevoir ex",
+          image_small: null,
+          inclusion_rate: 0.72,
+          avg_copies: 2.8,
+        },
       ],
       sample_size: 500,
     };
@@ -166,6 +188,7 @@ describe("meta-utils", () => {
         name: "Charizard ex",
         share: 0.15,
         keyCards: ["sv4-54", "sv3-6"],
+        spriteUrls: ["https://sprites.example.com/charizard.png"],
       });
     });
 
@@ -180,9 +203,37 @@ describe("meta-utils", () => {
       expect(result.cardUsage).toHaveLength(2);
       expect(result.cardUsage[0]).toEqual({
         cardId: "sv4-54",
+        cardName: "Charizard ex",
+        imageSmall: "https://img.example.com/sv4-54.png",
         inclusionRate: 0.85,
         avgCopies: 3.2,
       });
+    });
+
+    it("should preserve cardName and imageSmall in card usage", () => {
+      const result = transformSnapshot(mockApiSnapshot);
+      expect(result.cardUsage[0].cardName).toBe("Charizard ex");
+      expect(result.cardUsage[0].imageSmall).toBe(
+        "https://img.example.com/sv4-54.png"
+      );
+    });
+
+    it("should convert null image_small to undefined", () => {
+      const result = transformSnapshot(mockApiSnapshot);
+      expect(result.cardUsage[1].cardName).toBe("Gardevoir ex");
+      expect(result.cardUsage[1].imageSmall).toBeUndefined();
+    });
+
+    it("should preserve spriteUrls in archetype breakdown", () => {
+      const result = transformSnapshot(mockApiSnapshot);
+      expect(result.archetypeBreakdown[0].spriteUrls).toEqual([
+        "https://sprites.example.com/charizard.png",
+      ]);
+    });
+
+    it("should convert null sprite_urls to undefined", () => {
+      const result = transformSnapshot(mockApiSnapshot);
+      expect(result.archetypeBreakdown[1].spriteUrls).toBeUndefined();
     });
   });
 

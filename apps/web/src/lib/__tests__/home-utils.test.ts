@@ -171,6 +171,46 @@ describe("computeTrends", () => {
     expect(result[0].trend).toBe("stable");
     expect(result[0].trendValue).toBeUndefined();
   });
+
+  it("should pass through spriteUrls from archetype data", () => {
+    const global: ApiMetaSnapshot = {
+      snapshot_date: "2025-01-15",
+      region: null,
+      format: "standard",
+      best_of: 3,
+      archetype_breakdown: [
+        {
+          name: "Charizard ex",
+          share: 0.185,
+          sprite_urls: [
+            "https://sprites.example.com/charizard.png",
+            "https://sprites.example.com/pidgeot.png",
+          ],
+        },
+        {
+          name: "Lugia VSTAR",
+          share: 0.142,
+          sprite_urls: null,
+        },
+      ],
+      card_usage: [],
+      sample_size: 100,
+    };
+
+    const result = computeTrends(global, undefined, undefined, 5);
+
+    expect(result[0].spriteUrls).toEqual([
+      "https://sprites.example.com/charizard.png",
+      "https://sprites.example.com/pidgeot.png",
+    ]);
+    expect(result[1].spriteUrls).toBeUndefined();
+  });
+
+  it("should return undefined spriteUrls when not present in data", () => {
+    const global = makeSnapshot([{ name: "Charizard ex", share: 0.185 }]);
+    const result = computeTrends(global, undefined, undefined, 5);
+    expect(result[0].spriteUrls).toBeUndefined();
+  });
 });
 
 describe("computeJPDivergence", () => {

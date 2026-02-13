@@ -1,51 +1,21 @@
-import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-
-import GrassrootsPage from "../page";
-
-const mockPush = vi.fn();
-const mockReplace = vi.fn();
-let mockSearchParams = new URLSearchParams();
-const mockTournamentList = vi.fn();
+import { describe, it, expect, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush, replace: mockReplace }),
-  useSearchParams: () => mockSearchParams,
+  redirect: vi.fn(),
 }));
 
-vi.mock("@/components/tournaments", () => ({
-  TournamentList: (props: Record<string, unknown>) => {
-    mockTournamentList(props);
-    return <div>Tournament List</div>;
-  },
-}));
+import { redirect } from "next/navigation";
 
 describe("GrassrootsPage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockSearchParams = new URLSearchParams(
-      "region=EU&format=standard&best_of=1"
-    );
-  });
+  it("should redirect to tournaments with grassroots category", async () => {
+    const { default: GrassrootsPage } = await import("../page");
 
-  it("uses grassroots-only data contract and renders navigation", () => {
-    render(<GrassrootsPage />);
+    try {
+      GrassrootsPage();
+    } catch {
+      // redirect throws in Next.js
+    }
 
-    expect(mockTournamentList).toHaveBeenCalledWith(
-      expect.objectContaining({
-        apiParams: expect.objectContaining({
-          tier: "grassroots",
-          region: "EU",
-          format: "standard",
-          best_of: 1,
-        }),
-      })
-    );
-
-    const backLink = screen.getByRole("link", {
-      name: "Back to Official Tournaments",
-    });
-    expect(backLink).toHaveAttribute("href", "/tournaments");
+    expect(redirect).toHaveBeenCalledWith("/tournaments?category=grassroots");
   });
 });

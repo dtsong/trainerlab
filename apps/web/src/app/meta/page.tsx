@@ -216,14 +216,21 @@ function MetaPageContent() {
       name: a.name,
       share: a.share,
       keyCards: a.key_cards ?? undefined,
+      spriteUrls: a.sprite_urls ?? undefined,
     })) ?? [];
 
   const cardUsage: CardUsageSummary[] =
     currentMeta?.card_usage.map((c) => ({
       cardId: c.card_id,
+      cardName: c.card_name ?? undefined,
+      imageSmall: c.image_small ?? undefined,
       inclusionRate: c.inclusion_rate,
       avgCopies: c.avg_copies,
     })) ?? [];
+
+  const cardNameMap = Object.fromEntries(
+    cardUsage.filter((c) => c.cardName).map((c) => [c.cardId, c.cardName!])
+  );
 
   const snapshots: MetaSnapshot[] =
     metaHistory?.snapshots.map(transformSnapshot) ?? [];
@@ -232,7 +239,7 @@ function MetaPageContent() {
   const error = currentError || historyError;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -338,7 +345,11 @@ function MetaPageContent() {
               <CardContent>
                 {cardUsage.length > 0 ? (
                   <ChartErrorBoundary chartName="MetaBarChart">
-                    <MetaBarChart data={cardUsage} limit={10} />
+                    <MetaBarChart
+                      data={cardUsage}
+                      cardNames={cardNameMap}
+                      limit={10}
+                    />
                   </ChartErrorBoundary>
                 ) : (
                   <p className="py-12 text-center text-muted-foreground">
@@ -370,7 +381,7 @@ function MetaPageContent() {
           {/* Archetype cards grid */}
           <section>
             <h2 className="mb-4 text-2xl font-semibold">Top Archetypes</h2>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {archetypes.slice(0, 8).map((archetype) => (
                 <ArchetypeCard key={archetype.name} archetype={archetype} />
               ))}
@@ -389,7 +400,7 @@ function MetaPageContent() {
 
 function MetaPageLoading() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="h-9 w-48 animate-pulse rounded bg-muted" />

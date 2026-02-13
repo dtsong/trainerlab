@@ -52,6 +52,8 @@ export interface Archetype {
 
 export interface CardUsageSummary {
   cardId: string;
+  cardName?: string;
+  imageSmall?: string;
   inclusionRate: number;
   avgCopies: number;
 }

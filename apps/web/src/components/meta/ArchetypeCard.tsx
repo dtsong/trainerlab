@@ -2,23 +2,18 @@
 
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CardImage } from "@/components/cards/CardImage";
+import { ArchetypeSprites } from "./ArchetypeSprites";
 import { cn } from "@/lib/utils";
 import type { Archetype } from "@trainerlab/shared-types";
 
 interface ArchetypeCardProps {
   archetype: Archetype;
-  cardImages?: Record<string, { src: string; name: string }>;
   className?: string;
 }
 
-export function ArchetypeCard({
-  archetype,
-  cardImages = {},
-  className,
-}: ArchetypeCardProps) {
+export function ArchetypeCard({ archetype, className }: ArchetypeCardProps) {
   const sharePercent = (archetype.share * 100).toFixed(1);
-  const keyCards = archetype.keyCards?.slice(0, 3) || [];
+  const spriteUrls = archetype.spriteUrls ?? [];
 
   return (
     <Link href={`/meta/archetype/${encodeURIComponent(archetype.name)}`}>
@@ -29,36 +24,23 @@ export function ArchetypeCard({
         )}
         data-testid="archetype-card"
       >
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center justify-between">
-            <span className="truncate text-lg">{archetype.name}</span>
-            <span className="shrink-0 text-2xl font-bold text-primary">
+        <CardHeader className="p-4 pb-2">
+          <CardTitle className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              {spriteUrls.length > 0 && (
+                <ArchetypeSprites
+                  spriteUrls={spriteUrls}
+                  archetypeName={archetype.name}
+                  size="sm"
+                />
+              )}
+              <span className="truncate text-base">{archetype.name}</span>
+            </div>
+            <span className="shrink-0 text-xl font-bold text-primary">
               {sharePercent}%
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            {keyCards.map((cardId) => {
-              const cardInfo = cardImages[cardId];
-              return (
-                <div key={cardId} className="relative">
-                  <CardImage
-                    src={cardInfo?.src}
-                    alt={cardInfo?.name || cardId}
-                    size="small"
-                    className="h-[80px] w-[57px]"
-                  />
-                </div>
-              );
-            })}
-            {keyCards.length === 0 && (
-              <div className="flex h-[80px] items-center text-sm text-muted-foreground">
-                No key cards defined
-              </div>
-            )}
-          </div>
-        </CardContent>
       </Card>
     </Link>
   );

@@ -59,10 +59,5 @@ describe("TournamentsPage filters", () => {
         showMajorFormatBadge: true,
       })
     );
-
-    const grassrootsLink = screen.getByRole("link", {
-      name: "Grassroots Analysis",
-    });
-    expect(grassrootsLink).toHaveAttribute("href", "/grassroots");
   });
 });

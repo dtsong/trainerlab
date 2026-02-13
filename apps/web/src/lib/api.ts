@@ -1216,13 +1216,15 @@ export const eventsApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiEventListResponse>(
+    return fetchApiAuth<ApiEventListResponse>(
       `/api/v1/events${query ? `?${query}` : ""}`
     );
   },
 
   getById: (id: string) => {
-    return fetchApi<ApiEventDetail>(`/api/v1/events/${encodeURIComponent(id)}`);
+    return fetchApiAuth<ApiEventDetail>(
+      `/api/v1/events/${encodeURIComponent(id)}`
+    );
   },
 };
 

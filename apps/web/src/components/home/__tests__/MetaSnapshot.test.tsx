@@ -36,6 +36,20 @@ vi.mock("../skeletons", () => ({
   SpecimenCardSkeleton: () => <div data-testid="specimen-skeleton" />,
 }));
 
+vi.mock("@/components/meta", () => ({
+  ArchetypeSprites: ({
+    spriteUrls,
+    archetypeName,
+  }: {
+    spriteUrls: string[];
+    archetypeName: string;
+  }) => (
+    <span data-testid="archetype-sprites" data-name={archetypeName}>
+      {spriteUrls.length} sprites
+    </span>
+  ),
+}));
+
 // Mock hooks
 const mockUseHomeMetaData = vi.fn();
 
@@ -48,23 +62,37 @@ vi.mock("@/lib/home-utils", () => ({
   computeTrends: vi.fn(
     (
       globalMeta:
-        | { archetype_breakdown?: { name: string; share: number }[] }
+        | {
+            archetype_breakdown?: {
+              name: string;
+              share: number;
+              sprite_urls?: string[] | null;
+            }[];
+          }
         | undefined,
       _history: unknown,
       _jpMeta: unknown,
       limit: number = 5
     ) => {
       if (!globalMeta?.archetype_breakdown?.length) return [];
-      return globalMeta.archetype_breakdown
-        .slice(0, limit)
-        .map((arch: { name: string; share: number }, i: number) => ({
+      return globalMeta.archetype_breakdown.slice(0, limit).map(
+        (
+          arch: {
+            name: string;
+            share: number;
+            sprite_urls?: string[] | null;
+          },
+          i: number
+        ) => ({
           rank: i + 1,
           name: arch.name,
           metaShare: arch.share * 100,
           trend: "stable" as const,
           trendValue: undefined,
           jpSignal: undefined,
-        }));
+          spriteUrls: arch.sprite_urls ?? undefined,
+        })
+      );
     }
   ),
 }));
@@ -256,5 +284,47 @@ describe("MetaSnapshot", () => {
     expect(
       screen.getByText(/Current tournament meta analysis/)
     ).toBeInTheDocument();
+  });
+
+  it("should render sprites when spriteUrls are available", () => {
+    mockUseHomeMetaData.mockReturnValue({
+      globalMeta: {
+        archetype_breakdown: [
+          {
+            name: "Charizard ex",
+            share: 0.15,
+            sprite_urls: ["https://sprites.example.com/charizard.png"],
+          },
+        ],
+        sample_size: 5000,
+      },
+      jpMeta: undefined,
+      history: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<MetaSnapshot />);
+
+    expect(screen.getByTestId("archetype-sprites")).toBeInTheDocument();
+  });
+
+  it("should show gray placeholder when no sprites available", () => {
+    mockUseHomeMetaData.mockReturnValue({
+      globalMeta: {
+        archetype_breakdown: [{ name: "Rogue Deck", share: 0.05 }],
+        sample_size: 100,
+      },
+      jpMeta: undefined,
+      history: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(<MetaSnapshot />);
+
+    expect(screen.queryByTestId("archetype-sprites")).not.toBeInTheDocument();
   });
 });

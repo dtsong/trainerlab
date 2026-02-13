@@ -14,7 +14,6 @@ import {
   Settings,
   Search,
   Sparkles,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,10 +35,9 @@ const tabs = [
 
 const drawerLinks = [
   { href: "/tournaments", label: "Tournaments", icon: Calendar },
-  { href: "/grassroots", label: "Grassroots", icon: Calendar },
   { href: "/lab-notes", label: "Lab Notes", icon: FileText },
   { href: "/creator", label: "Creator", icon: Sparkles },
-  { href: "/investigate", label: "Investigate", icon: Search },
+  { href: "/cards", label: "Search Cards", icon: Search },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

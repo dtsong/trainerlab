@@ -13,7 +13,6 @@ const navLinks = [
   { href: "/meta", label: "Meta" },
   { href: "/meta/japan", label: "From Japan" },
   { href: "/tournaments", label: "Tournaments" },
-  { href: "/grassroots", label: "Grassroots" },
   { href: "/events", label: "Events" },
   { href: "/lab-notes", label: "Lab Notes" },
 ];
@@ -89,9 +88,9 @@ export function TopNav() {
             asChild
             className="bg-teal-500 hover:bg-teal-600 text-white font-medium"
           >
-            <Link href="/investigate">
+            <Link href="/cards">
               <Search className="mr-2 h-4 w-4" />
-              Investigate
+              Search Cards
             </Link>
           </Button>
 

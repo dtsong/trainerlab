@@ -87,6 +87,7 @@ describe("MobileNav", () => {
       fireEvent.click(moreButton!);
 
       // Drawer content should be visible
+      expect(await screen.findByText("Grassroots")).toBeInTheDocument();
       expect(await screen.findByText("Lab Notes")).toBeInTheDocument();
       expect(await screen.findByText("Investigate")).toBeInTheDocument();
       expect(await screen.findByText("Settings")).toBeInTheDocument();

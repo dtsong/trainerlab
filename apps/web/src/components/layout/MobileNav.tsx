@@ -36,6 +36,7 @@ const tabs = [
 
 const drawerLinks = [
   { href: "/tournaments", label: "Tournaments", icon: Calendar },
+  { href: "/grassroots", label: "Grassroots", icon: Calendar },
   { href: "/lab-notes", label: "Lab Notes", icon: FileText },
   { href: "/creator", label: "Creator", icon: Sparkles },
   { href: "/investigate", label: "Investigate", icon: Search },

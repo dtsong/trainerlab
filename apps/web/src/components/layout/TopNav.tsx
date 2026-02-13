@@ -13,6 +13,7 @@ const navLinks = [
   { href: "/meta", label: "Meta" },
   { href: "/meta/japan", label: "From Japan" },
   { href: "/tournaments", label: "Tournaments" },
+  { href: "/grassroots", label: "Grassroots" },
   { href: "/events", label: "Events" },
   { href: "/lab-notes", label: "Lab Notes" },
 ];

@@ -45,6 +45,7 @@ describe("TopNav", () => {
       expect(screen.getByText("Meta")).toBeInTheDocument();
       expect(screen.getByText("From Japan")).toBeInTheDocument();
       expect(screen.getByText("Tournaments")).toBeInTheDocument();
+      expect(screen.getByText("Grassroots")).toBeInTheDocument();
       expect(screen.getByText("Lab Notes")).toBeInTheDocument();
     });
 

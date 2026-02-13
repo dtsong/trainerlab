@@ -2,9 +2,11 @@
 
 import { Suspense, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Flag, Trophy, Users } from "lucide-react";
+import { Flag, Trophy } from "lucide-react";
+import Link from "next/link";
 
 import { TournamentFilters, TournamentList } from "@/components/tournaments";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BO1ContextBanner } from "@/components/meta";
 import { useState } from "react";
@@ -22,13 +24,13 @@ import {
   parseIntParam,
 } from "@/lib/url-state";
 
-type TabCategory = "tpci" | "japan" | "grassroots";
+type TabCategory = "tpci" | "japan";
 
 function TournamentsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const VALID_TABS: TabCategory[] = ["tpci", "japan", "grassroots"];
+  const VALID_TABS: TabCategory[] = ["tpci", "japan"];
   const FORMAT_VALUES = ["all", "standard", "expanded"] as const;
   const activeTab = parseEnumParam(
     searchParams.get("category"),
@@ -185,11 +187,6 @@ function TournamentsPageContent() {
     [formatParam]
   );
 
-  const grassrootsParams: TournamentSearchParams = useMemo(
-    () => ({ tier: "grassroots", format: formatParam }),
-    [formatParam]
-  );
-
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -206,20 +203,22 @@ function TournamentsPageContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="tpci" className="gap-1.5">
-            <Trophy className="h-4 w-4" />
-            TPCI
-          </TabsTrigger>
-          <TabsTrigger value="japan" className="gap-1.5">
-            <Flag className="h-4 w-4" />
-            Japan
-          </TabsTrigger>
-          <TabsTrigger value="grassroots" className="gap-1.5">
-            <Users className="h-4 w-4" />
-            Grassroots
-          </TabsTrigger>
-        </TabsList>
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="tpci" className="gap-1.5">
+              <Trophy className="h-4 w-4" />
+              TPCI
+            </TabsTrigger>
+            <TabsTrigger value="japan" className="gap-1.5">
+              <Flag className="h-4 w-4" />
+              Japan
+            </TabsTrigger>
+          </TabsList>
+
+          <Button asChild variant="outline" size="sm">
+            <Link href="/grassroots">Grassroots Analysis</Link>
+          </Button>
+        </div>
 
         <TabsContent value="tpci">
           <TournamentList
@@ -235,14 +234,6 @@ function TournamentsPageContent() {
           <TournamentList
             apiParams={japanParams}
             showRegion={false}
-            page={page}
-            onPageChange={handlePageChange}
-          />
-        </TabsContent>
-
-        <TabsContent value="grassroots">
-          <TournamentList
-            apiParams={grassrootsParams}
             page={page}
             onPageChange={handlePageChange}
           />

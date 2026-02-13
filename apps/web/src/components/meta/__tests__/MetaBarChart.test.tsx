@@ -60,11 +60,32 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   };
+
+  // MatchMedia is used to decide whether to show Y-axis thumbnails.
+  // Default to desktop in tests so thumbnail tick rendering can be exercised.
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches: true,
+      media: "(min-width: 640px)",
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 });
 
 describe("MetaBarChart", () => {
   const mockData: CardUsageSummary[] = [
-    { cardId: "sv4-54", inclusionRate: 0.85, avgCopies: 3.2 },
+    {
+      cardId: "sv4-54",
+      inclusionRate: 0.85,
+      avgCopies: 3.2,
+      imageSmall: "https://img.test/sv4-54.png",
+    },
     { cardId: "sv3-6", inclusionRate: 0.72, avgCopies: 2.8 },
     { cardId: "swsh1-1", inclusionRate: 0.65, avgCopies: 4.0 },
   ];
@@ -135,6 +156,30 @@ describe("MetaBarChart", () => {
       expect(tickFormatter).toBeDefined();
       expect(tickFormatter(85)).toBe("85%");
       expect(tickFormatter(0)).toBe("0%");
+    });
+  });
+
+  describe("YAxis tick rendering", () => {
+    it("should provide a custom tick renderer", () => {
+      render(<MetaBarChart data={mockData} />);
+      expect(capturedYAxisProps.tick).toBeDefined();
+      expect(typeof capturedYAxisProps.tick).toBe("function");
+    });
+
+    it("should render a thumbnail when imageSmall is available", async () => {
+      render(<MetaBarChart data={mockData} />);
+
+      const tick = capturedYAxisProps.tick as (
+        props: unknown
+      ) => React.ReactNode;
+      const el = tick({
+        x: 100,
+        y: 50,
+        payload: { value: "sv4-54" },
+      });
+
+      const { container } = render(<svg>{el}</svg>);
+      expect(container.querySelector("image")).toBeTruthy();
     });
   });
 

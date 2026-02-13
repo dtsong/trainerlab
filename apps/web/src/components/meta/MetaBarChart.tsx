@@ -49,8 +49,8 @@ function YAxisTick({
   showThumbnails,
   imageSmall,
 }: {
-  x?: number;
-  y?: number;
+  x?: number | string;
+  y?: number | string;
   payload?: { value?: unknown };
   yAxisWidth: number;
   showThumbnails: boolean;
@@ -62,8 +62,10 @@ function YAxisTick({
 
   // Recharts provides x/y near the right edge of the Y axis area.
   // We shift left by the allocated width so we can render image + label within it.
-  const gx = (x ?? 0) - yAxisWidth + 8;
-  const gy = y ?? 0;
+  const xNum = typeof x === "number" ? x : Number(x ?? 0);
+  const yNum = typeof y === "number" ? y : Number(y ?? 0);
+  const gx = xNum - yAxisWidth + 8;
+  const gy = yNum;
 
   const textX = hasThumb ? THUMB_W + THUMB_GAP : 0;
   const clipped = label.length > 26 ? `${label.slice(0, 25)}...` : label;
@@ -176,7 +178,11 @@ export function MetaBarChart({
   const yAxisWidth = showThumbnails ? 170 : 110;
 
   const renderYAxisTick = useCallback(
-    (props: { x?: number; y?: number; payload?: { value?: unknown } }) => {
+    (props: {
+      x?: number | string;
+      y?: number | string;
+      payload?: { value?: unknown };
+    }) => {
       const label = safeTickLabel(props.payload?.value);
       return (
         <YAxisTick

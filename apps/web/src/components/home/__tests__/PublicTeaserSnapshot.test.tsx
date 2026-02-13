@@ -57,6 +57,13 @@ describe("PublicTeaserSnapshot", () => {
     expect(
       screen.getByText(/Sample size: 1,234 decklists\./)
     ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("link", { name: "Closed Beta Announcement" })
+    ).toHaveAttribute("href", "/lab-notes/introducing-trainerlab-closed-beta");
+    expect(
+      screen.getByRole("link", { name: "Competitor Onboarding" })
+    ).toHaveAttribute("href", "/lab-notes/onboarding-competitors-closed-beta");
   });
 
   it("renders no-data state when teaser data is empty", () => {

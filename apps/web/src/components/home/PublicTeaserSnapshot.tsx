@@ -93,6 +93,16 @@ export function PublicTeaserSnapshot() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
+            <Button variant="outline" asChild>
+              <Link href="/lab-notes/introducing-trainerlab-closed-beta">
+                Closed Beta Announcement
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/lab-notes/onboarding-competitors-closed-beta">
+                Competitor Onboarding
+              </Link>
+            </Button>
           </div>
         </div>
       </div>

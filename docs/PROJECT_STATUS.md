@@ -137,6 +137,18 @@
 2. [ ] Publish launch post and onboarding docs for competitors/creators
 3. [ ] Soft launch to competitive community and collect first-week feedback
 
+### Closed Beta Launch Content (Feb 2026)
+
+- Announcement:
+  - `/lab-notes/introducing-trainerlab-closed-beta`
+- Onboarding:
+  - `/lab-notes/onboarding-competitors-closed-beta`
+  - `/lab-notes/onboarding-creators-coaches-closed-beta`
+- Outreach artifacts:
+  - `docs/OUTREACH_BATCH_001.md`
+- Feedback intake:
+  - `https://github.com/dtsong/trainerlab/issues/370`
+
 ---
 
 ## Repository Structure

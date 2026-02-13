@@ -81,6 +81,38 @@ export default function LabNotesPage() {
         </div>
       </div>
 
+      <Card className="mb-8 border-teal-200/70 bg-teal-50/40">
+        <CardContent className="py-5">
+          <p className="font-mono text-xs uppercase tracking-wider text-teal-700">
+            Closed Beta Starter Pack
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900">
+            New to TrainerLab?
+          </h2>
+          <p className="mt-2 text-sm text-slate-700">
+            Read the closed beta announcement and onboarding guides before
+            diving into weekly reports.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button variant="outline" asChild>
+              <Link href="/lab-notes/introducing-trainerlab-closed-beta">
+                Announcement
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/lab-notes/onboarding-competitors-closed-beta">
+                Competitors
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/lab-notes/onboarding-creators-coaches-closed-beta">
+                Creators + Coaches
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {data?.items.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

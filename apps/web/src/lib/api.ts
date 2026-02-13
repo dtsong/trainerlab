@@ -234,6 +234,16 @@ async function fetchApiValidated<T, S>(
   return data as T;
 }
 
+async function fetchApiAuthValidated<T, S>(
+  endpoint: string,
+  schema: z.ZodSchema<S>,
+  options?: RequestInit
+): Promise<T> {
+  const data = await fetchApiAuth<unknown>(endpoint, options);
+  validateApiResponse(schema, data, endpoint);
+  return data as T;
+}
+
 /**
  * Fetch the raw JWT from the NextAuth token endpoint.
  * Returns null if the user is not authenticated.
@@ -369,7 +379,7 @@ export const metaApi = {
       searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
-    return fetchApiValidated<ApiMetaSnapshot, unknown>(
+    return fetchApiAuthValidated<ApiMetaSnapshot, unknown>(
       `/api/v1/meta/current${query ? `?${query}` : ""}`,
       MetaSnapshotSchema
     );
@@ -386,7 +396,7 @@ export const metaApi = {
       searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
-    return fetchApiValidated<ApiMetaHistoryResponse, unknown>(
+    return fetchApiAuthValidated<ApiMetaHistoryResponse, unknown>(
       `/api/v1/meta/history${query ? `?${query}` : ""}`,
       MetaHistoryResponseSchema
     );
@@ -401,7 +411,7 @@ export const metaApi = {
       searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
-    return fetchApiValidated<ApiArchetype[], unknown>(
+    return fetchApiAuthValidated<ApiArchetype[], unknown>(
       `/api/v1/meta/archetypes${query ? `?${query}` : ""}`,
       ArchetypeSchema.array()
     );
@@ -416,7 +426,7 @@ export const metaApi = {
       searchParams.set("tournament_type", params.tournament_type);
 
     const query = searchParams.toString();
-    return fetchApi<ApiArchetypeDetailResponse>(
+    return fetchApiAuth<ApiArchetypeDetailResponse>(
       `/api/v1/meta/archetypes/${encodeURIComponent(name)}${query ? `?${query}` : ""}`
     );
   },
@@ -430,7 +440,7 @@ export const metaApi = {
     if (params.top_n) searchParams.set("top_n", String(params.top_n));
 
     const query = searchParams.toString();
-    return fetchApi<ApiMetaComparisonResponse>(
+    return fetchApiAuth<ApiMetaComparisonResponse>(
       `/api/v1/meta/compare${query ? `?${query}` : ""}`
     );
   },
@@ -441,7 +451,7 @@ export const metaApi = {
     if (params.top_n) searchParams.set("top_n", String(params.top_n));
 
     const query = searchParams.toString();
-    return fetchApi<ApiFormatForecastResponse>(
+    return fetchApiAuth<ApiFormatForecastResponse>(
       `/api/v1/meta/forecast${query ? `?${query}` : ""}`
     );
   },
@@ -485,20 +495,20 @@ export const tournamentsApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApiValidated<ApiTournamentListResponse, unknown>(
+    return fetchApiAuthValidated<ApiTournamentListResponse, unknown>(
       `/api/v1/tournaments${query ? `?${query}` : ""}`,
       TournamentListResponseSchema
     );
   },
 
   getById: (id: string) => {
-    return fetchApi<ApiTournamentDetail>(
+    return fetchApiAuth<ApiTournamentDetail>(
       `/api/v1/tournaments/${encodeURIComponent(id)}`
     );
   },
 
   getPlacementDecklist: (tournamentId: string, placementId: string) => {
-    return fetchApi<ApiDecklistResponse>(
+    return fetchApiAuth<ApiDecklistResponse>(
       `/api/v1/tournaments/${encodeURIComponent(tournamentId)}/placements/${encodeURIComponent(placementId)}/decklist`
     );
   },
@@ -614,13 +624,13 @@ export const japanApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiJPCardInnovationList>(
+    return fetchApiAuth<ApiJPCardInnovationList>(
       `/api/v1/japan/innovation${query ? `?${query}` : ""}`
     );
   },
 
   getInnovationDetail: (cardId: string) => {
-    return fetchApi<ApiJPCardInnovationDetail>(
+    return fetchApiAuth<ApiJPCardInnovationDetail>(
       `/api/v1/japan/innovation/${encodeURIComponent(cardId)}`
     );
   },
@@ -631,7 +641,7 @@ export const japanApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiJPNewArchetypeList>(
+    return fetchApiAuth<ApiJPNewArchetypeList>(
       `/api/v1/japan/archetypes/new${query ? `?${query}` : ""}`
     );
   },
@@ -642,7 +652,7 @@ export const japanApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiJPSetImpactList>(
+    return fetchApiAuth<ApiJPSetImpactList>(
       `/api/v1/japan/set-impact${query ? `?${query}` : ""}`
     );
   },
@@ -655,7 +665,7 @@ export const japanApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiPredictionList>(
+    return fetchApiAuth<ApiPredictionList>(
       `/api/v1/japan/predictions${query ? `?${query}` : ""}`
     );
   },
@@ -667,7 +677,7 @@ export const japanApi = {
     if (params.top_cards)
       searchParams.set("top_cards", String(params.top_cards));
 
-    return fetchApi<ApiCardCountEvolutionResponse>(
+    return fetchApiAuth<ApiCardCountEvolutionResponse>(
       `/api/v1/japan/card-count-evolution?${searchParams.toString()}`
     );
   },
@@ -681,7 +691,7 @@ export const japanApi = {
     if (params.limit) searchParams.set("limit", String(params.limit));
 
     const query = searchParams.toString();
-    return fetchApi<ApiJPContentList>(
+    return fetchApiAuth<ApiJPContentList>(
       `/api/v1/japan/content${query ? `?${query}` : ""}`
     );
   },

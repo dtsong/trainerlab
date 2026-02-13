@@ -67,6 +67,19 @@ function createMockResponse(data: unknown, ok = true, status = 200) {
   } as unknown as Response;
 }
 
+/**
+ * Many API clients now use fetchApiAuth(), which first calls /api/auth/token.
+ * This helper mocks both the token call and the subsequent API response.
+ */
+function mockAuthAndResponse(
+  data: unknown,
+  { ok = true, status = 200, token = "jwt-token-123" } = {}
+) {
+  mockFetch
+    .mockResolvedValueOnce(createMockResponse({ token }))
+    .mockResolvedValueOnce(createMockResponse(data, ok, status));
+}
+
 describe("ApiError", () => {
   it("should create an error with message, status, and body", () => {
     const error = new ApiError("Not found", 404, {
@@ -224,11 +237,11 @@ describe("setsApi", () => {
 describe("japanApi", () => {
   it("should list innovations with params", async () => {
     const mockData = { items: [], total: 0 };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await japanApi.listInnovations({ set_code: "sv5", limit: 10 });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/japan/innovation");
     expect(calledUrl).toContain("set_code=sv5");
     expect(calledUrl).toContain("limit=10");
@@ -236,27 +249,27 @@ describe("japanApi", () => {
 
   it("should list innovations with en_legal param", async () => {
     const mockData = { items: [], total: 0 };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await japanApi.listInnovations({ en_legal: false });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("en_legal=false");
   });
 
   it("should get innovation detail", async () => {
     const mockData = { card_id: "sv5-101", card_name: "Test" };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await japanApi.getInnovationDetail("sv5-101");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/japan/innovation/sv5-101");
   });
 
   it("should get card count evolution", async () => {
     const mockData = { archetype: "Dragapult ex", evolution: [] };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await japanApi.getCardCountEvolution({
       archetype: "Dragapult ex",
@@ -264,7 +277,7 @@ describe("japanApi", () => {
       top_cards: 5,
     });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/japan/card-count-evolution");
     expect(calledUrl).toContain("archetype=Dragapult+ex");
     expect(calledUrl).toContain("days=30");
@@ -421,19 +434,19 @@ describe("URL construction", () => {
 describe("metaApi", () => {
   it("should get current meta with no params", async () => {
     const mockData = { archetypes: [], snapshot_date: "2025-01-01" };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     const result = await metaApi.getCurrent();
 
     expect(result).toEqual(mockData);
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/meta/current");
     expect(calledUrl).not.toContain("?");
   });
 
   it("should get current meta with params", async () => {
     const mockData = { archetypes: [], snapshot_date: "2025-01-01" };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await metaApi.getCurrent({
       region: "JP",
@@ -441,7 +454,7 @@ describe("metaApi", () => {
       best_of: 1,
     });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/meta/current");
     expect(calledUrl).toContain("region=JP");
     expect(calledUrl).toContain("format=standard");
@@ -450,7 +463,7 @@ describe("metaApi", () => {
 
   it("should get meta history with params", async () => {
     const mockData = { snapshots: [] };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await metaApi.getHistory({
       region: "NA",
@@ -459,7 +472,7 @@ describe("metaApi", () => {
       days: 30,
     });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/meta/history");
     expect(calledUrl).toContain("region=NA");
     expect(calledUrl).toContain("format=expanded");
@@ -469,22 +482,22 @@ describe("metaApi", () => {
 
   it("should get meta history with no params", async () => {
     const mockData = { snapshots: [] };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await metaApi.getHistory();
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/meta/history");
     expect(calledUrl).not.toContain("?");
   });
 
   it("should get archetypes with params", async () => {
     const mockData = [{ id: "archetype-1", name: "Charizard ex" }];
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await metaApi.getArchetypes({ region: "EU", format: "standard" });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/meta/archetypes");
     expect(calledUrl).toContain("region=EU");
     expect(calledUrl).toContain("format=standard");
@@ -492,11 +505,11 @@ describe("metaApi", () => {
 
   it("should get archetypes with no params", async () => {
     const mockData = [{ id: "archetype-1", name: "Charizard ex" }];
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await metaApi.getArchetypes();
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/meta/archetypes");
     expect(calledUrl).not.toContain("?");
   });
@@ -505,19 +518,19 @@ describe("metaApi", () => {
 describe("tournamentsApi", () => {
   it("should list tournaments with no params", async () => {
     const mockData = { items: [], total: 0, page: 1, limit: 20 };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     const result = await tournamentsApi.list();
 
     expect(result).toEqual(mockData);
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/tournaments");
     expect(calledUrl).not.toContain("?");
   });
 
   it("should list tournaments with params", async () => {
     const mockData = { items: [], total: 0, page: 1, limit: 10 };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await tournamentsApi.list({
       region: "NA",
@@ -532,7 +545,7 @@ describe("tournamentsApi", () => {
       limit: 10,
     });
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/tournaments");
     expect(calledUrl).toContain("region=NA");
     expect(calledUrl).toContain("format=standard");
@@ -548,33 +561,33 @@ describe("tournamentsApi", () => {
 
   it("should get tournament by ID", async () => {
     const mockData = { id: "t-123", name: "NAIC 2025" };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     const result = await tournamentsApi.getById("t-123");
 
     expect(result).toEqual(mockData);
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/tournaments/t-123");
   });
 
   it("should encode tournament ID in URL", async () => {
     const mockData = { id: "t/123", name: "Test Tournament" };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await tournamentsApi.getById("t/123");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain("/api/v1/tournaments/t%2F123");
   });
 
   it("should get placement decklist", async () => {
     const mockData = { cards: [], format: "standard" };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     const result = await tournamentsApi.getPlacementDecklist("t-123", "p-456");
 
     expect(result).toEqual(mockData);
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain(
       "/api/v1/tournaments/t-123/placements/p-456/decklist"
     );
@@ -582,11 +595,11 @@ describe("tournamentsApi", () => {
 
   it("should encode placement decklist IDs in URL", async () => {
     const mockData = { cards: [], format: "standard" };
-    mockFetch.mockResolvedValue(createMockResponse(mockData));
+    mockAuthAndResponse(mockData);
 
     await tournamentsApi.getPlacementDecklist("t/1", "p/2");
 
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = mockFetch.mock.calls[1][0] as string;
     expect(calledUrl).toContain(
       "/api/v1/tournaments/t%2F1/placements/p%2F2/decklist"
     );

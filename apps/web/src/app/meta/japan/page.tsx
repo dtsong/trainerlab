@@ -168,42 +168,37 @@ function JapanMetaPageContent() {
     updateUrl({ tournament_type: newType, navigationMode: "push" });
   };
 
-  // Era label for post-rotation JP data scoping
-  const era = "post-nihil-zero";
-
-  // Fetch current Japan meta snapshot (BO1, era-scoped)
+  // Fetch current Japan meta snapshot (BO1)
   const {
     data: currentMeta,
     isLoading: isLoadingCurrent,
     error: currentError,
     refetch: refetchCurrent,
   } = useQuery({
-    queryKey: ["meta", "current", "JP", 1, era, tournamentType],
+    queryKey: ["meta", "current", "JP", 1, tournamentType],
     queryFn: () =>
       metaApi.getCurrent({
         region: "JP",
         format: "standard",
         best_of: 1,
-        era,
         tournament_type: tournamentType,
       }),
   });
 
-  // Fetch Japan meta history for trends (BO1, era-scoped)
+  // Fetch Japan meta history for trends (BO1)
   const {
     data: metaHistory,
     isLoading: isLoadingHistory,
     error: historyError,
     refetch: refetchHistory,
   } = useQuery({
-    queryKey: ["meta", "history", "JP", 1, days, era, tournamentType],
+    queryKey: ["meta", "history", "JP", 1, days, tournamentType],
     queryFn: () =>
       metaApi.getHistory({
         region: "JP",
         format: "standard",
         best_of: 1,
         days,
-        era,
         tournament_type: tournamentType,
       }),
   });

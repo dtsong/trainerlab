@@ -17,7 +17,7 @@ interface CardGridItemProps {
 function CardGridItem({ card }: CardGridItemProps) {
   return (
     <Link
-      href={`/cards/${card.id}`}
+      href={`/investigate/card/${card.id}`}
       className="group flex flex-col gap-2 transition-transform hover:scale-105"
     >
       <CardImage

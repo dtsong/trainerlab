@@ -198,7 +198,7 @@ export function MetaBarChart({
 
   const handleBarClick = (data: Record<string, unknown>) => {
     if (typeof data.cardId === "string") {
-      router.push(`/cards/${encodeURIComponent(data.cardId)}`);
+      router.push(`/investigate/card/${encodeURIComponent(data.cardId)}`);
     }
   };
 

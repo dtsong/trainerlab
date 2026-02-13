@@ -279,7 +279,7 @@ describe("MetaBarChart", () => {
       // mockData[0] has cardId "sv4-54" (highest inclusionRate at 0.85)
       onClick(undefined, 0);
 
-      expect(mockPush).toHaveBeenCalledWith("/cards/sv4-54");
+      expect(mockPush).toHaveBeenCalledWith("/investigate/card/sv4-54");
     });
 
     it("should navigate to correct card for different bar indices", () => {
@@ -290,7 +290,7 @@ describe("MetaBarChart", () => {
       ) => void;
 
       onClick(undefined, 1);
-      expect(mockPush).toHaveBeenCalledWith("/cards/sv3-6");
+      expect(mockPush).toHaveBeenCalledWith("/investigate/card/sv3-6");
     });
 
     it("should not navigate when bar index is out of range", () => {
@@ -317,7 +317,7 @@ describe("MetaBarChart", () => {
 
       onClick(undefined, 0);
       expect(mockPush).toHaveBeenCalledWith(
-        `/cards/${encodeURIComponent("card/special#1")}`
+        `/investigate/card/${encodeURIComponent("card/special#1")}`
       );
     });
   });

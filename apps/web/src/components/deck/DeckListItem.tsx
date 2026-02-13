@@ -28,7 +28,7 @@ export const DeckListItem = memo(function DeckListItem({
     <div className="flex items-center gap-2 p-2 rounded-md hover:bg-accent group">
       {/* Card thumbnail */}
       <Link
-        href={`/cards/${card.id}`}
+        href={`/investigate/card/${card.id}`}
         className="relative flex-shrink-0 rounded overflow-hidden"
         style={THUMBNAIL_SIZE}
       >
@@ -51,7 +51,7 @@ export const DeckListItem = memo(function DeckListItem({
 
       {/* Card name */}
       <Link
-        href={`/cards/${card.id}`}
+        href={`/investigate/card/${card.id}`}
         className="flex-1 min-w-0 hover:underline"
       >
         <span className="text-sm font-medium truncate block">{card.name}</span>

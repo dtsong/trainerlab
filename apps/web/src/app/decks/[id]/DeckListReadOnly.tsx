@@ -109,7 +109,7 @@ function ReadOnlyCardRow({ deckCard }: ReadOnlyCardRowProps) {
 
   return (
     <Link
-      href={`/cards/${card.id}`}
+      href={`/investigate/card/${card.id}`}
       className="flex items-center gap-3 p-2 rounded-md hover:bg-accent transition-colors"
     >
       {/* Thumbnail */}

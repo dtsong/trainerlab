@@ -129,7 +129,7 @@ describe("DeckListItem", () => {
     );
 
     const links = screen.getAllByRole("link");
-    expect(links[0]).toHaveAttribute("href", "/cards/swsh1-1");
+    expect(links[0]).toHaveAttribute("href", "/investigate/card/swsh1-1");
   });
 
   it("should handle card without types", () => {

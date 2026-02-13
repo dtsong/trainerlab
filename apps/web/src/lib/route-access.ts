@@ -13,6 +13,7 @@ const PUBLIC_PREFIXES = [
   "/api/og",
   "/embed",
   "/lab-notes",
+  "/investigate/",
 ];
 
 const BETA_GATED_PREFIXES = [

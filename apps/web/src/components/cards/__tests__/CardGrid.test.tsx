@@ -62,7 +62,7 @@ describe("CardGrid", () => {
       render(<CardGrid cards={cards} />);
 
       const link = screen.getByRole("link", { name: /Pikachu/i });
-      expect(link).toHaveAttribute("href", "/cards/sv1-25");
+      expect(link).toHaveAttribute("href", "/investigate/card/sv1-25");
     });
 
     it("should render card images with alt text", () => {

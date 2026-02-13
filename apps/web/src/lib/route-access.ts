@@ -1,4 +1,10 @@
-const PUBLIC_PATHS = new Set(["/", "/auth/login", "/closed-beta", "/feed.xml"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/auth/login",
+  "/closed-beta",
+  "/feed.xml",
+  "/investigate",
+]);
 
 const PUBLIC_PREFIXES = [
   "/auth/",

@@ -42,15 +42,24 @@ describe("TopNav", () => {
 
     it("should render all navigation links", () => {
       render(<TopNav />);
+      expect(
+        screen.getAllByRole("link", { name: "Investigate" }).length
+      ).toBeGreaterThanOrEqual(1);
       expect(screen.getByText("Meta")).toBeInTheDocument();
       expect(screen.getByText("From Japan")).toBeInTheDocument();
       expect(screen.getByText("Tournaments")).toBeInTheDocument();
+      expect(screen.getByText("Events")).toBeInTheDocument();
       expect(screen.getByText("Lab Notes")).toBeInTheDocument();
     });
 
-    it("should render Search Cards button", () => {
+    it("should render Investigate button", () => {
       render(<TopNav />);
-      expect(screen.getByText("Search Cards")).toBeInTheDocument();
+      const investigateLinks = screen.getAllByRole("link", {
+        name: "Investigate",
+      });
+      expect(
+        investigateLinks.some((el) => el.className.includes("bg-teal-500"))
+      ).toBe(true);
     });
   });
 

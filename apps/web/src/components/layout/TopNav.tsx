@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
+  { href: "/investigate", label: "Investigate" },
   { href: "/meta", label: "Meta" },
   { href: "/meta/japan", label: "From Japan" },
   { href: "/tournaments", label: "Tournaments" },
@@ -88,9 +89,9 @@ export function TopNav() {
             asChild
             className="bg-teal-500 hover:bg-teal-600 text-white font-medium"
           >
-            <Link href="/cards">
+            <Link href="/investigate">
               <Search className="mr-2 h-4 w-4" />
-              Search Cards
+              Investigate
             </Link>
           </Button>
 

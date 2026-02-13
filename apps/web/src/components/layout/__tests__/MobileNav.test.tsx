@@ -88,7 +88,7 @@ describe("MobileNav", () => {
 
       // Drawer content should be visible
       expect(await screen.findByText("Lab Notes")).toBeInTheDocument();
-      expect(await screen.findByText("Search Cards")).toBeInTheDocument();
+      expect(await screen.findByText("Investigate")).toBeInTheDocument();
       expect(await screen.findByText("Settings")).toBeInTheDocument();
     });
 

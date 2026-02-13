@@ -1,16 +1,135 @@
 "use client";
 
-import { AlertCircle, CalendarDays, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CalendarDays,
+  RefreshCw,
+  Trophy,
+} from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 
 import { EventCard, EventFilters } from "@/components/events";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useEvents } from "@/hooks/useEvents";
 import {
   type MajorFormatFilterValue,
   type SeasonFilterValue,
 } from "@/lib/official-majors";
+import {
+  getMajorFormatBadgeText,
+  isOfficialMajorTier,
+} from "@/lib/official-majors";
+
+import type { ApiEventSummary } from "@trainerlab/shared-types";
+
+const REGION_ORDER = ["NA", "EU", "JP", "LATAM", "OCE"] as const;
+const REGION_LABELS: Record<string, string> = {
+  NA: "North America",
+  EU: "Europe",
+  JP: "Japan",
+  LATAM: "Latin America",
+  OCE: "Oceania",
+};
+
+function formatEventDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function ChampionshipBanner({ events }: { events: ApiEventSummary[] }) {
+  const top = events.slice(0, 3);
+  if (top.length === 0) return null;
+
+  return (
+    <Card className="mb-6 overflow-hidden border-primary/30">
+      <CardContent className="p-0">
+        <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="p-6 bg-gradient-to-br from-primary/10 via-background to-background">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Trophy className="h-4 w-4" />
+              <span>Championship Spotlight</span>
+              <Badge variant="outline" className="ml-1">
+                Official
+              </Badge>
+            </div>
+
+            <div className="mt-3">
+              <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
+                {top[0]?.name}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {formatEventDate(top[0]?.date ?? "")} -{" "}
+                {REGION_LABELS[top[0]?.region ?? ""] ?? top[0]?.region}
+              </p>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {top[0]?.tier ? (
+                <Badge variant="outline" className="capitalize">
+                  {top[0].tier}
+                </Badge>
+              ) : null}
+              {top[0]?.major_format_key || top[0]?.major_format_label ? (
+                <Badge variant="outline">
+                  {getMajorFormatBadgeText(
+                    top[0].major_format_key,
+                    top[0].major_format_label
+                  ) ?? ""}
+                </Badge>
+              ) : null}
+            </div>
+
+            {top[0] ? (
+              <div className="mt-5">
+                <Button asChild>
+                  <Link href={`/events/${top[0].id}`}>
+                    View event
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="p-6">
+            <div className="text-sm font-medium">More upcoming majors</div>
+            <div className="mt-3 space-y-3">
+              {top.slice(1).map((e) => (
+                <Link
+                  key={e.id}
+                  href={`/events/${e.id}`}
+                  className="block rounded-lg border p-3 hover:border-primary/40 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium leading-snug line-clamp-2">
+                        {e.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatEventDate(e.date)} -{" "}
+                        {REGION_LABELS[e.region] ?? e.region}
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function EventsPage() {
   const [region, setRegion] = useState<string>("all");
@@ -30,6 +149,52 @@ export default function EventsPage() {
     page,
     limit: 20,
   });
+
+  const championshipEvents = useMemo(() => {
+    if (!data?.items) return [];
+    return [...data.items]
+      .filter((e) => isOfficialMajorTier(e.tier))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [data?.items]);
+
+  const groupedByRegion = useMemo(() => {
+    if (!data?.items) {
+      return [] as Array<{
+        region: string;
+        label: string;
+        items: ApiEventSummary[];
+      }>;
+    }
+
+    const groups = new Map<string, ApiEventSummary[]>();
+    for (const e of data.items) {
+      const key = e.region || "OTHER";
+      const arr = groups.get(key) ?? [];
+      arr.push(e);
+      groups.set(key, arr);
+    }
+    for (const [, items] of groups) {
+      items.sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+    }
+
+    const keys = Array.from(groups.keys());
+    const ordered = [
+      ...REGION_ORDER.filter((r) => groups.has(r)),
+      ...keys
+        .filter(
+          (k) => !REGION_ORDER.includes(k as (typeof REGION_ORDER)[number])
+        )
+        .sort(),
+    ];
+
+    return ordered.map((k) => ({
+      region: k,
+      label: REGION_LABELS[k] ?? k,
+      items: groups.get(k) ?? [],
+    }));
+  }, [data?.items]);
 
   const handleFilterChange = () => {
     setPage(1);
@@ -102,6 +267,10 @@ export default function EventsPage() {
         />
       </div>
 
+      {championshipEvents.length > 0 ? (
+        <ChampionshipBanner events={championshipEvents} />
+      ) : null}
+
       {data?.items.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -113,11 +282,36 @@ export default function EventsPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data?.items.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+          {region === "all" ? (
+            <div className="space-y-10">
+              {groupedByRegion.map((group) => (
+                <section key={group.region} className="space-y-4">
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-tight">
+                        {group.label}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        {group.items.length} events
+                      </p>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.items.map((event) => (
+                      <EventCard key={event.id} event={event} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {data?.items.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          )}
 
           {data && (data.has_prev || data.has_next) && (
             <div className="flex items-center justify-center gap-4 mt-8">

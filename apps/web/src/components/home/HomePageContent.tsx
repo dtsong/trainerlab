@@ -9,6 +9,7 @@ import { Hero } from "./Hero";
 import { JPAlertBanner } from "./JPAlertBanner";
 import { PublicTeaserSnapshot } from "./PublicTeaserSnapshot";
 import { ResearchPassWaitlist } from "./ResearchPassWaitlist";
+import { TrendingMovers } from "./TrendingMovers";
 import { TrainersToolkit } from "./TrainersToolkit";
 import { WhyTrainerLab } from "./WhyTrainerLab";
 
@@ -54,8 +55,14 @@ export function HomePageContent() {
       </ErrorBoundary>
 
       <ErrorBoundary>
-        <Hero />
+        <Hero hasFullAccess={hasFullAccess} />
       </ErrorBoundary>
+
+      {hasFullAccess && (
+        <ErrorBoundary fallback={null}>
+          <TrendingMovers />
+        </ErrorBoundary>
+      )}
 
       {shouldRenderTeaser ? (
         <ErrorBoundary fallback={null}>
@@ -67,13 +74,13 @@ export function HomePageContent() {
             <MetaSnapshot />
           </ErrorBoundary>
           <ErrorBoundary fallback={null}>
+            <FormatForecast />
+          </ErrorBoundary>
+          <ErrorBoundary fallback={null}>
             <EvolutionPreview />
           </ErrorBoundary>
           <ErrorBoundary fallback={null}>
             <ContentGrid />
-          </ErrorBoundary>
-          <ErrorBoundary fallback={null}>
-            <FormatForecast />
           </ErrorBoundary>
         </>
       )}

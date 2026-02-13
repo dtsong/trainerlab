@@ -4,10 +4,29 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, TrendingUp, Users, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TrendArrow } from "@/components/ui/trend-arrow";
 import { ShufflingDeck } from "./ShufflingDeck";
 import { useTournaments } from "@/hooks/useTournaments";
 import { useHomeMetaData } from "@/hooks/useMeta";
-import { computeHeroStats } from "@/lib/home-utils";
+import { computeHeroStats, computeMetaMovers } from "@/lib/home-utils";
+
+function formatCountdown(dateStr: string): string {
+  const eventDate = new Date(dateStr);
+  if (Number.isNaN(eventDate.getTime())) return "--";
+
+  const now = new Date();
+  const diffMs = eventDate.getTime() - now.getTime();
+  if (diffMs <= 0) return "Today";
+
+  const msHour = 1000 * 60 * 60;
+  const msDay = msHour * 24;
+  const days = Math.floor(diffMs / msDay);
+  const hours = Math.floor((diffMs % msDay) / msHour);
+
+  if (days >= 2) return `${days}d`;
+  if (days >= 1) return `${days}d ${hours}h`;
+  return `${Math.max(1, hours)}h`;
+}
 
 interface StatItemProps {
   icon: React.ReactNode;
@@ -100,14 +119,14 @@ function FloatingCard({
   );
 }
 
-export function Hero() {
+export function Hero({ hasFullAccess = false }: { hasFullAccess?: boolean }) {
   const [todayISO] = useState(() => new Date().toISOString().split("T")[0]);
 
   const { data: recentTournaments, isLoading: tournamentsLoading } =
     useTournaments({ limit: 1 });
   const { data: upcomingTournaments, isLoading: upcomingLoading } =
     useTournaments({ start_date: todayISO, limit: 1 });
-  const { globalMeta, isLoading: metaLoading } = useHomeMetaData();
+  const { globalMeta, history, isLoading: metaLoading } = useHomeMetaData();
 
   const isLoading = tournamentsLoading || upcomingLoading || metaLoading;
 
@@ -116,6 +135,15 @@ export function Hero() {
     globalMeta?.sample_size,
     upcomingTournaments?.total
   );
+
+  const nextTournamentDate = upcomingTournaments?.items?.[0]?.date;
+  const nextTournamentCountdown = nextTournamentDate
+    ? formatCountdown(nextTournamentDate)
+    : "--";
+
+  const biggestMover = hasFullAccess
+    ? computeMetaMovers(globalMeta, history, 1)[0]
+    : undefined;
 
   return (
     <section className="relative overflow-hidden bg-notebook-cream py-16 md:py-24">
@@ -188,9 +216,30 @@ export function Hero() {
               className="mt-8 text-lg text-pencil leading-relaxed opacity-0 animate-fade-in-up"
               style={{ animationDelay: "0.2s" }}
             >
-              Your competitive research lab for Pokemon TCG. Real-time meta
-              analysis, Japan format preview, and smart deck building tools
-              trusted by competitive players.
+              {biggestMover ? (
+                <>
+                  Biggest mover:{" "}
+                  <span className="font-semibold text-ink-black">
+                    {biggestMover.name}
+                  </span>{" "}
+                  <TrendArrow
+                    direction={biggestMover.changeDirection}
+                    value={biggestMover.changeValue}
+                    size="sm"
+                    className="ml-1 align-middle"
+                  />
+                  <span className="text-pencil">
+                    {" "}
+                    ({biggestMover.currentShare.toFixed(1)}% share)
+                  </span>
+                </>
+              ) : (
+                <>
+                  Your competitive research lab for Pokemon TCG. Real-time meta
+                  analysis, Japan format preview, and smart deck building tools
+                  trusted by competitive players.
+                </>
+              )}
             </p>
             <div
               className="mt-8 flex flex-wrap gap-4 opacity-0 animate-fade-in-up"
@@ -258,6 +307,13 @@ export function Hero() {
                 value={stats.upcomingEvents}
                 label="events upcoming"
                 delay="0.7s"
+                isLoading={isLoading}
+              />
+              <StatItem
+                icon={<Calendar className="h-4 w-4" />}
+                value={nextTournamentCountdown}
+                label="next event"
+                delay="0.8s"
                 isLoading={isLoading}
               />
             </div>

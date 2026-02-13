@@ -1,10 +1,18 @@
 "use client";
 
-import { CalendarDays, MapPin, Users } from "lucide-react";
+import { CalendarDays, MapPin, Plus, Users } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAuth } from "@/hooks";
 import {
   getMajorFormatBadgeText,
   isOfficialMajorTier,
@@ -36,6 +44,7 @@ function capitalize(s: string): string {
 }
 
 export function EventCard({ event }: EventCardProps) {
+  const { user } = useAuth();
   const date = new Date(event.date);
   const formattedDate = date.toLocaleDateString("en-US", {
     month: "short",
@@ -51,8 +60,8 @@ export function EventCard({ event }: EventCardProps) {
   );
 
   return (
-    <Link href={`/events/${event.id}`}>
-      <Card className="h-full transition-colors hover:border-primary/50">
+    <Card className="h-full transition-colors hover:border-primary/50">
+      <Link href={`/events/${event.id}`} className="block">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-lg line-clamp-2">{event.name}</CardTitle>
@@ -106,7 +115,18 @@ export function EventCard({ event }: EventCardProps) {
             )}
           </div>
         </CardContent>
-      </Card>
-    </Link>
+      </Link>
+
+      {user && (
+        <CardFooter>
+          <Button asChild size="sm" className="w-full">
+            <Link href={`/trips?add_event=${event.id}`}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add to Trip
+            </Link>
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
   );
 }

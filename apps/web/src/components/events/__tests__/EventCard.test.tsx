@@ -15,6 +15,10 @@ vi.mock("next/link", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
+vi.mock("@/hooks", () => ({
+  useAuth: () => ({ user: null }),
+}));
+
 describe("EventCard", () => {
   const mockEvent: ApiEventSummary = {
     id: "event-1",

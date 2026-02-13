@@ -81,6 +81,18 @@ export default function EventDetailPage() {
     isOfficialMajorTier(event.tier) && majorFormatBadgeText
   );
 
+  const mapsQuery = [
+    event.venue_name,
+    event.venue_address,
+    event.city,
+    event.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    mapsQuery || event.region
+  )}`;
+
   return (
     <div className="container mx-auto py-8 px-4">
       <Link
@@ -152,6 +164,21 @@ export default function EventDetailPage() {
                     .join(", ") || event.region}
                 </span>
               </div>
+
+              {mapsQuery && (
+                <div className="pt-1">
+                  <Button asChild variant="outline" size="sm">
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Open in Google Maps
+                    </a>
+                  </Button>
+                </div>
+              )}
 
               {event.participant_count != null && (
                 <div className="flex items-center gap-3">

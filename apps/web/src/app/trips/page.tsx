@@ -2,16 +2,38 @@
 
 import { AlertCircle, Luggage, Plus, RefreshCw } from "lucide-react";
 
-import { TripCard, CreateTripDialog } from "@/components/trips";
+import {
+  AddEventToTripDialog,
+  TripCard,
+  CreateTripDialog,
+} from "@/components/trips";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useTrips } from "@/hooks/useTrips";
 import { useAuth } from "@/hooks";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function TripsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { data: trips, isLoading, isError, refetch } = useTrips();
+
+  const addEventId = searchParams.get("add_event");
+  const [addDialogOpen, setAddDialogOpen] = useState(Boolean(addEventId));
+
+  useEffect(() => {
+    setAddDialogOpen(Boolean(addEventId));
+  }, [addEventId]);
+
+  const handleAddDialogChange = (open: boolean) => {
+    setAddDialogOpen(open);
+    if (!open && addEventId) {
+      router.replace("/trips", { scroll: false });
+    }
+  };
 
   if (authLoading || isLoading) {
     return (
@@ -71,6 +93,15 @@ export default function TripsPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {addEventId && trips && (
+        <AddEventToTripDialog
+          open={addDialogOpen}
+          onOpenChange={handleAddDialogChange}
+          eventId={addEventId}
+          trips={trips}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">My Trips</h1>
         <CreateTripDialog

@@ -25,6 +25,10 @@ from src.clients.limitless import (
 from src.models import CardIdMapping, Tournament, TournamentPlacement
 from src.services.archetype_detector import ArchetypeDetector
 from src.services.archetype_normalizer import ArchetypeNormalizer
+from src.services.major_format_windows import (
+    get_major_window_for_date,
+    is_official_major_tier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -573,6 +577,19 @@ class TournamentScrapeService:
             SQLAlchemyError: If database operation fails (other than duplicate).
         """
         try:
+            tier = self.classify_tier(tournament.participant_count, tournament.name)
+            major_format_key: str | None = None
+            major_format_label: str | None = None
+
+            if is_official_major_tier(tier):
+                window = await get_major_window_for_date(
+                    self.session,
+                    tournament.tournament_date,
+                )
+                if window is not None:
+                    major_format_key = window.key
+                    major_format_label = window.display_name
+
             # Create tournament record
             db_tournament = Tournament(
                 id=uuid4(),
@@ -583,7 +600,9 @@ class TournamentScrapeService:
                 best_of=tournament.best_of,
                 participant_count=tournament.participant_count,
                 source_url=tournament.source_url,
-                tier=self.classify_tier(tournament.participant_count, tournament.name),
+                tier=tier,
+                major_format_key=major_format_key,
+                major_format_label=major_format_label,
             )
 
             self.session.add(db_tournament)

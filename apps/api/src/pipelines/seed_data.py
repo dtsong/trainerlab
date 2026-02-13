@@ -11,7 +11,9 @@ from sqlalchemy import select
 
 from src.db.database import async_session_factory
 from src.models.format_config import FormatConfig
+from src.models.major_format_window import MajorFormatWindow
 from src.services.archetype_normalizer import ArchetypeNormalizer
+from src.services.major_format_windows import validate_major_window_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,7 @@ FIXTURES_PATH = Path(__file__).parent.parent.parent / "fixtures" / "formats.json
 
 class SeedDataResult(BaseModel):
     formats_seeded: int
+    major_windows_seeded: int
     sprites_seeded: int
     errors: list[str]
     success: bool
@@ -35,6 +38,7 @@ async def seed_reference_data(*, dry_run: bool = False) -> SeedDataResult:
     """Seed format configs from fixtures and archetype sprites from code."""
     errors: list[str] = []
     formats_seeded = 0
+    major_windows_seeded = 0
     sprites_seeded = 0
 
     data = _load_fixtures()
@@ -78,7 +82,51 @@ async def seed_reference_data(*, dry_run: bool = False) -> SeedDataResult:
             logger.exception(msg)
             errors.append(msg)
 
-        # 2. Seed archetype sprites
+        # 2. Seed major format windows
+        try:
+            for item in data.get("major_format_windows", []):
+                existing = await session.execute(
+                    select(MajorFormatWindow).where(
+                        MajorFormatWindow.key == item["key"]
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    logger.info("Major format window already exists: %s", item["key"])
+                    continue
+
+                if not dry_run:
+                    start = item.get("start_date")
+                    end = item.get("end_date")
+                    window = MajorFormatWindow(
+                        id=uuid4(),
+                        key=item["key"],
+                        display_name=item["display_name"],
+                        set_range_label=item["set_range_label"],
+                        start_date=date.fromisoformat(start),
+                        end_date=date.fromisoformat(end) if end else None,
+                        is_active=item.get("is_active", True),
+                    )
+                    session.add(window)
+
+                major_windows_seeded += 1
+                logger.info("Seeded major format window: %s", item["key"])
+
+            if not dry_run:
+                all_windows_result = await session.execute(select(MajorFormatWindow))
+                all_windows = all_windows_result.scalars().all()
+                window_warnings = validate_major_window_sequence(all_windows)
+                for warning in window_warnings:
+                    logger.warning("Major format window validation: %s", warning)
+
+                await session.commit()
+
+        except Exception as e:
+            await session.rollback()
+            msg = f"Failed to seed major format windows: {e}"
+            logger.exception(msg)
+            errors.append(msg)
+
+        # 3. Seed archetype sprites
         try:
             if dry_run:
                 from src.services.archetype_normalizer import (
@@ -99,6 +147,7 @@ async def seed_reference_data(*, dry_run: bool = False) -> SeedDataResult:
 
     return SeedDataResult(
         formats_seeded=formats_seeded,
+        major_windows_seeded=major_windows_seeded,
         sprites_seeded=sprites_seeded,
         errors=errors,
         success=len(errors) == 0,

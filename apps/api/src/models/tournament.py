@@ -81,6 +81,12 @@ class Tournament(Base, TimestampMixin):
     # Tournament tier: major, premier, league
     tier: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
 
+    # Official major format window metadata (official majors only)
+    major_format_key: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, index=True
+    )
+    major_format_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
     # Registration
     registration_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     registration_opens_at: Mapped[datetime | None] = mapped_column(

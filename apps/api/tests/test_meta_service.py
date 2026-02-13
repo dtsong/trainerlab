@@ -1722,13 +1722,18 @@ class TestTournamentTypeFiltering:
         assert snap_official.id != snap_grassroots.id
 
     def test_official_tiers_constant(self) -> None:
-        """OFFICIAL_TIERS should contain major and premier."""
+        """OFFICIAL_TIERS should include official major tiers only."""
         assert "major" in OFFICIAL_TIERS
-        assert "premier" in OFFICIAL_TIERS
+        assert "regional" in OFFICIAL_TIERS
+        assert "international" in OFFICIAL_TIERS
+        assert "worlds" in OFFICIAL_TIERS
+        assert "special" in OFFICIAL_TIERS
+        assert "premier" not in OFFICIAL_TIERS
 
     def test_grassroots_tiers_constant(self) -> None:
-        """GRASSROOTS_TIERS should contain league."""
+        """GRASSROOTS_TIERS should contain non-official tiers."""
         assert "league" in GRASSROOTS_TIERS
+        assert "premier" in GRASSROOTS_TIERS
 
     @pytest.mark.asyncio
     async def test_get_snapshot_filters_by_tournament_type(

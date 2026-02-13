@@ -47,6 +47,14 @@ class EventSummary(BaseModel):
     participant_count: int | None = Field(
         default=None, description="Number of participants"
     )
+    major_format_key: str | None = Field(
+        default=None,
+        description="Major format window key for official majors",
+    )
+    major_format_label: str | None = Field(
+        default=None,
+        description="Major format window label for official majors",
+    )
     days_until: int | None = Field(default=None, description="Days until event")
 
 

@@ -16,6 +16,7 @@ from src.clients.limitless import (
     LimitlessTournament,
 )
 from src.models import Tournament
+from src.models.major_format_window import MajorFormatWindow
 from src.services.archetype_detector import ArchetypeDetector
 from src.services.archetype_normalizer import ArchetypeNormalizer
 from src.services.tournament_scrape import ScrapeResult, TournamentScrapeService
@@ -26,6 +27,9 @@ def mock_session() -> AsyncMock:
     """Create a mock async session."""
     session = AsyncMock(spec=AsyncSession)
     session.add = MagicMock()
+    default_result = MagicMock()
+    default_result.scalars.return_value.all.return_value = []
+    session.execute = AsyncMock(return_value=default_result)
     return session
 
 
@@ -454,7 +458,52 @@ class TestSaveTournament:
         # Should add tournament and placement
         assert mock_session.add.call_count == 2
         mock_session.commit.assert_called_once()
+        assert result is not None
         assert result.name == sample_tournament.name
+
+    @pytest.mark.asyncio
+    async def test_tags_official_tournament_with_major_format_window(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        sample_tournament: LimitlessTournament,
+    ) -> None:
+        """Should apply major format metadata for official-major tournaments."""
+        window = MajorFormatWindow(
+            id=uuid4(),
+            key="svi-asc",
+            display_name="SVI-ASC",
+            set_range_label="Scarlet & Violet to Ascended Heroes",
+            start_date=date(2026, 2, 1),
+            end_date=date(2026, 3, 31),
+            is_active=True,
+        )
+        window_result = MagicMock()
+        window_result.scalars.return_value.all.return_value = [window]
+        mock_session.execute = AsyncMock(return_value=window_result)
+
+        result = await service.save_tournament(sample_tournament)
+
+        assert result is not None
+        assert result.major_format_key == "svi-asc"
+        assert result.major_format_label == "SVI-ASC"
+
+    @pytest.mark.asyncio
+    async def test_does_not_tag_non_official_tournament(
+        self,
+        service: TournamentScrapeService,
+        sample_tournament: LimitlessTournament,
+    ) -> None:
+        """Should leave major format metadata unset for non-official tiers."""
+        sample_tournament.name = "Local League Cup"
+        sample_tournament.participant_count = 32
+
+        result = await service.save_tournament(sample_tournament)
+
+        assert result is not None
+        assert result.tier == "premier"
+        assert result.major_format_key is None
+        assert result.major_format_label is None
 
     @pytest.mark.asyncio
     async def test_rollback_on_database_error(
@@ -1088,6 +1137,7 @@ class TestCreatePlacementWithNormalizer:
 
         assert result.archetype == "Froslass Grimmsnarl"
         assert result.archetype_detection_method == "sprite_lookup"
+        assert result.raw_archetype_sprites is not None
         assert len(result.raw_archetype_sprites) == 2
 
     def test_legacy_path_without_normalizer(

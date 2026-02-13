@@ -25,6 +25,7 @@ from src.schemas.tournament import (
     TopPlacement,
     TournamentTier,
 )
+from src.services.major_format_windows import OFFICIAL_MAJOR_TIERS
 from src.utils.dates import days_until
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,8 @@ def _build_event_summary(t: Tournament) -> EventSummary:
         registration_opens_at=t.registration_opens_at,
         registration_closes_at=t.registration_closes_at,
         participant_count=t.participant_count,
+        major_format_key=t.major_format_key,
+        major_format_label=t.major_format_label,
         days_until=days_until(t.date),
     )
 
@@ -96,6 +99,18 @@ async def list_events(
         bool,
         Query(description="Include completed events"),
     ] = False,
+    major_format_key: Annotated[
+        str | None,
+        Query(description="Filter by major format window key"),
+    ] = None,
+    season: Annotated[
+        int | None,
+        Query(ge=2000, le=2100, description="Filter by season year"),
+    ] = None,
+    official_only: Annotated[
+        bool,
+        Query(description="Only include official-major events"),
+    ] = False,
     page: Annotated[int, Query(ge=1, description="Page number")] = 1,
     limit: Annotated[int, Query(ge=1, le=100, description="Items per page")] = 20,
 ) -> PaginatedResponse[EventSummary]:
@@ -112,6 +127,15 @@ async def list_events(
         query = query.where(Tournament.format == format)
     if tier:
         query = query.where(Tournament.tier == tier)
+    if major_format_key:
+        query = query.where(Tournament.major_format_key == major_format_key)
+    if season:
+        query = query.where(
+            Tournament.date >= datetime(season, 1, 1).date(),
+            Tournament.date <= datetime(season, 12, 31).date(),
+        )
+    if official_only:
+        query = query.where(Tournament.tier.in_(tuple(OFFICIAL_MAJOR_TIERS)))
 
     # Count
     count_query = select(func.count()).select_from(
@@ -226,6 +250,8 @@ async def get_event(
         registration_opens_at=tournament.registration_opens_at,
         registration_closes_at=tournament.registration_closes_at,
         participant_count=tournament.participant_count,
+        major_format_key=tournament.major_format_key,
+        major_format_label=tournament.major_format_label,
         days_until=days_until(tournament.date),
         event_source=tournament.event_source,
         source_url=tournament.source_url,

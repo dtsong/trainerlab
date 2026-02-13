@@ -1,5 +1,6 @@
 """Tests for Pokemon Events client."""
 
+import json
 from datetime import date
 from unittest.mock import AsyncMock, patch
 
@@ -85,5 +86,66 @@ class TestPokemonEventsClientParsing:
             side_effect=PokemonEventsError("Fetch error"),
         ):
             events = await pokemon_client.fetch_regional_championships()
+
+        assert events == []
+
+
+class TestPokemonEventsJsonIngestion:
+    @pytest.mark.asyncio
+    async def test_fetch_all_events_parses_official_majors_and_skips_online(
+        self,
+        pokemon_client,
+    ):
+        payload = {
+            "items": [
+                {
+                    "eventName_s": "Seattle Pokemon Regional Championships 2026",
+                    "type_s": "regional",
+                    "region_s": "northamerica",
+                    "startDateTime_dt": "2026-02-27T16:00:00.000Z",
+                    "endDateTime_dt": "2026-03-01T22:00:00.000Z",
+                    "eventLocation_s": "Seattle, WA",
+                    "uRL_s": "/en-us/events/regionals/2026/seattle",
+                },
+                {
+                    "eventName_s": "UCS Regional Leagues Week 3",
+                    "type_s": "online",
+                    "region_s": "virtual",
+                    "startDateTime_dt": "2026-02-28T16:00:00.000Z",
+                    "uRL_s": "/en-us/events/online/2026/ucs-regional-leagues-week-3",
+                },
+                {
+                    "eventName_s": "2026 Pokemon Europe International Championships",
+                    "type_s": "international",
+                    "region_s": "europe",
+                    "startDateTime_dt": "2026-02-13T16:00:00.000Z",
+                    "endDateTime_dt": "2026-02-15T22:00:00.000Z",
+                    "eventLocation_s": "London, UK",
+                    "uRL_s": "/en-us/events/internationals/2026/london",
+                },
+            ]
+        }
+
+        with patch.object(
+            pokemon_client,
+            "_get",
+            new_callable=AsyncMock,
+        ) as mock_get:
+            mock_get.return_value = json.dumps(payload)
+            events = await pokemon_client.fetch_all_events()
+
+        assert len(events) == 2
+        assert all(event.tier in {"regional", "international"} for event in events)
+        assert all("/events/online/" not in event.source_url for event in events)
+
+    @pytest.mark.asyncio
+    async def test_fetch_all_events_returns_empty_on_invalid_json(self, pokemon_client):
+        with patch.object(
+            pokemon_client,
+            "_get",
+            new_callable=AsyncMock,
+            return_value="not-json",
+        ):
+            events = await pokemon_client.fetch_all_events()
 
         assert events == []

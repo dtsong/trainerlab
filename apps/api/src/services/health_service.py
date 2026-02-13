@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
-from typing import Literal, cast
+from typing import Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -143,10 +143,7 @@ class PipelineHealthService:
         for source_name, query, ok_days, stale_days in source_checks:
             last_date = await self._safe_last_date(query)
             age_days = (today - last_date).days if last_date else None
-            status = cast(
-                Literal["ok", "stale", "missing"],
-                self._source_status(age_days, ok_days, stale_days),
-            )
+            status = self._source_status(age_days, ok_days, stale_days)
 
             failure_reason = None
             if status == "stale":

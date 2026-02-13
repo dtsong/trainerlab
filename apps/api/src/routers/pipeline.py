@@ -9,6 +9,12 @@ import logging
 from fastapi import APIRouter, Depends
 
 from src.dependencies.scheduler_auth import verify_scheduler_auth
+from src.pipelines.backfill_major_format_windows import (
+    BackfillMajorFormatWindowsResult as BackfillMajorFormatWindowsResultInternal,
+)
+from src.pipelines.backfill_major_format_windows import (
+    backfill_major_format_windows,
+)
 from src.pipelines.compute_evolution import (
     ComputeEvolutionResult as ComputeEvolutionResultInternal,
 )
@@ -102,6 +108,8 @@ from src.pipelines.wipe_data import (
     wipe_data,
 )
 from src.schemas.pipeline import (
+    BackfillMajorFormatWindowsRequest,
+    BackfillMajorFormatWindowsResult,
     CleanupExportsRequest,
     CleanupExportsResult,
     ComputeEvolutionRequest,
@@ -170,6 +178,20 @@ def _convert_meta_result(internal: ComputeMetaResultInternal) -> ComputeMetaResu
         snapshots_computed=internal.snapshots_computed,
         snapshots_saved=internal.snapshots_saved,
         snapshots_skipped=internal.snapshots_skipped,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+def _convert_backfill_major_windows_result(
+    internal: BackfillMajorFormatWindowsResultInternal,
+) -> BackfillMajorFormatWindowsResult:
+    """Convert internal major-format backfill result to API schema."""
+
+    return BackfillMajorFormatWindowsResult(
+        tournaments_scanned=internal.tournaments_scanned,
+        tournaments_updated=internal.tournaments_updated,
+        tournaments_skipped=internal.tournaments_skipped,
         errors=internal.errors,
         success=internal.success,
     )
@@ -875,6 +897,7 @@ def _convert_seed_result(
     """Convert internal SeedDataResult to API schema."""
     return SeedDataResult(
         formats_seeded=internal.formats_seeded,
+        major_windows_seeded=internal.major_windows_seeded,
         sprites_seeded=internal.sprites_seeded,
         errors=internal.errors,
         success=internal.success,
@@ -895,13 +918,41 @@ async def seed_data_endpoint(
     result = await seed_reference_data(dry_run=request.dry_run)
 
     logger.info(
-        "Seed-data complete: formats=%d, sprites=%d, errors=%d",
+        "Seed-data complete: formats=%d, major_windows=%d, sprites=%d, errors=%d",
         result.formats_seeded,
+        result.major_windows_seeded,
         result.sprites_seeded,
         len(result.errors),
     )
 
     return _convert_seed_result(result)
+
+
+@router.post(
+    "/backfill-major-format-windows",
+    response_model=BackfillMajorFormatWindowsResult,
+)
+async def backfill_major_format_windows_endpoint(
+    request: BackfillMajorFormatWindowsRequest,
+) -> BackfillMajorFormatWindowsResult:
+    """Backfill official tournaments with date-based major format labels."""
+
+    logger.info(
+        "Starting major-format window backfill: dry_run=%s",
+        request.dry_run,
+    )
+
+    result = await backfill_major_format_windows(dry_run=request.dry_run)
+
+    logger.info(
+        "Major-format backfill complete: scanned=%d, updated=%d, skipped=%d, errors=%d",
+        result.tournaments_scanned,
+        result.tournaments_updated,
+        result.tournaments_skipped,
+        len(result.errors),
+    )
+
+    return _convert_backfill_major_windows_result(result)
 
 
 # Prune tournaments pipeline

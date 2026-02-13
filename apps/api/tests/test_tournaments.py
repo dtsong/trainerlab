@@ -50,6 +50,8 @@ class TestListTournaments:
         tournament.best_of = 3
         tournament.tier = "major"
         tournament.participant_count = 256
+        tournament.major_format_key = None
+        tournament.major_format_label = None
 
         # Mock placements
         placement1 = MagicMock(spec=TournamentPlacement)
@@ -251,6 +253,117 @@ class TestListTournaments:
         data = response.json()
         assert data["freshness"]["cadence_profile"] == "tpci_event_cadence"
 
+    def test_major_filter_uses_official_major_tier_group(
+        self,
+        client: TestClient,
+        mock_db: AsyncMock,
+    ) -> None:
+        """`tier=major` should compile to tier IN official-major tiers."""
+
+        captured_sql: list[str] = []
+        calls = 0
+
+        async def execute_side_effect(statement):
+            nonlocal calls
+            captured_sql.append(str(statement))
+            calls += 1
+
+            if calls == 1:
+                count_result = MagicMock()
+                count_result.scalar.return_value = 0
+                return count_result
+            if calls == 2:
+                freshness_result = MagicMock()
+                freshness_result.scalar_one_or_none.return_value = None
+                return freshness_result
+
+            data_result = MagicMock()
+            data_result.scalars.return_value.unique.return_value.all.return_value = []
+            return data_result
+
+        mock_db.execute.side_effect = execute_side_effect
+
+        response = client.get("/api/v1/tournaments?tier=major")
+
+        assert response.status_code == 200
+        sql_blob = "\n".join(captured_sql)
+        assert "tournaments.tier IN" in sql_blob
+
+    def test_grassroots_filter_excludes_official_major_tiers(
+        self,
+        client: TestClient,
+        mock_db: AsyncMock,
+    ) -> None:
+        """`tier=grassroots` should compile to NOT IN official-major tiers."""
+
+        captured_sql: list[str] = []
+        calls = 0
+
+        async def execute_side_effect(statement):
+            nonlocal calls
+            captured_sql.append(str(statement))
+            calls += 1
+
+            if calls == 1:
+                count_result = MagicMock()
+                count_result.scalar.return_value = 0
+                return count_result
+            if calls == 2:
+                freshness_result = MagicMock()
+                freshness_result.scalar_one_or_none.return_value = None
+                return freshness_result
+
+            data_result = MagicMock()
+            data_result.scalars.return_value.unique.return_value.all.return_value = []
+            return data_result
+
+        mock_db.execute.side_effect = execute_side_effect
+
+        response = client.get("/api/v1/tournaments?tier=grassroots")
+
+        assert response.status_code == 200
+        sql_blob = "\n".join(captured_sql)
+        assert "tournaments.tier NOT IN" in sql_blob
+
+    def test_major_format_and_season_filters_compile(
+        self,
+        client: TestClient,
+        mock_db: AsyncMock,
+    ) -> None:
+        """Major-format, season, and official-only filters should be applied."""
+
+        captured_sql: list[str] = []
+        calls = 0
+
+        async def execute_side_effect(statement):
+            nonlocal calls
+            captured_sql.append(str(statement))
+            calls += 1
+
+            if calls == 1:
+                count_result = MagicMock()
+                count_result.scalar.return_value = 0
+                return count_result
+            if calls == 2:
+                freshness_result = MagicMock()
+                freshness_result.scalar_one_or_none.return_value = None
+                return freshness_result
+
+            data_result = MagicMock()
+            data_result.scalars.return_value.unique.return_value.all.return_value = []
+            return data_result
+
+        mock_db.execute.side_effect = execute_side_effect
+
+        response = client.get(
+            "/api/v1/tournaments?major_format_key=svi-asc&season=2026&official_only=true"
+        )
+
+        assert response.status_code == 200
+        sql_blob = "\n".join(captured_sql)
+        assert "tournaments.major_format_key =" in sql_blob
+        assert "tournaments.tier IN" in sql_blob
+
     def test_list_tournaments_pagination(
         self, client: TestClient, mock_db: AsyncMock, sample_tournament: MagicMock
     ) -> None:
@@ -293,6 +406,8 @@ class TestListTournaments:
         tournament.best_of = 3
         tournament.tier = "major"
         tournament.participant_count = 256
+        tournament.major_format_key = None
+        tournament.major_format_label = None
 
         # Create placements out of order
         placements = []
@@ -631,6 +746,8 @@ class TestGetTournament:
         tournament.best_of = 3
         tournament.tier = "major"
         tournament.participant_count = 512
+        tournament.major_format_key = None
+        tournament.major_format_label = None
         tournament.source = "limitless"
         tournament.source_url = "https://limitlesstcg.com/tournaments/en/1234"
 

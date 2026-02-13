@@ -436,6 +436,7 @@ class SeedDataResult(BaseModel):
     """Result from reference data seeding pipeline."""
 
     formats_seeded: int = Field(ge=0, description="Format configs seeded")
+    major_windows_seeded: int = Field(ge=0, description="Major format windows seeded")
     sprites_seeded: int = Field(ge=0, description="Archetype sprites seeded")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether seeding completed without errors")
@@ -472,5 +473,21 @@ class SyncEventsResult(BaseModel):
     events_created: int = Field(ge=0, description="New events created")
     events_updated: int = Field(ge=0, description="Existing events updated")
     events_skipped: int = Field(ge=0, description="Events unchanged")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class BackfillMajorFormatWindowsRequest(PipelineRequest):
+    """Request for major format window backfill pipeline."""
+
+    pass
+
+
+class BackfillMajorFormatWindowsResult(BaseModel):
+    """Result from major format window backfill pipeline."""
+
+    tournaments_scanned: int = Field(ge=0, description="Tournaments evaluated")
+    tournaments_updated: int = Field(ge=0, description="Tournaments updated")
+    tournaments_skipped: int = Field(ge=0, description="Tournaments unchanged")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether pipeline completed without errors")

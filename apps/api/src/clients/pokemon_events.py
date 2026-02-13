@@ -9,6 +9,7 @@ Pokemon events site including:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -63,8 +64,9 @@ class PokemonEventsClient:
     change infrequently.
     """
 
-    BASE_URL = "https://www.pokemon.com"
+    BASE_URL = "https://championships.pokemon.com"
     EVENTS_PATH = "/en/play-pokemon/pokemon-events"
+    EVENTS_JSON_PATH = "/api/events.json?locale=en-us"
 
     def __init__(
         self,
@@ -97,7 +99,7 @@ class PokemonEventsClient:
             timeout=timeout,
             headers={
                 "User-Agent": ("TrainerLab/1.0 (Pokemon TCG Meta Analysis)"),
-                "Accept": "text/html,application/xhtml+xml",
+                "Accept": "application/json,text/html,application/xhtml+xml",
             },
             follow_redirects=True,
         )
@@ -295,41 +297,112 @@ class PokemonEventsClient:
     # =================================================================
 
     async def fetch_all_events(self) -> list[PokemonEvent]:
-        """Fetch all official championship events.
+        """Fetch official championship events from championships JSON API.
 
-        Combines Regional Championships, ICs, and Worlds into
-        a single list.
-
-        Returns:
-            Combined list of all official events.
+        Includes only official major categories and skips online events.
         """
-        regionals, internationals = await asyncio.gather(
-            self.fetch_regional_championships(),
-            self.fetch_international_championships(),
-            return_exceptions=True,
-        )
+        try:
+            raw = await self._get(self.EVENTS_JSON_PATH)
+            payload = json.loads(raw)
+        except (PokemonEventsError, json.JSONDecodeError):
+            logger.warning("Failed to fetch/parse championships events JSON")
+            return []
+
+        items = payload.get("items", []) if isinstance(payload, dict) else []
+        if not isinstance(items, list):
+            return []
 
         events: list[PokemonEvent] = []
-
-        if isinstance(regionals, list):
-            events.extend(regionals)
-        else:
-            logger.warning(
-                "Failed to fetch regionals: %s",
-                regionals,
-                exc_info=regionals,
-            )
-
-        if isinstance(internationals, list):
-            events.extend(internationals)
-        else:
-            logger.warning(
-                "Failed to fetch internationals: %s",
-                internationals,
-                exc_info=internationals,
-            )
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            parsed = self._parse_events_json_item(item)
+            if parsed is not None:
+                events.append(parsed)
 
         return events
+
+    def _parse_events_json_item(self, item: dict[str, Any]) -> PokemonEvent | None:
+        """Parse a championships JSON event item.
+
+        Returns None for unsupported/online event types.
+        """
+        type_raw = str(item.get("type_s", "")).strip().lower()
+        tier_map = {
+            "regional": "regional",
+            "international": "international",
+            "worlds": "worlds",
+            "special": "special",
+        }
+        tier = tier_map.get(type_raw)
+        if tier is None:
+            return None
+
+        start_dt = str(item.get("startDateTime_dt", "")).strip()
+        if not start_dt:
+            return None
+        try:
+            start_date = datetime.fromisoformat(start_dt.replace("Z", "+00:00")).date()
+        except ValueError:
+            return None
+
+        end_date: date_type | None = None
+        end_dt = str(item.get("endDateTime_dt", "")).strip()
+        if end_dt:
+            try:
+                end_date = datetime.fromisoformat(end_dt.replace("Z", "+00:00")).date()
+            except ValueError:
+                end_date = None
+
+        location = str(item.get("eventLocation_s", "")).strip()
+        city = None
+        country = None
+        if location:
+            parts = [part.strip() for part in location.split(",") if part.strip()]
+            if parts:
+                city = parts[0]
+            if len(parts) >= 2:
+                country = parts[-1]
+
+        region = self._map_region(str(item.get("region_s", "")).strip().lower())
+
+        source_path = str(item.get("uRL_s", "")).strip()
+        if not source_path:
+            return None
+        if source_path.startswith("http"):
+            source_url = source_path
+        else:
+            source_url = f"{self.BASE_URL}{source_path}"
+
+        name = str(item.get("eventName_s", "")).strip()
+        if not name:
+            return None
+
+        return PokemonEvent(
+            name=name,
+            date=start_date,
+            end_date=end_date,
+            city=city,
+            country=country,
+            region=region,
+            venue=None,
+            registration_url=None,
+            source_url=source_url,
+            tier=tier,
+        )
+
+    @staticmethod
+    def _map_region(region_raw: str) -> str | None:
+        """Map championships region slugs to TrainerLab region codes."""
+
+        mapping = {
+            "northamerica": "NA",
+            "europe": "EU",
+            "latinamerica": "LATAM",
+            "oceania": "OCE",
+            "middleeast": "MEA",
+        }
+        return mapping.get(region_raw)
 
     # =================================================================
     # Parsing

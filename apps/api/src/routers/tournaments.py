@@ -26,6 +26,7 @@ from src.schemas.tournament import (
     TournamentTier,
 )
 from src.services.freshness import build_data_freshness
+from src.services.major_format_windows import OFFICIAL_MAJOR_TIERS
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,18 @@ async def list_tournaments(
         TournamentTier | None,
         Query(description="Filter by tier (major, premier, league)"),
     ] = None,
+    major_format_key: Annotated[
+        str | None,
+        Query(description="Filter by major format window key"),
+    ] = None,
+    season: Annotated[
+        int | None,
+        Query(ge=2000, le=2100, description="Filter by season year"),
+    ] = None,
+    official_only: Annotated[
+        bool,
+        Query(description="Only include official-major tournaments"),
+    ] = False,
     sort_by: Annotated[
         str | None,
         Query(description="Column to sort by"),
@@ -127,10 +140,24 @@ async def list_tournaments(
             filtered = filtered.where(Tournament.date <= end_date)
         if best_of:
             filtered = filtered.where(Tournament.best_of == best_of)
+        if major_format_key:
+            filtered = filtered.where(Tournament.major_format_key == major_format_key)
+        if season:
+            filtered = filtered.where(
+                Tournament.date >= date(season, 1, 1),
+                Tournament.date <= date(season, 12, 31),
+            )
+        if official_only:
+            filtered = filtered.where(Tournament.tier.in_(tuple(OFFICIAL_MAJOR_TIERS)))
         if tier:
             if tier == "grassroots":
                 filtered = filtered.where(
-                    (Tournament.tier != "major") | (Tournament.tier.is_(None))
+                    (Tournament.tier.is_(None))
+                    | (~Tournament.tier.in_(tuple(OFFICIAL_MAJOR_TIERS)))
+                )
+            elif tier == "major":
+                filtered = filtered.where(
+                    Tournament.tier.in_(tuple(OFFICIAL_MAJOR_TIERS))
                 )
             else:
                 filtered = filtered.where(Tournament.tier == tier)
@@ -225,6 +252,8 @@ async def list_tournaments(
                 best_of=tournament.best_of,
                 tier=tournament.tier,
                 participant_count=tournament.participant_count,
+                major_format_key=tournament.major_format_key,
+                major_format_label=tournament.major_format_label,
                 top_placements=[
                     TopPlacement(
                         placement=p.placement,
@@ -329,6 +358,8 @@ async def get_tournament(
         best_of=tournament.best_of,  # type: ignore[arg-type]
         tier=tournament.tier,  # type: ignore[arg-type]
         participant_count=tournament.participant_count,
+        major_format_key=tournament.major_format_key,
+        major_format_label=tournament.major_format_label,
         source=tournament.source,
         source_url=tournament.source_url,
         placements=[

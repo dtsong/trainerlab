@@ -22,6 +22,7 @@ from src.models.jp_set_impact import JPSetImpact
 from src.models.jp_unreleased_card import JPUnreleasedCard
 from src.models.lab_note import LabNote
 from src.models.lab_note_revision import LabNoteRevision
+from src.models.major_format_window import MajorFormatWindow
 from src.models.meta_snapshot import MetaSnapshot
 from src.models.placeholder_card import PlaceholderCard
 from src.models.prediction import Prediction
@@ -60,6 +61,7 @@ __all__ = [
     "JPUnreleasedCard",
     "LabNote",
     "LabNoteRevision",
+    "MajorFormatWindow",
     "MetaSnapshot",
     "PlaceholderCard",
     "Prediction",

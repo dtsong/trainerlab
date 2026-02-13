@@ -28,6 +28,7 @@ from src.schemas.meta import (
     MetaComparisonResponse,
 )
 from src.services.data_quality import validate_snapshot
+from src.services.major_format_windows import OFFICIAL_MAJOR_TIERS
 from src.services.pipeline_resilience import retry_commit
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,8 @@ EXCLUDED_ARCHETYPES = frozenset({"Unknown"})
 RECENCY_HALF_LIFE_DAYS = 30
 
 # Tournament tier groupings for tournament_type filtering
-OFFICIAL_TIERS = ("major", "premier")
-GRASSROOTS_TIERS = ("league",)
+OFFICIAL_TIERS = tuple(OFFICIAL_MAJOR_TIERS)
+GRASSROOTS_TIERS = ("league", "premier", "grassroots")
 
 # Valid tournament types
 TournamentType = Literal["all", "official", "grassroots"]
@@ -385,6 +386,7 @@ class MetaService:
             return {}
 
         use_weighting = bool(tournament_dates and reference_date)
+        date_lookup = tournament_dates if tournament_dates is not None else {}
         archetype_weights: dict[str, float] = defaultdict(float)
         archetype_tournaments: dict[str, set] = defaultdict(set)
 
@@ -394,7 +396,7 @@ class MetaService:
                 continue
 
             if use_weighting:
-                t_date = tournament_dates.get(placement.tournament_id)
+                t_date = date_lookup.get(placement.tournament_id)
                 if t_date and reference_date:
                     days_ago = (reference_date - t_date).days
                     weight = self._recency_weight(days_ago)

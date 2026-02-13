@@ -66,6 +66,14 @@ class TournamentSummary(BaseModel):
     participant_count: int | None = Field(
         default=None, description="Number of participants"
     )
+    major_format_key: str | None = Field(
+        default=None,
+        description="Major format window key for official majors",
+    )
+    major_format_label: str | None = Field(
+        default=None,
+        description="Major format window label for official majors",
+    )
     top_placements: list[TopPlacement] = Field(
         default_factory=list, description="Top placements (top 8)"
     )
@@ -128,6 +136,14 @@ class TournamentDetailResponse(BaseModel):
     )
     participant_count: int | None = Field(
         default=None, description="Number of participants"
+    )
+    major_format_key: str | None = Field(
+        default=None,
+        description="Major format window key for official majors",
+    )
+    major_format_label: str | None = Field(
+        default=None,
+        description="Major format window label for official majors",
     )
     source: str | None = Field(default=None, description="Data source")
     source_url: str | None = Field(default=None, description="Source URL")

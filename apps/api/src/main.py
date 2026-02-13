@@ -59,9 +59,9 @@ class JSONFormatter(logging.Formatter):
             "correlation_id": correlation_id_var.get(""),
         }
         if hasattr(record, "pipeline"):
-            log_entry["pipeline"] = record.pipeline  # type: ignore[attr-defined]
+            log_entry["pipeline"] = record.pipeline
         if hasattr(record, "run_id"):
-            log_entry["run_id"] = record.run_id  # type: ignore[attr-defined]
+            log_entry["run_id"] = record.run_id
         return json.dumps(log_entry)
 
 

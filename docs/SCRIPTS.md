@@ -59,6 +59,25 @@ Manually triggers production pipelines via Cloud Scheduler. Writes to the produc
 
 **Prerequisites:** gcloud CLI, jq, authenticated GCP session
 
+### smoke-web-prod.sh
+
+Production smoke checks for the web app and API endpoints (safe by default).
+
+```bash
+./scripts/cloud/smoke-web-prod.sh
+```
+
+| Option               | Description                                             |
+| -------------------- | ------------------------------------------------------- |
+| `--web-url=URL`      | Override web base URL                                   |
+| `--api-url=URL`      | Override API base URL                                   |
+| `--confirm-waitlist` | Enable waitlist POST test (**writes production data**)  |
+| `--email=EMAIL`      | Email used for waitlist POST test (required w/ confirm) |
+| `--note=TEXT`        | Optional note for waitlist POST test                    |
+| `-h, --help`         | Show help                                               |
+
+**Safety:** the waitlist test is opt-in and requires `--confirm-waitlist`.
+
 ### verify-data.sh
 
 Deep data quality verification across all API endpoints. Validates response shapes, field presence, data ranges, and cross-entity consistency.

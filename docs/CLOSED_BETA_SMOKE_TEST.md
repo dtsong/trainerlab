@@ -17,9 +17,12 @@ This is intentionally small. If you need full launch readiness, use `docs/LAUNCH
 - [ ] Home loads: `https://www.trainerlab.io/`
 - [ ] Lab notes load (public): `https://www.trainerlab.io/lab-notes`
 - [ ] Closed beta request page loads: `https://www.trainerlab.io/closed-beta`
+- [ ] Investigate hub loads (public): `https://www.trainerlab.io/investigate`
 - [ ] Submit request form (email + optional note)
   - [ ] Returns success message
   - [ ] Submitting the same email again still returns success (privacy-safe)
+
+Tip: you can automate the non-auth checks with `./scripts/cloud/smoke-web-prod.sh`.
 
 ## 2) Auth + Access Gate
 

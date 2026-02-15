@@ -618,12 +618,26 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_mapping_result = MagicMock()
         mock_mapping_result.all.return_value = []
 
+        # Consensus decklist: batch cards (2) + supertypes (2)
+        mock_consensus_cards = MagicMock()
+        mock_consensus_cards.all.return_value = []
+        mock_consensus_mappings = MagicMock()
+        mock_consensus_mappings.all.return_value = []
+        mock_consensus_supertypes = MagicMock()
+        mock_consensus_supertypes.all.return_value = []
+        mock_consensus_st_mappings = MagicMock()
+        mock_consensus_st_mappings.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_enrich_result,
             mock_mapping_result,
             mock_tournament_result,
+            mock_consensus_cards,
+            mock_consensus_mappings,
+            mock_consensus_supertypes,
+            mock_consensus_st_mappings,
         ]
 
         response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
@@ -889,12 +903,26 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_mapping_result = MagicMock()
         mock_mapping_result.all.return_value = []
 
+        # Consensus decklist: batch cards (2) + supertypes (2)
+        mock_consensus_cards = MagicMock()
+        mock_consensus_cards.all.return_value = []
+        mock_consensus_mappings = MagicMock()
+        mock_consensus_mappings.all.return_value = []
+        mock_consensus_supertypes = MagicMock()
+        mock_consensus_supertypes.all.return_value = []
+        mock_consensus_st_mappings = MagicMock()
+        mock_consensus_st_mappings.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_enrich_result,
             mock_mapping_result,
             mock_tournament_result,
+            mock_consensus_cards,
+            mock_consensus_mappings,
+            mock_consensus_supertypes,
+            mock_consensus_st_mappings,
         ]
 
         response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
@@ -957,12 +985,26 @@ class TestGetArchetypeDetail(TestMetaEndpoints):
         mock_mapping_result = MagicMock()
         mock_mapping_result.all.return_value = []
 
+        # Consensus decklist: batch cards (2) + supertypes (2)
+        mock_consensus_cards = MagicMock()
+        mock_consensus_cards.all.return_value = []
+        mock_consensus_mappings = MagicMock()
+        mock_consensus_mappings.all.return_value = []
+        mock_consensus_supertypes = MagicMock()
+        mock_consensus_supertypes.all.return_value = []
+        mock_consensus_st_mappings = MagicMock()
+        mock_consensus_st_mappings.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_enrich_result,
             mock_mapping_result,
             mock_tournament_result,
+            mock_consensus_cards,
+            mock_consensus_mappings,
+            mock_consensus_supertypes,
+            mock_consensus_st_mappings,
         ]
 
         response = client.get("/api/v1/meta/archetypes/Charizard%20ex")

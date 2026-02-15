@@ -6,6 +6,8 @@ export {
 } from "./ArchetypeCardSkeleton";
 export { ArchetypePanel } from "./ArchetypePanel";
 export type { ArchetypePanelData, ArchetypePanelProps } from "./ArchetypePanel";
+export { ConsensusCardGrid } from "./ConsensusCardGrid";
+export type { ConsensusCardGridProps } from "./ConsensusCardGrid";
 export { BO1ContextBanner } from "./BO1ContextBanner";
 export { BuildItBanner } from "./BuildItBanner";
 export { ChartErrorBoundary } from "./ChartErrorBoundary";

@@ -112,3 +112,18 @@ class CardResponse(BaseModel):
 
     # Nested relationships (optional, for expanded responses)
     set: SetSummaryResponse | None = None
+
+
+class CardArchetypeUsage(BaseModel):
+    """Usage of a card within a specific archetype."""
+
+    archetype: str
+    inclusion_rate: float
+    avg_copies: float
+
+
+class CardArchetypeUsageResponse(BaseModel):
+    """Cross-archetype usage stats for a card."""
+
+    card_id: str
+    archetype_usage: list[CardArchetypeUsage]

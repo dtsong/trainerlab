@@ -92,6 +92,7 @@ export function transformSnapshot(data: ApiMetaSnapshot): MetaSnapshot {
       share: a.share,
       keyCards: a.key_cards ?? undefined,
       spriteUrls: a.sprite_urls ?? undefined,
+      signatureCardImage: a.signature_card_image ?? undefined,
     })),
     cardUsage: data.card_usage.map((c) => ({
       cardId: c.card_id,

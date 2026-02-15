@@ -189,10 +189,10 @@ describe("ArchetypePanel", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("should render the Key Cards section", () => {
+  it("should render the Decklist section", () => {
     render(<ArchetypePanel {...defaultProps} />);
 
-    expect(screen.getByText("Key Cards")).toBeInTheDocument();
+    expect(screen.getByText("Decklist")).toBeInTheDocument();
   });
 
   it("should render key card names", () => {

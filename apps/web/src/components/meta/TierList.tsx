@@ -4,6 +4,8 @@ import { memo, useCallback, useMemo, useRef } from "react";
 import { TierBadge } from "@/components/ui/tier-badge";
 import { TrendArrow } from "@/components/ui/trend-arrow";
 import { JPSignalBadge } from "@/components/ui/jp-signal-badge";
+import { CardImage } from "@/components/cards/CardImage";
+import { ArchetypeSprites } from "@/components/meta/ArchetypeSprites";
 import { cn } from "@/lib/utils";
 
 export type Tier = "S" | "A" | "B" | "C" | "Rogue";
@@ -17,6 +19,7 @@ export interface ArchetypeData {
   trendValue?: number;
   jpShare?: number;
   signatureCardUrl?: string;
+  spriteUrls?: string[];
 }
 
 interface ArchetypeRowProps {
@@ -48,8 +51,25 @@ const ArchetypeRow = memo(function ArchetypeRow({
       aria-pressed={isSelected}
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 56px" }}
     >
-      {/* Signature card placeholder */}
-      <div className="h-12 w-8 flex-shrink-0 rounded bg-gradient-to-br from-slate-200 to-slate-300" />
+      {/* Signature card / sprites */}
+      {archetype.signatureCardUrl ? (
+        <CardImage
+          src={archetype.signatureCardUrl}
+          alt={archetype.name}
+          size="thumbnail"
+          className="h-12 w-8 flex-shrink-0"
+        />
+      ) : archetype.spriteUrls?.length ? (
+        <span className="flex h-12 w-8 flex-shrink-0 items-center justify-center">
+          <ArchetypeSprites
+            spriteUrls={archetype.spriteUrls}
+            archetypeName={archetype.name}
+            size="sm"
+          />
+        </span>
+      ) : (
+        <div className="h-12 w-8 flex-shrink-0 rounded bg-gradient-to-br from-slate-200 to-slate-300" />
+      )}
 
       {/* Name and share */}
       <div className="flex-1 min-w-0">

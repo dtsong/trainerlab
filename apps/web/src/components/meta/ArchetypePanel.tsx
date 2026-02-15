@@ -6,8 +6,15 @@ import { PanelOverlay } from "@/components/ui/panel-overlay";
 import { TierBadge } from "@/components/ui/tier-badge";
 import { TrendArrow } from "@/components/ui/trend-arrow";
 import { Button } from "@/components/ui/button";
+import { CardImage } from "@/components/cards/CardImage";
+import { ArchetypeSprites } from "@/components/meta/ArchetypeSprites";
+import { ConsensusCardGrid } from "./ConsensusCardGrid";
 import { MatchupSpread, type MatchupData } from "./MatchupSpread";
 import type { Tier } from "./TierList";
+import type {
+  ApiConsensusDecklist,
+  ApiConsensusDecklistCard,
+} from "@trainerlab/shared-types";
 import { cn } from "@/lib/utils";
 
 interface KeyCard {
@@ -35,10 +42,13 @@ export interface ArchetypePanelData {
   share: number;
   trend: "up" | "down" | "stable";
   trendValue?: number;
+  signatureCardUrl?: string;
+  spriteUrls?: string[];
   keyCards: KeyCard[];
   buildVariants: BuildVariant[];
   matchups: MatchupData[];
   recentResults: RecentResult[];
+  consensusDecklist?: ApiConsensusDecklist | null;
 }
 
 interface PanelSectionProps {
@@ -62,14 +72,25 @@ export interface ArchetypePanelProps {
   archetype: ArchetypePanelData | null;
   isOpen: boolean;
   onClose: () => void;
+  isLoadingDetail?: boolean;
+  onCardClick?: (card: ApiConsensusDecklistCard) => void;
 }
 
 export function ArchetypePanel({
   archetype,
   isOpen,
   onClose,
+  isLoadingDetail,
+  onCardClick,
 }: ArchetypePanelProps) {
   if (!archetype) return null;
+
+  const consensus = archetype.consensusDecklist;
+  const hasConsensus =
+    consensus &&
+    (consensus.pokemon.length > 0 ||
+      consensus.trainers.length > 0 ||
+      consensus.energy.length > 0);
 
   return (
     <PanelOverlay isOpen={isOpen} onClose={onClose}>
@@ -84,8 +105,25 @@ export function ArchetypePanel({
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-terminal-border bg-terminal-surface p-4">
           <div className="flex items-start gap-3">
-            {/* Signature card placeholder */}
-            <div className="h-16 w-12 flex-shrink-0 rounded bg-gradient-to-br from-slate-600 to-slate-700" />
+            {/* Signature card / sprites */}
+            {archetype.signatureCardUrl ? (
+              <CardImage
+                src={archetype.signatureCardUrl}
+                alt={archetype.name}
+                size="thumbnail"
+                className="h-16 w-12 flex-shrink-0"
+              />
+            ) : archetype.spriteUrls?.length ? (
+              <span className="flex h-16 w-12 flex-shrink-0 items-center justify-center rounded bg-terminal-border">
+                <ArchetypeSprites
+                  spriteUrls={archetype.spriteUrls}
+                  archetypeName={archetype.name}
+                  size="md"
+                />
+              </span>
+            ) : (
+              <div className="h-16 w-12 flex-shrink-0 rounded bg-gradient-to-br from-slate-600 to-slate-700" />
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-xl font-semibold text-white">
@@ -115,28 +153,47 @@ export function ArchetypePanel({
 
         {/* Content */}
         <div className="space-y-4 p-4">
-          {/* Key Cards */}
-          <PanelSection title="Key Cards">
-            <div className="space-y-2">
-              {archetype.keyCards.slice(0, 8).map((card) => (
-                <div
-                  key={card.name}
-                  className="flex items-center justify-between rounded bg-terminal-surface px-3 py-2"
-                >
-                  <span className="text-sm text-terminal-text">
-                    {card.name}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-terminal-muted">
-                      {(card.inclusionRate * 100).toFixed(0)}%
+          {/* Consensus Decklist / Key Cards */}
+          <PanelSection title="Decklist">
+            {isLoadingDetail ? (
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-[224px] w-[160px] animate-pulse rounded-lg bg-terminal-surface"
+                  />
+                ))}
+              </div>
+            ) : hasConsensus ? (
+              <ConsensusCardGrid
+                pokemon={consensus.pokemon}
+                trainers={consensus.trainers}
+                energy={consensus.energy}
+                decklistsAnalyzed={consensus.decklists_analyzed}
+                onCardClick={onCardClick}
+              />
+            ) : (
+              <div className="space-y-2">
+                {archetype.keyCards.slice(0, 8).map((card) => (
+                  <div
+                    key={card.name}
+                    className="flex items-center justify-between rounded bg-terminal-surface px-3 py-2"
+                  >
+                    <span className="text-sm text-terminal-text">
+                      {card.name}
                     </span>
-                    <span className="font-mono text-xs text-terminal-accent">
-                      {card.avgCopies.toFixed(1)}x
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs text-terminal-muted">
+                        {(card.inclusionRate * 100).toFixed(0)}%
+                      </span>
+                      <span className="font-mono text-xs text-terminal-accent">
+                        {card.avgCopies.toFixed(1)}x
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </PanelSection>
 
           {/* Build Variants */}

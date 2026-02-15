@@ -21,6 +21,13 @@ class ArchetypeResponse(BaseModel):
     key_cards: list[str] | None = Field(
         default=None, description="Key card IDs that define this archetype"
     )
+    sprite_urls: list[str] | None = Field(
+        default=None, description="Sprite image URLs for this archetype"
+    )
+    signature_card_image: str | None = Field(
+        default=None,
+        description="Small image URL of the archetype's signature card",
+    )
 
 
 class CardUsageSummary(BaseModel):
@@ -225,6 +232,47 @@ class ArchetypeDetailResponse(BaseModel):
     sample_decks: list[SampleDeckResponse] = Field(
         default_factory=list, description="Sample decklists from tournaments"
     )
+    consensus_decklist: "ConsensusDecklist | None" = Field(
+        default=None, description="Consensus decklist with card grid data"
+    )
+
+
+class ConsensusDecklistCard(BaseModel):
+    """Single card in a consensus decklist."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    card_id: str = Field(description="Card ID")
+    card_name: str | None = Field(default=None, description="Card name")
+    image_small: str | None = Field(default=None, description="Small card image URL")
+    supertype: str | None = Field(
+        default=None, description="Pokemon, Trainer, or Energy"
+    )
+    inclusion_rate: float = Field(
+        ge=0.0, le=1.0, description="Rate of decks including this card"
+    )
+    avg_copies: float = Field(ge=0.0, description="Average copies when included")
+    count_distribution: dict[int, float] | None = Field(
+        default=None,
+        description="Distribution of copy counts {1: 0.1, 2: 0.3, ...}",
+    )
+
+
+class ConsensusDecklist(BaseModel):
+    """Consensus decklist grouped by card type."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    pokemon: list[ConsensusDecklistCard] = Field(
+        default_factory=list, description="Pokemon cards"
+    )
+    trainers: list[ConsensusDecklistCard] = Field(
+        default_factory=list, description="Trainer cards"
+    )
+    energy: list[ConsensusDecklistCard] = Field(
+        default_factory=list, description="Energy cards"
+    )
+    decklists_analyzed: int = Field(ge=0, description="Number of decklists analyzed")
 
 
 class MatchupResponse(BaseModel):

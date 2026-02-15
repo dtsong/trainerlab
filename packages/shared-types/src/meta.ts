@@ -8,6 +8,7 @@ export interface ApiArchetype {
   sample_decks?: string[] | null;
   key_cards?: string[] | null;
   sprite_urls?: string[] | null;
+  signature_card_image?: string | null;
 }
 
 export interface ApiCardUsageSummary {
@@ -48,6 +49,7 @@ export interface Archetype {
   sampleDecks?: string[];
   keyCards?: string[];
   spriteUrls?: string[];
+  signatureCardImage?: string;
 }
 
 export interface CardUsageSummary {
@@ -94,6 +96,23 @@ export interface ApiArchetypeHistoryPoint {
   sample_size: number;
 }
 
+export interface ApiConsensusDecklistCard {
+  card_id: string;
+  card_name?: string | null;
+  image_small?: string | null;
+  supertype?: string | null;
+  inclusion_rate: number;
+  avg_copies: number;
+  count_distribution?: Record<number, number> | null;
+}
+
+export interface ApiConsensusDecklist {
+  pokemon: ApiConsensusDecklistCard[];
+  trainers: ApiConsensusDecklistCard[];
+  energy: ApiConsensusDecklistCard[];
+  decklists_analyzed: number;
+}
+
 export interface ApiArchetypeDetailResponse {
   name: string;
   current_share: number;
@@ -105,6 +124,7 @@ export interface ApiArchetypeDetailResponse {
     placement: number | null;
     player_name: string | null;
   }[];
+  consensus_decklist?: ApiConsensusDecklist | null;
 }
 
 // --- Comparison & Forecast API types ---

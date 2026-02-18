@@ -115,7 +115,8 @@ class ClaudeClient:
                     usage.output_tokens,
                 )
 
-                text = response.content[0].text
+                block = response.content[0]
+                text = str(getattr(block, "text", ""))
                 return text, usage
 
             except RateLimitError as e:

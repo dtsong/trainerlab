@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.main import app
 from src.models.meta_snapshot import MetaSnapshot
 from src.models.tournament import Tournament
@@ -478,6 +479,7 @@ class TestCurrentMetaCardEnrichment:
             yield mock_db
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -525,10 +527,20 @@ class TestCurrentMetaCardEnrichment:
         mock_card_lookup = MagicMock()
         mock_card_lookup.all.return_value = [card_row]
 
+        # Mock: archetype sprites query (empty)
+        mock_sprites = MagicMock()
+        mock_sprites.all.return_value = []
+
+        # Mock: archetype card images query (empty)
+        mock_card_images = MagicMock()
+        mock_card_images.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot,
             mock_overrides,
             mock_card_lookup,
+            mock_sprites,
+            mock_card_images,
         ]
 
         response = client.get("/api/v1/meta/current")
@@ -558,6 +570,7 @@ class TestArchetypeDetailKeyCardEnrichment:
             yield mock_db
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -616,11 +629,27 @@ class TestArchetypeDetailKeyCardEnrichment:
         mock_tournament_result = MagicMock()
         mock_tournament_result.scalars.return_value.all.return_value = [tournament]
 
+        # Mock: consensus _batch_lookup_cards (same cards)
+        mock_consensus_card_result = MagicMock()
+        mock_consensus_card_result.all.return_value = [card_row1, card_row2]
+
+        # Mock: consensus _batch_lookup_supertypes
+        supertype_row1 = MagicMock()
+        supertype_row1.id = "sv4-6"
+        supertype_row1.supertype = "Pokémon"
+        supertype_row2 = MagicMock()
+        supertype_row2.id = "sv3-1"
+        supertype_row2.supertype = "Pokémon"
+        mock_supertype_result = MagicMock()
+        mock_supertype_result.all.return_value = [supertype_row1, supertype_row2]
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_result,
             mock_tournament_result,
+            mock_consensus_card_result,
+            mock_supertype_result,
         ]
 
         response = client.get("/api/v1/meta/archetypes/Charizard%20ex")
@@ -684,12 +713,32 @@ class TestArchetypeDetailKeyCardEnrichment:
         mock_tournament_result = MagicMock()
         mock_tournament_result.scalars.return_value.all.return_value = [tournament]
 
+        # Mock: consensus _batch_lookup_cards (same unknown card)
+        mock_consensus_card_result = MagicMock()
+        mock_consensus_card_result.all.return_value = []
+
+        # Mock: consensus mapping fallback (no mapping)
+        mock_consensus_mapping_result = MagicMock()
+        mock_consensus_mapping_result.all.return_value = []
+
+        # Mock: consensus _batch_lookup_supertypes (unknown card)
+        mock_supertype_result = MagicMock()
+        mock_supertype_result.all.return_value = []
+
+        # Mock: supertype mapping fallback (no mapping)
+        mock_supertype_mapping_result = MagicMock()
+        mock_supertype_mapping_result.all.return_value = []
+
         mock_db.execute.side_effect = [
             mock_snapshot_result,
             mock_placement_result,
             mock_card_result,
             mock_mapping_result,
             mock_tournament_result,
+            mock_consensus_card_result,
+            mock_consensus_mapping_result,
+            mock_supertype_result,
+            mock_supertype_mapping_result,
         ]
 
         response = client.get("/api/v1/meta/archetypes/Charizard%20ex")

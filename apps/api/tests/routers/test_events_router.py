@@ -43,6 +43,8 @@ def _make_tournament(**overrides):
     t.participant_count = overrides.get("participant_count")
     t.event_source = overrides.get("event_source", "rk9")
     t.source_url = overrides.get("source_url")
+    t.major_format_key = overrides.get("major_format_key")
+    t.major_format_label = overrides.get("major_format_label")
     t.placements = overrides.get("placements", [])
     return t
 

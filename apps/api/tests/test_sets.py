@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
+from src.dependencies.beta import require_beta
 from src.main import app
 from src.models.card import Card
 from src.models.set import Set
@@ -185,6 +186,7 @@ class TestSetsEndpoint:
             yield mock_db
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 

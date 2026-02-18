@@ -23,7 +23,12 @@ interface CardDetailModalProps {
 function AttackDisplay({
   attack,
 }: {
-  attack: { name: string; cost?: string[]; damage?: string; effect?: string };
+  attack: {
+    name: string;
+    cost?: string[];
+    damage?: string | null;
+    effect?: string | null;
+  };
 }) {
   return (
     <div className="rounded bg-terminal-surface p-2">
@@ -54,7 +59,7 @@ function AttackDisplay({
 function AbilityDisplay({
   ability,
 }: {
-  ability: { name: string; type?: string; effect?: string };
+  ability: { name: string; type?: string | null; effect?: string | null };
 }) {
   return (
     <div className="rounded border border-terminal-accent/30 bg-terminal-surface p-2">

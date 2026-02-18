@@ -1,15 +1,22 @@
 """Card endpoints."""
 
+import logging
+from collections import defaultdict
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.database import get_db
 from src.dependencies.beta import require_beta
+from src.models import Tournament, TournamentPlacement
 from src.schemas import (
+    CardArchetypeUsage,
+    CardArchetypeUsageResponse,
     CardResponse,
     CardSummaryResponse,
     CardUsageResponse,
@@ -17,6 +24,8 @@ from src.schemas import (
 )
 from src.services.card_service import CardService, SortField, SortOrder
 from src.services.usage_service import UsageService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/cards",
@@ -241,3 +250,79 @@ async def get_card_usage(
         )
 
     return usage
+
+
+@router.get("/{card_id}/archetype-usage")
+@limiter.limit("60/minute")
+async def get_card_archetype_usage(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    card_id: str,
+    format: Annotated[
+        str,
+        Query(description="Format (standard/expanded)"),
+    ] = "standard",
+    days: Annotated[
+        int,
+        Query(ge=1, le=90, description="Lookback window in days"),
+    ] = 90,
+) -> CardArchetypeUsageResponse:
+    """Get cross-archetype usage for a card.
+
+    Scans recent placements to compute how often each archetype
+    includes this card and the average copy count.
+    """
+    start_date = date.today() - timedelta(days=days)
+
+    query = (
+        select(
+            TournamentPlacement.archetype,
+            TournamentPlacement.decklist,
+        )
+        .join(Tournament)
+        .where(
+            Tournament.format == format,
+            Tournament.date >= start_date,
+            TournamentPlacement.decklist.is_not(None),
+            TournamentPlacement.archetype.is_not(None),
+        )
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    # Count per archetype: total decks and decks containing card
+    archetype_totals: dict[str, int] = defaultdict(int)
+    archetype_hits: dict[str, int] = defaultdict(int)
+    archetype_copies: dict[str, int] = defaultdict(int)
+
+    for archetype, decklist in rows:
+        archetype_totals[archetype] += 1
+        for entry in decklist or []:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("card_id") == card_id:
+                archetype_hits[archetype] += 1
+                try:
+                    archetype_copies[archetype] += int(entry.get("quantity", 1))
+                except (TypeError, ValueError):
+                    archetype_copies[archetype] += 1
+                break
+
+    usage_list: list[CardArchetypeUsage] = []
+    for arch, hits in archetype_hits.items():
+        total = archetype_totals[arch]
+        usage_list.append(
+            CardArchetypeUsage(
+                archetype=arch,
+                inclusion_rate=round(hits / total, 4),
+                avg_copies=round(archetype_copies[arch] / hits, 2),
+            )
+        )
+
+    usage_list.sort(key=lambda u: u.inclusion_rate, reverse=True)
+
+    return CardArchetypeUsageResponse(
+        card_id=card_id,
+        archetype_usage=usage_list[:20],
+    )

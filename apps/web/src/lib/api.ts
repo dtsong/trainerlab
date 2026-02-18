@@ -4,6 +4,7 @@
 
 import type {
   ApiCard,
+  ApiCardArchetypeUsageResponse,
   ApiCardSummary,
   ApiSet,
   ApiPaginatedResponse,
@@ -323,6 +324,13 @@ export const cardsApi = {
   getBatch: (ids: string[]) => {
     return fetchApi<ApiCardSummary[]>(
       `/api/v1/cards/batch?ids=${ids.map(encodeURIComponent).join(",")}`
+    );
+  },
+
+  getArchetypeUsage: (cardId: string, format = "standard", days = 90) => {
+    const params = new URLSearchParams({ format, days: String(days) });
+    return fetchApi<ApiCardArchetypeUsageResponse>(
+      `/api/v1/cards/${encodeURIComponent(cardId)}/archetype-usage?${params}`
     );
   },
 };

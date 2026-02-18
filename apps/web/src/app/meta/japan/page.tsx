@@ -215,6 +215,7 @@ function JapanMetaPageContent() {
       share: a.share,
       keyCards: a.key_cards ?? undefined,
       spriteUrls: a.sprite_urls ?? undefined,
+      signatureCardImage: a.signature_card_image ?? undefined,
     })) ?? [];
 
   const snapshots: MetaSnapshot[] =

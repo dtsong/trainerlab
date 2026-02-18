@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from src.dependencies.beta import require_beta
 from src.main import app
 from src.schemas.meta import (
     ArchetypeComparison,
@@ -31,6 +32,7 @@ class TestCompareEndpoint:
             yield mock_db
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -169,6 +171,7 @@ class TestForecastEndpoint:
             yield mock_db
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 

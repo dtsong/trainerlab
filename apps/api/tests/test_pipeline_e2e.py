@@ -15,6 +15,7 @@ import pytest
 
 from src.clients.limitless import LimitlessClient
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.main import app
 from src.services.archetype_normalizer import (
     SPRITE_ARCHETYPE_MAP,
@@ -185,6 +186,7 @@ class TestMetaAPIResponseShape:
             yield mock_session
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         try:
             response = await client.get("/api/v1/meta/current")
             # Without real data, we get 404 or empty — just verify
@@ -192,6 +194,7 @@ class TestMetaAPIResponseShape:
             assert response.status_code in (200, 404)
         finally:
             app.dependency_overrides.pop(get_db, None)
+            app.dependency_overrides.pop(require_beta, None)
 
 
 @pytest.mark.integration
@@ -216,6 +219,7 @@ class TestComparisonAfterScrape:
             yield mock_session
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         try:
             response = await client.get(
                 "/api/v1/meta/compare",
@@ -225,3 +229,4 @@ class TestComparisonAfterScrape:
             assert response.status_code in (200, 404, 422, 500)
         finally:
             app.dependency_overrides.pop(get_db, None)
+            app.dependency_overrides.pop(require_beta, None)

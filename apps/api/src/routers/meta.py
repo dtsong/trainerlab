@@ -25,6 +25,8 @@ from src.schemas import (
     ArchetypeResponse,
     BestOf,
     CardUsageSummary,
+    ConsensusDecklist,
+    ConsensusDecklistCard,
     FormatForecastResponse,
     FormatNotes,
     JPSignals,
@@ -95,6 +97,75 @@ async def _load_display_overrides(
         return {}
 
 
+async def _load_archetype_sprites(
+    db: AsyncSession,
+) -> dict[str, list[str]]:
+    """Load sprite URLs keyed by archetype_name."""
+    try:
+        result = await db.execute(
+            select(
+                ArchetypeSprite.archetype_name,
+                ArchetypeSprite.sprite_urls,
+            )
+        )
+        return {
+            row.archetype_name: row.sprite_urls
+            for row in result.all()
+            if row.sprite_urls
+        }
+    except SQLAlchemyError:
+        logger.warning("Failed to load archetype sprites", exc_info=True)
+        return {}
+
+
+async def _load_archetype_card_images(
+    db: AsyncSession,
+    archetype_names: list[str],
+) -> dict[str, str | None]:
+    """Derive a signature card image per archetype.
+
+    Uses the first pokemon_name from archetype_sprites, looks up a
+    matching card in the cards table, and returns its image_small.
+    """
+    if not archetype_names:
+        return {}
+    try:
+        sprite_result = await db.execute(
+            select(
+                ArchetypeSprite.archetype_name,
+                ArchetypeSprite.pokemon_names,
+            ).where(ArchetypeSprite.archetype_name.in_(archetype_names))
+        )
+        name_to_pokemon: dict[str, str] = {}
+        for row in sprite_result.all():
+            if row.pokemon_names:
+                name_to_pokemon[row.archetype_name] = row.pokemon_names[0]
+
+        if not name_to_pokemon:
+            return {}
+
+        # Look up card images by pokemon name
+        pokemon_names = list(set(name_to_pokemon.values()))
+        card_result = await db.execute(
+            select(Card.name, Card.image_small).where(
+                Card.name.in_(pokemon_names),
+                Card.image_small.is_not(None),
+            )
+        )
+        pokemon_to_image: dict[str, str] = {}
+        for row in card_result.all():
+            if row.name not in pokemon_to_image and row.image_small:
+                pokemon_to_image[row.name] = row.image_small
+
+        return {
+            arch_name: pokemon_to_image.get(poke_name)
+            for arch_name, poke_name in name_to_pokemon.items()
+        }
+    except SQLAlchemyError:
+        logger.warning("Failed to load archetype card images", exc_info=True)
+        return {}
+
+
 def _snapshot_to_response(
     snapshot: MetaSnapshot,
     include_format_notes: bool = True,
@@ -102,16 +173,23 @@ def _snapshot_to_response(
     card_info: dict[str, tuple[str | None, str | None]] | None = None,
     cadence_profile: CadenceProfile = "default_cadence",
     latest_tpci_event_end_date: date | None = None,
+    archetype_sprites: dict[str, list[str]] | None = None,
+    archetype_card_images: (dict[str, str | None] | None) = None,
 ) -> MetaSnapshotResponse:
     """Convert a MetaSnapshot model to response schema."""
     overrides = display_overrides or {}
+    sprites = archetype_sprites or {}
+    card_images = archetype_card_images or {}
     archetype_breakdown: list[ArchetypeResponse] = []
     for raw_name, share in (snapshot.archetype_shares or {}).items():
         name = str(raw_name)
+        display = overrides.get(name, name)
         archetype_breakdown.append(
             ArchetypeResponse(
-                name=overrides.get(name, name),
+                name=display,
                 share=share,
+                sprite_urls=sprites.get(name),
+                signature_card_image=card_images.get(name),
             )
         )
 
@@ -302,12 +380,19 @@ async def get_current_meta(
     card_ids = list((snapshot.card_usage or {}).keys())
     ci = await _batch_lookup_cards(card_ids, db)
 
+    # Load archetype sprite URLs and signature card images
+    arch_sprites = await _load_archetype_sprites(db)
+    arch_names = list((snapshot.archetype_shares or {}).keys())
+    arch_card_images = await _load_archetype_card_images(db, arch_names)
+
     return _snapshot_to_response(
         snapshot,
         display_overrides=overrides,
         card_info=ci,
         cadence_profile=cadence_profile,
         latest_tpci_event_end_date=latest_tpci_date,
+        archetype_sprites=arch_sprites,
+        archetype_card_images=arch_card_images,
     )
 
 
@@ -409,6 +494,13 @@ async def get_meta_history(
         all_card_ids.update((s.card_usage or {}).keys())
     ci = await _batch_lookup_cards(list(all_card_ids), db)
 
+    # Load archetype sprite URLs and signature card images
+    arch_sprites = await _load_archetype_sprites(db)
+    all_arch_names: set[str] = set()
+    for s in snapshots:
+        all_arch_names.update((s.archetype_shares or {}).keys())
+    arch_card_images = await _load_archetype_card_images(db, list(all_arch_names))
+
     return MetaHistoryResponse(
         snapshots=[
             _snapshot_to_response(
@@ -417,6 +509,8 @@ async def get_meta_history(
                 card_info=ci,
                 cadence_profile=cadence_profile,
                 latest_tpci_event_end_date=latest_tpci_date,
+                archetype_sprites=arch_sprites,
+                archetype_card_images=arch_card_images,
             )
             for s in snapshots
         ]
@@ -488,8 +582,19 @@ async def list_archetypes(
             ),
         )
 
+    # Load archetype sprite URLs and signature card images
+    arch_sprites = await _load_archetype_sprites(db)
+    arch_names = list((snapshot.archetype_shares or {}).keys())
+    arch_card_images = await _load_archetype_card_images(db, arch_names)
+
+    overrides = await _load_display_overrides(db)
     archetypes = [
-        ArchetypeResponse(name=str(name), share=share)
+        ArchetypeResponse(
+            name=overrides.get(str(name), str(name)),
+            share=share,
+            sprite_urls=arch_sprites.get(str(name)),
+            signature_card_image=arch_card_images.get(str(name)),
+        )
         for name, share in (snapshot.archetype_shares or {}).items()
     ]
 
@@ -642,12 +747,16 @@ async def get_archetype_detail(
     # Build sample decks from top placements
     sample_decks = await _build_sample_decks(placements[:10], db)
 
+    # Compute consensus decklist
+    consensus = await _compute_consensus_decklist(placements, db)
+
     return ArchetypeDetailResponse(
         name=name,
         current_share=current_share if current_share is not None else 0.0,
         history=history,
         key_cards=key_cards,
         sample_decks=sample_decks,
+        consensus_decklist=consensus,
     )
 
 
@@ -702,6 +811,143 @@ def _compute_key_cards(
     # Sort by inclusion rate descending
     key_cards.sort(key=lambda c: c.inclusion_rate, reverse=True)
     return key_cards[:20]  # Return top 20 key cards
+
+
+async def _compute_consensus_decklist(
+    placements: Sequence[TournamentPlacement],
+    db: AsyncSession,
+) -> ConsensusDecklist | None:
+    """Compute consensus decklist from tournament placements.
+
+    For each card, computes inclusion rate, average copies,
+    and copy count distribution. Groups by supertype.
+    """
+    placements_with_lists = [p for p in placements if p.decklist]
+    if not placements_with_lists:
+        return None
+
+    total = len(placements_with_lists)
+    card_appearances: dict[str, int] = defaultdict(int)
+    card_total_count: dict[str, int] = defaultdict(int)
+    # Track how many decks run N copies of each card
+    card_count_dist: dict[str, dict[int, int]] = defaultdict(lambda: defaultdict(int))
+
+    for placement in placements_with_lists:
+        deck_counts: dict[str, int] = defaultdict(int)
+        for card_entry in placement.decklist or []:
+            if not isinstance(card_entry, dict):
+                continue
+            card_id = card_entry.get("card_id", "")
+            if not card_id:
+                continue
+            try:
+                quantity = int(card_entry.get("quantity", 1))
+                if quantity < 1:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            deck_counts[card_id] += quantity
+
+        for card_id, count in deck_counts.items():
+            card_appearances[card_id] += 1
+            card_total_count[card_id] += count
+            card_count_dist[card_id][count] += 1
+
+    if not card_appearances:
+        return None
+
+    # Batch lookup card metadata (name, image, supertype)
+    card_ids = list(card_appearances.keys())
+    card_info = await _batch_lookup_cards(card_ids, db)
+
+    # Get supertypes
+    supertype_map = await _batch_lookup_supertypes(card_ids, db)
+
+    # Build consensus cards
+    pokemon: list[ConsensusDecklistCard] = []
+    trainers: list[ConsensusDecklistCard] = []
+    energy: list[ConsensusDecklistCard] = []
+
+    for card_id in card_appearances:
+        inclusion_rate = card_appearances[card_id] / total
+        avg_copies = card_total_count[card_id] / card_appearances[card_id]
+        dist = card_count_dist[card_id]
+        count_distribution = {
+            k: round(v / card_appearances[card_id], 2) for k, v in sorted(dist.items())
+        }
+
+        ci = card_info.get(card_id)
+        supertype = supertype_map.get(card_id)
+
+        card = ConsensusDecklistCard(
+            card_id=card_id,
+            card_name=ci[0] if ci else None,
+            image_small=ci[1] if ci else None,
+            supertype=supertype,
+            inclusion_rate=round(inclusion_rate, 4),
+            avg_copies=round(avg_copies, 2),
+            count_distribution=count_distribution,
+        )
+
+        if supertype == "Pokémon":
+            pokemon.append(card)
+        elif supertype == "Energy":
+            energy.append(card)
+        else:
+            trainers.append(card)
+
+    # Sort each group by inclusion rate
+    pokemon.sort(key=lambda c: c.inclusion_rate, reverse=True)
+    trainers.sort(key=lambda c: c.inclusion_rate, reverse=True)
+    energy.sort(key=lambda c: c.inclusion_rate, reverse=True)
+
+    return ConsensusDecklist(
+        pokemon=pokemon,
+        trainers=trainers,
+        energy=energy,
+        decklists_analyzed=total,
+    )
+
+
+async def _batch_lookup_supertypes(
+    card_ids: list[str],
+    db: AsyncSession,
+) -> dict[str, str]:
+    """Batch lookup card supertypes from the cards table."""
+    if not card_ids:
+        return {}
+    try:
+        result = await db.execute(
+            select(Card.id, Card.supertype).where(Card.id.in_(card_ids))
+        )
+        direct = {row.id: row.supertype for row in result.all()}
+
+        # Fall back via card_id_mappings for JP cards
+        missing = [cid for cid in card_ids if cid not in direct]
+        if not missing:
+            return direct
+
+        mapping_q = select(
+            CardIdMapping.jp_card_id,
+            CardIdMapping.en_card_id,
+        ).where(CardIdMapping.jp_card_id.in_(missing))
+        mapping_result = await db.execute(mapping_q)
+        jp_to_en = {r.jp_card_id: r.en_card_id for r in mapping_result.all()}
+
+        if jp_to_en:
+            en_q = select(Card.id, Card.supertype).where(
+                Card.id.in_(list(jp_to_en.values()))
+            )
+            en_result = await db.execute(en_q)
+            en_types = {r.id: r.supertype for r in en_result.all()}
+            for jp_id, en_id in jp_to_en.items():
+                if en_id in en_types:
+                    direct[jp_id] = en_types[en_id]
+
+        return direct
+    except SQLAlchemyError:
+        logger.warning("Failed to batch lookup supertypes", exc_info=True)
+        return {}
 
 
 async def _batch_lookup_cards(

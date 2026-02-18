@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
 
+from src.dependencies.beta import require_beta
 from src.main import app
 from src.models.archetype_evolution_snapshot import ArchetypeEvolutionSnapshot
 from src.models.archetype_prediction import ArchetypePrediction
@@ -43,6 +44,7 @@ def client(mock_db):
     from src.db.database import get_db
 
     app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[require_beta] = lambda: None
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -329,6 +331,7 @@ class TestEvolutionRouterDatabaseErrors:
         from src.db.database import get_db
 
         app.dependency_overrides[get_db] = lambda: mock_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 

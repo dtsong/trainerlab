@@ -19,6 +19,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from src.db.database import get_db
+from src.dependencies.beta import require_beta
 from src.main import app
 from src.models import MetaSnapshot, TournamentPlacement
 from src.models.translated_content import TranslatedContent
@@ -173,6 +174,7 @@ class TestEraQueryParam:
             yield mock_db
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 
@@ -290,6 +292,7 @@ class TestJPContentEndpoint:
             yield mock_db
 
         app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[require_beta] = lambda: None
         yield TestClient(app)
         app.dependency_overrides.clear()
 

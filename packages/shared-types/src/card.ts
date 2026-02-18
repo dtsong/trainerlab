@@ -86,3 +86,14 @@ export interface ApiCard {
   // Nested relationships
   set?: ApiSetSummary | null;
 }
+
+export interface ApiCardArchetypeUsage {
+  archetype: string;
+  inclusion_rate: number;
+  avg_copies: number;
+}
+
+export interface ApiCardArchetypeUsageResponse {
+  card_id: string;
+  archetype_usage: ApiCardArchetypeUsage[];
+}

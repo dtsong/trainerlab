@@ -53,6 +53,10 @@ export const PaginatedCardSummarySchema = PaginationFieldsSchema.extend({
 export const ArchetypeSchema = z.object({
   name: z.string(),
   share: z.number(),
+  sprite_urls: z.array(z.string()).nullable().optional(),
+  signature_card_image: z.string().nullable().optional(),
+  sample_decks: z.array(z.string()).nullable().optional(),
+  key_cards: z.array(z.string()).nullable().optional(),
 });
 
 export const CardUsageSummarySchema = z.object({

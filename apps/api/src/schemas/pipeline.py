@@ -477,6 +477,47 @@ class SyncEventsResult(BaseModel):
     success: bool = Field(description="Whether pipeline completed without errors")
 
 
+class IngestJPArticleRequest(BaseModel):
+    """Request for JP article ingestion pipeline."""
+
+    tournament_name: str = Field(description="Name of the tournament")
+    tournament_date: date = Field(description="Date of the tournament")
+    pokecabook_url: str | None = Field(
+        default=None,
+        description="Pokecabook article URL",
+    )
+    pokekameshi_url: str | None = Field(
+        default=None,
+        description="Pokekameshi article URL",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="If true, fetch but don't save",
+    )
+
+
+class IngestJPArticleResult(BaseModel):
+    """Result from JP article ingestion."""
+
+    tournament_created: bool = Field(description="Whether tournament was created")
+    tournament_id: str | None = Field(
+        default=None,
+        description="Tournament UUID if created",
+    )
+    placements_created: int = Field(
+        ge=0,
+        description="Number of placements created",
+    )
+    archetypes_detected: int = Field(
+        ge=0,
+        description="Archetypes successfully normalized",
+    )
+    pokecabook_entries: int = Field(ge=0, description="Entries from Pokecabook")
+    pokekameshi_entries: int = Field(ge=0, description="Entries from Pokekameshi")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
 class BackfillMajorFormatWindowsRequest(PipelineRequest):
     """Request for major format window backfill pipeline."""
 

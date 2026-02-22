@@ -179,19 +179,29 @@ async def discover_jp_tournaments(
             min_date=min_date,
         )
 
-    result.tournaments_discovered = len(jp_tournaments)
+        # Also discover official JP tournaments (Champions League, etc.)
+        jp_official = await service.discover_official_tournaments(
+            region="JP",
+            lookback_days=lookback_days,
+        )
+
+    all_jp = jp_tournaments + jp_official
+    result.tournaments_discovered = len(all_jp)
 
     # Check if we're in local dev mode (Cloud Tasks not configured)
     if not tasks_service.is_configured and auto_process:
         logger.info(
-            "Cloud Tasks not configured, processing %d tournaments synchronously",
-            min(len(jp_tournaments), max_auto_process),
+            "Cloud Tasks not configured, processing %d JP tournaments synchronously",
+            min(len(all_jp), max_auto_process),
             extra=_extra,
         )
 
-        for tournament in jp_tournaments[:max_auto_process]:
+        for tournament in all_jp[:max_auto_process]:
             payload = _tournament_to_task_payload(tournament)
-            payload["is_jp_city_league"] = True
+            if tournament in jp_official:
+                payload["is_official"] = True
+            else:
+                payload["is_jp_city_league"] = True
             try:
                 scrape_result = await process_single_tournament(payload)
                 if scrape_result.success and scrape_result.tournaments_saved > 0:
@@ -206,9 +216,12 @@ async def discover_jp_tournaments(
                 result.errors.append(error_msg)
     else:
         # Use Cloud Tasks (production mode)
-        for tournament in jp_tournaments:
+        for tournament in all_jp:
             payload = _tournament_to_task_payload(tournament)
-            payload["is_jp_city_league"] = True
+            if tournament in jp_official:
+                payload["is_official"] = True
+            else:
+                payload["is_jp_city_league"] = True
             try:
                 task_name = await tasks_service.enqueue_tournament(payload)
                 if task_name:
@@ -445,16 +458,39 @@ async def scrape_jp_tournaments(
             fetch_decklists=fetch_decklists,
         )
 
-    combined_result.tournaments_scraped = city_league_result.tournaments_scraped
-    combined_result.tournaments_saved = city_league_result.tournaments_saved
-    combined_result.tournaments_skipped = city_league_result.tournaments_skipped
-    combined_result.placements_saved = city_league_result.placements_saved
-    combined_result.decklists_saved = city_league_result.decklists_saved
-    combined_result.errors = city_league_result.errors
+        # Scrape official JP tournaments (Champions League, etc.)
+        logger.info("Scraping official JP tournaments...")
+        official_result = await service.scrape_official_tournaments(
+            region="JP",
+            lookback_days=lookback_days,
+            max_placements=64,
+            fetch_decklists=fetch_decklists,
+        )
+
+    # Combine results
+    combined_result.tournaments_scraped = (
+        city_league_result.tournaments_scraped + official_result.tournaments_scraped
+    )
+    combined_result.tournaments_saved = (
+        city_league_result.tournaments_saved + official_result.tournaments_saved
+    )
+    combined_result.tournaments_skipped = (
+        city_league_result.tournaments_skipped + official_result.tournaments_skipped
+    )
+    combined_result.placements_saved = (
+        city_league_result.placements_saved + official_result.placements_saved
+    )
+    combined_result.decklists_saved = (
+        city_league_result.decklists_saved + official_result.decklists_saved
+    )
+    combined_result.errors = city_league_result.errors + official_result.errors
 
     logger.info(
-        "JP scrape complete: saved=%d, skipped=%d, errors=%d",
+        "JP scrape complete: saved=%d (city_league=%d, official=%d), "
+        "skipped=%d, errors=%d",
         combined_result.tournaments_saved,
+        city_league_result.tournaments_saved,
+        official_result.tournaments_saved,
         combined_result.tournaments_skipped,
         len(combined_result.errors),
     )

@@ -91,6 +91,39 @@ class PokecabookAdoptionRates:
     raw_html: str | None = None
 
 
+@dataclass
+class PokecabookDeckEntry:
+    """A deck entry from a tournament article."""
+
+    placement: int
+    archetype_name: str
+    player_name: str | None = None
+    decklist: list[dict] | None = None  # [{"card_name": "...", "count": N}]
+
+
+@dataclass
+class PokecabookTournamentArticle:
+    """Structured tournament data from a Pokecabook article."""
+
+    title: str
+    url: str
+    published_date: date | None = None
+    deck_entries: list[PokecabookDeckEntry] = field(default_factory=list)
+    raw_html: str | None = None
+
+
+# Placement label mappings for JP tournament articles.
+# Order matters: longer/more specific labels must come first
+# to avoid "準優勝" matching "優勝".
+_JP_PLACEMENT_LABELS: list[tuple[str, int]] = [
+    ("準優勝", 2),
+    ("優勝", 1),
+    ("ベスト16", 9),
+    ("ベスト8", 5),
+    ("ベスト4", 3),  # 3rd/4th share this label
+]
+
+
 class PokecabookClient:
     """Async HTTP client for Pokecabook scraping.
 
@@ -605,3 +638,200 @@ class PokecabookClient:
             source_url=f"{self.BASE_URL}{endpoint}",
             raw_html=html,
         )
+
+    async def fetch_tournament_article(self, url: str) -> PokecabookTournamentArticle:
+        """Fetch and parse a tournament article for deck entries.
+
+        Extracts placement data from WordPress-based tournament
+        result articles. Looks for deck recipe sections with
+        placement headings and card lists.
+
+        Args:
+            url: Full URL to the tournament article.
+
+        Returns:
+            Parsed article with deck entries (may be empty).
+        """
+        endpoint = url[len(self.BASE_URL) :] if url.startswith(self.BASE_URL) else url
+        html = await self._get(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        title_elem = soup.select_one("h1, .entry-title, .post-title")
+        title = title_elem.get_text(strip=True) if title_elem else "Untitled"
+
+        date_elem = soup.select_one("time, .post-date, .entry-date")
+        published_date = None
+        if date_elem:
+            dt_attr = date_elem.get("datetime")
+            if dt_attr:
+                published_date = self._parse_datetime_attr(dt_attr)
+            if not published_date:
+                date_text = date_elem.get_text(strip=True)
+                published_date = self._parse_jp_date(date_text)
+
+        deck_entries = self._extract_deck_entries(soup)
+
+        return PokecabookTournamentArticle(
+            title=title,
+            url=url,
+            published_date=published_date,
+            deck_entries=deck_entries,
+            raw_html=html,
+        )
+
+    def _extract_deck_entries(self, soup: BeautifulSoup) -> list[PokecabookDeckEntry]:
+        """Extract deck entries from article HTML."""
+        entries: list[PokecabookDeckEntry] = []
+
+        # Strategy 1: headings with placement labels
+        headings = soup.select("h2, h3, h4")
+        for heading in headings:
+            text = heading.get_text(strip=True)
+            placement = self._parse_placement_label(text)
+            if placement is None:
+                continue
+
+            archetype = self._extract_archetype_from_heading(text)
+            if not archetype:
+                continue
+
+            cards = self._extract_card_list_after(heading)
+            player = self._extract_player_name_near(heading)
+
+            entries.append(
+                PokecabookDeckEntry(
+                    placement=placement,
+                    archetype_name=archetype,
+                    player_name=player,
+                    decklist=cards if cards else None,
+                )
+            )
+
+        if entries:
+            return entries
+
+        # Strategy 2: tables with placement data
+        tables = soup.select("table")
+        for table in tables:
+            rows = table.select("tr")
+            for row in rows[1:]:
+                cells = row.select("td")
+                if len(cells) < 2:
+                    continue
+                first = cells[0].get_text(strip=True)
+                placement = self._parse_placement_label(first)
+                if placement is None:
+                    # Try numeric
+                    num_match = re.match(r"(\d+)", first)
+                    if num_match:
+                        placement = int(num_match.group(1))
+                    else:
+                        continue
+                archetype = cells[1].get_text(strip=True)
+                if not archetype:
+                    continue
+                player = None
+                if len(cells) >= 3:
+                    player = cells[2].get_text(strip=True)
+                entries.append(
+                    PokecabookDeckEntry(
+                        placement=placement,
+                        archetype_name=archetype,
+                        player_name=player or None,
+                    )
+                )
+
+        if entries:
+            return entries
+
+        # Strategy 3: ordered lists
+        for ol in soup.select("ol"):
+            for i, li in enumerate(ol.select("li"), start=1):
+                text = li.get_text(strip=True)
+                if text and len(text) >= 2:
+                    entries.append(
+                        PokecabookDeckEntry(
+                            placement=i,
+                            archetype_name=text,
+                        )
+                    )
+
+        return entries
+
+    def _parse_placement_label(self, text: str) -> int | None:
+        """Parse JP placement labels to numeric placement."""
+        for label, placement in _JP_PLACEMENT_LABELS:
+            if label in text:
+                return placement
+        # Numeric patterns like "1位", "2位"
+        match = re.search(r"(\d+)\s*位", text)
+        if match:
+            return int(match.group(1))
+        return None
+
+    def _extract_archetype_from_heading(self, text: str) -> str | None:
+        """Extract archetype name from a heading string."""
+        # Remove placement labels
+        cleaned = text
+        for label, _ in _JP_PLACEMENT_LABELS:
+            cleaned = cleaned.replace(label, "")
+        cleaned = re.sub(r"\d+\s*位", "", cleaned)
+        # Remove common separators and whitespace
+        cleaned = re.sub(r"^[\s：:【】\[\]「」\-/]+", "", cleaned)
+        cleaned = re.sub(r"[\s：:【】\[\]「」\-/]+$", "", cleaned)
+        cleaned = cleaned.strip()
+        return cleaned if cleaned else None
+
+    def _extract_card_list_after(self, heading: Tag) -> list[dict]:
+        """Extract card list from content after heading."""
+        cards: list[dict] = []
+        sibling = heading.find_next_sibling()
+        while sibling:
+            if sibling.name in ("h2", "h3", "h4"):
+                break
+            text = sibling.get_text()
+            found = self._parse_card_lines(text)
+            cards.extend(found)
+            sibling = sibling.find_next_sibling()
+        return cards
+
+    def _parse_card_lines(self, text: str) -> list[dict]:
+        """Parse card name + count patterns from text."""
+        cards: list[dict] = []
+        patterns = [
+            # "カード名 ×4" or "カード名 x4"
+            re.compile(r"(.+?)\s*[×xX]\s*(\d+)"),
+            # "4 カード名" or "4枚 カード名"
+            re.compile(r"(\d+)\s*枚?\s+(.+)"),
+        ]
+        for line in text.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            for pat in patterns:
+                m = pat.match(line)
+                if m:
+                    groups = m.groups()
+                    if groups[0].isdigit():
+                        count = int(groups[0])
+                        name = groups[1].strip()
+                    else:
+                        name = groups[0].strip()
+                        count = int(groups[1])
+                    if name and count > 0:
+                        cards.append({"card_name": name, "count": count})
+                    break
+        return cards
+
+    def _extract_player_name_near(self, heading: Tag) -> str | None:
+        """Try to extract player name near a heading."""
+        sibling = heading.find_next_sibling()
+        if sibling:
+            text = sibling.get_text(strip=True)
+            match = re.search(
+                r"(?:プレイヤー|選手|使用者)[：:]?\s*(.+)",
+                text,
+            )
+            if match:
+                return match.group(1).strip()
+        return None

@@ -1,12 +1,12 @@
 """Admin endpoints for placeholder card and archetype sprite management."""
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -92,6 +92,41 @@ class SubscriberUserResponse(BaseModel):
     is_subscriber: bool
     created_at: datetime
     updated_at: datetime
+
+
+class AdminPlacementCreate(BaseModel):
+    """A placement to create within a tournament."""
+
+    placement: int
+    player_name: str | None = None
+    archetype: str | None = None
+    decklist: list[dict] | None = None
+
+
+class AdminTournamentCreate(BaseModel):
+    """Request to manually create a tournament with placements."""
+
+    name: str
+    date: date
+    region: str
+    format: str = "standard"
+    best_of: int = 1
+    participant_count: int = 0
+    source_url: str | None = None
+    tier: str | None = None
+    placements: list[AdminPlacementCreate] = Field(default_factory=list)
+
+
+class AdminTournamentResponse(BaseModel):
+    """Response for admin tournament creation."""
+
+    id: str
+    name: str
+    date: str
+    region: str
+    format: str
+    placements_created: int
+    archetypes_detected: int
 
 
 @router.get("/readiness/tpci", response_model=TPCIReadinessResponse)
@@ -1408,6 +1443,96 @@ async def revoke_subscriber_access_grant(
         await db.refresh(user)
 
     return _access_grant_response(grant, user)
+
+
+@router.post(
+    "/tournaments",
+    response_model=AdminTournamentResponse,
+    summary="Create tournament manually",
+    description=("Manually create a tournament with placements. Admin only."),
+)
+async def create_tournament(
+    data: AdminTournamentCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _admin_user: AdminUser,
+) -> AdminTournamentResponse:
+    """Create a tournament manually with optional placements."""
+    # Check duplicate source_url
+    if data.source_url:
+        existing = await db.execute(
+            select(Tournament).where(Tournament.source_url == data.source_url).limit(1)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Tournament with source_url already exists: {data.source_url}"
+                ),
+            )
+
+    tournament_id = uuid4()
+    tournament = Tournament(
+        id=tournament_id,
+        name=data.name,
+        date=data.date,
+        region=data.region,
+        format=data.format,
+        best_of=data.best_of,
+        participant_count=(data.participant_count or len(data.placements)),
+        tier=data.tier,
+        source="admin",
+        source_url=data.source_url,
+    )
+    db.add(tournament)
+
+    archetypes_detected = 0
+    normalizer = ArchetypeNormalizer()
+    await normalizer.load_db_sprites(db)
+
+    for p_data in data.placements:
+        archetype = p_data.archetype or "Unknown"
+        detection_method = "text_label"
+
+        if p_data.archetype and p_data.archetype != "Unknown":
+            try:
+                resolved, _raw, method = normalizer.resolve(
+                    sprite_urls=[],
+                    html_archetype=archetype,
+                    decklist=p_data.decklist,
+                )
+                if resolved and resolved != "Unknown":
+                    archetype = resolved
+                    detection_method = method
+                    archetypes_detected += 1
+            except Exception:
+                logger.warning(
+                    "archetype_normalize_failed archetype=%s",
+                    archetype,
+                    exc_info=True,
+                )
+
+        placement = TournamentPlacement(
+            id=uuid4(),
+            tournament_id=tournament_id,
+            placement=p_data.placement,
+            player_name=p_data.player_name,
+            archetype=archetype,
+            decklist=p_data.decklist,
+            archetype_detection_method=detection_method,
+        )
+        db.add(placement)
+
+    await db.commit()
+
+    return AdminTournamentResponse(
+        id=str(tournament_id),
+        name=data.name,
+        date=str(data.date),
+        region=data.region,
+        format=data.format,
+        placements_created=len(data.placements),
+        archetypes_detected=archetypes_detected,
+    )
 
 
 @router.get("/audit-events", response_model=list[AdminAuditEventResponse])

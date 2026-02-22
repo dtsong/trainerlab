@@ -147,7 +147,13 @@ class TournamentScrapeService:
         return self.detector
 
     # Name patterns that indicate a specific tier regardless of participant count
-    _MAJOR_PATTERNS = ("regional", "international", "worlds", "world championship")
+    _MAJOR_PATTERNS = (
+        "regional",
+        "international",
+        "worlds",
+        "world championship",
+        "champions league",
+    )
     _PREMIER_PATTERNS = ("league challenge", "league cup", "special event")
     _LEAGUE_PATTERNS = ("city league", "league battle")
 
@@ -331,6 +337,7 @@ class TournamentScrapeService:
         lookback_days: int = 90,
         max_placements: int = 64,
         fetch_decklists: bool = True,
+        region: str | None = None,
     ) -> ScrapeResult:
         """Scrape official tournaments from limitlesstcg.com database.
 
@@ -342,6 +349,8 @@ class TournamentScrapeService:
             lookback_days: Only scrape tournaments from last N days.
             max_placements: Maximum placements per tournament.
             fetch_decklists: Whether to fetch decklists.
+            region: If set, only include tournaments matching
+                this region (case-insensitive).
 
         Returns:
             ScrapeResult with statistics.
@@ -370,6 +379,14 @@ class TournamentScrapeService:
         tournaments_in_range = [
             t for t in all_tournaments if t.tournament_date >= cutoff_date
         ]
+
+        # Filter by region if specified
+        if region:
+            tournaments_in_range = [
+                t
+                for t in tournaments_in_range
+                if t.region and t.region.upper() == region.upper()
+            ]
 
         result.tournaments_scraped = len(tournaments_in_range)
         logger.info(
@@ -981,12 +998,15 @@ class TournamentScrapeService:
         self,
         game_format: str = "standard",
         lookback_days: int = 90,
+        region: str | None = None,
     ) -> list[LimitlessTournament]:
         """Discover new official tournaments without processing them.
 
         Args:
             game_format: Game format ("standard", "expanded").
             lookback_days: Only include tournaments from last N days.
+            region: If set, only include tournaments matching
+                this region (case-insensitive).
 
         Returns:
             List of new LimitlessTournament metadata.
@@ -1004,6 +1024,14 @@ class TournamentScrapeService:
         tournaments_in_range = [
             t for t in all_tournaments if t.tournament_date >= cutoff_date
         ]
+
+        # Filter by region if specified
+        if region:
+            tournaments_in_range = [
+                t
+                for t in tournaments_in_range
+                if t.region and t.region.upper() == region.upper()
+            ]
 
         new_tournaments = []
         for t in tournaments_in_range:

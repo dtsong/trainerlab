@@ -81,6 +81,41 @@ class PokekameshiMetaReport:
     raw_html: str | None = None
 
 
+@dataclass
+class PokekameshiDeckEntry:
+    """A deck entry from a tournament article."""
+
+    placement: int
+    archetype_name: str
+    player_name: str | None = None
+    meta_share: float | None = None
+
+
+@dataclass
+class PokekameshiTournamentArticle:
+    """Structured tournament data from a Pokekameshi article."""
+
+    title: str
+    url: str
+    event_name: str | None = None
+    published_date: date | None = None
+    deck_entries: list[PokekameshiDeckEntry] = field(default_factory=list)
+    meta_shares: list[PokekameshiMetaShare] | None = None
+    raw_html: str | None = None
+
+
+# Placement label mappings for JP tournament articles.
+# Order matters: longer/more specific labels must come first
+# to avoid "準優勝" matching "優勝".
+_JP_PLACEMENT_LABELS: list[tuple[str, int]] = [
+    ("準優勝", 2),
+    ("優勝", 1),
+    ("ベスト16", 9),
+    ("ベスト8", 5),
+    ("ベスト4", 3),
+]
+
+
 class PokekameshiClient:
     """Async HTTP client for Pokekameshi scraping.
 
@@ -531,3 +566,168 @@ class PokekameshiClient:
             share_rate=share_rate,
             count=count,
         )
+
+    async def fetch_tournament_article(self, url: str) -> PokekameshiTournamentArticle:
+        """Fetch and parse a tournament article for deck entries.
+
+        Extracts placement data and meta shares from tournament
+        result articles. Pokekameshi articles typically have
+        tables with deck names and share percentages.
+
+        Args:
+            url: Full URL to the tournament article.
+
+        Returns:
+            Parsed article with deck entries (may be empty).
+        """
+        endpoint = url[len(self.BASE_URL) :] if url.startswith(self.BASE_URL) else url
+        html = await self._get(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        title_elem = soup.select_one("h1, .entry-title, .post-title")
+        title = title_elem.get_text(strip=True) if title_elem else "Untitled"
+
+        event_name = None
+        event_elem = soup.select_one(".event-name, .tournament-name")
+        if event_elem:
+            event_name = event_elem.get_text(strip=True)
+
+        date_elem = soup.select_one("time, .post-date, .entry-date")
+        published_date = None
+        if date_elem:
+            dt_attr = date_elem.get("datetime")
+            if dt_attr:
+                published_date = self._parse_datetime_attr(dt_attr)
+
+        deck_entries = self._extract_deck_entries(soup)
+
+        # Also extract meta shares if present
+        meta_shares: list[PokekameshiMetaShare] | None = None
+        tables = soup.select("table")
+        for table in tables:
+            parsed = self._parse_meta_table(table)
+            if parsed:
+                meta_shares = parsed
+                break
+
+        return PokekameshiTournamentArticle(
+            title=title,
+            url=url,
+            event_name=event_name,
+            published_date=published_date,
+            deck_entries=deck_entries,
+            meta_shares=meta_shares,
+            raw_html=html,
+        )
+
+    def _extract_deck_entries(self, soup: BeautifulSoup) -> list[PokekameshiDeckEntry]:
+        """Extract deck entries from article HTML."""
+        entries: list[PokekameshiDeckEntry] = []
+
+        # Strategy 1: headings with placement labels
+        headings = soup.select("h2, h3, h4")
+        for heading in headings:
+            text = heading.get_text(strip=True)
+            placement = self._parse_placement_label(text)
+            if placement is None:
+                continue
+            archetype = self._extract_archetype(text)
+            if not archetype:
+                continue
+            share = self._extract_share_near(heading)
+            entries.append(
+                PokekameshiDeckEntry(
+                    placement=placement,
+                    archetype_name=archetype,
+                    meta_share=share,
+                )
+            )
+
+        if entries:
+            return entries
+
+        # Strategy 2: tables with placement data
+        tables = soup.select("table")
+        for table in tables:
+            rows = table.select("tr")
+            for row in rows[1:]:
+                cells = row.select("td")
+                if len(cells) < 2:
+                    continue
+                first = cells[0].get_text(strip=True)
+                placement = self._parse_placement_label(first)
+                if placement is None:
+                    num_match = re.match(r"(\d+)", first)
+                    if num_match:
+                        placement = int(num_match.group(1))
+                    else:
+                        continue
+                archetype = cells[1].get_text(strip=True)
+                if not archetype:
+                    continue
+                share = None
+                if len(cells) >= 3:
+                    share_text = cells[2].get_text(strip=True)
+                    rate_match = re.search(r"(\d+(?:\.\d+)?)", share_text)
+                    if rate_match:
+                        val = float(rate_match.group(1))
+                        share = val / 100.0 if val > 1 else val
+                player = None
+                if len(cells) >= 4:
+                    player = cells[3].get_text(strip=True) or None
+                entries.append(
+                    PokekameshiDeckEntry(
+                        placement=placement,
+                        archetype_name=archetype,
+                        player_name=player,
+                        meta_share=share,
+                    )
+                )
+
+        return entries
+
+    def _parse_placement_label(self, text: str) -> int | None:
+        """Parse JP placement labels to numeric placement."""
+        for label, placement in _JP_PLACEMENT_LABELS:
+            if label in text:
+                return placement
+        match = re.search(r"(\d+)\s*位", text)
+        if match:
+            return int(match.group(1))
+        return None
+
+    def _extract_archetype(self, text: str) -> str | None:
+        """Extract archetype name from heading text."""
+        cleaned = text
+        for label, _ in _JP_PLACEMENT_LABELS:
+            cleaned = cleaned.replace(label, "")
+        cleaned = re.sub(r"\d+\s*位", "", cleaned)
+        cleaned = re.sub(r"^[\s：:【】\[\]「」\-/]+", "", cleaned)
+        cleaned = re.sub(r"[\s：:【】\[\]「」\-/]+$", "", cleaned)
+        cleaned = cleaned.strip()
+        return cleaned if cleaned else None
+
+    def _extract_share_near(self, heading: Tag) -> float | None:
+        """Try to extract share percentage near heading."""
+        sibling = heading.find_next_sibling()
+        if sibling:
+            text = sibling.get_text(strip=True)
+            match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+            if match:
+                return float(match.group(1)) / 100.0
+        return None
+
+    def _parse_datetime_attr(
+        self, datetime_attr: str | list[str] | None
+    ) -> date | None:
+        """Parse datetime attribute to date."""
+        if not datetime_attr:
+            return None
+        try:
+            from datetime import datetime as dt_cls
+
+            return dt_cls.fromisoformat(
+                str(datetime_attr).replace("Z", "+00:00")
+            ).date()
+        except ValueError:
+            return None

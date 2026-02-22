@@ -33,6 +33,9 @@ from src.pipelines.compute_meta import (
 from src.pipelines.compute_meta import (
     compute_daily_snapshots,
 )
+from src.pipelines.ingest_jp_tournament_articles import (
+    ingest_jp_tournament_article,
+)
 from src.pipelines.monitor_card_reveals import (
     MonitorCardRevealsResult as MonitorCardRevealsResultInternal,
 )
@@ -120,6 +123,8 @@ from src.schemas.pipeline import (
     ComputeMetaResult,
     DiscoverRequest,
     DiscoverResult,
+    IngestJPArticleRequest,
+    IngestJPArticleResult,
     MonitorCardRevealsRequest,
     MonitorCardRevealsResult,
     ProcessTournamentRequest,
@@ -1041,6 +1046,52 @@ async def wipe_data_endpoint(
     )
 
     return _convert_wipe_result(result)
+
+
+@router.post(
+    "/ingest-jp-article",
+    response_model=IngestJPArticleResult,
+)
+async def ingest_jp_article_endpoint(
+    request: IngestJPArticleRequest,
+) -> IngestJPArticleResult:
+    """Ingest JP tournament data from content site articles.
+
+    Fetches tournament results from Pokecabook and/or Pokekameshi
+    articles, merges placement data, and creates a tournament
+    record with placements.
+    """
+    logger.info(
+        "Starting JP article ingestion: name=%s, date=%s",
+        request.tournament_name,
+        request.tournament_date,
+    )
+
+    result = await ingest_jp_tournament_article(
+        tournament_name=request.tournament_name,
+        tournament_date=request.tournament_date,
+        pokecabook_url=request.pokecabook_url,
+        pokekameshi_url=request.pokekameshi_url,
+        dry_run=request.dry_run,
+    )
+
+    logger.info(
+        "JP article ingestion complete: created=%s, placements=%d, errors=%d",
+        result.tournament_created,
+        result.placements_created,
+        len(result.errors),
+    )
+
+    return IngestJPArticleResult(
+        tournament_created=result.tournament_created,
+        tournament_id=result.tournament_id,
+        placements_created=result.placements_created,
+        archetypes_detected=result.archetypes_detected,
+        pokecabook_entries=result.pokecabook_entries,
+        pokekameshi_entries=result.pokekameshi_entries,
+        errors=result.errors,
+        success=result.success,
+    )
 
 
 @router.post("/sync-events", response_model=SyncEventsResult)

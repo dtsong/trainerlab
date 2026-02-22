@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -97,6 +97,7 @@ async def seed_reference_data(*, dry_run: bool = False) -> SeedDataResult:
                 if not dry_run:
                     start = item.get("start_date")
                     end = item.get("end_date")
+                    now = datetime.now(UTC)
                     window = MajorFormatWindow(
                         id=uuid4(),
                         key=item["key"],
@@ -105,6 +106,8 @@ async def seed_reference_data(*, dry_run: bool = False) -> SeedDataResult:
                         start_date=date.fromisoformat(start),
                         end_date=date.fromisoformat(end) if end else None,
                         is_active=item.get("is_active", True),
+                        created_at=now,
+                        updated_at=now,
                     )
                     session.add(window)
 

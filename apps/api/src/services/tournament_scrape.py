@@ -335,7 +335,7 @@ class TournamentScrapeService:
         self,
         game_format: str = "standard",
         lookback_days: int = 90,
-        max_placements: int = 64,
+        max_placements: int | None = None,
         fetch_decklists: bool = True,
         region: str | None = None,
     ) -> ScrapeResult:
@@ -688,7 +688,7 @@ class TournamentScrapeService:
     async def rescrape_tournament(
         self,
         tournament: Tournament,
-        max_placements: int = 32,
+        max_placements: int | None = None,
         fetch_decklists: bool = True,
     ) -> int:
         """Delete placements and re-scrape from Limitless.
@@ -721,21 +721,35 @@ class TournamentScrapeService:
             )
         )
 
-        # Determine fetch method from URL pattern
+        # Determine fetch method and effective cap from URL pattern
         is_jp = tournament.region == "JP"
         is_jp_city_league = is_jp and "/tournaments/jp" in source_url
+        is_official = "limitlesstcg.com/tournament" in source_url
+
+        # Determine effective cap if not explicitly set
+        # Check is_jp_city_league first: its URLs are a substring match
+        # for is_official ("limitlesstcg.com/tournament" in "/tournaments/jp")
+        if max_placements is None:
+            if is_jp_city_league:
+                effective_cap = 32
+            elif is_official:
+                effective_cap = None  # All placements
+            else:
+                effective_cap = 32
+        else:
+            effective_cap = max_placements
 
         if is_jp_city_league:
             placements = await self.client.fetch_jp_city_league_placements(
-                source_url, max_placements=max_placements
+                source_url, max_placements=effective_cap
             )
-        elif "limitlesstcg.com/tournament" in source_url:
+        elif is_official:
             placements = await self.client.fetch_official_tournament_placements(
-                source_url, max_placements=max_placements
+                source_url, max_placements=effective_cap
             )
         else:
             placements = await self.client.fetch_tournament_placements(
-                source_url, max_placements=max_placements
+                source_url, max_placements=effective_cap
             )
 
         # Fetch decklists
@@ -1093,7 +1107,7 @@ class TournamentScrapeService:
         game_format: str = "standard",
         best_of: int = 3,
         participant_count: int = 0,
-        max_placements: int = 32,
+        max_placements: int | None = None,
         fetch_decklists: bool = True,
         is_official: bool = False,
         is_jp_city_league: bool = False,
@@ -1111,7 +1125,8 @@ class TournamentScrapeService:
             game_format: Game format.
             best_of: Best-of format.
             participant_count: Number of participants.
-            max_placements: Max placements to fetch.
+            max_placements: Max placements to fetch. If None, determined
+                by tournament type (None for official, 32 for others).
             fetch_decklists: Whether to fetch decklists.
             is_official: Whether this is an official Limitless tournament.
             is_jp_city_league: Whether this is a JP City League tournament.
@@ -1121,6 +1136,17 @@ class TournamentScrapeService:
         """
         result = ScrapeResult()
         result.tournaments_scraped = 1
+
+        # Determine effective cap if not explicitly set
+        if max_placements is None:
+            if is_official:
+                effective_cap = None  # All placements
+            elif is_jp_city_league:
+                effective_cap = 32
+            else:
+                effective_cap = 32
+        else:
+            effective_cap = max_placements
 
         # Defense in depth: check if already processed
         if await self.tournament_exists(source_url):
@@ -1132,15 +1158,15 @@ class TournamentScrapeService:
             # Fetch placements based on tournament type
             if is_jp_city_league:
                 placements = await self.client.fetch_jp_city_league_placements(
-                    source_url, max_placements=max_placements
+                    source_url, max_placements=effective_cap
                 )
             elif is_official:
                 placements = await self.client.fetch_official_tournament_placements(
-                    source_url, max_placements=max_placements
+                    source_url, max_placements=effective_cap
                 )
             else:
                 placements = await self.client.fetch_tournament_placements(
-                    source_url, max_placements=max_placements
+                    source_url, max_placements=effective_cap
                 )
 
             # Fetch decklists

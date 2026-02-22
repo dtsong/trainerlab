@@ -184,6 +184,10 @@ class TestScrapeJpTournaments:
             tournaments_scraped=5,
             tournaments_saved=3,
         )
+        mock_service.scrape_official_tournaments.return_value = ScrapeResult(
+            tournaments_scraped=2,
+            tournaments_saved=1,
+        )
 
         with (
             patch(
@@ -202,7 +206,13 @@ class TestScrapeJpTournaments:
             result = await scrape_jp_tournaments(dry_run=False)
 
         mock_service.scrape_jp_city_leagues.assert_called_once()
-        assert result.tournaments_saved == 3
+        mock_service.scrape_official_tournaments.assert_called_once_with(
+            region="JP",
+            lookback_days=90,
+            max_placements=None,
+            fetch_decklists=True,
+        )
+        assert result.tournaments_saved == 4  # 3 city league + 1 official
 
     @pytest.mark.asyncio
     async def test_dry_run_mode(self, sample_tournaments):

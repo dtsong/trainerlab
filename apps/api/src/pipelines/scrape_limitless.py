@@ -369,7 +369,7 @@ async def scrape_en_tournaments(
         official_result = await service.scrape_official_tournaments(
             game_format=game_format,
             lookback_days=lookback_days,
-            max_placements=64,  # Official events often have more placements
+            max_placements=None,  # Official events: fetch all placements
             fetch_decklists=fetch_decklists,
         )
 
@@ -463,7 +463,7 @@ async def scrape_jp_tournaments(
         official_result = await service.scrape_official_tournaments(
             region="JP",
             lookback_days=lookback_days,
-            max_placements=64,
+            max_placements=None,  # Official events: fetch all placements
             fetch_decklists=fetch_decklists,
         )
 

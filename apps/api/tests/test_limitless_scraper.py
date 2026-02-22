@@ -305,6 +305,39 @@ class TestLimitlessClient:
             assert client is not None
 
     @pytest.mark.asyncio
+    async def test_max_placements_none_returns_all_rows(
+        self, client: LimitlessClient
+    ) -> None:
+        """max_placements=None should return all rows without slicing."""
+        html = load_fixture("limitless_standings.html")
+
+        with patch.object(client, "_get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_tournament_placements(
+                "https://play.limitlesstcg.com/tournament/abc123",
+                max_placements=None,
+            )
+
+            # Should return all 4 rows from fixture (no cap)
+            assert len(placements) == 4
+
+    @pytest.mark.asyncio
+    async def test_max_placements_caps_rows(self, client: LimitlessClient) -> None:
+        """max_placements=2 should only return first 2 rows."""
+        html = load_fixture("limitless_standings.html")
+
+        with patch.object(client, "_get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = html
+
+            placements = await client.fetch_tournament_placements(
+                "https://play.limitlesstcg.com/tournament/abc123",
+                max_placements=2,
+            )
+
+            assert len(placements) == 2
+
+    @pytest.mark.asyncio
     async def test_jp_tournament_gets_bo1(self, client: LimitlessClient) -> None:
         """Should set best_of=1 for JP tournaments."""
         html = load_fixture("limitless_tournaments.html")

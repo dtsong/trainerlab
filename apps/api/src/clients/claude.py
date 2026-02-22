@@ -9,6 +9,7 @@ from typing import Any, Self
 
 import anthropic
 from anthropic import APIConnectionError, APIStatusError, RateLimitError
+from anthropic.types import TextBlock
 
 from src.config import get_settings
 
@@ -115,7 +116,11 @@ class ClaudeClient:
                     usage.output_tokens,
                 )
 
-                text = response.content[0].text
+                block = response.content[0]
+                if not isinstance(block, TextBlock):
+                    msg = f"Expected TextBlock, got {type(block)}"
+                    raise TypeError(msg)
+                text = block.text
                 return text, usage
 
             except RateLimitError as e:

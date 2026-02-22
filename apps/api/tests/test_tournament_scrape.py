@@ -1040,6 +1040,91 @@ class TestProcessTournamentByUrl:
 
         mock_client.fetch_jp_city_league_placements.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_official_tournament_fetches_all_placements(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Official tournaments should pass max_placements=None (all rows)."""
+        mock_client.fetch_official_tournament_placements.return_value = [
+            sample_placement
+        ]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        await service.process_tournament_by_url(
+            source_url="https://example.com/official",
+            name="Champions League",
+            tournament_date=date.today(),
+            region="JP",
+            is_official=True,
+            fetch_decklists=False,
+        )
+
+        mock_client.fetch_official_tournament_placements.assert_called_once_with(
+            "https://example.com/official", max_placements=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_city_league_caps_at_32(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """JP City Leagues should cap at 32 placements."""
+        mock_client.fetch_jp_city_league_placements.return_value = [sample_placement]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        await service.process_tournament_by_url(
+            source_url="https://example.com/jp",
+            name="JP City League",
+            tournament_date=date.today(),
+            region="JP",
+            is_jp_city_league=True,
+            fetch_decklists=False,
+        )
+
+        mock_client.fetch_jp_city_league_placements.assert_called_once_with(
+            "https://example.com/jp", max_placements=32
+        )
+
+    @pytest.mark.asyncio
+    async def test_standard_tournament_caps_at_32(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Standard (grassroots) tournaments should cap at 32."""
+        mock_client.fetch_tournament_placements.return_value = [sample_placement]
+
+        mock_result = MagicMock()
+        mock_result.first.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        await service.process_tournament_by_url(
+            source_url="https://example.com/tournament",
+            name="Local Tournament",
+            tournament_date=date.today(),
+            region="NA",
+            fetch_decklists=False,
+        )
+
+        mock_client.fetch_tournament_placements.assert_called_once_with(
+            "https://example.com/tournament", max_placements=32
+        )
+
 
 class TestScrapeResult:
     """Tests for ScrapeResult dataclass."""
@@ -1798,7 +1883,38 @@ class TestRescrapeTournament:
         count = await service.rescrape_tournament(tournament, fetch_decklists=False)
 
         assert count == 1
-        mock_client.fetch_official_tournament_placements.assert_called_once()
+        mock_client.fetch_official_tournament_placements.assert_called_once_with(
+            "https://limitlesstcg.com/tournament/12345", max_placements=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_rescrape_jp_city_league_caps_at_32(
+        self,
+        service: TournamentScrapeService,
+        mock_session: AsyncMock,
+        mock_client: AsyncMock,
+        sample_placement: LimitlessPlacement,
+    ) -> None:
+        """Rescrape JP city league should cap at 32."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.id = uuid4()
+        tournament.name = "Tokyo CL"
+        tournament.region = "JP"
+        tournament.source_url = "https://play.limitlesstcg.com/tournaments/jp/456"
+
+        mock_client.fetch_jp_city_league_placements.return_value = [sample_placement]
+
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_result.all = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        await service.rescrape_tournament(tournament, fetch_decklists=False)
+
+        mock_client.fetch_jp_city_league_placements.assert_called_once_with(
+            "https://play.limitlesstcg.com/tournaments/jp/456",
+            max_placements=32,
+        )
 
     @pytest.mark.asyncio
     async def test_rescrape_standard_tournament(

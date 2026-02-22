@@ -643,7 +643,7 @@ class LimitlessClient:
     async def fetch_tournament_placements(
         self,
         tournament_url: str,
-        max_placements: int = 32,
+        max_placements: int | None = 32,
     ) -> list[LimitlessPlacement]:
         """Fetch placements for a tournament.
 
@@ -678,7 +678,7 @@ class LimitlessClient:
         if not rows:
             rows = soup.select(".standings-row")
 
-        for row in rows[:max_placements]:
+        for row in rows if max_placements is None else rows[:max_placements]:
             try:
                 placement = self._parse_placement_row(row)
                 if placement:
@@ -1242,7 +1242,7 @@ class LimitlessClient:
     async def fetch_official_tournament_placements(
         self,
         tournament_url: str,
-        max_placements: int = 64,
+        max_placements: int | None = None,
     ) -> list[LimitlessPlacement]:
         """Fetch placements for an official tournament.
 
@@ -1293,7 +1293,7 @@ class LimitlessClient:
         if not rows:
             rows = table.select("tr")[1:]  # Skip header row
 
-        for row in rows[:max_placements]:
+        for row in rows if max_placements is None else rows[:max_placements]:
             try:
                 placement = self._parse_official_placement_row(row)
                 if placement:
@@ -1600,7 +1600,7 @@ class LimitlessClient:
     async def fetch_jp_city_league_placements(
         self,
         tournament_url: str,
-        max_placements: int = 32,
+        max_placements: int | None = 32,
     ) -> list[LimitlessPlacement]:
         """Fetch placements for a JP City League tournament.
 
@@ -1652,7 +1652,7 @@ class LimitlessClient:
         if not rows:
             rows = table.select("tr")[1:]  # Skip header row
 
-        for row in rows[:max_placements]:
+        for row in rows if max_placements is None else rows[:max_placements]:
             try:
                 placement = self._parse_jp_placement_row(row)
                 if placement:

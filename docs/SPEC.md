@@ -483,15 +483,26 @@ def calculate_jp_signal(jp_share: float, en_share: float, threshold: float = 0.0
 
 **Limitless EN Scraper:**
 
+- Source: `https://limitlesstcg.com/tournaments`
 - Daily at 6am UTC
 - Extracts tournaments, placements, decklists
 - Stores in PostgreSQL
 
 **Limitless JP Scraper:**
 
+- Source: `https://limitlesstcg.com/tournaments/jp`
 - Daily at 7am UTC
 - Same data, marks `best_of=1`
 - Handles Japanese text
+
+#### 7.1.1 JP Tournament Data Sources
+
+| #   | Source                | URL                                       | Status                 |
+| --- | --------------------- | ----------------------------------------- | ---------------------- |
+| 1   | Limitless TCG JP      | `https://limitlesstcg.com/tournaments/jp` | Active (primary)       |
+| 2   | Pokecabook            | `https://pokecabook.com`                  | Active (supplementary) |
+| 3   | Pokekameshi           | `https://pokekameshi.com`                 | Active (supplementary) |
+| 4   | Official Players Club | `https://players.pokemon-card.com`        | Planned                |
 
 ### 7.2 Archetype Detection
 

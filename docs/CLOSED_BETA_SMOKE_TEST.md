@@ -79,3 +79,5 @@ Notes:
 - [ ] Check Vercel function logs for the web app
 - [ ] Re-run the smallest possible check that reproduces the failure
 - [ ] Roll back (see `docs/DEPLOYMENT.md`)
+
+If failure mode points to broad data inconsistency, use `docs/CLOSED_BETA_FULL_DATA_REBUILD_RUNBOOK.md`.

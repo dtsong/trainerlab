@@ -42,6 +42,7 @@ pnpm-debug.log*
 
 # Claude Code
 .claude/council/sessions/
+memory/
 
 # Terraform
 .terraform/

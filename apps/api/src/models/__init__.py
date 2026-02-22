@@ -17,6 +17,7 @@ from src.models.evolution_article_snapshot import EvolutionArticleSnapshot
 from src.models.format_config import FormatConfig
 from src.models.jp_card_adoption_rate import JPCardAdoptionRate
 from src.models.jp_card_innovation import JPCardInnovation
+from src.models.jp_external_meta_share import JPExternalMetaShare
 from src.models.jp_new_archetype import JPNewArchetype
 from src.models.jp_set_impact import JPSetImpact
 from src.models.jp_unreleased_card import JPUnreleasedCard
@@ -56,6 +57,7 @@ __all__ = [
     "FormatConfig",
     "JPCardAdoptionRate",
     "JPCardInnovation",
+    "JPExternalMetaShare",
     "JPNewArchetype",
     "JPSetImpact",
     "JPUnreleasedCard",

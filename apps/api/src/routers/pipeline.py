@@ -66,6 +66,24 @@ from src.pipelines.scrape_limitless import (
     process_single_tournament,
     rescrape_jp_tournaments,
 )
+from src.pipelines.scrape_players_club import (
+    ScrapePlayersClubResult as ScrapePlayersClubResultInternal,
+)
+from src.pipelines.scrape_players_club import (
+    scrape_players_club,
+)
+from src.pipelines.scrape_pokecabook import (
+    DiscoverPokecabookResult as DiscoverPokecabookResultInternal,
+)
+from src.pipelines.scrape_pokecabook import (
+    discover_pokecabook_tournaments,
+)
+from src.pipelines.scrape_pokekameshi import (
+    ScrapePokekameshiResult as ScrapePokekameshiResultInternal,
+)
+from src.pipelines.scrape_pokekameshi import (
+    scrape_pokekameshi_meta,
+)
 from src.pipelines.seed_data import (
     SeedDataResult as SeedDataResultInternal,
 )
@@ -121,6 +139,8 @@ from src.schemas.pipeline import (
     ComputeJPIntelligenceResult,
     ComputeMetaRequest,
     ComputeMetaResult,
+    DiscoverPokecabookRequest,
+    DiscoverPokecabookResult,
     DiscoverRequest,
     DiscoverResult,
     IngestJPArticleRequest,
@@ -134,6 +154,10 @@ from src.schemas.pipeline import (
     ReprocessArchetypesResult,
     RescrapeJPRequest,
     RescrapeJPResult,
+    ScrapePlayersClubRequest,
+    ScrapePlayersClubResult,
+    ScrapePokekameshiRequest,
+    ScrapePokekameshiResult,
     ScrapeResult,
     SeedDataRequest,
     SeedDataResult,
@@ -1118,3 +1142,158 @@ async def sync_events_endpoint(
     )
 
     return _convert_sync_events_result(result)
+
+
+# Pokecabook discovery pipeline
+
+
+def _convert_discover_pokecabook_result(
+    internal: DiscoverPokecabookResultInternal,
+) -> DiscoverPokecabookResult:
+    """Convert internal result to API schema."""
+    return DiscoverPokecabookResult(
+        articles_discovered=internal.articles_discovered,
+        articles_filtered=internal.articles_filtered,
+        tournaments_created=internal.tournaments_created,
+        tournaments_skipped=internal.tournaments_skipped,
+        placements_created=internal.placements_created,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post(
+    "/discover-pokecabook",
+    response_model=DiscoverPokecabookResult,
+)
+async def discover_pokecabook_endpoint(
+    request: DiscoverPokecabookRequest,
+) -> DiscoverPokecabookResult:
+    """Discover tournament articles from Pokecabook.
+
+    Fetches recent articles, filters to tournament results,
+    and ingests them via the JP article pipeline.
+    """
+    logger.info(
+        "Starting Pokecabook discovery: lookback=%d, dry_run=%s",
+        request.lookback_days,
+        request.dry_run,
+    )
+
+    result = await discover_pokecabook_tournaments(
+        lookback_days=request.lookback_days,
+        dry_run=request.dry_run,
+    )
+
+    logger.info(
+        "Pokecabook discovery complete: discovered=%d, "
+        "filtered=%d, created=%d, skipped=%d, errors=%d",
+        result.articles_discovered,
+        result.articles_filtered,
+        result.tournaments_created,
+        result.tournaments_skipped,
+        len(result.errors),
+    )
+
+    return _convert_discover_pokecabook_result(result)
+
+
+# Pokekameshi meta scrape pipeline
+
+
+def _convert_scrape_pokekameshi_result(
+    internal: ScrapePokekameshiResultInternal,
+) -> ScrapePokekameshiResult:
+    """Convert internal result to API schema."""
+    return ScrapePokekameshiResult(
+        reports_fetched=internal.reports_fetched,
+        shares_recorded=internal.shares_recorded,
+        shares_skipped=internal.shares_skipped,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post(
+    "/scrape-pokekameshi-meta",
+    response_model=ScrapePokekameshiResult,
+)
+async def scrape_pokekameshi_meta_endpoint(
+    request: ScrapePokekameshiRequest,
+) -> ScrapePokekameshiResult:
+    """Fetch and store meta percentage data from Pokekameshi.
+
+    Fetches the current meta report and persists archetype share
+    data as structured JPExternalMetaShare records.
+    """
+    logger.info(
+        "Starting Pokekameshi meta scrape: dry_run=%s",
+        request.dry_run,
+    )
+
+    result = await scrape_pokekameshi_meta(
+        dry_run=request.dry_run,
+    )
+
+    logger.info(
+        "Pokekameshi meta scrape complete: fetched=%d, "
+        "recorded=%d, skipped=%d, errors=%d",
+        result.reports_fetched,
+        result.shares_recorded,
+        result.shares_skipped,
+        len(result.errors),
+    )
+
+    return _convert_scrape_pokekameshi_result(result)
+
+
+# Players Club scrape pipeline
+
+
+def _convert_scrape_players_club_result(
+    internal: ScrapePlayersClubResultInternal,
+) -> ScrapePlayersClubResult:
+    """Convert internal result to API schema."""
+    return ScrapePlayersClubResult(
+        tournaments_discovered=internal.tournaments_discovered,
+        tournaments_created=internal.tournaments_created,
+        tournaments_skipped=internal.tournaments_skipped,
+        placements_created=internal.placements_created,
+        errors=internal.errors,
+        success=internal.success,
+    )
+
+
+@router.post(
+    "/scrape-players-club",
+    response_model=ScrapePlayersClubResult,
+)
+async def scrape_players_club_endpoint(
+    request: ScrapePlayersClubRequest,
+) -> ScrapePlayersClubResult:
+    """Scrape tournaments from official Players Club.
+
+    Discovers and ingests tournaments from the official
+    Pokemon Players Club at players.pokemon-card.com.
+    """
+    logger.info(
+        "Starting Players Club scrape: lookback=%d, dry_run=%s",
+        request.lookback_days,
+        request.dry_run,
+    )
+
+    result = await scrape_players_club(
+        lookback_days=request.lookback_days,
+        dry_run=request.dry_run,
+    )
+
+    logger.info(
+        "Players Club scrape complete: discovered=%d, "
+        "created=%d, skipped=%d, errors=%d",
+        result.tournaments_discovered,
+        result.tournaments_created,
+        result.tournaments_skipped,
+        len(result.errors),
+    )
+
+    return _convert_scrape_players_club_result(result)

@@ -88,6 +88,7 @@ async def scrape_pokekameshi_meta(
             error_msg = f"Failed to commit meta shares: {e}"
             logger.error(error_msg, exc_info=True)
             result.errors.append(error_msg)
+            result.shares_recorded = 0
 
     return result
 

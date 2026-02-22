@@ -280,3 +280,102 @@ class TestProcessTournament:
         assert result.tournaments_created == 1
         assert result.placements_created == 2
         assert mock_normalizer.resolve.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_archetype_normalization_failure_fallback(self):
+        """When normalizer.resolve raises, placement uses raw archetype."""
+        mock_session = AsyncMock()
+        mock_exec = MagicMock()
+        mock_exec.first.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_exec)
+
+        detail = _make_detail()
+        mock_client = AsyncMock(spec=PlayersClubClient)
+        mock_client.fetch_tournament_detail = AsyncMock(
+            return_value=detail,
+        )
+
+        mock_normalizer = MagicMock()
+        mock_normalizer.resolve.side_effect = RuntimeError("boom")
+
+        tournament = _make_tournament()
+        result = ScrapePlayersClubResult()
+
+        await _process_tournament(
+            session=mock_session,
+            client=mock_client,
+            normalizer=mock_normalizer,
+            tournament=tournament,
+            result=result,
+        )
+
+        assert result.tournaments_created == 1
+        assert result.placements_created == 2
+        # Placements still created with raw archetype text
+        added = [c.args[0] for c in mock_session.add.call_args_list]
+        placements = [a for a in added if hasattr(a, "archetype")]
+        assert placements[0].archetype == "Charizard ex"
+        assert placements[0].archetype_detection_method == "text_label"
+
+
+class TestCommitFailure:
+    @pytest.mark.asyncio
+    async def test_commit_failure_zeros_counts(self):
+        """When session.commit fails, created counts are zeroed."""
+        tournaments = [_make_tournament()]
+        detail = _make_detail(tournaments[0])
+
+        mock_client = AsyncMock(spec=PlayersClubClient)
+        mock_client.fetch_recent_tournaments = AsyncMock(
+            return_value=tournaments,
+        )
+        mock_client.fetch_tournament_detail = AsyncMock(
+            return_value=detail,
+        )
+        mock_client.__aenter__ = AsyncMock(
+            return_value=mock_client,
+        )
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = AsyncMock()
+        mock_exec = MagicMock()
+        mock_exec.first.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_exec)
+        mock_session.commit = AsyncMock(
+            side_effect=RuntimeError("DB error"),
+        )
+
+        mock_normalizer = MagicMock()
+        mock_normalizer.load_db_sprites = AsyncMock()
+        mock_normalizer.resolve.return_value = (
+            "Charizard ex",
+            [],
+            "text_label",
+        )
+
+        with (
+            patch(
+                "src.pipelines.scrape_players_club.PlayersClubClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "src.pipelines.scrape_players_club.async_session_factory",
+            ) as mock_sf,
+            patch(
+                "src.pipelines.scrape_players_club.ArchetypeNormalizer",
+                return_value=mock_normalizer,
+            ),
+        ):
+            mock_sf.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session,
+            )
+            mock_sf.return_value.__aexit__ = AsyncMock(
+                return_value=None,
+            )
+
+            result = await scrape_players_club(lookback_days=30)
+
+        assert result.success is False
+        assert result.tournaments_created == 0
+        assert result.placements_created == 0
+        assert any("Failed to commit" in e for e in result.errors)

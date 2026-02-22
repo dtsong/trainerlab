@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.clients.players_club import (
     PlayersClubClient,
     PlayersClubError,
+    PlayersClubTournament,
 )
 from src.db.database import async_session_factory
 from src.models import Tournament, TournamentPlacement
@@ -90,6 +91,8 @@ async def scrape_players_club(
                 error_msg = f"Failed to commit tournament data: {e}"
                 logger.error(error_msg, exc_info=True)
                 result.errors.append(error_msg)
+                result.tournaments_created = 0
+                result.placements_created = 0
 
     return result
 
@@ -98,7 +101,7 @@ async def _process_tournament(
     session: AsyncSession,
     client: PlayersClubClient,
     normalizer: ArchetypeNormalizer,
-    tournament,  # noqa: ANN001
+    tournament: PlayersClubTournament,
     result: ScrapePlayersClubResult,
 ) -> None:
     """Process a single tournament."""

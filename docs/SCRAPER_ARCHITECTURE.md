@@ -202,3 +202,11 @@ erDiagram
 
 The EN pipeline's official scraper maps country codes to regions via `_country_to_region()`.
 JP tournaments are always BO1 (ties = double loss).
+
+## Tool Radar
+
+Tools evaluated for potential adoption. Not currently in use.
+
+| Tool                               | What It Does                                                                                                                                                                                            | When to Revisit                                                                         | Evaluated  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------- |
+| [Kernel.sh](https://www.kernel.sh) | Browsers-as-a-Service (cloud headless browsers via CDP). Headless at $0.06/hr, free tier includes $5/mo credits and 5 concurrent sessions. Supports Playwright/Puppeteer, residential proxies included. | If target sites add JS rendering, Cloudflare/bot protection, or we need to scrape SPAs. | 2026-02-22 |

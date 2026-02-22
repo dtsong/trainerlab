@@ -44,32 +44,29 @@ async def scrape_players_club(
     """
     result = ScrapePlayersClubResult()
 
-    # Step 1: Fetch recent tournaments
-    try:
-        async with PlayersClubClient() as client:
+    async with PlayersClubClient() as client:
+        try:
             tournaments = await client.fetch_recent_tournaments(
                 days=lookback_days,
             )
-    except PlayersClubError as e:
-        result.errors.append(f"Failed to fetch tournaments: {e}")
-        return result
+        except PlayersClubError as e:
+            result.errors.append(f"Failed to fetch tournaments: {e}")
+            return result
 
-    result.tournaments_discovered = len(tournaments)
+        result.tournaments_discovered = len(tournaments)
 
-    if not tournaments:
-        logger.info("No tournaments found from Players Club")
-        return result
+        if not tournaments:
+            logger.info("No tournaments found from Players Club")
+            return result
 
-    if dry_run:
-        logger.info(
-            "Dry run: would process %d tournaments",
-            len(tournaments),
-        )
-        return result
+        if dry_run:
+            logger.info(
+                "Dry run: would process %d tournaments",
+                len(tournaments),
+            )
+            return result
 
-    # Step 2: Process each tournament
-    async with async_session_factory() as session:
-        async with PlayersClubClient() as client:
+        async with async_session_factory() as session:
             normalizer = ArchetypeNormalizer()
             await normalizer.load_db_sprites(session)
 
@@ -87,7 +84,12 @@ async def scrape_players_club(
                     logger.error(error_msg)
                     result.errors.append(error_msg)
 
-        await session.commit()
+            try:
+                await session.commit()
+            except Exception as e:
+                error_msg = f"Failed to commit tournament data: {e}"
+                logger.error(error_msg, exc_info=True)
+                result.errors.append(error_msg)
 
     return result
 
@@ -145,6 +147,7 @@ async def _process_tournament(
 
         if archetype and archetype != "Unknown":
             try:
+                # Players Club provides text labels only, no sprite URLs
                 resolved, _, method = normalizer.resolve(
                     sprite_urls=[],
                     html_archetype=archetype,
@@ -154,7 +157,7 @@ async def _process_tournament(
                     archetype = resolved
                     detection_method = method
             except Exception:
-                logger.debug(
+                logger.warning(
                     "Archetype resolve failed for: %s",
                     archetype,
                     exc_info=True,

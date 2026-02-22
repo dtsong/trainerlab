@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -35,7 +36,7 @@ async def scrape_pokekameshi_meta(
     """Fetch meta percentages from Pokekameshi and store.
 
     Fetches the current meta report, checks for existing records,
-    and upserts JPExternalMetaShare rows.
+    and inserts new JPExternalMetaShare rows (skipping existing).
     """
     result = ScrapePokekameshiResult()
 
@@ -65,7 +66,7 @@ async def scrape_pokekameshi_meta(
     async with async_session_factory() as session:
         for share in report.shares:
             try:
-                await _upsert_share(
+                await _insert_or_skip_share(
                     session=session,
                     source="pokekameshi",
                     report_date=report.date,
@@ -81,15 +82,20 @@ async def scrape_pokekameshi_meta(
                 logger.error(error_msg)
                 result.errors.append(error_msg)
 
-        await session.commit()
+        try:
+            await session.commit()
+        except Exception as e:
+            error_msg = f"Failed to commit meta shares: {e}"
+            logger.error(error_msg, exc_info=True)
+            result.errors.append(error_msg)
 
     return result
 
 
-async def _upsert_share(
+async def _insert_or_skip_share(
     session: AsyncSession,
     source: str,
-    report_date,
+    report_date: date,
     archetype_name_jp: str,
     archetype_name_en: str | None,
     share_rate: float,

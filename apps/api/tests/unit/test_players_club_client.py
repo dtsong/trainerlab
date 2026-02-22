@@ -65,7 +65,7 @@ class TestFetchRecentTournaments:
         )
 
     @pytest.mark.asyncio
-    async def test_fetch_tournaments_returns_empty_on_error(self, client):
+    async def test_fetch_tournaments_returns_empty_on_404(self, client):
         mock_response = httpx.Response(
             404,
             request=httpx.Request("GET", "http://test"),
@@ -80,6 +80,24 @@ class TestFetchRecentTournaments:
             tournaments = await client.fetch_recent_tournaments()
 
         assert tournaments == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_tournaments_raises_on_non_404_error(self, client):
+        error_response = httpx.Response(
+            503,
+            request=httpx.Request("GET", "http://test"),
+        )
+
+        with (
+            patch.object(
+                client._client,
+                "get",
+                new_callable=AsyncMock,
+                return_value=error_response,
+            ),
+            pytest.raises(PlayersClubError),
+        ):
+            await client.fetch_recent_tournaments()
 
 
 class TestFetchTournamentDetail:
@@ -125,6 +143,28 @@ class TestFetchTournamentDetail:
         assert detail.placements[0].player_name == "Taro"
         assert detail.placements[0].archetype_name == "Charizard ex"
         assert detail.placements[1].placement == 2
+
+    @pytest.mark.asyncio
+    async def test_fetch_detail_raises_on_unparseable(self, client):
+        mock_response = httpx.Response(
+            200,
+            json={"unexpected": "format"},
+            request=httpx.Request("GET", "http://test"),
+        )
+
+        with (
+            patch.object(
+                client._client,
+                "get",
+                new_callable=AsyncMock,
+                return_value=mock_response,
+            ),
+            pytest.raises(
+                PlayersClubError,
+                match="Could not parse tournament metadata",
+            ),
+        ):
+            await client.fetch_tournament_detail("t1")
 
 
 class TestRetryBehavior:

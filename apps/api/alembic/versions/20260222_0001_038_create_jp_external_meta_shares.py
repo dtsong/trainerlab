@@ -55,6 +55,10 @@ def upgrade() -> None:
             "archetype_name_jp",
             name="uq_jp_ext_meta_source_date_arch",
         ),
+        sa.CheckConstraint(
+            "share_rate >= 0.0 AND share_rate <= 1.0",
+            name="ck_share_rate_range",
+        ),
     )
     op.create_index(
         "ix_jp_ext_meta_source_date",

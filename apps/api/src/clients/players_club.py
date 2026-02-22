@@ -69,8 +69,8 @@ class PlayersClubClient:
     """Async HTTP client for Official Pokemon Players Club.
 
     Conservative rate limiting (5 req/min) since this is an
-    official Pokemon site. Uses the underlying JSON API when
-    available, falling back to page scraping if needed.
+    official Pokemon site. Targets the underlying JSON API
+    endpoints.
     """
 
     BASE_URL = "https://players.pokemon-card.com"
@@ -119,7 +119,7 @@ class PlayersClubClient:
 
             if len(self._request_times) >= self._requests_per_minute:
                 oldest = self._request_times[0]
-                wait_time = 60 - (now - oldest) + 0.1
+                wait_time = 60 - (now - oldest) + 0.1  # buffer to avoid edge-case
                 if wait_time > 0:
                     logger.info(
                         "Players Club rate limiting: waiting %.1fs",
@@ -127,7 +127,8 @@ class PlayersClubClient:
                     )
                     await asyncio.sleep(wait_time)
 
-            self._request_times.append(now)
+            # Record post-wait time so the window reflects actual request spacing
+            self._request_times.append(asyncio.get_running_loop().time())
 
     async def _get(self, endpoint: str) -> httpx.Response:
         """Make a GET request with retry and rate limiting.
@@ -244,35 +245,40 @@ class PlayersClubClient:
 
         try:
             response = await self._get(endpoint)
-        except PlayersClubError:
-            logger.warning(
-                "Tournament list endpoint not available. API discovery pending."
-            )
-            return []
+        except PlayersClubError as e:
+            if "Not found" in str(e):
+                logger.warning(
+                    "Tournament list endpoint not available (404). "
+                    "API discovery pending."
+                )
+                return []
+            raise
 
-        tournaments: list[PlayersClubTournament] = []
         try:
             data = response.json()
-            items = (
-                data
-                if isinstance(data, list)
-                else data.get("tournaments", data.get("items", []))
-            )
-
-            cutoff = date.today() - timedelta(days=days)
-
-            for item in items:
-                tournament = self._parse_tournament(item)
-                if tournament and tournament.date >= cutoff:
-                    tournaments.append(tournament)
         except Exception as e:
-            logger.warning("Failed to parse tournament list: %s", e)
+            raise PlayersClubError(f"Failed to parse tournament list JSON: {e}") from e
+
+        tournaments: list[PlayersClubTournament] = []
+        items = (
+            data
+            if isinstance(data, list)
+            else data.get("tournaments", data.get("items", []))
+        )
+
+        cutoff = date.today() - timedelta(days=days)
+
+        for item in items:
+            tournament = self._parse_tournament(item)
+            if tournament and tournament.date >= cutoff:
+                tournaments.append(tournament)
 
         return tournaments
 
     def _parse_tournament(self, data: dict[str, Any]) -> PlayersClubTournament | None:
         """Parse a tournament from API response data."""
         try:
+            # Try multiple key names since API schema is not yet confirmed
             tid = str(data.get("id") or data.get("tournament_id", ""))
             name = str(data.get("name") or data.get("title", ""))
             date_str = str(data.get("date") or data.get("event_date", ""))
@@ -293,6 +299,11 @@ class PlayersClubClient:
                 source_url=(f"{self.BASE_URL}/event/{tid}"),
             )
         except (ValueError, KeyError, TypeError):
+            logger.warning(
+                "Failed to parse tournament data: %s",
+                data,
+                exc_info=True,
+            )
             return None
 
     def _parse_date(self, date_str: str) -> date | None:
@@ -331,18 +342,20 @@ class PlayersClubClient:
         endpoint = f"/api/tournament/{tournament_id}"
 
         response = await self._get(endpoint)
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception as e:
+            raise PlayersClubError(
+                f"Failed to parse tournament detail JSON for {tournament_id}: {e}"
+            ) from e
 
         tournament_data = data.get("tournament", data)
         tournament = self._parse_tournament(
             tournament_data,
         )
         if not tournament:
-            tournament = PlayersClubTournament(
-                tournament_id=tournament_id,
-                name=data.get("name", "Unknown"),
-                date=date.today(),
-                source_url=(f"{self.BASE_URL}/event/{tournament_id}"),
+            raise PlayersClubError(
+                f"Could not parse tournament metadata for {tournament_id}"
             )
 
         placements: list[PlayersClubPlacement] = []
@@ -378,4 +391,9 @@ class PlayersClubClient:
                 deck_code=data.get("deck_code"),
             )
         except (ValueError, TypeError):
+            logger.warning(
+                "Failed to parse placement data: %s",
+                data,
+                exc_info=True,
+            )
             return None

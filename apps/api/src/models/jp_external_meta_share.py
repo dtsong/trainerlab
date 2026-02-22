@@ -4,6 +4,7 @@ from datetime import date as date_type
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    CheckConstraint,
     Date,
     Float,
     Index,
@@ -18,7 +19,7 @@ from src.db.base import Base, TimestampMixin
 
 
 class JPExternalMetaShare(Base, TimestampMixin):
-    """Meta share data from external JP sources like Pokekameshi."""
+    """Meta share data from external JP sources."""
 
     __tablename__ = "jp_external_meta_shares"
 
@@ -28,6 +29,10 @@ class JPExternalMetaShare(Base, TimestampMixin):
             "report_date",
             "archetype_name_jp",
             name="uq_jp_ext_meta_source_date_arch",
+        ),
+        CheckConstraint(
+            "share_rate >= 0.0 AND share_rate <= 1.0",
+            name="ck_share_rate_range",
         ),
         Index(
             "ix_jp_ext_meta_source_date",

@@ -61,7 +61,7 @@ export function RotationBriefingHeader({ phase }: RotationBriefingHeaderProps) {
             </div>
 
             <p className="text-[11px] text-muted-foreground">
-              Sources: Limitless TCG · Pokecabook · Pokekameshi
+              Sources: Limitless TCG · Pokecabook · Pokekameshi · TCGdex
             </p>
           </div>
         </div>

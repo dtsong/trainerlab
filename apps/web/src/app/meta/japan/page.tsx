@@ -576,6 +576,15 @@ function JapanMetaPageContent() {
           >
             Pokekameshi
           </a>
+          {" · "}
+          <a
+            href="https://tcgdex.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            TCGdex
+          </a>
         </p>
       </footer>
     </div>

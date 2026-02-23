@@ -406,8 +406,8 @@ class TestSyncJpSet:
                 set_id="SV9",
                 rarity="RR",
                 number="097",
-                image_small="https://assets.tcgdex.net/ja/sv/sv9/097",
-                image_large="https://assets.tcgdex.net/ja/sv/sv9/097/high",
+                image_small="https://assets.tcgdex.net/ja/sv/sv9/097/low.webp",
+                image_large="https://assets.tcgdex.net/ja/sv/sv9/097/high.webp",
                 regulation_mark="H",
                 legal_standard=None,
                 legal_expanded=None,
@@ -423,7 +423,9 @@ class TestSyncJpSet:
         assert added_card.name == "ゾロアークex"
         assert added_card.japanese_name == "ゾロアークex"
         assert added_card.set_id == "sv09"
-        assert added_card.image_small == ("https://assets.tcgdex.net/ja/sv/sv9/097")
+        assert added_card.image_small == (
+            "https://assets.tcgdex.net/ja/sv/sv9/097/low.webp"
+        )
         assert service.result.cards_inserted == 1
 
     @pytest.mark.asyncio
@@ -482,7 +484,7 @@ class TestSyncJpSet:
                 set_id="SV7",
                 rarity="RR",
                 number="050",
-                image_small="https://assets.tcgdex.net/ja/sv/sv7/050",
+                image_small="https://assets.tcgdex.net/ja/sv/sv7/050/low.webp",
                 image_large=None,
                 regulation_mark="H",
                 legal_standard=None,

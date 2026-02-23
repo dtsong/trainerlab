@@ -1,6 +1,7 @@
 """Meta snapshot endpoints."""
 
 import logging
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date, timedelta
@@ -704,6 +705,31 @@ def _compute_key_cards(
     return key_cards[:20]  # Return top 20 key cards
 
 
+def _generate_card_id_variants(card_id: str) -> list[str]:
+    """Generate padded and unpadded variants of a card ID.
+
+    TCGdex uses zero-padded set IDs (sv03-125) while Limitless decklists
+    produce unpadded IDs (sv3-125). This generates both forms so lookups
+    succeed regardless of which format was stored.
+
+    Returns a list of unique variant IDs (always includes the original).
+    """
+    match = re.match(r"^([a-zA-Z]+)(\d+)((?:pt\d+)?)-(.+)$", card_id)
+    if not match:
+        return [card_id]
+
+    prefix, num_str, suffix, card_number = match.groups()
+    num = int(num_str)
+
+    variants = {card_id}
+    # Unpadded: sv3-125
+    variants.add(f"{prefix}{num}{suffix}-{card_number}")
+    # Zero-padded to 2 digits: sv03-125
+    variants.add(f"{prefix}{num:02d}{suffix}-{card_number}")
+
+    return list(variants)
+
+
 async def _batch_lookup_cards(
     card_ids: list[str],
     db: AsyncSession,
@@ -711,20 +737,35 @@ async def _batch_lookup_cards(
     """Batch lookup card names and images from the cards table.
 
     Returns dict of card_id -> (card_name, image_small).
+    Generates padded/unpadded ID variants to handle format mismatches
+    between Limitless (sv3-125) and TCGdex (sv03-125).
     Falls back to card_id_mappings for JP card IDs not found directly.
     """
     if not card_ids:
         return {}
     try:
-        # Step 1: Direct lookup in cards table
+        # Build variant-to-original mapping so we can map DB results
+        # back to the card IDs the caller originally requested.
+        variant_to_original: dict[str, str] = {}
+        all_variants: set[str] = set()
+        for cid in card_ids:
+            for variant in _generate_card_id_variants(cid):
+                variant_to_original.setdefault(variant, cid)
+                all_variants.add(variant)
+
+        # Step 1: Direct lookup in cards table using all variants
         query = select(Card.id, Card.name, Card.japanese_name, Card.image_small).where(
-            Card.id.in_(card_ids)
+            Card.id.in_(list(all_variants))
         )
         result = await db.execute(query)
-        card_info: dict[str, tuple[str | None, str | None]] = {
-            row.id: (row.name or row.japanese_name, row.image_small)
-            for row in result.all()
-        }
+        card_info: dict[str, tuple[str | None, str | None]] = {}
+        for row in result.all():
+            original_id = variant_to_original.get(row.id, row.id)
+            if original_id not in card_info:
+                card_info[original_id] = (
+                    row.name or row.japanese_name,
+                    row.image_small,
+                )
 
         # Step 2: For missing IDs, check card_id_mappings
         missing_ids = [cid for cid in card_ids if cid not in card_info]

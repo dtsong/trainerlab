@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date, timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from slowapi import Limiter
@@ -706,35 +706,55 @@ def _compute_key_cards(
 
 
 def _generate_card_id_variants(card_id: str) -> list[str]:
-    """Generate padded and unpadded variants of a card ID.
+    """Generate padded/unpadded variants for both set and card numbers.
 
-    TCGdex stores zero-padded set IDs (e.g. sv03-125) while Limitless
-    decklists supply unpadded IDs (e.g. sv3-125). This generates both
-    forms so a DB lookup with either input format will hit the stored
-    record.
+    TCGdex stores zero-padded IDs (e.g. ``sv03-076``) while Limitless
+    decklists supply unpadded IDs (e.g. ``sv3-76``).  This generates
+    the cross-product of set-number variants and card-number variants
+    so a DB lookup with any combination will hit the stored record.
 
-    Handles IDs matching ``<letters><digits>[pt<digits>]-<card_number>``.
-    IDs that do not match (e.g. ``energy-fire``, ``sve-1``, ``sv08.5-10``)
-    are returned as-is.
+    Set variants (``<letters><digits>[pt<digits>]`` prefix):
+      ``sv3`` → {``sv3``, ``sv03``}
+
+    Card-number variants (numeric part after the last ``-``):
+      ``76`` → {``76``, ``076``}  (unpadded, 2-digit, 3-digit; deduped)
 
     Returns a list of unique variant IDs (always includes the original).
     """
     if not card_id:
         return []
 
-    match = re.match(r"^([a-zA-Z]+)(\d+)((?:pt\d+)?)-(.+)$", card_id)
-    if not match:
+    # Split on last hyphen to separate set part from card number
+    dash_idx = card_id.rfind("-")
+    if dash_idx == -1:
         return [card_id]
 
-    prefix, num_str, suffix, card_number = match.groups()
-    num = int(num_str)
+    set_part = card_id[:dash_idx]
+    card_number = card_id[dash_idx + 1 :]
 
-    variants = {card_id}
-    # Unpadded: sv3-125
-    variants.add(f"{prefix}{num}{suffix}-{card_number}")
-    # Zero-padded to 2 digits: sv03-125
-    variants.add(f"{prefix}{num:02d}{suffix}-{card_number}")
+    # Generate set-part variants
+    set_match = re.match(r"^([a-zA-Z]+)(\d+)((?:pt\d+)?)$", set_part)
+    if set_match:
+        prefix, num_str, suffix = set_match.groups()
+        num = int(num_str)
+        set_variants = {
+            set_part,
+            f"{prefix}{num}{suffix}",
+            f"{prefix}{num:02d}{suffix}",
+        }
+    else:
+        set_variants = {set_part}
 
+    # Generate card-number variants
+    card_num_variants = {card_number}
+    if card_number.isdigit():
+        n = int(card_number)
+        card_num_variants.add(str(n))
+        card_num_variants.add(f"{n:02d}")
+        card_num_variants.add(f"{n:03d}")
+
+    # Cross-product
+    variants = {f"{s}-{c}" for s in set_variants for c in card_num_variants}
     return list(variants)
 
 
@@ -781,32 +801,56 @@ async def _batch_lookup_cards(
         if not missing_ids:
             return card_info
 
+        # Build variant-to-originals for JP mapping lookup
+        jp_variant_to_originals: dict[str, list[str]] = {}
+        all_jp_variants: set[str] = set()
+        for cid in missing_ids:
+            for variant in _generate_card_id_variants(cid):
+                jp_variant_to_originals.setdefault(variant, []).append(cid)
+                all_jp_variants.add(variant)
+
         mapping_query = select(
             CardIdMapping.jp_card_id,
             CardIdMapping.en_card_id,
             CardIdMapping.card_name_en,
-        ).where(CardIdMapping.jp_card_id.in_(missing_ids))
+        ).where(CardIdMapping.jp_card_id.in_(list(all_jp_variants)))
         mapping_result = await db.execute(mapping_query)
         mappings = mapping_result.all()
 
         if not mappings:
             return card_info
 
-        # Step 3: Look up EN cards and map back to JP IDs
-        jp_to_en = {m.jp_card_id: m for m in mappings}
-        en_ids = [m.en_card_id for m in mappings]
+        # Map DB hits back to original JP IDs
+        jp_to_en: dict[str, Any] = {}
+        for m in mappings:
+            for orig_id in jp_variant_to_originals.get(m.jp_card_id, []):
+                if orig_id not in jp_to_en:
+                    jp_to_en[orig_id] = m
+
+        # Step 3: Look up EN cards with variants, map back to JP IDs
+        en_variant_to_originals: dict[str, list[str]] = {}
+        all_en_variants: set[str] = set()
+        for jp_id, mapping in jp_to_en.items():
+            for variant in _generate_card_id_variants(mapping.en_card_id):
+                en_variant_to_originals.setdefault(variant, []).append(jp_id)
+                all_en_variants.add(variant)
 
         en_query = select(
             Card.id,
             Card.name,
             Card.japanese_name,
             Card.image_small,
-        ).where(Card.id.in_(en_ids))
+        ).where(Card.id.in_(list(all_en_variants)))
         en_result = await db.execute(en_query)
         en_cards = {row.id: row for row in en_result.all()}
 
         for jp_id, mapping in jp_to_en.items():
-            en_card = en_cards.get(mapping.en_card_id)
+            # Check all EN variants for this mapping
+            en_card = None
+            for variant in _generate_card_id_variants(mapping.en_card_id):
+                if variant in en_cards:
+                    en_card = en_cards[variant]
+                    break
             if en_card:
                 card_info[jp_id] = (
                     en_card.name or en_card.japanese_name,

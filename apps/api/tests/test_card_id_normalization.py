@@ -33,11 +33,12 @@ class TestGenerateCardIdVariants:
             assert f"sv{n}-1" in variants
             assert f"sv{n:02d}-1" in variants
 
-    def test_two_digit_set_no_spurious_variants(self) -> None:
-        """sv10-1 produces no additional variants (padded == unpadded)."""
+    def test_two_digit_set_with_card_number_variants(self) -> None:
+        """sv10-1 generates card number variants (01, 001)."""
         variants = _generate_card_id_variants("sv10-1")
         assert "sv10-1" in variants
-        assert len(variants) == 1
+        assert "sv10-01" in variants
+        assert "sv10-001" in variants
 
     def test_pt_suffix_set(self) -> None:
         """sv4pt5-10 should generate sv04pt5-10 variant."""
@@ -67,29 +68,84 @@ class TestGenerateCardIdVariants:
         assert len(variants) == len(set(variants))
 
     def test_sve_energy_set(self) -> None:
-        """sve-1 (no digits in set) should return original."""
+        """sve-1 (no digits in set) generates card number variants."""
         variants = _generate_card_id_variants("sve-1")
-        # The regex requires digits after prefix letters, so "sve-1" won't match.
         assert "sve-1" in variants
+        assert "sve-01" in variants
+        assert "sve-001" in variants
 
     def test_mep_promos(self) -> None:
-        """mep-1 should return original (no digit in set code)."""
+        """mep-1 generates card number variants even without set digits."""
         variants = _generate_card_id_variants("mep-1")
         assert "mep-1" in variants
+        assert "mep-01" in variants
+        assert "mep-001" in variants
 
     def test_empty_string_returns_empty_list(self) -> None:
         """Empty string input should return empty list."""
         assert _generate_card_id_variants("") == []
 
-    def test_dot_notation_set_returns_original(self) -> None:
-        """sv08.5-10 (Prismatic Evolutions) should not generate variants."""
+    def test_dot_notation_set_generates_card_number_variants(self) -> None:
+        """sv08.5-10 generates card number variants but no set variants."""
         variants = _generate_card_id_variants("sv08.5-10")
-        assert variants == ["sv08.5-10"]
+        assert "sv08.5-10" in variants
+        assert "sv08.5-010" in variants
+        # No set variants (dot prevents set regex match)
+        assert all(v.startswith("sv08.5-") for v in variants)
 
     def test_dot_notation_with_letter_suffix(self) -> None:
-        """sv10.5b-1 (Black Bolt) should return original only."""
+        """sv10.5b-1 generates card number variants."""
         variants = _generate_card_id_variants("sv10.5b-1")
-        assert variants == ["sv10.5b-1"]
+        assert "sv10.5b-1" in variants
+        assert "sv10.5b-01" in variants
+        assert "sv10.5b-001" in variants
+
+    def test_card_number_padding_sv08_76(self) -> None:
+        """sv08-76 should produce sv08-076 variant."""
+        variants = _generate_card_id_variants("sv08-76")
+        assert "sv08-76" in variants
+        assert "sv08-076" in variants
+        assert "sv8-76" in variants
+        assert "sv8-076" in variants
+
+    def test_card_number_padding_mee_1(self) -> None:
+        """mee-1 (no digit in set) should produce mee-001 variant."""
+        variants = _generate_card_id_variants("mee-1")
+        assert "mee-1" in variants
+        assert "mee-01" in variants
+        assert "mee-001" in variants
+
+    def test_card_number_padding_me01_114(self) -> None:
+        """me01-114 generates set variant me1-114 (114 already 3 digits)."""
+        variants = _generate_card_id_variants("me01-114")
+        assert "me01-114" in variants
+        assert "me1-114" in variants
+
+    def test_cross_product_sv3_5(self) -> None:
+        """sv3-5 generates full cross-product of set and card variants."""
+        variants = set(_generate_card_id_variants("sv3-5"))
+        expected = {
+            "sv3-5",
+            "sv3-05",
+            "sv3-005",
+            "sv03-5",
+            "sv03-05",
+            "sv03-005",
+        }
+        assert expected == variants
+
+    def test_three_digit_card_number_no_extra_padding(self) -> None:
+        """sv03-125: card number 125 already 3 digits, no 4-digit variant."""
+        variants = set(_generate_card_id_variants("sv03-125"))
+        assert "sv03-125" in variants
+        assert "sv3-125" in variants
+        # No 4-digit padding
+        assert not any(len(v.split("-")[1]) > 3 for v in variants)
+
+    def test_no_hyphen_returns_original(self) -> None:
+        """Card ID with no hyphen is returned as-is."""
+        variants = _generate_card_id_variants("energyfire")
+        assert variants == ["energyfire"]
 
 
 class TestBatchLookupCardsNormalization:
@@ -233,3 +289,67 @@ class TestBatchLookupCardsNormalization:
         # Two DB calls: direct card lookup + JP mapping lookup
         # (no EN card lookup needed when mappings are empty)
         assert mock_db.execute.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_card_number_variant_finds_padded_card(
+        self, mock_db: AsyncMock
+    ) -> None:
+        """sv08-76 should find Card with id=sv08-076 via card number variant."""
+        card_row = MagicMock()
+        card_row.id = "sv08-076"
+        card_row.name = "Test Card"
+        card_row.japanese_name = None
+        card_row.image_small = "https://assets.tcgdex.net/sv08-076"
+
+        mock_result = MagicMock()
+        mock_result.all.return_value = [card_row]
+        mock_db.execute.return_value = mock_result
+
+        result = await _batch_lookup_cards(["sv08-76"], mock_db)
+
+        assert "sv08-76" in result
+        assert result["sv08-76"] == (
+            "Test Card",
+            "https://assets.tcgdex.net/sv08-076",
+        )
+
+    @pytest.mark.asyncio
+    async def test_mapping_fallback_with_card_number_variant(
+        self, mock_db: AsyncMock
+    ) -> None:
+        """JP ID variant matches mapping, EN ID variant matches card."""
+        # Step 1: direct card lookup misses
+        empty_result = MagicMock()
+        empty_result.all.return_value = []
+
+        # Step 2: mapping lookup — DB stores padded JP ID sv08-076
+        mapping_row = MagicMock()
+        mapping_row.jp_card_id = "sv08-076"
+        mapping_row.en_card_id = "sv08-76"
+        mapping_row.card_name_en = "Test Card EN"
+        mapping_result = MagicMock()
+        mapping_result.all.return_value = [mapping_row]
+
+        # Step 3: EN card lookup — DB stores padded EN ID sv08-076
+        en_card_row = MagicMock()
+        en_card_row.id = "sv08-076"
+        en_card_row.name = "Test Card EN"
+        en_card_row.japanese_name = None
+        en_card_row.image_small = "https://assets.tcgdex.net/sv08-076"
+        en_result = MagicMock()
+        en_result.all.return_value = [en_card_row]
+
+        mock_db.execute.side_effect = [
+            empty_result,
+            mapping_result,
+            en_result,
+        ]
+
+        # Caller uses unpadded sv08-76
+        result = await _batch_lookup_cards(["sv08-76"], mock_db)
+
+        assert "sv08-76" in result
+        assert result["sv08-76"] == (
+            "Test Card EN",
+            "https://assets.tcgdex.net/sv08-076",
+        )

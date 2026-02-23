@@ -22,7 +22,7 @@ export function LayoutChrome({ children }: { children: React.ReactNode }) {
     <>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:text-teal-600 focus:underline"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-lab-panel focus:px-4 focus:py-2 focus:text-flame focus:underline"
       >
         Skip to main content
       </a>

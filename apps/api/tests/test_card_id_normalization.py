@@ -274,21 +274,28 @@ class TestBatchLookupCardsNormalization:
     @pytest.mark.asyncio
     async def test_no_match_falls_through_to_mapping(self, mock_db: AsyncMock) -> None:
         """IDs with no card match should fall through to JP mapping lookup."""
-        # First call: card lookup returns empty
+        # Step 0: limitless_id lookup returns empty
+        empty_limitless = MagicMock()
+        empty_limitless.all.return_value = []
+
+        # Step 1: card variant lookup returns empty
         empty_result = MagicMock()
         empty_result.all.return_value = []
 
-        # Second call: mapping lookup returns empty
+        # Step 2: mapping lookup returns empty
         empty_mapping = MagicMock()
         empty_mapping.all.return_value = []
 
-        mock_db.execute.side_effect = [empty_result, empty_mapping]
+        mock_db.execute.side_effect = [
+            empty_limitless,
+            empty_result,
+            empty_mapping,
+        ]
 
         result = await _batch_lookup_cards(["unknown-999"], mock_db)
         assert result == {}
-        # Two DB calls: direct card lookup + JP mapping lookup
-        # (no EN card lookup needed when mappings are empty)
-        assert mock_db.execute.call_count == 2
+        # Three DB calls: limitless_id + card variant + JP mapping
+        assert mock_db.execute.call_count == 3
 
     @pytest.mark.asyncio
     async def test_card_number_variant_finds_padded_card(
@@ -318,6 +325,10 @@ class TestBatchLookupCardsNormalization:
         self, mock_db: AsyncMock
     ) -> None:
         """JP ID variant matches mapping, EN ID variant matches card."""
+        # Step 0: limitless_id lookup misses
+        empty_limitless = MagicMock()
+        empty_limitless.all.return_value = []
+
         # Step 1: direct card lookup misses
         empty_result = MagicMock()
         empty_result.all.return_value = []
@@ -340,6 +351,7 @@ class TestBatchLookupCardsNormalization:
         en_result.all.return_value = [en_card_row]
 
         mock_db.execute.side_effect = [
+            empty_limitless,
             empty_result,
             mapping_result,
             en_result,

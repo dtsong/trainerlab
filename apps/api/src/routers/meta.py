@@ -773,13 +773,35 @@ async def _batch_lookup_cards(
     if not card_ids:
         return {}
     try:
+        card_info: dict[str, tuple[str | None, str | None]] = {}
+
+        # Step 0: Direct limitless_id lookup (fast path)
+        limitless_query = select(
+            Card.limitless_id,
+            Card.name,
+            Card.japanese_name,
+            Card.image_small,
+        ).where(Card.limitless_id.in_(card_ids))
+        limitless_result = await db.execute(limitless_query)
+        for row in limitless_result.all():
+            if row.limitless_id and row.limitless_id not in card_info:
+                card_info[row.limitless_id] = (
+                    row.name or row.japanese_name,
+                    row.image_small,
+                )
+
+        # Short-circuit if all resolved
+        remaining_ids = [cid for cid in card_ids if cid not in card_info]
+        if not remaining_ids:
+            return card_info
+
         # Build variant-to-originals mapping so we can map DB results
         # back to ALL card IDs the caller originally requested.
         # Multiple original IDs can share a variant (e.g. sv3-125 and
         # sv03-125 both generate {sv3-125, sv03-125}).
         variant_to_originals: dict[str, list[str]] = {}
         all_variants: set[str] = set()
-        for cid in card_ids:
+        for cid in remaining_ids:
             for variant in _generate_card_id_variants(cid):
                 variant_to_originals.setdefault(variant, []).append(cid)
                 all_variants.add(variant)
@@ -789,7 +811,6 @@ async def _batch_lookup_cards(
             Card.id.in_(list(all_variants))
         )
         result = await db.execute(query)
-        card_info: dict[str, tuple[str | None, str | None]] = {}
         for row in result.all():
             info = (row.name or row.japanese_name, row.image_small)
             for original_id in variant_to_originals.get(row.id, []):

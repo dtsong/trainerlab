@@ -833,6 +833,7 @@ dispatch_prod() {
                 printf "             sync-cards, sync-card-mappings, reprocess-archetypes\n"
                 printf "             rescrape-jp, translate-pokecabook, translate-tier-lists\n"
                 printf "             sync-jp-adoption, monitor-card-reveals\n"
+                printf "             sync-limitless-cards\n"
                 printf "\n  ${DIM}Default: dry-run. Add --execute for real run.${RESET}\n"
                 exit 1
             fi

@@ -110,6 +110,9 @@ from src.pipelines.sync_jp_adoption_rates import (
 from src.pipelines.sync_jp_adoption_rates import (
     sync_adoption_rates,
 )
+from src.pipelines.sync_limitless_cards import (
+    sync_limitless_cards,
+)
 from src.pipelines.translate_pokecabook import (
     TranslatePokecabookResult as TranslatePokecabookResultInternal,
 )
@@ -169,6 +172,8 @@ from src.schemas.pipeline import (
     SyncEventsResult,
     SyncJPAdoptionRequest,
     SyncJPAdoptionResult,
+    SyncLimitlessCardsRequest,
+    SyncLimitlessCardsResult,
     TranslatePokecabookRequest,
     TranslatePokecabookResult,
     TranslateTierListsRequest,
@@ -530,6 +535,50 @@ async def sync_card_mappings_endpoint(
     )
 
     return _convert_sync_mappings_result(result)
+
+
+@router.post(
+    "/sync-limitless-cards",
+    response_model=SyncLimitlessCardsResult,
+)
+async def sync_limitless_cards_endpoint(
+    request: SyncLimitlessCardsRequest,
+) -> SyncLimitlessCardsResult:
+    """Sync Limitless EN card IDs to the Card table.
+
+    Maps Limitless-format card IDs (e.g., "OBF-125") to TCGdex Card
+    records so downstream lookups can use direct limitless_id matching
+    instead of variant generation.
+    """
+    logger.info(
+        "Starting Limitless card sync: sets=%s, dry_run=%s",
+        request.sets,
+        request.dry_run,
+    )
+
+    result = await sync_limitless_cards(
+        dry_run=request.dry_run,
+        sets=request.sets,
+    )
+
+    logger.info(
+        "Limitless card sync complete: sets=%d, found=%d, "
+        "mapped=%d, unmatched=%d, errors=%d",
+        result.sets_processed,
+        result.cards_found,
+        result.cards_mapped,
+        result.cards_unmatched,
+        len(result.errors),
+    )
+
+    return SyncLimitlessCardsResult(
+        sets_processed=result.sets_processed,
+        cards_found=result.cards_found,
+        cards_mapped=result.cards_mapped,
+        cards_unmatched=result.cards_unmatched,
+        errors=result.errors,
+        success=result.success,
+    )
 
 
 def _convert_evolution_result(

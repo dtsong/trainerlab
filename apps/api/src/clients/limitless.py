@@ -68,6 +68,19 @@ class LimitlessPlacement:
 
 
 @dataclass
+class LimitlessENCard:
+    """An English card from the Limitless card database."""
+
+    set_code: str  # Limitless set code (e.g., "OBF", "SCR")
+    card_number: str  # Card number within set (e.g., "125")
+
+    @property
+    def limitless_id(self) -> str:
+        """Construct the Limitless-format card ID."""
+        return f"{self.set_code}-{self.card_number}"
+
+
+@dataclass
 class LimitlessJPCard:
     """A Japanese card from Limitless."""
 
@@ -2006,6 +2019,72 @@ class LimitlessClient:
                     )
                 )
 
+        return cards
+
+    # =========================================================================
+    # English Card Database (limitlesstcg.com/cards/en)
+    # =========================================================================
+
+    async def fetch_en_sets(self) -> list[str]:
+        """Fetch list of available English set codes from Limitless.
+
+        Returns:
+            List of EN set codes (e.g., ["OBF", "SCR", "TWM"]).
+        """
+        endpoint = "/cards/en"
+        html = await self._get_official(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        set_codes: list[str] = []
+        for link in soup.select("a[href*='/cards/en/']"):
+            href = str(link.get("href", ""))
+            match = re.search(r"/cards/en/([A-Za-z0-9]+)/?$", href)
+            if match:
+                set_code = match.group(1).upper()
+                if set_code not in set_codes:
+                    set_codes.append(set_code)
+
+        logger.info("Found %d EN sets", len(set_codes))
+        return set_codes
+
+    async def fetch_en_set_cards(self, set_code: str) -> list[LimitlessENCard]:
+        """Fetch all card numbers from a specific English set.
+
+        Args:
+            set_code: EN set code (e.g., "OBF", "SCR").
+
+        Returns:
+            List of EN cards with set code and card number.
+        """
+        endpoint = f"/cards/en/{set_code}"
+        html = await self._get_official(endpoint)
+        soup = BeautifulSoup(html, "lxml")
+
+        cards: list[LimitlessENCard] = []
+        seen: set[str] = set()
+
+        for link in soup.select("a[href*='/cards/en/']"):
+            href = str(link.get("href", ""))
+            match = re.search(r"/cards/en/([A-Za-z0-9]+)/(\d+)", href)
+            if not match:
+                continue
+
+            card_set = match.group(1).upper()
+            card_number = match.group(2)
+            card_key = f"{card_set}-{card_number}"
+
+            if card_key in seen:
+                continue
+            seen.add(card_key)
+
+            cards.append(
+                LimitlessENCard(
+                    set_code=card_set,
+                    card_number=card_number,
+                )
+            )
+
+        logger.info("Found %d EN cards in set %s", len(cards), set_code)
         return cards
 
     # =========================================================================

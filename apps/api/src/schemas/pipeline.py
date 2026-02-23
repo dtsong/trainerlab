@@ -582,6 +582,26 @@ class ScrapePlayersClubResult(BaseModel):
     success: bool = Field(description="Whether pipeline completed without errors")
 
 
+class SyncLimitlessCardsRequest(PipelineRequest):
+    """Request for Limitless EN card sync pipeline."""
+
+    sets: list[str] | None = Field(
+        default=None,
+        description="Specific set codes to sync (e.g., ['OBF', 'SCR']). None = all.",
+    )
+
+
+class SyncLimitlessCardsResult(BaseModel):
+    """Result from Limitless EN card sync pipeline."""
+
+    sets_processed: int = Field(ge=0, description="EN sets processed")
+    cards_found: int = Field(ge=0, description="Total cards found on Limitless")
+    cards_mapped: int = Field(ge=0, description="Cards matched to TCGdex records")
+    cards_unmatched: int = Field(ge=0, description="Cards with no TCGdex match")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
 class DiscoverPokecabookRequest(PipelineRequest):
     """Request for Pokecabook discovery pipeline."""
 

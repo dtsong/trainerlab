@@ -114,6 +114,10 @@ class TestBatchLookupCards:
 
         db = AsyncMock()
 
+        # Step 0: limitless_id lookup returns empty
+        mock_limitless = MagicMock()
+        mock_limitless.all.return_value = []
+
         # Step 1: Direct lookup returns empty
         mock_direct = MagicMock()
         mock_direct.all.return_value = []
@@ -135,7 +139,12 @@ class TestBatchLookupCards:
         mock_en = MagicMock()
         mock_en.all.return_value = [en_row]
 
-        db.execute.side_effect = [mock_direct, mock_mapping, mock_en]
+        db.execute.side_effect = [
+            mock_limitless,
+            mock_direct,
+            mock_mapping,
+            mock_en,
+        ]
 
         result = await _batch_lookup_cards(["sv09-97"], db)
 
@@ -153,6 +162,10 @@ class TestBatchLookupCards:
 
         db = AsyncMock()
 
+        # Step 0: limitless_id lookup returns empty
+        mock_limitless = MagicMock()
+        mock_limitless.all.return_value = []
+
         # Step 1: Direct lookup returns empty
         mock_direct = MagicMock()
         mock_direct.all.return_value = []
@@ -169,7 +182,12 @@ class TestBatchLookupCards:
         mock_en = MagicMock()
         mock_en.all.return_value = []
 
-        db.execute.side_effect = [mock_direct, mock_mapping, mock_en]
+        db.execute.side_effect = [
+            mock_limitless,
+            mock_direct,
+            mock_mapping,
+            mock_en,
+        ]
 
         result = await _batch_lookup_cards(["sv09-50"], db)
 
@@ -198,8 +216,8 @@ class TestBatchLookupCards:
             "Pikachu",
             "https://img.example.com/sv4-6.png",
         )
-        # Only one query (direct lookup), no mapping fallback
-        assert db.execute.call_count == 1
+        # Two queries: limitless_id lookup + variant lookup (no mapping fallback)
+        assert db.execute.call_count == 2
 
     @pytest.mark.asyncio
     async def test_mixed_direct_and_mapped_cards(self) -> None:
@@ -207,6 +225,10 @@ class TestBatchLookupCards:
         from src.routers.meta import _batch_lookup_cards
 
         db = AsyncMock()
+
+        # Step 0: limitless_id lookup returns empty
+        mock_limitless = MagicMock()
+        mock_limitless.all.return_value = []
 
         # Step 1: Direct lookup finds sv4-6 but not sv09-97
         en_row = MagicMock()
@@ -234,7 +256,12 @@ class TestBatchLookupCards:
         mock_en = MagicMock()
         mock_en.all.return_value = [mapped_row]
 
-        db.execute.side_effect = [mock_direct, mock_mapping, mock_en]
+        db.execute.side_effect = [
+            mock_limitless,
+            mock_direct,
+            mock_mapping,
+            mock_en,
+        ]
 
         result = await _batch_lookup_cards(["sv4-6", "sv09-97"], db)
 

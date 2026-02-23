@@ -59,6 +59,11 @@ class Card(Base, TimestampMixin):
     rarity: Mapped[str | None] = mapped_column(String(100), nullable=True)
     number: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
+    # Limitless card ID (e.g., "OBF-125" vs TCGdex "sv03-125")
+    limitless_id: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, unique=True, index=True
+    )
+
     # Images
     image_small: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_large: Mapped[str | None] = mapped_column(Text, nullable=True)

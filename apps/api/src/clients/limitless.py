@@ -292,6 +292,7 @@ LIMITLESS_SET_MAPPING: dict[str, str] = {
     "HSP": "hgssp",
     # Diamond & Pearl / Platinum era
     "AR": "pl4",
+    "SV": "pl3",
     "RR": "pl2",
     "PL": "pl1",
     "SF": "dp7",
@@ -320,7 +321,7 @@ LIMITLESS_SET_MAPPING: dict[str, str] = {
     "DR": "ex3",
     "SS": "ex2",
     "RS": "ex1",
-    "NP": "np",
+    "NP": "np",  # handled by PROMO_FORMAT for sync pipeline
     # POP Series
     "P1": "pop1",
     "P2": "pop2",

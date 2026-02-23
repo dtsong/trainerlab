@@ -35,12 +35,43 @@ class SyncLimitlessCardsResult:
         return len(self.errors) == 0
 
 
+# Promo sets where TCGdex uses a prefix in the local_id.
+# Key: Limitless set code, Value: (tcgdex_set, local_id_prefix, zero_pad_width)
+PROMO_FORMAT: dict[str, tuple[str, str, int]] = {
+    "SP": ("swshp", "SWSH", 3),
+    "SMP": ("smp", "SM", 2),
+    "XYP": ("xyp", "XY", 2),
+    "BWP": ("bwp", "BW", 2),
+    "HSP": ("hgssp", "HGSS", 2),
+    "DPP": ("dpp", "DP", 2),
+    "WP": ("basep", "", 0),
+    "NP": ("np", "", 0),
+}
+
+
 def _build_tcgdex_candidates(card: LimitlessENCard) -> list[str]:
     """Build candidate TCGdex IDs for a Limitless EN card.
 
     Maps the Limitless set code to TCGdex set ID, then generates
     padded/unpadded variants of the full card ID.
     """
+    promo = PROMO_FORMAT.get(card.set_code)
+    if promo:
+        tcgdex_set, prefix, pad = promo
+        num = card.card_number
+        candidates = []
+        if prefix and pad:
+            # e.g. smp-SM01, swshp-SWSH001
+            padded = f"{prefix}{num.zfill(pad)}"
+            candidates.append(f"{tcgdex_set}-{padded}")
+            # Also try without padding in case TCGdex varies
+            if num.zfill(pad) != num:
+                candidates.append(f"{tcgdex_set}-{prefix}{num}")
+        # Also try plain number variants (svp uses plain numbers)
+        base_id = f"{tcgdex_set}-{num}"
+        candidates.extend(_generate_card_id_variants(base_id))
+        return list(dict.fromkeys(candidates))  # dedupe, preserve order
+
     tcgdex_set = map_set_code(card.set_code)
     base_id = f"{tcgdex_set}-{card.card_number}"
     return _generate_card_id_variants(base_id)

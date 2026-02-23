@@ -7,6 +7,7 @@ import pytest
 from src.clients.limitless import LimitlessENCard, LimitlessError
 from src.pipelines.sync_limitless_cards import (
     SyncLimitlessCardsResult,
+    _build_tcgdex_candidates,
     sync_limitless_cards,
 )
 
@@ -57,6 +58,70 @@ def _make_mock_session(matched_card_id: str | None = None) -> AsyncMock:
         mock_session.execute.return_value = empty_result
 
     return mock_session
+
+
+class TestBuildTcgdexCandidates:
+    """Tests for _build_tcgdex_candidates with promo sets."""
+
+    def test_swsh_promo_generates_prefixed_id(self) -> None:
+        """SP-1 should generate swshp-SWSH001."""
+        card = LimitlessENCard(set_code="SP", card_number="1")
+        candidates = _build_tcgdex_candidates(card)
+        assert "swshp-SWSH001" in candidates
+
+    def test_sm_promo_generates_prefixed_id(self) -> None:
+        """SMP-1 should generate smp-SM01."""
+        card = LimitlessENCard(set_code="SMP", card_number="1")
+        candidates = _build_tcgdex_candidates(card)
+        assert "smp-SM01" in candidates
+
+    def test_xy_promo_generates_prefixed_id(self) -> None:
+        """XYP-50 should generate xyp-XY50."""
+        card = LimitlessENCard(set_code="XYP", card_number="50")
+        candidates = _build_tcgdex_candidates(card)
+        assert "xyp-XY50" in candidates
+
+    def test_bw_promo_generates_prefixed_id(self) -> None:
+        """BWP-1 should generate bwp-BW01."""
+        card = LimitlessENCard(set_code="BWP", card_number="1")
+        candidates = _build_tcgdex_candidates(card)
+        assert "bwp-BW01" in candidates
+
+    def test_hgss_promo_generates_prefixed_id(self) -> None:
+        """HSP-1 should generate hgssp-HGSS01."""
+        card = LimitlessENCard(set_code="HSP", card_number="1")
+        candidates = _build_tcgdex_candidates(card)
+        assert "hgssp-HGSS01" in candidates
+
+    def test_dp_promo_generates_prefixed_id(self) -> None:
+        """DPP-1 should generate dpp-DP01."""
+        card = LimitlessENCard(set_code="DPP", card_number="1")
+        candidates = _build_tcgdex_candidates(card)
+        assert "dpp-DP01" in candidates
+
+    def test_wizards_promo_generates_plain_number(self) -> None:
+        """WP-1 should generate basep-1 variants."""
+        card = LimitlessENCard(set_code="WP", card_number="1")
+        candidates = _build_tcgdex_candidates(card)
+        assert "basep-1" in candidates
+
+    def test_regular_set_unchanged(self) -> None:
+        """OBF-125 should generate sv03-125 (regular variant logic)."""
+        card = LimitlessENCard(set_code="OBF", card_number="125")
+        candidates = _build_tcgdex_candidates(card)
+        assert "sv03-125" in candidates
+
+    def test_swsh_promo_three_digit(self) -> None:
+        """SP-100 should generate swshp-SWSH100."""
+        card = LimitlessENCard(set_code="SP", card_number="100")
+        candidates = _build_tcgdex_candidates(card)
+        assert "swshp-SWSH100" in candidates
+
+    def test_sv_promo_uses_variant_generation(self) -> None:
+        """SVP-1 (not in PROMO_FORMAT) uses standard variant logic."""
+        card = LimitlessENCard(set_code="SVP", card_number="1")
+        candidates = _build_tcgdex_candidates(card)
+        assert "svp-001" in candidates
 
 
 class TestSyncLimitlessCardsResult:

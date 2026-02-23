@@ -34,10 +34,9 @@ class TestGenerateCardIdVariants:
             assert f"sv{n:02d}-1" in variants
 
     def test_two_digit_set_no_spurious_variants(self) -> None:
-        """sv10-1 should not generate sv010-1 (already 2 digits)."""
+        """sv10-1 produces no additional variants (padded == unpadded)."""
         variants = _generate_card_id_variants("sv10-1")
         assert "sv10-1" in variants
-        # 02d of 10 is still "10", so only one unique variant
         assert len(variants) == 1
 
     def test_pt_suffix_set(self) -> None:
@@ -70,8 +69,6 @@ class TestGenerateCardIdVariants:
     def test_sve_energy_set(self) -> None:
         """sve-1 (no digits in set) should return original."""
         variants = _generate_card_id_variants("sve-1")
-        # "sve" has no trailing digit group, so pattern won't match
-        # Actually: prefix="sv", num="0" from "e"? No, "e" is not a digit.
         # The regex requires digits after prefix letters, so "sve-1" won't match.
         assert "sve-1" in variants
 
@@ -79,6 +76,20 @@ class TestGenerateCardIdVariants:
         """mep-1 should return original (no digit in set code)."""
         variants = _generate_card_id_variants("mep-1")
         assert "mep-1" in variants
+
+    def test_empty_string_returns_empty_list(self) -> None:
+        """Empty string input should return empty list."""
+        assert _generate_card_id_variants("") == []
+
+    def test_dot_notation_set_returns_original(self) -> None:
+        """sv08.5-10 (Prismatic Evolutions) should not generate variants."""
+        variants = _generate_card_id_variants("sv08.5-10")
+        assert variants == ["sv08.5-10"]
+
+    def test_dot_notation_with_letter_suffix(self) -> None:
+        """sv10.5b-1 (Black Bolt) should return original only."""
+        variants = _generate_card_id_variants("sv10.5b-1")
+        assert variants == ["sv10.5b-1"]
 
 
 class TestBatchLookupCardsNormalization:
@@ -129,6 +140,26 @@ class TestBatchLookupCardsNormalization:
         assert result["sv03-125"][0] == "Charizard ex"
 
     @pytest.mark.asyncio
+    async def test_padded_to_unpadded_reverse_direction(
+        self, mock_db: AsyncMock
+    ) -> None:
+        """SSP cards: Limitless emits sv08, TCGdex may store as sv8."""
+        card_row = MagicMock()
+        card_row.id = "sv8-200"
+        card_row.name = "Pikachu ex"
+        card_row.japanese_name = None
+        card_row.image_small = "https://assets.tcgdex.net/sv8-200"
+
+        mock_result = MagicMock()
+        mock_result.all.return_value = [card_row]
+        mock_db.execute.return_value = mock_result
+
+        result = await _batch_lookup_cards(["sv08-200"], mock_db)
+
+        assert "sv08-200" in result
+        assert result["sv08-200"][0] == "Pikachu ex"
+
+    @pytest.mark.asyncio
     async def test_multiple_mismatched_ids(self, mock_db: AsyncMock) -> None:
         """Multiple unpadded IDs should all resolve to padded DB entries."""
         rows = []
@@ -158,6 +189,26 @@ class TestBatchLookupCardsNormalization:
         assert result["sv5-10"][0] == "Temporal Forces Card"
 
     @pytest.mark.asyncio
+    async def test_overlapping_variants_both_resolve(self, mock_db: AsyncMock) -> None:
+        """Both sv3-125 and sv03-125 in same batch should both resolve."""
+        card_row = MagicMock()
+        card_row.id = "sv03-125"
+        card_row.name = "Charizard ex"
+        card_row.japanese_name = None
+        card_row.image_small = "https://assets.tcgdex.net/sv03-125"
+
+        mock_result = MagicMock()
+        mock_result.all.return_value = [card_row]
+        mock_db.execute.return_value = mock_result
+
+        result = await _batch_lookup_cards(["sv3-125", "sv03-125"], mock_db)
+
+        assert "sv3-125" in result
+        assert "sv03-125" in result
+        assert result["sv3-125"][0] == "Charizard ex"
+        assert result["sv03-125"][0] == "Charizard ex"
+
+    @pytest.mark.asyncio
     async def test_empty_card_ids(self, mock_db: AsyncMock) -> None:
         """Empty input should return empty dict without DB query."""
         result = await _batch_lookup_cards([], mock_db)
@@ -179,5 +230,6 @@ class TestBatchLookupCardsNormalization:
 
         result = await _batch_lookup_cards(["unknown-999"], mock_db)
         assert result == {}
-        # Two DB calls: card lookup + mapping lookup
+        # Two DB calls: direct card lookup + JP mapping lookup
+        # (no EN card lookup needed when mappings are empty)
         assert mock_db.execute.call_count == 2

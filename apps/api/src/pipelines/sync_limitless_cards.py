@@ -28,6 +28,7 @@ class SyncLimitlessCardsResult:
     cards_mapped: int = 0
     cards_unmatched: int = 0
     errors: list[str] = field(default_factory=list)
+    unmatched_by_set: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def success(self) -> bool:
@@ -49,18 +50,20 @@ async def _sync_set(
     session: AsyncSession,
     client: LimitlessClient,
     set_code: str,
-) -> tuple[int, int, int]:
+) -> tuple[int, int, int, list[str]]:
     """Sync Limitless IDs for a single EN set.
 
     Returns:
-        Tuple of (cards_found, cards_mapped, cards_unmatched).
+        Tuple of (cards_found, cards_mapped, cards_unmatched,
+        unmatched_ids).
     """
     cards = await client.fetch_en_set_cards(set_code)
     if not cards:
-        return 0, 0, 0
+        return 0, 0, 0, []
 
     mapped = 0
     unmatched = 0
+    unmatched_ids: list[str] = []
 
     for card in cards:
         limitless_id = card.limitless_id
@@ -68,6 +71,7 @@ async def _sync_set(
 
         if not candidates:
             unmatched += 1
+            unmatched_ids.append(limitless_id)
             continue
 
         # Find matching Card record
@@ -81,6 +85,7 @@ async def _sync_set(
             mapped += 1
         else:
             unmatched += 1
+            unmatched_ids.append(limitless_id)
             logger.debug(
                 "No TCGdex match for %s (tried %s)",
                 limitless_id,
@@ -88,7 +93,7 @@ async def _sync_set(
             )
 
     await session.flush()
-    return len(cards), mapped, unmatched
+    return len(cards), mapped, unmatched, unmatched_ids
 
 
 async def sync_limitless_cards(
@@ -126,13 +131,15 @@ async def sync_limitless_cards(
         async with async_session_factory() as session:
             for set_code in set_codes:
                 try:
-                    found, mapped, unmatched = await _sync_set(
+                    found, mapped, unmatched, unmatched_ids = await _sync_set(
                         session, client, set_code
                     )
                     result.sets_processed += 1
                     result.cards_found += found
                     result.cards_mapped += mapped
                     result.cards_unmatched += unmatched
+                    if unmatched_ids:
+                        result.unmatched_by_set[set_code] = unmatched_ids
 
                     logger.info(
                         "Set %s: found=%d, mapped=%d, unmatched=%d",

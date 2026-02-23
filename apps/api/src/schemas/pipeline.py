@@ -599,6 +599,10 @@ class SyncLimitlessCardsResult(BaseModel):
     cards_mapped: int = Field(ge=0, description="Cards matched to TCGdex records")
     cards_unmatched: int = Field(ge=0, description="Cards with no TCGdex match")
     errors: list[str] = Field(default_factory=list, description="Error messages")
+    unmatched_by_set: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Unmatched Limitless card IDs grouped by set code",
+    )
     success: bool = Field(description="Whether pipeline completed without errors")
 
 

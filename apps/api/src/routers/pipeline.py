@@ -577,6 +577,7 @@ async def sync_limitless_cards_endpoint(
         cards_mapped=result.cards_mapped,
         cards_unmatched=result.cards_unmatched,
         errors=result.errors,
+        unmatched_by_set=result.unmatched_by_set,
         success=result.success,
     )
 

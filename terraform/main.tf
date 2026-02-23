@@ -218,6 +218,18 @@ resource "google_secret_manager_secret" "anthropic_api_key" {
   depends_on = [google_project_service.apis]
 }
 
+# Kernel API key (cloud browser for JS-heavy JP sites)
+resource "google_secret_manager_secret" "kernel_api_key" {
+  project   = var.project_id
+  secret_id = "trainerlab-kernel-api-key"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 # Readiness alert token (used by API ops/alerts endpoints)
 resource "google_secret_manager_secret" "readiness_alert_token" {
   project   = var.project_id
@@ -320,6 +332,10 @@ module "api" {
       }
       ANTHROPIC_API_KEY = {
         secret_id = google_secret_manager_secret.anthropic_api_key.secret_id
+        version   = "latest"
+      }
+      KERNEL_API_KEY = {
+        secret_id = google_secret_manager_secret.kernel_api_key.secret_id
         version   = "latest"
       }
     },

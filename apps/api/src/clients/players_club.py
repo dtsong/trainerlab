@@ -1,17 +1,20 @@
-"""Async HTTP client for Official Pokemon Players Club.
+"""Async client for Official Pokemon Players Club.
 
 Scrapes tournament data from the official Players Club site
 at players.pokemon-card.com. The site is a JavaScript SPA;
-this client targets the underlying API endpoints.
+this client uses Kernel cloud browser to render pages and
+BeautifulSoup to parse the resulting HTML.
 """
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Self
 
 import httpx
+from bs4 import BeautifulSoup, Tag
 
 from src.clients.kernel_browser import KernelBrowser, KernelBrowserError
 from src.clients.retry_policy import (
@@ -36,11 +39,13 @@ class PlayersClubRateLimitError(PlayersClubError):
 
 @dataclass
 class PlayersClubTournament:
-    """A tournament from the Players Club."""
+    """A tournament from the Players Club event list."""
 
     tournament_id: str
     name: str
     date: date
+    event_type: str | None = None
+    league: str | None = None
     prefecture: str | None = None
     participant_count: int | None = None
     source_url: str | None = None
@@ -52,6 +57,8 @@ class PlayersClubPlacement:
 
     placement: int
     player_name: str | None = None
+    player_id: str | None = None
+    prefecture: str | None = None
     archetype_name: str | None = None
     deck_code: str | None = None
 
@@ -66,12 +73,22 @@ class PlayersClubTournamentDetail:
     )
 
 
+# Regex to extract 10-digit player ID from profile text
+_PLAYER_ID_RE = re.compile(r"プレイヤーID[：:]?\s*(\d{10})")
+
+# Regex to extract deck code from deck URL
+_DECK_CODE_RE = re.compile(r"deckID/([A-Za-z0-9-]+)")
+
+# Regex to extract event ID from result URL
+_EVENT_ID_RE = re.compile(r"/event/detail/(\d+)/result")
+
+
 class PlayersClubClient:
-    """Async HTTP client for Official Pokemon Players Club.
+    """Async client for Official Pokemon Players Club.
 
     Conservative rate limiting (5 req/min) since this is an
-    official Pokemon site. Targets the underlying JSON API
-    endpoints.
+    official Pokemon site. Uses Kernel cloud browser to render
+    JS SPA pages and BeautifulSoup for HTML parsing.
     """
 
     BASE_URL = "https://players.pokemon-card.com"
@@ -120,7 +137,7 @@ class PlayersClubClient:
 
             if len(self._request_times) >= self._requests_per_minute:
                 oldest = self._request_times[0]
-                wait_time = 60 - (now - oldest) + 0.1  # buffer to avoid edge-case
+                wait_time = 60 - (now - oldest) + 0.1
                 if wait_time > 0:
                     logger.info(
                         "Players Club rate limiting: waiting %.1fs",
@@ -128,14 +145,10 @@ class PlayersClubClient:
                     )
                     await asyncio.sleep(wait_time)
 
-            # Record post-wait time so the window reflects actual request spacing
             self._request_times.append(asyncio.get_running_loop().time())
 
     async def _get(self, endpoint: str) -> httpx.Response:
-        """Make a GET request with retry and rate limiting.
-
-        Returns the full response (caller decides JSON vs HTML).
-        """
+        """Make a GET request with retry and rate limiting."""
         async with self._semaphore:
             last_error: Exception | None = None
 
@@ -248,89 +261,194 @@ class PlayersClubClient:
         except KernelBrowserError as e:
             raise PlayersClubError(f"Rendered fetch failed for {endpoint}: {e}") from e
 
-    async def fetch_recent_tournaments(
-        self, days: int = 30
+    async def fetch_event_list(
+        self,
+        days: int = 30,
+        max_pages: int = 5,
+        event_types: list[str] | None = None,
     ) -> list[PlayersClubTournament]:
-        """Fetch recent tournament listings.
+        """Fetch recent events from the rendered event result list.
 
         Args:
-            days: Only include tournaments from last N days.
+            days: Only include events from last N days.
+            max_pages: Maximum pagination pages to follow.
+            event_types: Filter by event type (e.g. ["CL", "シティリーグ"]).
 
         Returns:
             List of tournament metadata.
-
-        Note:
-            API endpoints are not yet confirmed. This method
-            will be updated once the SPA's underlying API is
-            reverse-engineered.
         """
-        # TODO: Replace with actual API endpoint once
-        # discovered. The SPA at players.pokemon-card.com
-        # likely calls JSON endpoints for tournament data.
-        endpoint = "/api/tournament/list"
-
-        try:
-            response = await self._get(endpoint)
-        except PlayersClubError as e:
-            if "Not found" in str(e):
-                logger.warning(
-                    "Tournament list endpoint not available (404). "
-                    "API discovery pending."
-                )
-                return []
-            raise
-
-        try:
-            data = response.json()
-        except Exception as e:
-            raise PlayersClubError(f"Failed to parse tournament list JSON: {e}") from e
-
         tournaments: list[PlayersClubTournament] = []
-        items = (
-            data
-            if isinstance(data, list)
-            else data.get("tournaments", data.get("items", []))
-        )
-
         cutoff = date.today() - timedelta(days=days)
+        seen_ids: set[str] = set()
 
+        for page in range(1, max_pages + 1):
+            endpoint = "/event/result/list"
+            if page > 1:
+                endpoint = f"/event/result/list?page={page}"
+
+            try:
+                html = await self._get_rendered(
+                    endpoint, wait_selector=".event-list-item"
+                )
+            except PlayersClubError:
+                if page == 1:
+                    raise
+                logger.info("No more pages after page %d", page - 1)
+                break
+
+            page_tournaments = self._parse_event_list_html(html)
+
+            if not page_tournaments:
+                break
+
+            hit_cutoff = False
+            for t in page_tournaments:
+                if t.tournament_id in seen_ids:
+                    continue
+                seen_ids.add(t.tournament_id)
+
+                if t.date < cutoff:
+                    hit_cutoff = True
+                    continue
+
+                if event_types and not self._matches_event_type(t, event_types):
+                    continue
+
+                tournaments.append(t)
+
+            if hit_cutoff:
+                break
+
+        return tournaments
+
+    def _matches_event_type(
+        self,
+        tournament: PlayersClubTournament,
+        event_types: list[str],
+    ) -> bool:
+        """Check if tournament matches any of the given event types."""
+        if not tournament.event_type:
+            return False
+        t_lower = tournament.event_type.lower()
+        return any(et.lower() in t_lower for et in event_types)
+
+    def _parse_event_list_html(self, html: str) -> list[PlayersClubTournament]:
+        """Parse the event result list HTML into tournament objects."""
+        soup = BeautifulSoup(html, "html.parser")
+        tournaments: list[PlayersClubTournament] = []
+
+        items = soup.select(".event-list-item")
         for item in items:
-            tournament = self._parse_tournament(item)
-            if tournament and tournament.date >= cutoff:
+            tournament = self._parse_event_list_item(item)
+            if tournament:
                 tournaments.append(tournament)
 
         return tournaments
 
-    def _parse_tournament(self, data: dict[str, Any]) -> PlayersClubTournament | None:
-        """Parse a tournament from API response data."""
+    def _parse_event_list_item(self, item: Tag) -> PlayersClubTournament | None:
+        """Parse a single event list item element."""
         try:
-            # Try multiple key names since API schema is not yet confirmed
-            tid = str(data.get("id") or data.get("tournament_id", ""))
-            name = str(data.get("name") or data.get("title", ""))
-            date_str = str(data.get("date") or data.get("event_date", ""))
-
-            if not tid or not name or not date_str:
+            # Extract event ID from result link
+            link = item.select_one("a[href*='/event/detail/']")
+            if not link:
                 return None
 
-            tournament_date = self._parse_date(date_str)
-            if not tournament_date:
+            href_raw = link.get("href", "")
+            href = href_raw[0] if isinstance(href_raw, list) else str(href_raw)
+
+            match = _EVENT_ID_RE.search(href)
+            if not match:
                 return None
+            event_id = match.group(1)
+
+            # Extract event name
+            name_el = item.select_one(".event-list-item__name, .event-title, h3, h4")
+            name = name_el.get_text(strip=True) if name_el else ""
+            if not name:
+                name = link.get_text(strip=True)
+
+            # Extract date
+            date_el = item.select_one(".event-list-item__date, .event-date, time")
+            event_date: date | None = None
+            if date_el:
+                date_text = date_el.get_text(strip=True)
+                event_date = self._parse_date(date_text)
+                if not event_date:
+                    dt_raw = date_el.get("datetime", "")
+                    datetime_attr = (
+                        dt_raw[0] if isinstance(dt_raw, list) else str(dt_raw)
+                    )
+                    if datetime_attr:
+                        event_date = self._parse_date(datetime_attr)
+            if not event_date:
+                # Try to find date in item text
+                text = item.get_text()
+                date_match = re.search(r"(\d{4})[/年](\d{1,2})[/月](\d{1,2})", text)
+                if date_match:
+                    event_date = date(
+                        int(date_match.group(1)),
+                        int(date_match.group(2)),
+                        int(date_match.group(3)),
+                    )
+            if not event_date:
+                return None
+
+            # Extract event type and league from text/classes
+            event_type = self._extract_event_type(item)
+            league = self._extract_league(item)
+            prefecture = self._extract_prefecture(item)
 
             return PlayersClubTournament(
-                tournament_id=tid,
+                tournament_id=event_id,
                 name=name,
-                date=tournament_date,
-                prefecture=data.get("prefecture"),
-                participant_count=data.get("participant_count"),
-                source_url=(f"{self.BASE_URL}/event/{tid}"),
+                date=event_date,
+                event_type=event_type,
+                league=league,
+                prefecture=prefecture,
+                source_url=(f"{self.BASE_URL}/event/detail/{event_id}/result"),
             )
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, AttributeError):
             logger.warning(
-                "Failed to parse tournament data: %s",
-                data,
+                "Failed to parse event list item",
                 exc_info=True,
             )
             return None
+
+    def _extract_event_type(self, item: Tag) -> str | None:
+        """Extract event type (CL, Gym Battle, etc.) from item."""
+        text = item.get_text()
+        if "シティリーグ" in text or "CL" in text:
+            return "シティリーグ"
+        if "ジムバトル" in text:
+            return "ジムバトル"
+        if "トレーナーズリーグ" in text:
+            return "トレーナーズリーグ"
+        type_el = item.select_one(".event-list-item__type, .event-type")
+        if type_el:
+            return type_el.get_text(strip=True)
+        return None
+
+    def _extract_league(self, item: Tag) -> str | None:
+        """Extract league division from item."""
+        text = item.get_text()
+        if "マスター" in text or "Master" in text:
+            return "Master"
+        if "シニア" in text or "Senior" in text:
+            return "Senior"
+        if "ジュニア" in text or "Junior" in text:
+            return "Junior"
+        if "オープン" in text or "Open" in text:
+            return "Open"
+        return None
+
+    def _extract_prefecture(self, item: Tag) -> str | None:
+        """Extract prefecture from item."""
+        pref_el = item.select_one(
+            ".event-list-item__prefecture, .event-area, .prefecture"
+        )
+        if pref_el:
+            return pref_el.get_text(strip=True)
+        return None
 
     def _parse_date(self, date_str: str) -> date | None:
         """Parse date from various formats."""
@@ -345,81 +463,164 @@ class PlayersClubClient:
             except ValueError:
                 continue
 
-        # Try ISO format
         try:
             return datetime.fromisoformat(date_str.replace("Z", "+00:00")).date()
         except ValueError:
             return None
 
-    async def fetch_tournament_detail(
-        self, tournament_id: str
-    ) -> PlayersClubTournamentDetail:
-        """Fetch detailed tournament results.
+    async def fetch_event_detail(self, event_id: str) -> PlayersClubTournamentDetail:
+        """Fetch detailed event results from rendered page.
 
         Args:
-            tournament_id: The tournament identifier.
+            event_id: The event identifier from the event list.
 
         Returns:
             Tournament detail with placements.
-
-        Note:
-            API endpoints are not yet confirmed.
         """
-        endpoint = f"/api/tournament/{tournament_id}"
+        endpoint = f"/event/detail/{event_id}/result"
 
-        response = await self._get(endpoint)
-        try:
-            data = response.json()
-        except Exception as e:
-            raise PlayersClubError(
-                f"Failed to parse tournament detail JSON for {tournament_id}: {e}"
-            ) from e
+        html = await self._get_rendered(endpoint, wait_selector=".c-rankTable")
 
-        tournament_data = data.get("tournament", data)
-        tournament = self._parse_tournament(
-            tournament_data,
+        return self._parse_event_detail_html(html, event_id)
+
+    def _parse_event_detail_html(
+        self, html: str, event_id: str
+    ) -> PlayersClubTournamentDetail:
+        """Parse event detail page HTML."""
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Extract tournament metadata from page header
+        name = ""
+        name_el = soup.select_one(".event-detail__name, .event-title, h1, h2")
+        if name_el:
+            name = name_el.get_text(strip=True)
+
+        event_date: date | None = None
+        date_el = soup.select_one(".event-detail__date, .event-date, time")
+        if date_el:
+            date_text = date_el.get_text(strip=True)
+            event_date = self._parse_date(date_text)
+            if not event_date:
+                dt_raw = date_el.get("datetime", "")
+                datetime_attr = dt_raw[0] if isinstance(dt_raw, list) else str(dt_raw)
+                if datetime_attr:
+                    event_date = self._parse_date(datetime_attr)
+
+        if not event_date:
+            text = soup.get_text()
+            date_match = re.search(r"(\d{4})[/年](\d{1,2})[/月](\d{1,2})", text)
+            if date_match:
+                event_date = date(
+                    int(date_match.group(1)),
+                    int(date_match.group(2)),
+                    int(date_match.group(3)),
+                )
+
+        if not event_date:
+            event_date = date.today()
+
+        tournament = PlayersClubTournament(
+            tournament_id=event_id,
+            name=name or f"Event {event_id}",
+            date=event_date,
+            source_url=(f"{self.BASE_URL}/event/detail/{event_id}/result"),
         )
-        if not tournament:
-            raise PlayersClubError(
-                f"Could not parse tournament metadata for {tournament_id}"
-            )
 
-        placements: list[PlayersClubPlacement] = []
-        results = data.get(
-            "results",
-            data.get("placements", []),
-        )
+        # Parse rank table
+        placements = self._parse_rank_table(soup)
 
-        for item in results:
-            placement = self._parse_placement(item)
-            if placement:
-                placements.append(placement)
+        tournament.participant_count = len(placements) or None
 
         return PlayersClubTournamentDetail(
             tournament=tournament,
             placements=placements,
         )
 
-    def _parse_placement(self, data: dict[str, Any]) -> PlayersClubPlacement | None:
-        """Parse placement from API response data."""
+    def _parse_rank_table(self, soup: BeautifulSoup) -> list[PlayersClubPlacement]:
+        """Parse the c-rankTable for placement data."""
+        placements: list[PlayersClubPlacement] = []
+
+        table = soup.select_one(".c-rankTable")
+        if not table:
+            return placements
+
+        rows = table.select("tr")
+        for row in rows:
+            cells = row.select("td")
+            if not cells:
+                continue
+
+            placement = self._parse_rank_row(cells)
+            if placement:
+                placements.append(placement)
+
+        return placements
+
+    def _parse_rank_row(self, cells: list[Tag]) -> PlayersClubPlacement | None:
+        """Parse a single rank table row."""
         try:
-            rank = data.get("rank", data.get("placement"))
-            if rank is None:
+            if len(cells) < 2:
                 return None
 
+            # First cell: placement rank (順位)
+            rank_text = cells[0].get_text(strip=True)
+            rank_match = re.search(r"(\d+)", rank_text)
+            if not rank_match:
+                return None
+            rank = int(rank_match.group(1))
+
+            player_name: str | None = None
+            player_id: str | None = None
+            prefecture: str | None = None
+            deck_code: str | None = None
+
+            # Parse remaining cells
+            for cell in cells[1:]:
+                cell_text = cell.get_text(separator=" ")
+
+                # Check for player name element
+                name_el = cell.select_one(".player-name, .username")
+                if name_el and not player_name:
+                    player_name = name_el.get_text(strip=True)
+
+                # Check for player ID pattern
+                pid_match = _PLAYER_ID_RE.search(cell_text)
+                if pid_match:
+                    player_id = pid_match.group(1)
+
+                # Check for deck code link
+                deck_link = cell.select_one(
+                    "a[href*='deckID/'], a[href*='deck/confirm']"
+                )
+                if deck_link:
+                    deck_href_raw = deck_link.get("href", "")
+                    deck_href = (
+                        deck_href_raw[0]
+                        if isinstance(deck_href_raw, list)
+                        else str(deck_href_raw)
+                    )
+                    code_match = _DECK_CODE_RE.search(deck_href)
+                    if code_match:
+                        deck_code = code_match.group(1)
+
+                # Extract prefecture (エリア)
+                text = cell.get_text(strip=True)
+                if "県" in text or "都" in text or "府" in text:
+                    prefecture = text
+                area_el = cell.select_one(".area, .prefecture")
+                if area_el:
+                    prefecture = area_el.get_text(strip=True)
+
             return PlayersClubPlacement(
-                placement=int(rank),
-                player_name=data.get("player_name"),
-                archetype_name=data.get(
-                    "deck_name",
-                    data.get("archetype"),
-                ),
-                deck_code=data.get("deck_code"),
+                placement=rank,
+                player_name=player_name,
+                player_id=player_id,
+                prefecture=prefecture,
+                deck_code=deck_code,
             )
-        except (ValueError, TypeError):
+        except (ValueError, AttributeError):
             logger.warning(
-                "Failed to parse placement data: %s",
-                data,
+                "Failed to parse rank row",
                 exc_info=True,
             )
             return None

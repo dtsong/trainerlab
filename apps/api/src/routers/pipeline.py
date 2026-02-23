@@ -1277,14 +1277,19 @@ async def scrape_players_club_endpoint(
     Pokemon Players Club at players.pokemon-card.com.
     """
     logger.info(
-        "Starting Players Club scrape: lookback=%d, dry_run=%s",
+        "Starting Players Club scrape: lookback=%d, max_pages=%d, "
+        "event_types=%s, dry_run=%s",
         request.lookback_days,
+        request.max_pages,
+        request.event_types,
         request.dry_run,
     )
 
     result = await scrape_players_club(
         lookback_days=request.lookback_days,
         dry_run=request.dry_run,
+        max_pages=request.max_pages,
+        event_types=request.event_types,
     )
 
     logger.info(

@@ -37,18 +37,22 @@ class ScrapePlayersClubResult:
 async def scrape_players_club(
     lookback_days: int = 30,
     dry_run: bool = False,
+    max_pages: int = 5,
+    event_types: list[str] | None = None,
 ) -> ScrapePlayersClubResult:
     """Discover and ingest tournaments from Players Club.
 
-    Fetches recent tournaments, checks for existing records,
-    and creates Tournament + TournamentPlacement records.
+    Fetches recent events via rendered HTML, checks for existing
+    records, and creates Tournament + TournamentPlacement records.
     """
     result = ScrapePlayersClubResult()
 
     async with PlayersClubClient() as client:
         try:
-            tournaments = await client.fetch_recent_tournaments(
+            tournaments = await client.fetch_event_list(
                 days=lookback_days,
+                max_pages=max_pages,
+                event_types=event_types,
             )
         except PlayersClubError as e:
             result.errors.append(f"Failed to fetch tournaments: {e}")
@@ -116,7 +120,7 @@ async def _process_tournament(
         return
 
     # Fetch details
-    detail = await client.fetch_tournament_detail(
+    detail = await client.fetch_event_detail(
         tournament.tournament_id,
     )
 
@@ -150,7 +154,6 @@ async def _process_tournament(
 
         if archetype and archetype != "Unknown":
             try:
-                # Players Club provides text labels only, no sprite URLs
                 resolved, _, method = normalizer.resolve(
                     sprite_urls=[],
                     html_archetype=archetype,
@@ -173,6 +176,7 @@ async def _process_tournament(
             player_name=p.player_name,
             archetype=archetype,
             archetype_detection_method=detection_method,
+            decklist_source=p.deck_code,
         )
         session.add(placement)
         result.placements_created += 1

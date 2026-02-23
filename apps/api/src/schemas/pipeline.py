@@ -559,6 +559,16 @@ class ScrapePlayersClubRequest(PipelineRequest):
         le=365,
         description="Number of days to look back for tournaments",
     )
+    max_pages: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Maximum pagination pages to follow",
+    )
+    event_types: list[str] | None = Field(
+        default=None,
+        description="Filter by event type (e.g. CL, シティリーグ, ジムバトル)",
+    )
 
 
 class ScrapePlayersClubResult(BaseModel):

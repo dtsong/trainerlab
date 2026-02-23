@@ -81,6 +81,8 @@ export interface ApiDecklistCard {
   card_name: string;
   quantity: number;
   supertype?: string | null;
+  set_id?: string | null;
+  set_name?: string | null;
 }
 
 export interface ApiDecklistResponse {

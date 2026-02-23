@@ -14,7 +14,7 @@ from sqlalchemy.orm import MappedColumn, selectinload
 
 from src.db.database import get_db
 from src.dependencies.beta import require_beta
-from src.models import Card, Tournament, TournamentPlacement
+from src.models import Card, PlaceholderCard, Set, Tournament, TournamentPlacement
 from src.schemas import BestOf, PaginatedResponse, TopPlacement, TournamentSummary
 from src.schemas.freshness import CadenceProfile
 from src.schemas.tournament import (
@@ -430,22 +430,47 @@ async def get_placement_decklist(
         if isinstance(entry, dict) and "card_id" in entry
     ]
 
-    # Resolve card names and supertypes
-    card_lookup: dict[str, tuple[str, str | None]] = {}
+    # Resolve card names, supertypes, and set info
+    # card_lookup: card_id -> (name, supertype, set_id, set_name)
+    card_lookup: dict[str, tuple[str, str | None, str | None, str | None]] = {}
     if card_ids:
         try:
-            card_query = select(Card.id, Card.name, Card.supertype).where(
-                Card.id.in_(card_ids)
+            card_query = (
+                select(Card.id, Card.name, Card.supertype, Card.set_id, Set.name)
+                .join(Set, Card.set_id == Set.id)
+                .where(Card.id.in_(card_ids))
             )
             card_result = await db.execute(card_query)
             for row in card_result:
-                card_lookup[row.id] = (row.name, row.supertype)
+                card_lookup[row[0]] = (row[1], row[2], row[3], row[4])
         except SQLAlchemyError:
             logger.error(
                 "Database error resolving card names for decklist",
                 exc_info=True,
             )
             # Continue with card IDs as fallback names
+
+    # Fallback: resolve unresolved card IDs via PlaceholderCard
+    unresolved_ids = [cid for cid in card_ids if cid not in card_lookup]
+    if unresolved_ids:
+        try:
+            ph_query = select(PlaceholderCard).where(
+                PlaceholderCard.en_card_id.in_(unresolved_ids)
+            )
+            ph_result = await db.execute(ph_query)
+            for ph in ph_result.scalars():
+                set_code = ph.official_set_code or ph.set_code
+                card_lookup[ph.en_card_id] = (
+                    ph.name_en,
+                    ph.supertype,
+                    set_code,
+                    None,
+                )
+        except SQLAlchemyError:
+            logger.error(
+                "Database error resolving placeholder cards for decklist",
+                exc_info=True,
+            )
 
     # Build response cards
     cards: list[DecklistCardResponse] = []
@@ -455,13 +480,17 @@ async def get_placement_decklist(
             continue
         card_id = entry["card_id"]
         quantity = int(entry.get("quantity", 1))
-        name, supertype = card_lookup.get(card_id, (card_id, None))
+        name, supertype, set_id, set_name = card_lookup.get(
+            card_id, (card_id, None, None, None)
+        )
         cards.append(
             DecklistCardResponse(
                 card_id=card_id,
                 card_name=name,
                 quantity=quantity,
                 supertype=supertype,
+                set_id=set_id,
+                set_name=set_name,
             )
         )
         total_cards += quantity

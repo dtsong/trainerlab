@@ -4,15 +4,45 @@ import { ExternalLink } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ApiDecklistResponse } from "@trainerlab/shared-types";
+import type {
+  ApiDecklistCard,
+  ApiDecklistResponse,
+} from "@trainerlab/shared-types";
 
 interface DecklistViewerProps {
   decklist: ApiDecklistResponse;
   className?: string;
 }
 
+function normalizeEnergyName(name: string): string {
+  return name.replace(/^Basic\s+/i, "");
+}
+
+function collapseEnergy(cards: ApiDecklistCard[]): ApiDecklistCard[] {
+  const collapsed = new Map<string, ApiDecklistCard>();
+
+  for (const card of cards) {
+    const normalized = normalizeEnergyName(card.card_name);
+    const existing = collapsed.get(normalized);
+    if (existing) {
+      existing.quantity += card.quantity;
+    } else {
+      collapsed.set(normalized, { ...card, card_name: normalized });
+    }
+  }
+
+  return Array.from(collapsed.values());
+}
+
+function isUnreleasedCard(card: ApiDecklistCard): boolean {
+  return (
+    card.set_id?.startsWith("POR") === true ||
+    card.set_id?.startsWith("ME") === true
+  );
+}
+
 function groupBySupertype(cards: ApiDecklistResponse["cards"]) {
-  const groups: Record<string, ApiDecklistResponse["cards"]> = {
+  const groups: Record<string, ApiDecklistCard[]> = {
     Pokemon: [],
     Trainer: [],
     Energy: [],
@@ -26,6 +56,8 @@ function groupBySupertype(cards: ApiDecklistResponse["cards"]) {
       groups["Trainer"].push(card);
     }
   }
+
+  groups["Energy"] = collapseEnergy(groups["Energy"]);
 
   return groups;
 }
@@ -76,7 +108,18 @@ export function DecklistViewer({ decklist, className }: DecklistViewerProps) {
                     key={card.card_id}
                     className="flex justify-between text-foreground"
                   >
-                    <span className="truncate">{card.card_name}</span>
+                    <span className="flex items-center gap-1.5 truncate">
+                      {card.card_name}
+                      {isUnreleasedCard(card) && card.set_id && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1 py-0 text-red-400 border-red-400/40"
+                        >
+                          {card.set_id}
+                          {card.set_name ? ` ${card.set_name}` : ""}
+                        </Badge>
+                      )}
+                    </span>
                     <span className="ml-2 flex-shrink-0 tabular-nums text-muted-foreground">
                       {card.quantity}x
                     </span>

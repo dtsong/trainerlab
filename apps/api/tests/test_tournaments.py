@@ -538,25 +538,22 @@ class TestGetPlacementDecklist:
         mock_placement_result = MagicMock()
         mock_placement_result.scalar_one_or_none.return_value = sample_placement
 
-        # Mock card name resolution
-        mock_card_row1 = MagicMock()
-        mock_card_row1.id = "sv4-6"
-        mock_card_row1.name = "Charizard ex"
-        mock_card_row1.supertype = "Pokemon"
-
-        mock_card_row2 = MagicMock()
-        mock_card_row2.id = "sv3-12"
-        mock_card_row2.name = "Rare Candy"
-        mock_card_row2.supertype = "Trainer"
-
-        mock_card_row3 = MagicMock()
-        mock_card_row3.id = "sv1-198"
-        mock_card_row3.name = "Fire Energy"
-        mock_card_row3.supertype = "Energy"
-
+        # Mock card name resolution (tuples: id, name, supertype, set_id, set_name)
         mock_card_result = MagicMock()
         mock_card_result.__iter__ = MagicMock(
-            return_value=iter([mock_card_row1, mock_card_row2, mock_card_row3])
+            return_value=iter(
+                [
+                    ("sv4-6", "Charizard ex", "Pokemon", "sv4", "Paradox Rift"),
+                    ("sv3-12", "Rare Candy", "Trainer", "sv3", "Obsidian Flames"),
+                    (
+                        "sv1-198",
+                        "Fire Energy",
+                        "Energy",
+                        "sve",
+                        "Scarlet & Violet Energy",
+                    ),
+                ]
+            )
         )
 
         mock_db.execute.side_effect = [mock_placement_result, mock_card_result]
@@ -577,6 +574,8 @@ class TestGetPlacementDecklist:
         assert len(data["cards"]) == 3
         assert data["cards"][0]["card_name"] == "Charizard ex"
         assert data["cards"][0]["supertype"] == "Pokemon"
+        assert data["cards"][0]["set_id"] == "sv4"
+        assert data["cards"][0]["set_name"] == "Paradox Rift"
 
     def test_decklist_placement_not_found(
         self, client: TestClient, mock_db: AsyncMock
@@ -652,7 +651,15 @@ class TestGetPlacementDecklist:
         mock_card_result = MagicMock()
         mock_card_result.__iter__ = MagicMock(return_value=iter([]))
 
-        mock_db.execute.side_effect = [mock_placement_result, mock_card_result]
+        # Placeholder resolution also returns empty
+        mock_ph_result = MagicMock()
+        mock_ph_result.scalars.return_value = iter([])
+
+        mock_db.execute.side_effect = [
+            mock_placement_result,
+            mock_card_result,
+            mock_ph_result,
+        ]
 
         response = client.get(
             f"/api/v1/tournaments/{placement.tournament_id}/placements/{placement.id}/decklist"
@@ -662,6 +669,57 @@ class TestGetPlacementDecklist:
         data = response.json()
         assert data["cards"][0]["card_name"] == "unknown-1"  # Fallback to card_id
         assert data["cards"][0]["supertype"] is None
+
+    def test_decklist_placeholder_card_fallback(
+        self, client: TestClient, mock_db: AsyncMock
+    ) -> None:
+        """Test that unreleased cards resolve via PlaceholderCard."""
+        tournament = MagicMock(spec=Tournament)
+        tournament.name = "City League Tokyo"
+        tournament.date = date(2024, 3, 10)
+
+        placement = MagicMock(spec=TournamentPlacement)
+        placement.id = uuid4()
+        placement.tournament_id = uuid4()
+        placement.player_name = "Taro"
+        placement.archetype = "Meowth ex"
+        placement.decklist = [{"card_id": "POR-042", "quantity": 3}]
+        placement.decklist_source = None
+        placement.tournament = tournament
+
+        mock_placement_result = MagicMock()
+        mock_placement_result.scalar_one_or_none.return_value = placement
+
+        # Card resolution returns empty (not in cards table)
+        mock_card_result = MagicMock()
+        mock_card_result.__iter__ = MagicMock(return_value=iter([]))
+
+        # PlaceholderCard resolution
+        mock_ph = MagicMock()
+        mock_ph.en_card_id = "POR-042"
+        mock_ph.name_en = "Meowth ex"
+        mock_ph.supertype = "Pokemon"
+        mock_ph.set_code = "POR"
+        mock_ph.official_set_code = "ME03"
+
+        mock_ph_result = MagicMock()
+        mock_ph_result.scalars.return_value = iter([mock_ph])
+
+        mock_db.execute.side_effect = [
+            mock_placement_result,
+            mock_card_result,
+            mock_ph_result,
+        ]
+
+        response = client.get(
+            f"/api/v1/tournaments/{placement.tournament_id}/placements/{placement.id}/decklist"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cards"][0]["card_name"] == "Meowth ex"
+        assert data["cards"][0]["supertype"] == "Pokemon"
+        assert data["cards"][0]["set_id"] == "ME03"
 
 
 class TestDecklistSchemas:
@@ -676,11 +734,27 @@ class TestDecklistSchemas:
             card_name="Charizard ex",
             quantity=3,
             supertype="Pokemon",
+            set_id="sv4",
+            set_name="Paradox Rift",
         )
         assert card.card_id == "sv4-6"
         assert card.card_name == "Charizard ex"
         assert card.quantity == 3
         assert card.supertype == "Pokemon"
+        assert card.set_id == "sv4"
+        assert card.set_name == "Paradox Rift"
+
+    def test_decklist_card_response_defaults(self) -> None:
+        """Test DecklistCardResponse set fields default to None."""
+        from src.schemas.tournament import DecklistCardResponse
+
+        card = DecklistCardResponse(
+            card_id="sv4-6",
+            card_name="Charizard ex",
+            quantity=3,
+        )
+        assert card.set_id is None
+        assert card.set_name is None
 
     def test_decklist_response(self) -> None:
         """Test DecklistResponse schema."""

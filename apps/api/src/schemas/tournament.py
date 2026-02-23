@@ -100,6 +100,10 @@ class DecklistCardResponse(BaseModel):
     supertype: str | None = Field(
         default=None, description="Pokemon, Trainer, or Energy"
     )
+    set_id: str | None = Field(default=None, description="Set ID (e.g., sv4, POR)")
+    set_name: str | None = Field(
+        default=None, description="Set name (e.g., Paradox Rift)"
+    )
 
 
 class DecklistResponse(BaseModel):

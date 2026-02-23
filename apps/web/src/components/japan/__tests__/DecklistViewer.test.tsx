@@ -117,4 +117,145 @@ describe("DecklistViewer", () => {
     render(<DecklistViewer decklist={decklist} />);
     expect(screen.getByText("Trainer (2)")).toBeInTheDocument();
   });
+
+  describe("energy collapsing", () => {
+    it("should collapse same-name energy cards from different sets", () => {
+      const decklist: ApiDecklistResponse = {
+        ...mockDecklist,
+        cards: [
+          {
+            card_id: "sve-2",
+            card_name: "Fire Energy",
+            quantity: 6,
+            supertype: "Energy",
+            set_id: "sve",
+          },
+          {
+            card_id: "svi-1",
+            card_name: "Fire Energy",
+            quantity: 4,
+            supertype: "Energy",
+            set_id: "svi",
+          },
+        ],
+        total_cards: 10,
+      };
+      render(<DecklistViewer decklist={decklist} />);
+      expect(screen.getByText("Energy (10)")).toBeInTheDocument();
+      // Should show single collapsed entry
+      const items = screen.getAllByText("Fire Energy");
+      expect(items).toHaveLength(1);
+      expect(screen.getByText("10x")).toBeInTheDocument();
+    });
+
+    it("should collapse Basic prefix energy into same name", () => {
+      const decklist: ApiDecklistResponse = {
+        ...mockDecklist,
+        cards: [
+          {
+            card_id: "sve-2",
+            card_name: "Basic Fire Energy",
+            quantity: 5,
+            supertype: "Energy",
+          },
+          {
+            card_id: "svi-1",
+            card_name: "Fire Energy",
+            quantity: 3,
+            supertype: "Energy",
+          },
+        ],
+        total_cards: 8,
+      };
+      render(<DecklistViewer decklist={decklist} />);
+      expect(screen.getByText("Energy (8)")).toBeInTheDocument();
+      const items = screen.getAllByText("Fire Energy");
+      expect(items).toHaveLength(1);
+      expect(screen.getByText("8x")).toBeInTheDocument();
+    });
+
+    it("should keep different energy types separate", () => {
+      const decklist: ApiDecklistResponse = {
+        ...mockDecklist,
+        cards: [
+          {
+            card_id: "sve-2",
+            card_name: "Fire Energy",
+            quantity: 6,
+            supertype: "Energy",
+          },
+          {
+            card_id: "sve-3",
+            card_name: "Water Energy",
+            quantity: 4,
+            supertype: "Energy",
+          },
+        ],
+        total_cards: 10,
+      };
+      render(<DecklistViewer decklist={decklist} />);
+      expect(screen.getByText("Fire Energy")).toBeInTheDocument();
+      expect(screen.getByText("Water Energy")).toBeInTheDocument();
+    });
+  });
+
+  describe("unreleased card indicators", () => {
+    it("should show JP set badge for POR-prefixed cards", () => {
+      const decklist: ApiDecklistResponse = {
+        ...mockDecklist,
+        cards: [
+          {
+            card_id: "POR-042",
+            card_name: "Meowth ex",
+            quantity: 3,
+            supertype: "Pokemon",
+            set_id: "POR",
+            set_name: null,
+          },
+        ],
+        total_cards: 3,
+      };
+      render(<DecklistViewer decklist={decklist} />);
+      expect(screen.getByText("POR")).toBeInTheDocument();
+    });
+
+    it("should show set code with set name for unreleased cards", () => {
+      const decklist: ApiDecklistResponse = {
+        ...mockDecklist,
+        cards: [
+          {
+            card_id: "POR-042",
+            card_name: "Meowth ex",
+            quantity: 3,
+            supertype: "Pokemon",
+            set_id: "ME03",
+            set_name: "Perfect Order",
+          },
+        ],
+        total_cards: 3,
+      };
+      render(<DecklistViewer decklist={decklist} />);
+      expect(screen.getByText("ME03 Perfect Order")).toBeInTheDocument();
+    });
+
+    it("should not show badge for released cards", () => {
+      const decklist: ApiDecklistResponse = {
+        ...mockDecklist,
+        cards: [
+          {
+            card_id: "sv4-6",
+            card_name: "Charizard ex",
+            quantity: 3,
+            supertype: "Pokemon",
+            set_id: "sv4",
+            set_name: "Paradox Rift",
+          },
+        ],
+        total_cards: 3,
+      };
+      render(<DecklistViewer decklist={decklist} />);
+      expect(screen.queryByText("sv4")).not.toBeInTheDocument();
+      expect(screen.queryByText("Paradox Rift")).not.toBeInTheDocument();
+    });
+  });
 });

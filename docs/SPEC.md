@@ -497,12 +497,12 @@ def calculate_jp_signal(jp_share: float, en_share: float, threshold: float = 0.0
 
 #### 7.1.1 JP Tournament Data Sources
 
-| #   | Source                | URL                                       | Status                 |
-| --- | --------------------- | ----------------------------------------- | ---------------------- |
-| 1   | Limitless TCG JP      | `https://limitlesstcg.com/tournaments/jp` | Active (primary)       |
-| 2   | Pokecabook            | `https://pokecabook.com`                  | Active (supplementary) |
-| 3   | Pokekameshi           | `https://pokekameshi.com`                 | Active (supplementary) |
-| 4   | Official Players Club | `https://players.pokemon-card.com`        | Planned                |
+| #   | Source                | URL                                       | Status                             |
+| --- | --------------------- | ----------------------------------------- | ---------------------------------- |
+| 1   | Limitless TCG JP      | `https://limitlesstcg.com/tournaments/jp` | Active (primary)                   |
+| 2   | Pokecabook            | `https://pokecabook.com`                  | Active (discovery)                 |
+| 3   | Pokekameshi           | `https://pokekameshi.com`                 | Active (meta shares)               |
+| 4   | Official Players Club | `https://players.pokemon-card.com`        | Scaffolded (API discovery pending) |
 
 ### 7.2 Archetype Detection
 

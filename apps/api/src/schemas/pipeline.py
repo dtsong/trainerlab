@@ -532,3 +532,64 @@ class BackfillMajorFormatWindowsResult(BaseModel):
     tournaments_skipped: int = Field(ge=0, description="Tournaments unchanged")
     errors: list[str] = Field(default_factory=list, description="Error messages")
     success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class ScrapePokekameshiRequest(PipelineRequest):
+    """Request for Pokekameshi meta scrape pipeline."""
+
+    pass
+
+
+class ScrapePokekameshiResult(BaseModel):
+    """Result from Pokekameshi meta scrape pipeline."""
+
+    reports_fetched: int = Field(ge=0, description="Reports fetched")
+    shares_recorded: int = Field(ge=0, description="Share records created")
+    shares_skipped: int = Field(ge=0, description="Shares skipped (existing)")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class ScrapePlayersClubRequest(PipelineRequest):
+    """Request for Players Club scrape pipeline."""
+
+    lookback_days: int = Field(
+        default=30,
+        ge=1,
+        le=365,
+        description="Number of days to look back for tournaments",
+    )
+
+
+class ScrapePlayersClubResult(BaseModel):
+    """Result from Players Club scrape pipeline."""
+
+    tournaments_discovered: int = Field(ge=0, description="Tournaments found")
+    tournaments_created: int = Field(ge=0, description="Tournaments created")
+    tournaments_skipped: int = Field(ge=0, description="Tournaments skipped (existing)")
+    placements_created: int = Field(ge=0, description="Placements created")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")
+
+
+class DiscoverPokecabookRequest(PipelineRequest):
+    """Request for Pokecabook discovery pipeline."""
+
+    lookback_days: int = Field(
+        default=14,
+        ge=1,
+        le=90,
+        description="Number of days to look back for articles",
+    )
+
+
+class DiscoverPokecabookResult(BaseModel):
+    """Result from Pokecabook discovery pipeline."""
+
+    articles_discovered: int = Field(ge=0, description="Articles fetched")
+    articles_filtered: int = Field(ge=0, description="Tournament articles found")
+    tournaments_created: int = Field(ge=0, description="Tournaments created")
+    tournaments_skipped: int = Field(ge=0, description="Tournaments skipped (existing)")
+    placements_created: int = Field(ge=0, description="Placements created")
+    errors: list[str] = Field(default_factory=list, description="Error messages")
+    success: bool = Field(description="Whether pipeline completed without errors")

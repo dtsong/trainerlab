@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { LayoutChrome } from "@/components/layout";
 
-const playfair = Playfair_Display({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-playfair",
+  variable: "--font-space-grotesk",
   display: "swap",
 });
 
@@ -41,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" style={{ colorScheme: "light dark" }}>
       <body
-        className={`${playfair.variable} ${dmSans.variable} ${jetbrainsMono.variable} font-sans`}
+        className={`${spaceGrotesk.variable} ${dmSans.variable} ${jetbrainsMono.variable} font-sans`}
       >
         <Providers>
           <LayoutChrome>{children}</LayoutChrome>

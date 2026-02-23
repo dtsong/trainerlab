@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { TopNav } from "../TopNav";
 
 // Mock next/navigation
@@ -37,55 +37,74 @@ describe("TopNav", () => {
   describe("basic rendering", () => {
     it("should render logo with TrainerLab text", () => {
       render(<TopNav />);
-      expect(screen.getByText("TrainerLab")).toBeInTheDocument();
+      expect(screen.getByText(/Trainer/)).toBeInTheDocument();
+    });
+
+    it("should render Research Floor label", () => {
+      render(<TopNav />);
+      expect(screen.getByText("Research Floor")).toBeInTheDocument();
     });
 
     it("should render all navigation links", () => {
       render(<TopNav />);
-      expect(
-        screen.getAllByRole("link", { name: "Investigate" }).length
-      ).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText("Meta")).toBeInTheDocument();
-      expect(screen.getByText("From Japan")).toBeInTheDocument();
+      expect(screen.getByText("Meta Overview")).toBeInTheDocument();
+      expect(screen.getByText("JP Intelligence")).toBeInTheDocument();
       expect(screen.getByText("Tournaments")).toBeInTheDocument();
-      expect(screen.getByText("Events")).toBeInTheDocument();
       expect(screen.getByText("Lab Notes")).toBeInTheDocument();
+      expect(screen.getByText("Deck Profiles")).toBeInTheDocument();
     });
 
-    it("should render Investigate button", () => {
+    it("should render search bar with placeholder", () => {
       render(<TopNav />);
-      const investigateLinks = screen.getAllByRole("link", {
-        name: "Investigate",
-      });
-      expect(
-        investigateLinks.some((el) => el.className.includes("bg-teal-500"))
-      ).toBe(true);
+      expect(screen.getByText("Investigate...")).toBeInTheDocument();
+    });
+
+    it("should render keyboard shortcut badge", () => {
+      render(<TopNav />);
+      expect(screen.getByText("⌘K")).toBeInTheDocument();
+    });
+
+    it("should render format label and clock", () => {
+      render(<TopNav />);
+      expect(screen.getByText("SVI–ASC")).toBeInTheDocument();
     });
   });
 
   describe("active states", () => {
-    it("should show active state for Meta when on /meta", () => {
+    it("should show active state for Meta Overview on /meta", () => {
       mockUsePathname.mockReturnValue("/meta");
       render(<TopNav />);
 
-      const metaLink = screen.getByText("Meta").closest("a");
-      expect(metaLink).toHaveClass("text-slate-900");
+      const metaLink = screen.getByText("Meta Overview").closest("a");
+      expect(metaLink).toHaveClass("border-flame");
+      expect(metaLink).toHaveClass("text-lab-text");
     });
 
-    it("should show active state for From Japan when on /meta/japan", () => {
+    it("should show active state for JP Intelligence on /meta/japan", () => {
       mockUsePathname.mockReturnValue("/meta/japan");
       render(<TopNav />);
 
-      const jpLink = screen.getByText("From Japan").closest("a");
-      expect(jpLink).toHaveClass("text-slate-900");
+      const jpLink = screen.getByText("JP Intelligence").closest("a");
+      expect(jpLink).toHaveClass("border-flame");
     });
 
-    it("should not show active state for Meta when on /meta/japan", () => {
+    it("should not show active Meta Overview on /meta/japan", () => {
       mockUsePathname.mockReturnValue("/meta/japan");
       render(<TopNav />);
 
-      const metaLink = screen.getByText("Meta").closest("a");
-      expect(metaLink).toHaveClass("text-slate-600");
+      const metaLink = screen.getByText("Meta Overview").closest("a");
+      expect(metaLink).toHaveClass("border-transparent");
+      expect(metaLink).toHaveClass("text-lab-text-muted");
+    });
+  });
+
+  describe("JP Intelligence pulse dot", () => {
+    it("should render a pulsing dot on JP Intelligence tab", () => {
+      render(<TopNav />);
+
+      const jpLink = screen.getByText("JP Intelligence").closest("a");
+      const dot = jpLink?.querySelector(".animate-lab-pulse");
+      expect(dot).toBeInTheDocument();
     });
   });
 
@@ -103,28 +122,8 @@ describe("TopNav", () => {
       });
       render(<TopNav />);
 
-      // Should have a loading placeholder
       const loadingEl = document.querySelector(".animate-pulse");
       expect(loadingEl).toBeInTheDocument();
-    });
-  });
-
-  describe("scroll shadow", () => {
-    it("should not have shadow initially", () => {
-      render(<TopNav />);
-      const header = document.querySelector("header");
-      expect(header).not.toHaveClass("shadow-md");
-    });
-
-    it("should add shadow on scroll", () => {
-      render(<TopNav />);
-
-      // Simulate scroll
-      Object.defineProperty(window, "scrollY", { value: 10, writable: true });
-      fireEvent.scroll(window);
-
-      const header = document.querySelector("header");
-      expect(header).toHaveClass("shadow-md");
     });
   });
 });

@@ -120,6 +120,36 @@ const config: Config = {
           muted: "hsl(var(--terminal-muted))",
           accent: "hsl(var(--terminal-accent))",
         },
+        // Lab design system (v3.0)
+        lab: {
+          bg: "var(--lab-bg)",
+          warm: "var(--lab-warm)",
+          panel: "var(--lab-panel)",
+          panelHover: "var(--lab-panel-hover)",
+          header: "var(--lab-header)",
+        },
+        "lab-border": {
+          DEFAULT: "var(--lab-border)",
+          light: "var(--lab-border-light)",
+          focus: "var(--lab-border-focus)",
+        },
+        flame: {
+          DEFAULT: "var(--flame)",
+          light: "var(--flame-light)",
+          dim: "var(--flame-dim)",
+          muted: "var(--flame-muted)",
+        },
+        "lab-text": {
+          DEFAULT: "var(--lab-text)",
+          soft: "var(--lab-text-soft)",
+          muted: "var(--lab-text-muted)",
+          dim: "var(--lab-text-dim)",
+        },
+        jp: {
+          DEFAULT: "var(--jp)",
+          dim: "var(--jp-dim)",
+          muted: "var(--jp-muted)",
+        },
         // Notebook palette (Field Notebook aesthetic)
         notebook: {
           cream: "hsl(var(--notebook-cream))",
@@ -134,6 +164,7 @@ const config: Config = {
       },
       fontFamily: {
         display: ["var(--font-display)"],
+        body: ["var(--font-sans)"],
         sans: ["var(--font-sans)"],
         mono: ["var(--font-mono)"],
       },

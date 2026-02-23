@@ -28,7 +28,7 @@ export function LayoutChrome({ children }: { children: React.ReactNode }) {
       </a>
       <ScrollToTop />
       <TopNav />
-      <div className="flex min-h-screen flex-col pt-16 pb-14 md:pb-0">
+      <div className="flex min-h-screen flex-col pt-[52px] pb-14 md:pb-0">
         <main id="main-content" className="flex-1">
           <BetaAccessGate>{children}</BetaAccessGate>
         </main>

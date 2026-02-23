@@ -82,8 +82,47 @@
     --terminal-muted: 212 9% 50%;
     --terminal-accent: 173 58% 39%;
 
+    /* Lab backgrounds (warm darks) */
+    --lab-bg: #141118;
+    --lab-warm: #1a1620;
+    --lab-panel: #1e1a24;
+    --lab-panel-hover: #252030;
+    --lab-header: #16131c;
+
+    /* Lab borders */
+    --lab-border: #2e2838;
+    --lab-border-light: #3a3345;
+    --lab-border-focus: #4a4355;
+
+    /* Flame (primary accent) */
+    --flame: #f2994a;
+    --flame-light: #ffb672;
+    --flame-dim: #cc7a30;
+    --flame-muted: #f2994a20;
+
+    /* Lab teal (secondary) */
+    --lab-teal: #5eddd5;
+    --lab-teal-dim: #3bb5ae;
+    --lab-teal-muted: #5eddd520;
+
+    /* JP signal */
+    --jp: #ff6b6b;
+    --jp-dim: #cc5555;
+    --jp-muted: #ff6b6b15;
+
+    /* Lab text hierarchy */
+    --lab-text: #e8e2f0;
+    --lab-text-soft: #b0a8bc;
+    --lab-text-muted: #706882;
+    --lab-text-dim: #4a4058;
+
     /* Font families (with fallbacks for when Next.js font vars aren't loaded) */
-    --font-display: var(--font-playfair, Georgia, "Times New Roman", serif);
+    --font-display: var(
+      --font-space-grotesk,
+      "DM Sans",
+      system-ui,
+      sans-serif
+    );
     --font-sans: var(--font-dm-sans, system-ui, -apple-system, sans-serif);
     --font-mono: var(
       --font-jetbrains-mono,
@@ -442,5 +481,21 @@
   }
   .animation-delay-3000 {
     animation-delay: 3s;
+  }
+}
+
+@keyframes lab-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@layer utilities {
+  .animate-lab-pulse {
+    animation: lab-pulse 2.5s ease-in-out infinite;
   }
 }

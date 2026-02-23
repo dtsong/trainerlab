@@ -191,49 +191,165 @@ class LimitlessTournament:
 # Limitless set code to TCGdex set ID mapping
 LIMITLESS_SET_MAPPING: dict[str, str] = {
     # Mega Evolution era (ME block)
-    "ASC": "me02.5",  # Ascended Heroes
-    "PFL": "me02",  # Phantasmal Flames
-    "MEG": "me01",  # Mega Evolution (base set)
-    "MEE": "mee",  # Mega Evolution Energy
-    "MEP": "mep",  # Mega Promos
-    # Scarlet & Violet era - Main sets
-    "BLK": "sv10.5b",  # Black Bolt
-    "WHT": "sv10.5w",  # White Flare
-    "DRI": "sv10",  # Destined Rivals
-    "JTG": "sv09",  # Journey Together
-    "PRE": "sv08.5",  # Prismatic Evolutions
-    "SSP": "sv08",  # Surging Sparks
-    "SCR": "sv7",  # Stellar Crown
-    "SFA": "sv6pt5",  # Shrouded Fable
-    "TWM": "sv6",  # Twilight Masquerade
-    "TEF": "sv5",  # Temporal Forces
-    "PAF": "sv4pt5",  # Paldean Fates
-    "PAR": "sv4",  # Paradox Rift
-    "MEW": "sv3pt5",  # 151
-    "OBF": "sv3",  # Obsidian Flames
-    "PAL": "sv2",  # Paldea Evolved
-    "SVI": "sv1",  # Scarlet & Violet Base
-    "SVE": "sve",  # Scarlet & Violet Energy
-    "SVP": "svp",  # SV Promos
-    # Sword & Shield era (still legal in expanded)
-    "CRZ": "swsh12pt5",  # Crown Zenith
-    "SIT": "swsh12",  # Silver Tempest
-    "LOR": "swsh11",  # Lost Origin
-    "PGO": "swsh10pt5",  # Pokemon GO
-    "ASR": "swsh10",  # Astral Radiance
-    "BRS": "swsh9",  # Brilliant Stars
-    "FST": "swsh8",  # Fusion Strike
-    "CEL": "swsh7pt5",  # Celebrations
-    "EVS": "swsh7",  # Evolving Skies
-    "CRE": "swsh6",  # Chilling Reign
-    "BST": "swsh5",  # Battle Styles
-    "SHF": "swsh4pt5",  # Shining Fates
-    "VIV": "swsh4",  # Vivid Voltage
-    "CPA": "swsh3pt5",  # Champion's Path
-    "DAA": "swsh3",  # Darkness Ablaze
-    "RCL": "swsh2",  # Rebel Clash
-    "SSH": "swsh1",  # Sword & Shield Base
-    "PR": "ssp",  # SW/SH Promos
+    "ASC": "me02.5",
+    "PFL": "me02",
+    "MEG": "me01",
+    "MEE": "mee",
+    "MEP": "mep",
+    # Scarlet & Violet era
+    "BLK": "sv10.5b",
+    "WHT": "sv10.5w",
+    "DRI": "sv10",
+    "JTG": "sv09",
+    "PRE": "sv08.5",
+    "SSP": "sv08",
+    "SCR": "sv07",
+    "SFA": "sv06.5",
+    "TWM": "sv06",
+    "TEF": "sv05",
+    "PAF": "sv04.5",
+    "PAR": "sv04",
+    "MEW": "sv03.5",
+    "OBF": "sv03",
+    "PAL": "sv02",
+    "SVI": "sv01",
+    "SVE": "sve",
+    "SVP": "svp",
+    # Sword & Shield era
+    "CRZ": "swsh12.5",
+    "SIT": "swsh12",
+    "LOR": "swsh11",
+    "PGO": "swsh10.5",
+    "ASR": "swsh10",
+    "BRS": "swsh9",
+    "FST": "swsh8",
+    "CEL": "cel25",
+    "EVS": "swsh7",
+    "CRE": "swsh6",
+    "BST": "swsh5",
+    "SHF": "swsh4.5",
+    "VIV": "swsh4",
+    "CPA": "swsh3.5",
+    "DAA": "swsh3",
+    "RCL": "swsh2",
+    "SSH": "swsh1",
+    "PR": "swshp",
+    # Sun & Moon era
+    "CEC": "sm12",
+    "HIF": "sm115",
+    "UNM": "sm11",
+    "UNB": "sm10",
+    "DET": "det1",
+    "TEU": "sm9",
+    "LOT": "sm8",
+    "DRM": "sm7.5",
+    "CES": "sm7",
+    "FLI": "sm6",
+    "UPR": "sm5",
+    "CIN": "sm4",
+    "SLG": "sm3.5",
+    "BUS": "sm3",
+    "GRI": "sm2",
+    "SUM": "sm1",
+    "SMP": "smp",
+    # XY era
+    "EVO": "xy12",
+    "STS": "xy11",
+    "FCO": "xy10",
+    "GEN": "g1",
+    "BKP": "xy9",
+    "BKT": "xy8",
+    "AOR": "xy7",
+    "ROS": "xy6",
+    "DCR": "dc1",
+    "PRC": "xy5",
+    "PHF": "xy4",
+    "FFI": "xy3",
+    "FLF": "xy2",
+    "XY": "xy1",
+    "KSS": "xy0",
+    "XYP": "xyp",
+    # Black & White era
+    "LTR": "bw11",
+    "PLB": "bw10",
+    "PLF": "bw9",
+    "PLS": "bw8",
+    "BCR": "bw7",
+    "DRV": "dv1",
+    "DRX": "bw6",
+    "DEX": "bw5",
+    "NXD": "bw4",
+    "NVI": "bw3",
+    "EPO": "bw2",
+    "BLW": "bw1",
+    "BWP": "bwp",
+    # HGSS era
+    "CL": "col1",
+    "TM": "hgss4",
+    "UD": "hgss3",
+    "UL": "hgss2",
+    "HS": "hgss1",
+    "HSP": "hgssp",
+    # Diamond & Pearl / Platinum era
+    "AR": "pl4",
+    "RR": "pl2",
+    "PL": "pl1",
+    "SF": "dp7",
+    "LA": "dp6",
+    "MD": "dp5",
+    "GE": "dp4",
+    "SW": "dp3",
+    "MT": "dp2",
+    "DP": "dp1",
+    "DPP": "dpp",
+    "RM": "ru1",
+    # EX era
+    "PK": "ex16",
+    "DF": "ex15",
+    "CG": "ex14",
+    "HP": "ex13",
+    "LM": "ex12",
+    "DS": "ex11",
+    "UF": "ex10",
+    "EM": "ex9",
+    "DX": "ex8",
+    "TRR": "ex7",
+    "RG": "ex6",
+    "HL": "ex5",
+    "MA": "ex4",
+    "DR": "ex3",
+    "SS": "ex2",
+    "RS": "ex1",
+    "NP": "np",
+    # POP Series
+    "P1": "pop1",
+    "P2": "pop2",
+    "P3": "pop3",
+    "P4": "pop4",
+    "P5": "pop5",
+    "P6": "pop6",
+    "P7": "pop7",
+    "P8": "pop8",
+    "P9": "pop9",
+    # Classic era (Base Set through e-Card)
+    "BS": "base1",
+    "JU": "base2",
+    "FO": "base3",
+    "BS2": "base4",
+    "TR": "base5",
+    "G1": "gym1",
+    "G2": "gym2",
+    "N1": "neo1",
+    "N2": "neo2",
+    "SI": "si1",
+    "N3": "neo3",
+    "N4": "neo4",
+    "LC": "lc",
+    "E1": "ecard1",
+    "E2": "ecard2",
+    "E3": "ecard3",
+    "WP": "wp",
+    "BG": "bog",
     # Basic energy
     "ENE": "energy",
     "Energy": "energy",

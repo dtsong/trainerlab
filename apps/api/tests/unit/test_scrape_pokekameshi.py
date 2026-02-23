@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from src.clients.pokekameshi import (
+    PokekameshiClient,
     PokekameshiError,
     PokekameshiMetaReport,
     PokekameshiMetaShare,
@@ -249,3 +250,43 @@ async def test_multiple_shares_recorded():
     assert "ピジョット" in archetype_names
     assert "リザードン" in archetype_names
     assert "ミライドン" in archetype_names
+
+
+class TestPokekameshiRenderedFetch:
+    @pytest.mark.asyncio
+    async def test_get_rendered_calls_kernel_browser(self):
+        """_get_rendered delegates to KernelBrowser.fetch_rendered."""
+        with patch("src.clients.pokekameshi.KernelBrowser") as mock_kb_cls:
+            mock_kb = AsyncMock()
+            mock_kb.fetch_rendered = AsyncMock(return_value="<html>Rendered</html>")
+            mock_kb_cls.return_value.__aenter__ = AsyncMock(return_value=mock_kb)
+            mock_kb_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            client = PokekameshiClient()
+            client._wait_for_rate_limit = AsyncMock()
+
+            html = await client._get_rendered("/test/")
+
+        assert html == "<html>Rendered</html>"
+        mock_kb.fetch_rendered.assert_awaited_once_with(
+            "https://pokekameshi.com/test/",
+            wait_selector=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_rendered_wraps_kernel_error(self):
+        from src.clients.kernel_browser import KernelBrowserError
+
+        with patch("src.clients.pokekameshi.KernelBrowser") as mock_kb_cls:
+            mock_kb = AsyncMock()
+            mock_kb.fetch_rendered = AsyncMock(
+                side_effect=KernelBrowserError("Browser failed")
+            )
+            mock_kb_cls.return_value.__aenter__ = AsyncMock(return_value=mock_kb)
+            mock_kb_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            client = PokekameshiClient()
+            client._wait_for_rate_limit = AsyncMock()
+
+            with pytest.raises(PokekameshiError, match="Rendered fetch failed"):
+                await client._get_rendered("/test/")

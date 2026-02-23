@@ -16,6 +16,7 @@ from typing import Any, Self
 import httpx
 from bs4 import BeautifulSoup, Tag
 
+from src.clients.kernel_browser import KernelBrowser, KernelBrowserError
 from src.clients.retry_policy import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_DELAY_SECONDS,
@@ -262,6 +263,34 @@ class PokecabookClient:
                 f"Max retries exceeded for {endpoint}"
             ) from last_error
 
+    async def _get_rendered(
+        self,
+        endpoint: str,
+        wait_selector: str | None = None,
+    ) -> str:
+        """Fetch a page using a cloud browser for JS-rendered content.
+
+        Uses Kernel to launch a headless browser, navigate to the URL,
+        and return the fully rendered HTML.
+
+        Args:
+            endpoint: Path relative to BASE_URL.
+            wait_selector: Optional CSS selector to wait for.
+
+        Returns:
+            Rendered HTML string.
+
+        Raises:
+            PokecabookError: On fetch failure.
+        """
+        await self._wait_for_rate_limit()
+        url = f"{self.BASE_URL}{endpoint}"
+        try:
+            async with KernelBrowser() as kb:
+                return await kb.fetch_rendered(url, wait_selector=wait_selector)
+        except KernelBrowserError as e:
+            raise PokecabookError(f"Rendered fetch failed for {endpoint}: {e}") from e
+
     async def fetch_recent_articles(
         self,
         category: str | None = None,
@@ -375,18 +404,24 @@ class PokecabookClient:
         except ValueError:
             return None
 
-    async def fetch_article_detail(self, url: str) -> PokecabookArticle:
+    async def fetch_article_detail(
+        self, url: str, rendered: bool = False
+    ) -> PokecabookArticle:
         """Fetch full article content.
 
         Args:
             url: Full URL to the article.
+            rendered: If True, use cloud browser for JS-rendered content.
 
         Returns:
             Article with raw_html populated.
         """
         endpoint = url[len(self.BASE_URL) :] if url.startswith(self.BASE_URL) else url
 
-        html = await self._get(endpoint)
+        if rendered:
+            html = await self._get_rendered(endpoint)
+        else:
+            html = await self._get(endpoint)
         soup = BeautifulSoup(html, "lxml")
 
         title_elem = soup.select_one("h1, .entry-title, .post-title")
@@ -406,14 +441,20 @@ class PokecabookClient:
             raw_html=html,
         )
 
-    async def fetch_tier_list(self) -> PokecabookTierList:
+    async def fetch_tier_list(self, rendered: bool = False) -> PokecabookTierList:
         """Fetch the current tier list.
+
+        Args:
+            rendered: If True, use cloud browser for JS-rendered content.
 
         Returns:
             Current tier list with entries.
         """
         endpoint = "/tier/"
-        html = await self._get(endpoint)
+        if rendered:
+            html = await self._get_rendered(endpoint)
+        else:
+            html = await self._get(endpoint)
         soup = BeautifulSoup(html, "lxml")
 
         entries: list[PokecabookTierEntry] = []

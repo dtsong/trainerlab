@@ -13,6 +13,7 @@ from typing import Any, Self
 
 import httpx
 
+from src.clients.kernel_browser import KernelBrowser, KernelBrowserError
 from src.clients.retry_policy import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_DELAY_SECONDS,
@@ -221,6 +222,31 @@ class PlayersClubClient:
             raise PlayersClubError(
                 f"Max retries exceeded for {endpoint}"
             ) from last_error
+
+    async def _get_rendered(
+        self,
+        endpoint: str,
+        wait_selector: str | None = None,
+    ) -> str:
+        """Fetch a page using a cloud browser for JS-rendered content.
+
+        Args:
+            endpoint: Path relative to BASE_URL.
+            wait_selector: Optional CSS selector to wait for.
+
+        Returns:
+            Rendered HTML string.
+
+        Raises:
+            PlayersClubError: On fetch failure.
+        """
+        await self._wait_for_rate_limit()
+        url = f"{self.BASE_URL}{endpoint}"
+        try:
+            async with KernelBrowser() as kb:
+                return await kb.fetch_rendered(url, wait_selector=wait_selector)
+        except KernelBrowserError as e:
+            raise PlayersClubError(f"Rendered fetch failed for {endpoint}: {e}") from e
 
     async def fetch_recent_tournaments(
         self, days: int = 30

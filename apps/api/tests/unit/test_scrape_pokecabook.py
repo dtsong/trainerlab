@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.clients.pokecabook import PokecabookArticle, PokecabookError
+from src.clients.pokecabook import (
+    PokecabookArticle,
+    PokecabookClient,
+    PokecabookError,
+)
 from src.pipelines.ingest_jp_tournament_articles import (
     IngestArticleResult,
 )
@@ -270,3 +274,88 @@ class TestDiscoverPokecabookTournaments:
         assert result.tournaments_skipped == 1
         assert result.tournaments_created == 0
         mock_ingest.assert_not_called()
+
+
+class TestPokecabookRenderedFetch:
+    @pytest.mark.asyncio
+    async def test_get_rendered_calls_kernel_browser(self):
+        """_get_rendered delegates to KernelBrowser.fetch_rendered."""
+        with patch("src.clients.pokecabook.KernelBrowser") as mock_kb_cls:
+            mock_kb = AsyncMock()
+            mock_kb.fetch_rendered = AsyncMock(return_value="<html>Rendered</html>")
+            mock_kb_cls.return_value.__aenter__ = AsyncMock(return_value=mock_kb)
+            mock_kb_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            client = PokecabookClient()
+            # Bypass rate limiting for test
+            client._wait_for_rate_limit = AsyncMock()
+
+            html = await client._get_rendered("/test/")
+
+        assert html == "<html>Rendered</html>"
+        mock_kb.fetch_rendered.assert_awaited_once_with(
+            "https://pokecabook.com/test/",
+            wait_selector=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_rendered_with_selector(self):
+        with patch("src.clients.pokecabook.KernelBrowser") as mock_kb_cls:
+            mock_kb = AsyncMock()
+            mock_kb.fetch_rendered = AsyncMock(return_value="<html>OK</html>")
+            mock_kb_cls.return_value.__aenter__ = AsyncMock(return_value=mock_kb)
+            mock_kb_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            client = PokecabookClient()
+            client._wait_for_rate_limit = AsyncMock()
+
+            await client._get_rendered("/tier/", wait_selector=".tier-section")
+
+        mock_kb.fetch_rendered.assert_awaited_once_with(
+            "https://pokecabook.com/tier/",
+            wait_selector=".tier-section",
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_rendered_wraps_kernel_error(self):
+        from src.clients.kernel_browser import KernelBrowserError
+
+        with patch("src.clients.pokecabook.KernelBrowser") as mock_kb_cls:
+            mock_kb = AsyncMock()
+            mock_kb.fetch_rendered = AsyncMock(
+                side_effect=KernelBrowserError("Browser failed")
+            )
+            mock_kb_cls.return_value.__aenter__ = AsyncMock(return_value=mock_kb)
+            mock_kb_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            client = PokecabookClient()
+            client._wait_for_rate_limit = AsyncMock()
+
+            with pytest.raises(PokecabookError, match="Rendered fetch failed"):
+                await client._get_rendered("/test/")
+
+    @pytest.mark.asyncio
+    async def test_fetch_article_detail_rendered(self):
+        """fetch_article_detail(rendered=True) uses _get_rendered."""
+        with patch("src.clients.pokecabook.KernelBrowser") as mock_kb_cls:
+            mock_kb = AsyncMock()
+            mock_kb.fetch_rendered = AsyncMock(
+                return_value=(
+                    "<html><head><title>Test</title></head>"
+                    "<body><h1>Article Title</h1></body></html>"
+                )
+            )
+            mock_kb_cls.return_value.__aenter__ = AsyncMock(return_value=mock_kb)
+            mock_kb_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            client = PokecabookClient()
+            client._wait_for_rate_limit = AsyncMock()
+
+            article = await client.fetch_article_detail(
+                "https://pokecabook.com/article/123",
+                rendered=True,
+            )
+
+        assert article.title == "Article Title"
+        assert article.raw_html is not None
+        mock_kb.fetch_rendered.assert_awaited_once()

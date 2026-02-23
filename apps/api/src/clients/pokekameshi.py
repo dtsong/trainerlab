@@ -15,6 +15,7 @@ from typing import Any, Self
 import httpx
 from bs4 import BeautifulSoup, Tag
 
+from src.clients.kernel_browser import KernelBrowser, KernelBrowserError
 from src.clients.retry_policy import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_DELAY_SECONDS,
@@ -254,17 +255,48 @@ class PokekameshiClient:
                 f"Max retries exceeded for {endpoint}"
             ) from last_error
 
-    async def fetch_tier_tables(self) -> PokekameshiTierTable:
+    async def _get_rendered(
+        self,
+        endpoint: str,
+        wait_selector: str | None = None,
+    ) -> str:
+        """Fetch a page using a cloud browser for JS-rendered content.
+
+        Args:
+            endpoint: Path relative to BASE_URL.
+            wait_selector: Optional CSS selector to wait for.
+
+        Returns:
+            Rendered HTML string.
+
+        Raises:
+            PokekameshiError: On fetch failure.
+        """
+        await self._wait_for_rate_limit()
+        url = f"{self.BASE_URL}{endpoint}"
+        try:
+            async with KernelBrowser() as kb:
+                return await kb.fetch_rendered(url, wait_selector=wait_selector)
+        except KernelBrowserError as e:
+            raise PokekameshiError(f"Rendered fetch failed for {endpoint}: {e}") from e
+
+    async def fetch_tier_tables(self, rendered: bool = False) -> PokekameshiTierTable:
         """Fetch the current tier table.
 
         Pokekameshi's tier tables include unique metrics like CSP points
         and deck power ratings alongside traditional tier rankings.
 
+        Args:
+            rendered: If True, use cloud browser for JS-rendered content.
+
         Returns:
             Current tier table with entries.
         """
         endpoint = "/tier/"
-        html = await self._get(endpoint)
+        if rendered:
+            html = await self._get_rendered(endpoint)
+        else:
+            html = await self._get(endpoint)
         soup = BeautifulSoup(html, "lxml")
 
         entries: list[PokekameshiTierEntry] = []
@@ -417,23 +449,27 @@ class PokekameshiClient:
         return PokekameshiTierEntry(archetype_name=name, tier=tier)
 
     async def fetch_meta_percentages(
-        self, event_date: date | None = None
+        self,
+        event_date: date | None = None,
+        rendered: bool = False,
     ) -> PokekameshiMetaReport:
         """Fetch meta share percentages.
 
         Args:
             event_date: Optional specific date to fetch data for.
+            rendered: If True, use cloud browser for JS-rendered content.
 
         Returns:
             Meta share report.
         """
         endpoint = f"/meta/{event_date.isoformat()}/" if event_date else "/meta/"
+        fetch = self._get_rendered if rendered else self._get
 
         try:
-            html = await self._get(endpoint)
+            html = await fetch(endpoint)
         except PokekameshiError:
             endpoint = "/share/"
-            html = await self._get(endpoint)
+            html = await fetch(endpoint)
 
         soup = BeautifulSoup(html, "lxml")
 

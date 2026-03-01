@@ -16,7 +16,7 @@ db_disk_size = 10
 
 # Scheduler
 timezone         = "America/New_York"
-scheduler_paused = false
+scheduler_paused = true  # Sunset: all jobs paused for teardown
 
 # GitHub Actions
 github_repo = "dtsong/trainerlab"

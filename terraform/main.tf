@@ -273,7 +273,7 @@ module "database" {
   app_user_name     = "trainerlab_app"
   app_user_password = random_password.db_password.result
 
-  deletion_protection    = var.environment == "prod"
+  deletion_protection    = false # Sunset: disabled for teardown
   point_in_time_recovery = var.environment == "prod"
   backup_retention_days  = var.environment == "prod" ? 14 : 7
 
